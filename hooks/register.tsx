@@ -1208,7 +1208,7 @@ Saved to ${out}.md and .json` }
           </Box>
           <Text wrap="truncate">{words}</Text>
           <Box flexGrow={1} minWidth={34} />
-          <Box key="setup-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
+          <Box key="setup-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={3} alignItems="center">
             {buttons}
           </Box>
         </Box>
@@ -1217,11 +1217,15 @@ Saved to ${out}.md and .json` }
         return band(
           'Who picks the effort?',
           [
-            <Svg key="typesafe-mark" source={TYPESAFE_MARK} alt="TypeSafe" width={12} height={18} />,
-            <Button key="setup-jev" variant="primary" label="Jev (API)" onPress={() => pickJudge($, 'jev')} />,
-            <Svg key="claude-mark" source={CLAUDE_MARK} alt="Claude" width={16} height={16} />,
-            <Button key="setup-haiku" label="Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />,
-            <Button key="setup-later" label="⏎" onPress={() => finishSetup($)} />
+            // Each mark sits tight against its own button; the pairs stand apart.
+            <Box key="pick-jev" flexDirection="row" gap={1} alignItems="center">
+              <Svg source={TYPESAFE_MARK} alt="TypeSafe" width={12} height={18} />
+              <Button key="setup-jev" variant="primary" label="Jev (API)" onPress={() => pickJudge($, 'jev')} />
+            </Box>,
+            <Box key="pick-haiku" flexDirection="row" gap={1} alignItems="center">
+              <Svg source={CLAUDE_MARK} alt="Claude" width={16} height={16} />
+              <Button key="setup-haiku" label="Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />
+            </Box>,
           ],
         )
       return band(
