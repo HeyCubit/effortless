@@ -1228,7 +1228,7 @@ describe('setup guide', () => {
 describe('judge failures are said', () => {
   test('judgeFailure names the cause', () => {
     expect(judgeFailure('Jev', 402)).toContain('out of credits')
-    expect(judgeFailure('Jev', 429)).toContain('out of credits')
+    expect(judgeFailure('Jev', 429)).toContain('rate limited')
     expect(judgeFailure('Jev', 401)).toContain('rejected the key')
     expect(judgeFailure('Jev', 'timeout')).toContain('did not answer')
   })
