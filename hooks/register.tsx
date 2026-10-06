@@ -69,6 +69,8 @@ Models, cheapest first:
 
 Effort: low for quick answers, medium for normal work, high for hard problems, xhigh or max only for very hard ones.
 
+Effort is relative to the model in use ("Current" names it): a stronger model needs less effort for the same job. Opus at medium does about what Sonnet does at high, and Fable is stronger again. So for one and the same task pick one step lower on Opus than on Sonnet, and lower still on Fable; on Sonnet, go one step higher for hard work than you would on Opus.
+
 Judge the SCOPE and the amount of work, not whether it is code. A short message can ask for a lot: "go through my whole drive and clean it up", "review the entire repo", "migrate everything" are big, multi-step, tool-heavy jobs where mistakes are costly: never low, usually high. Low is only for answers that need no tools and no planning.
 
 If the message answers a question in the assistant's last reply (picks an option, says which one, confirms a plan), judge the work that answer starts, as the reply describes it, not the length of the answer: "B" can mean "build the complicated section B" (high), while "yes" to "should I archive this?" is a small job (low).
@@ -137,6 +139,8 @@ const JEV_TASK =
   'Choose the reasoning effort (and model) an agentic assistant should use for the next user message. It reads files, ' +
   'runs tools and edits things, not only code. Pick the cheapest that still does the job well. Judge the scope and the ' +
   'amount of work, not whether it is code: "go through my whole drive and clean it up" is a big tool-heavy job. ' +
+  'Effort is relative to current_model: a stronger model needs less for the same job. Opus at medium does about what ' +
+  'Sonnet does at high, so for one task pick one step lower on Opus than on Sonnet. ' +
   'A short follow-up ("yes", "go", "ok", in any language) keeps the current effort. When the message answers a ' +
   "question in the assistant's last reply (picks an option), judge the work that answer starts, not its length."
 
