@@ -1887,27 +1887,35 @@ describe('swamp band and setup entry', () => {
     await band.unmount()
   })
 
-  test('the line under the newest reply carries a swamp card with the commands; older lines keep no card', async ($, on) => {
+  test('a swamp card hangs under the newest reply only, and goes when a new reply lands', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
     on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 300_000, percent: 67 } } }) as never)
+    on('turn.complete', (_$, e) => ({ text: e.answer }))
+    // The app's own drawing of a reply block, beneath the plugin.
+    on('ui.render', { component: 'AssistantMessage' }, (h, e) => {
+      const { Text } = h.ui.resolve(e)
+      return Text({ children: e.props.text } as never) as never
+    })
     await start($, on)
     const guide = await $.ui.mount(DESK_BAND)
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
-    const line = (durationMs: number) => ({ plugin: 'effortless', surface: 'desktop', component: 'TurnDuration', props: { word: 'Baked', durationMs } }) as never
-    const first = await $.ui.mount(line(3000))
-    expect(await drawn(first)).toContain('Baked 3s')
-    expect(await first.find({ key: 'turn-warn' })).toBeUndefined()
     await mocked.advance(16_000)
-    const second = await $.ui.mount(line(5000))
-    expect(await drawn(second)).toContain('Chat is getting swamped')
-    expect(await drawn(second)).toContain('/compact or /effortless handoff')
-    const again = await $.ui.mount(line(3000))
-    expect(await again.find({ key: 'turn-warn' })).toBeUndefined()
-    await again.unmount()
-    await second.unmount()
+    const reply = (text: string) =>
+      ({ plugin: 'effortless', surface: 'desktop', component: 'AssistantMessage', props: { text, isFirstOfReply: true } }) as never
+    await $.turn.complete({ turnId: 't1', answer: 'First answer.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    const first = await $.ui.mount(reply('First answer.'))
+    expect(await drawn(first)).toContain('Chat is getting swamped')
+    expect(await drawn(first)).toContain('/compact or /effortless handoff')
     await first.unmount()
+    await $.turn.complete({ turnId: 't2', answer: 'Second answer.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    const old = await $.ui.mount(reply('First answer.'))
+    expect(await old.find({ key: 'reply-warn' })).toBeUndefined()
+    await old.unmount()
+    const newest = await $.ui.mount(reply('Second answer.'))
+    expect(await newest.find({ key: 'reply-warn' })).toBeDefined()
+    await newest.unmount()
   })
 
   test('/effortless save switches save mode on and off', async ($, on) => {
