@@ -1865,7 +1865,8 @@ export function dashboardLines(d: {
   last: { cost: number; ms: number } | null
 }): { head: string; detail: string } {
   const level = d.effort ? EFFORT_LABELS[d.effort] : 'Auto'
-  const what = d.judging ? 'Deciding…' : d.auto && d.paused ? `${level} · Auto paused` : d.auto ? level : `${level} · Auto off`
+  // Auto on or off is the button's to say (and the terminal's effort row's), not the text's.
+  const what = d.judging ? 'Deciding…' : d.auto && d.paused ? `${level} · Auto paused` : level
   const head = [
     `✦ ${what}`,
     d.cacheNow === null ? null : `cache ${cacheLabel(d.cacheNow)}`,
