@@ -1141,11 +1141,12 @@ describe('setup guide', () => {
     expect(await drawn(band)).toContain('"color":"#a79cf7"')
     expect(await drawn(band)).toContain('✦ effortless')
     expect(await drawn(band)).toContain('Jev (API Needed)')
-    // The wordmark on the right: an interactive SVG (so its shine animates) with one constant source.
+    // The right side: an interactive SVG (so its sparkles animate), a gradient, and sparkles that twinkle.
     const first = await drawn(band)
     expect(first).toContain('"type":"Svg"')
     expect(first).toContain('"isInteractive":true')
-    expect(first).toContain('<animate attributeName')
+    expect(first).toContain('linearGradient')
+    expect((first.match(/class=\\"sp\\"/g) ?? []).length).toBeGreaterThanOrEqual(8)
     await band.press({ key: 'setup-haiku' })
     expect(set).toEqual([{ key: 'effortless.judge', value: 'haiku' }])
     expect(said.join(' ')).toContain('Haiku judges')
