@@ -1125,15 +1125,18 @@ Saved to ${out}.md and .json` }
         <Button key="auto" plain dimColor label=" ⏻ " hover={{ scope: 'power', backgroundColor: HOVER_BOX }} onPress={() => toggleAutoEffort($)} />
         {/* How long the prompt cache stays warm: grey, yellow from 20 minutes, red from 5, then "cold" (the next message
             writes the whole context again). Nothing before the first response. */}
-        {v.cacheNow === null ? null : cacheColor(v.cacheNow) ? (
+        {/* Cold: one click compacts, so the next message does not write the whole context again. The two sit in one
+            box: the footer otherwise groups buttons apart from text. */}
+        {v.cacheNow === 0 ? (
+          <Box key="cold" flexDirection="row" gap={1} alignItems="center">
+            <Text color={ICE}>{cacheLabel(0)}</Text>
+            <Button key="compact" dimColor label={v.compacting ? 'Compacting…' : 'Compact'} onPress={() => compactCold($)} />
+          </Box>
+        ) : v.cacheNow === null ? null : cacheColor(v.cacheNow) ? (
           <Text color={cacheColor(v.cacheNow)}>{cacheLabel(v.cacheNow)}</Text>
         ) : (
           <Text dimColor>{cacheLabel(v.cacheNow)}</Text>
         )}
-        {/* Cold: one click compacts, so the next message does not write the whole context again. */}
-        {v.cacheNow === 0 ? (
-          <Button key="compact" dimColor label={v.compacting ? 'Compacting…' : 'Compact'} onPress={() => compactCold($)} />
-        ) : null}
       </Box>
     )
   })
