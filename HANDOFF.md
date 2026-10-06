@@ -1,7 +1,7 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.25.4, pushed and installed. Direct pushes, no open PRs.
+- `main` on HeyCubit/effortless, version 1.26.0 committed locally (1.25.4 installed). Direct pushes, no open PRs.
 - Release: bump `version` in `.claude-plugin/plugin.json`, `claude plugin validate .`, `claude plugin test .`
   (0 fail), push, `claude plugin marketplace update effortless`, `claude plugin update effortless@effortless`, restart.
 - CLI on this PC: `$APPDATA/Claude/claude-code/<version>/<hash>/claude.exe` (newest folder). `claude` on PATH is 2.1.220: fails validate, has no `plugin test`.
