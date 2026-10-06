@@ -1511,7 +1511,7 @@ Saved to ${out}.md and .json` }
         )}
         {/* The one thing to click: it switches Auto off and on. Text cannot be clicked, so it is a small button. */}
         <Button key="auto" plain dimColor label=" ⏻ " hover={{ scope: 'power', backgroundColor: HOVER_BOX }} onPress={() => toggleAutoEffort($)} />
-        {/* Until a judge is picked the footer offers the setup; one click opens it above the prompt. */}
+        {/* Until a judge is picked the footer offers the setup; after that the same place opens the settings panel. */}
         {needsSetup ? (
           <Button
             key="setup"
@@ -1523,7 +1523,22 @@ Saved to ${out}.md and .json` }
               $.ui.invalidate('ui.render')
             }}
           />
-        ) : null}
+        ) : (
+          <Button
+            key="settings"
+            plain
+            dimColor
+            label=" ⚙︎ "
+            hover={{ scope: 'settings', backgroundColor: HOVER_BOX }}
+            onPress={async () => {
+              if (await read($, settingsOpen)) {
+                await update($, settingsDraft, () => ({}))
+                await update($, settingsOpen, () => false)
+                $.ui.invalidate('ui.render')
+              } else await openPluginSettings($)
+            }}
+          />
+        )}
         {/* Hand off: write a handoff, clear the chat, continue from it. One symbol, so it takes little room. */}
         {config.hide.includes('handoff') ? null : (
           <Button

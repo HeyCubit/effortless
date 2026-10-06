@@ -337,7 +337,7 @@ describe('footer text', () => {
     expect(text).toContain('"children":[" Auto "]')
     // The only button is the small switch for Auto: no label other than the power glyph, not the lit look.
     // The Auto switch and the handoff symbol.
-    expect(text.match(/"type":"Button"/g)?.length).toBe(2)
+    expect(text.match(/"type":"Button"/g)?.length).toBe(3)
     expect(text).toContain('"label":" ⏻ "')
     // No frame of its own (it drew wide and cut off): plain, with the same grey box as the level on hover.
     expect(text).toContain('"plain":true')
@@ -1454,6 +1454,11 @@ describe('swamp band and setup entry', () => {
     await reopened.press({ key: 'setup-haiku' })
     await reopened.unmount()
     expect(await footer.find({ key: 'setup' })).toBeUndefined()
+    // Once set up, the same place is a gear that opens the settings panel.
+    await footer.press({ key: 'settings' })
+    const panel = await $.ui.mount(DESK_BAND)
+    expect(await drawn(panel)).toContain('effortless settings')
+    await panel.unmount()
     await footer.unmount()
   })
 })
