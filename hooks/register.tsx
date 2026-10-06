@@ -61,6 +61,9 @@ const isCompacting = atom({ plugin: 'effortless', key: 'isCompacting' } as const
 // The setup guide above the prompt: which step it shows, or null when it is closed.
 const setupStep = atom({ plugin: 'effortless', key: 'setupStep' } as const, null)
 const SETTINGS_COMMAND = '/plugin configure effortless@effortless'
+// The wordmark on the right of the setup guide: a twinkling star and a shine that sweeps the name. One constant
+// source, so the app never rebuilds its frame (a changing source flickers); the motion is CSS and SMIL inside it.
+const BRAND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="168" height="40" viewBox="0 0 168 40"><style>:root{color-scheme:light dark}svg{background:transparent}.w{font:700 20px -apple-system,'Segoe UI',Inter,system-ui,sans-serif;letter-spacing:-.3px}.st{transform-origin:14px 20px;animation:tw 2.4s ease-in-out infinite}@keyframes tw{0%,100%{transform:scale(.82) rotate(0deg);opacity:.75}50%{transform:scale(1.08) rotate(45deg);opacity:1}}</style><defs><linearGradient id="base" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#8f7ff0"/><stop offset="1" stop-color="#c4b8ff"/></linearGradient><linearGradient id="shine" gradientUnits="userSpaceOnUse" x1="-60" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".95"/><stop offset="1" stop-color="#fff" stop-opacity="0"/><animate attributeName="x1" values="-60;200" dur="2.8s" repeatCount="indefinite"/><animate attributeName="x2" values="0;260" dur="2.8s" repeatCount="indefinite"/></linearGradient><mask id="m"><text class="w" x="30" y="27" fill="#fff">effortless</text></mask></defs><path class="st" d="M14 9 L16.2 17.8 L25 20 L16.2 22.2 L14 31 L11.8 22.2 L3 20 L11.8 17.8 Z" fill="url(#base)"/><text class="w" x="30" y="27" fill="url(#base)">effortless</text><rect x="28" y="6" width="140" height="28" fill="url(#shine)" mask="url(#m)"/></svg>`
 
 const JUDGE_SYSTEM = `You choose which Claude model and reasoning effort an agentic assistant (it reads files, runs tools and edits things, not only code) should use for the user's next message. Pick the cheapest pair that will still do the job well.
 
@@ -976,14 +979,16 @@ export const register: Register = (on, options) => {
   // On desktop nothing is drawn here, except the question when the judge suggests another model.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
-    const { Box, Text, Button } = $.ui.resolve(e)
+    const { Box, Text, Button, Svg } = $.ui.resolve(e)
     // The setup guide, one step at a time: pick a judge, then only what that judge needs.
     const step = await read($, setupStep)
     if (step) {
       const openSettings = () => typeCommand($, SETTINGS_COMMAND)
+      const brand = <Svg key="brand" source={BRAND_SVG} alt="effortless" width={168} height={40} isInteractive />
       if (step === 'pick')
         return (
-          <Box flexDirection="column">
+          <Box flexDirection="row" alignItems="center" gap={2}>
+          <Box flexDirection="column" flexGrow={1}>
             <Box flexDirection="row" gap={1} alignItems="center">
               <Text color={ACCENT} bold>
                 ✦ effortless
@@ -997,13 +1002,16 @@ export const register: Register = (on, options) => {
               <Button key="setup-later" plain dimColor label="Later" onPress={() => finishSetup($)} />
             </Box>
           </Box>
+          {brand}
+          </Box>
         )
       const need =
         step === 'jev'
           ? 'Jev needs a TypeSafe key (get one at typesafe.ai). Open the settings, paste it into "TypeSafe API key" and save. Restart Claude Code after saving.'
           : 'Open the settings and fill in the custom judge URL and model, and its key unless it runs locally. Restart Claude Code after saving.'
       return (
-        <Box flexDirection="column">
+        <Box flexDirection="row" alignItems="center" gap={2}>
+        <Box flexDirection="column" flexGrow={1}>
           <Box flexDirection="row" gap={1} alignItems="center">
             <Text color={ACCENT} bold>
               ✦ effortless
@@ -1019,6 +1027,8 @@ export const register: Register = (on, options) => {
             />
             <Button key="setup-back" plain dimColor label="Back" onPress={() => update($, setupStep, () => 'pick')} />
           </Box>
+        </Box>
+        {brand}
         </Box>
       )
     }
