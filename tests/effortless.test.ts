@@ -989,7 +989,11 @@ describe('judge choice (plugin settings)', () => {
       floor: 'low',
       ceiling: 'max',
       hide: [],
+      swampAt: 50,
+      animate: false,
     })
+    expect(readConfig({ swampAt: '20', animate: 'on' })).toMatchObject({ swampAt: 20, animate: true })
+    expect(readConfig({ swampAt: '33' }).swampAt).toBe(50)
     expect(readConfig({ handoffSkill: '/session-handoff', handoffAfter: 'confirm' })).toMatchObject({
       handoffSkill: 'session-handoff',
       handoffAfter: 'confirm',
@@ -1181,7 +1185,8 @@ describe('setup guide', () => {
     // The right side: an interactive SVG (so its sparkles animate), a gradient, and sparkles that twinkle.
     const first = await drawn(band)
     expect(first).toContain('"type":"Svg"')
-    expect(first).toContain('"isInteractive":true')
+    // Still art by default: a live frame flickers as the app redraws.
+    expect(first).toContain('"isInteractive":false')
     expect(first).toContain('linearGradient')
     expect((first.match(/class=\\"sp\\"/g) ?? []).length).toBeGreaterThanOrEqual(8)
     await band.press({ key: 'setup-haiku' })
@@ -1503,11 +1508,40 @@ describe('swamp band and setup entry', () => {
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
   }
 
+  test('the swamp band waits for the threshold set: 21% of a 1M window is not swamped at the default 50%', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    on('session.usage', () => ({ value: { context: { tokens: 208_000, window: 1_000_000, percent: 21 } } }) as never)
+    await start($, on)
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await mocked.advance(16_000)
+    // Nothing to draw above the prompt: the engine has no band to mount.
+    const band = await $.ui.mount(DESK_BAND).catch(() => null)
+    expect(band ? await drawn(band) : '').not.toContain('Chat is getting swamped')
+    await band?.unmount()
+  })
+
+  test('at a 20% threshold the same chat is swamped', { options: { swampAt: '20' } } as never, async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    on('session.usage', () => ({ value: { context: { tokens: 208_000, window: 1_000_000, percent: 21 } } }) as never)
+    await start($, on)
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await mocked.advance(16_000)
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('Chat is getting swamped')
+    await band.unmount()
+  })
+
   test('a swamped context shows Compact and Handoff above the prompt; closing hides it until the context grows', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
     let tokens = 180_000
-    on('session.usage', () => ({ value: { context: { tokens, window: 1_000_000, percent: Math.round(tokens / 10_000) } } }) as never)
+    on('session.usage', () => ({ value: { context: { tokens, window: 300_000, percent: Math.round(tokens / 3_000) } } }) as never)
     await start($, on)
     const guide = await $.ui.mount(DESK_BAND)
     await guide.press({ key: 'setup-close' })
