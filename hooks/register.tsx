@@ -2574,6 +2574,9 @@ Saved to ${out}.md and .json` }
         const off = hidden.includes(part)
         const after = off ? hidden.filter(h => h !== part) : [...hidden, part]
         const toggle = () => set('hide')(after.join(','))
+        // The terminal draws a boxed tick as a broken bracket: a dot there, filled when shown.
+        if (e.surface === 'terminal')
+          return <Button key={`show-box-${part}`} plain dimColor={off} label={`${off ? '○' : '●'} ${label}`} onPress={toggle} />
         return (
           <Box key={`show-${part}`} flexDirection="row" alignItems="center">
             {off ? (

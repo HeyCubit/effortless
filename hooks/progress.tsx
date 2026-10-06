@@ -590,7 +590,7 @@ export function drawProgress(p: Progress, d: ProgressDraw) {
           <d.Svg key={`track-${p.phase}`} source={progressTrackSvg(p)} alt={title} />
         </Box>
       ) : (
-        <Box key="progress-track" flexDirection="row" gap={total <= SEGMENTS_MAX ? 1 : 0} alignItems="center">
+        <Box key="progress-track" width="100%" height={1} flexDirection="row" gap={total <= SEGMENTS_MAX ? 1 : 0} alignItems="center">
           {track}
           <Box key="progress-flag" flexShrink={0}>
             <Text color={p.phase === 'done' ? look.color : undefined} dimColor={p.phase !== 'done'}>
