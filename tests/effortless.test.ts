@@ -657,7 +657,7 @@ describe('cache countdown', () => {
     expect(late).toContain('"color":"#e5534b"')
 
     await mocked.advance(5 * 60_000)
-    expect(await drawn(footer)).toContain(shows('❄ Cold'))
+    expect(await drawn(footer)).toContain('❄ Cold · Compact')
 
     await step($)
     expect(await drawn(footer)).toContain(shows('59m'))
@@ -684,7 +684,7 @@ describe('cache countdown', () => {
     await step($)
     expect(await drawn(footer)).toContain(shows('4m'))
     await mocked.advance(6 * 60_000)
-    expect(await drawn(footer)).toContain(shows('❄ Cold'))
+    expect(await drawn(footer)).toContain('❄ Cold · Compact')
     await footer.unmount()
   })
 
@@ -720,7 +720,7 @@ describe('cache countdown', () => {
     expect(await footer.find({ key: 'compact' })).toBeUndefined()
     const reply = await $.command.run({ command: 'effortless', args: 'cold' })
     expect(String(reply.text)).toContain('cold')
-    expect(await drawn(footer)).toContain(shows('❄ Cold'))
+    expect(await drawn(footer)).toContain('❄ Cold · Compact')
     expect(await footer.find({ key: 'compact' })).toBeDefined()
     await footer.unmount()
   })
@@ -743,7 +743,7 @@ describe('cache countdown', () => {
     await mocked.advance(6 * 60_000)
     await footer.press({ key: 'compact' })
     expect(toasts.join(' ')).toContain("Can't compact")
-    expect(await drawn(footer)).toContain(shows('❄ Cold'))
+    expect(await drawn(footer)).toContain('❄ Cold · Compact')
     await footer.unmount()
   })
 })
