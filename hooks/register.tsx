@@ -1618,6 +1618,17 @@ export const register: Register = (on, options) => {
     if (e.command !== 'effortless' && e.command !== 'effortless:effortless') return next(e)
     const wanted = await read($, suggestion)
     const arg = e.args.trim().toLowerCase()
+    // A test aid: the notices a pane the app does not draw in (split view's right pane) would get, two seconds apart.
+    if (arg === 'toasts') {
+      const samples = [
+        'effortless: effort High (Auto)',
+        'effortless: cache cold. Next message costs full price; /compact first.',
+        'effortless: chat is getting swamped (52% of context). /compact or /effortless handoff',
+        'effortless: running hot, 84% of your 5h limit used. /effortless save',
+      ]
+      samples.forEach((text, i) => $.clock.after(i * 2000, () => $.ui.toast(text)))
+      return { text: 'Showing the four sample notices, two seconds apart.' }
+    }
     if (arg === 'auto') {
       await toggleAutoEffort($)
       return { text: (await read($, isAuto)) ? 'Auto on: effort is picked for every prompt.' : 'Auto off: the effort is yours.' }
