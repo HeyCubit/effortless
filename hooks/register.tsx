@@ -2358,23 +2358,34 @@ Saved to ${out}.md and .json` }
       }
       const dirty = Object.keys(draft).length > 0
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
-      // One toggle per part that can be switched off: filled dot shown, hollow dot hidden.
+      // One checkbox per part that can be switched off, the setup's tick: white when shown, dimmed when hidden. One
+      // short word each so the row fits the panel.
       const toggles = (
         [
-          ['handoff', '⇥ Handoff button'],
-          ['timer', 'Cache timer'],
+          ['handoff', '⇥ Handoff'],
+          ['timer', 'Timer'],
           ['cold', 'Cold'],
-          ['swamp', 'Swamped'],
-          ['hot', 'Running hot'],
-          ['down', 'Judge down'],
-          ['line', 'Line under replies'],
+          ['swamp', 'Swamp'],
+          ['hot', 'Hot'],
+          ['down', 'Judge'],
+          ['line', 'Line'],
           ['progress', 'Progress'],
           ['sounds', 'Sounds'],
         ] as const
       ).map(([part, label]) => {
         const off = hidden.includes(part)
         const after = off ? hidden.filter(h => h !== part) : [...hidden, part]
-        return <Button key={`show-${part}`} plain label={`${off ? '○' : '●'} ${label}`} onPress={() => set('hide')(after.join(','))} />
+        const toggle = () => set('hide')(after.join(','))
+        return (
+          <Box key={`show-${part}`} flexDirection="row" alignItems="center">
+            {off ? (
+              <Button key={`show-box-${part}`} variant="secondary" dimColor label={'✔︎'} onPress={toggle} />
+            ) : (
+              <Button key={`show-box-${part}`} variant="primary" label={'✔︎'} onPress={toggle} />
+            )}
+            <Button key={`show-name-${part}`} plain dimColor={off} label={label} onPress={toggle} />
+          </Box>
+        )
       })
       // The slider: five stops, the marker on the one in force. No animation, a click moves it.
       const track: unknown[] = []
@@ -2390,7 +2401,7 @@ Saved to ${out}.md and .json` }
             </Box>
             <Text dimColor>{label}</Text>
           </Box>
-          <Box flexDirection="row" gap={1} alignItems="center" flexShrink={1}>
+          <Box flexDirection="row" flexWrap="wrap" gap={1} alignItems="center" flexShrink={1}>
             {children}
           </Box>
         </Box>
