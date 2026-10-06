@@ -1061,13 +1061,9 @@ async function goHandoff($: EngineInterface, choice: HandoffChoice) {
 
 /** What the handoff does, by the choice: who writes it, then what follows. */
 export function handoffWhat(choice: HandoffChoice, skill: string): { by: string; then: string } {
-  const by = choice.kind === 'full' ? `/${skill} writes it as a turn, slower` : 'A fork writes it in seconds'
+  const by = choice.kind === 'full' ? `/${skill}, slower` : 'Done in seconds'
   const then =
-    choice.after === 'copy'
-      ? 'Copies it; this chat stays.'
-      : choice.after === 'confirm'
-        ? 'Clears this chat; the new one reads it and waits.'
-        : 'Clears this chat and carries on from it.'
+    choice.after === 'copy' ? 'Copied, chat stays.' : choice.after === 'confirm' ? 'Clears chat, then waits.' : 'Clears chat, carries on.'
   return { by, then }
 }
 
@@ -1982,7 +1978,7 @@ Saved to ${out}.md and .json` }
         <Box key="handoff-bar" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
+            <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH} height={FROST_HEIGHT * 2} isInteractive />
           </Box>
           <Box key="handoff-words" flexDirection="column" flexShrink={1} minWidth={0}>
             <Text color={ACCENT} bold wrap="truncate">
