@@ -657,7 +657,7 @@ describe('cache countdown', () => {
     expect(late).toContain('"color":"#e5534b"')
 
     await mocked.advance(5 * 60_000)
-    expect(await drawn(footer)).toContain('❄ Cold · Compact')
+    expect(await drawn(footer)).toContain(shows('❄ Cold'))
 
     await step($)
     expect(await drawn(footer)).toContain(shows('59m'))
@@ -684,9 +684,16 @@ describe('cache countdown', () => {
     await step($)
     expect(await drawn(footer)).toContain(shows('4m'))
     await mocked.advance(6 * 60_000)
-    expect(await drawn(footer)).toContain('❄ Cold · Compact')
+    expect(await drawn(footer)).toContain(shows('❄ Cold'))
     await footer.unmount()
   })
+
+  /** The band above the prompt, with the first-run setup guide closed so the cold band can show. */
+  const coldBand = async ($: Engine) => {
+    const band = await $.ui.mount(DESK_BAND)
+    if (await band.find({ key: 'setup-later' })) await band.press({ key: 'setup-later' })
+    return band
+  }
 
   test('Compact appears only once the cache is cold, and a click compacts', async ($, on) => {
     engine(on)
@@ -698,16 +705,21 @@ describe('cache countdown', () => {
       return { messages: [] } as never
     })
     await start($, on)
-    const footer = await $.ui.mount(FOOTER)
     await step($)
-    expect(await footer.find({ key: 'compact' })).toBeUndefined()
-    await mocked.advance(61 * 60_000)
-    expect(await footer.find({ key: 'compact' })).toBeDefined()
-    await footer.press({ key: 'compact' })
+    await mocked.advance(59 * 60_000)
+    // Still warm: no band (only the first-run guide, closed here), so nothing to compact yet.
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-later' })
+    await guide.unmount()
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    await mocked.advance(2 * 60_000)
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await band.find({ key: 'cold-compact' })).toBeDefined()
+    await band.press({ key: 'cold-compact' })
     await mocked.advance(100)
     // The test kit's compaction has no transcript to run over, so only the call is checked here.
     expect(compacted).toBe(1)
-    await footer.unmount()
+    await band.unmount()
   })
 
   test('/effortless cold shows Cold and the Compact button at once, for testing', async ($, on) => {
@@ -717,11 +729,13 @@ describe('cache countdown', () => {
     await start($, on)
     const footer = await $.ui.mount(FOOTER)
     await step($)
-    expect(await footer.find({ key: 'compact' })).toBeUndefined()
     const reply = await $.command.run({ command: 'effortless', args: 'cold' })
     expect(String(reply.text)).toContain('cold')
-    expect(await drawn(footer)).toContain('❄ Cold · Compact')
-    expect(await footer.find({ key: 'compact' })).toBeDefined()
+    expect(await drawn(footer)).toContain(shows('❄ Cold'))
+    expect(await footer.find({ key: 'compact' })).toBeUndefined()
+    const band = await coldBand($)
+    expect(await band.find({ key: 'cold-compact' })).toBeDefined()
+    await band.unmount()
     await footer.unmount()
   })
 
@@ -739,11 +753,13 @@ describe('cache countdown', () => {
     })
     await start($, on)
     const footer = await $.ui.mount(FOOTER)
+    const band = await coldBand($)
     await step($)
     await mocked.advance(6 * 60_000)
-    await footer.press({ key: 'compact' })
+    await band.press({ key: 'cold-compact' })
     expect(toasts.join(' ')).toContain("Can't compact")
-    expect(await drawn(footer)).toContain('❄ Cold · Compact')
+    expect(await drawn(footer)).toContain(shows('❄ Cold'))
+    await band.unmount()
     await footer.unmount()
   })
 })
