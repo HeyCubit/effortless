@@ -7,32 +7,24 @@ const RATE = 44100
 const here = dirname(fileURLToPath(import.meta.url))
 
 /**
- * One soft bell note: a sine body with a little FM shimmer, a few inharmonic partials that die fast (the strike) and a
- * slow-beating detuned twin (the ring). Returns mono samples.
+ * One soft UI tone: a pure sine with a faint octave, a quick but rounded attack, a short smooth fade and a slight
+ * upward glide at the start, the way modern system sounds pop rather than ring. Returns mono samples.
  */
-function bell(freq, seconds, { bright = 1, decay = 2.6 } = {}) {
+function bell(freq, seconds, { decay = 9, glide = 0.03 } = {}) {
   const out = new Float32Array(Math.round(RATE * seconds))
-  const partials = [
-    [1, 1, decay],
-    [2.0, 0.22 * bright, decay * 1.8],
-    [2.76, 0.12 * bright, decay * 3.2],
-    [5.4, 0.05 * bright, decay * 6],
-  ]
+  let phase = 0
   for (let i = 0; i < out.length; i++) {
     const t = i / RATE
-    const attack = 1 - Math.exp(-t / 0.004)
-    const fm = 0.35 * Math.exp(-t * 9) * Math.sin(2 * Math.PI * freq * 3.5 * t)
-    let s = 0
-    for (const [ratio, amp, d] of partials) s += amp * Math.sin(2 * Math.PI * freq * ratio * t + (ratio === 1 ? fm : 0)) * Math.exp(-t * d)
-    // The detuned twin beats slowly against the body, so the note rings instead of sitting still.
-    s += 0.35 * Math.sin(2 * Math.PI * freq * 1.0035 * t) * Math.exp(-t * decay * 0.8)
-    out[i] = s * attack
+    const f = freq * (1 - glide * Math.exp(-t * 60))
+    phase += (2 * Math.PI * f) / RATE
+    const attack = 1 - Math.exp(-t / 0.006)
+    out[i] = (Math.sin(phase) + 0.08 * Math.sin(2 * phase) * Math.exp(-t * 20)) * attack * Math.exp(-t * decay)
   }
   return out
 }
 
 /** A small stereo room: Schroeder combs and allpasses, slightly different per side. */
-function room(mono, mix = 0.28) {
+function room(mono, mix = 0.12) {
   const combsFor = side => [1557, 1617, 1491, 1422].map(n => Math.round((n + side * 23) * (RATE / 44100)))
   const allpass = [225, 556].map(n => Math.round(n * (RATE / 44100)))
   const side = s => {
@@ -109,25 +101,7 @@ function wav([left, right]) {
   return Buffer.concat([head, data])
 }
 
-// A question: a soft low note, then a brighter one a sixth above, like a voice rising at the end of a sentence.
-writeFileSync(
-  join(here, 'question.wav'),
-  wav(chime([[440, 0, -0.25, { bright: 0.6, decay: 3.4 }], [739.99, 0.14, 0.25, { bright: 0.8, decay: 2.4 }]], 1.6, 0.42)),
-)
-// Done: a quick rising major arpeggio that blooms into a held chord with a high glint on top.
-writeFileSync(
-  join(here, 'done.wav'),
-  wav(
-    chime(
-      [
-        [523.25, 0, -0.4, { bright: 0.7, decay: 2.2 }],
-        [659.25, 0.07, -0.15, { bright: 0.7, decay: 2.2 }],
-        [783.99, 0.14, 0.15, { bright: 0.7, decay: 2 }],
-        [1046.5, 0.21, 0.4, { bright: 0.9, decay: 1.6 }],
-        [1567.98, 0.3, 0.1, { bright: 0.4, decay: 2.8 }],
-      ],
-      2.2,
-      0.4,
-    ),
-  ),
-)
+// A question: one soft note, then a gentle step up, quiet and short.
+writeFileSync(join(here, 'question.wav'), wav(chime([[659.25, 0, -0.15, { decay: 11 }], [880, 0.09, 0.15, { decay: 9 }]], 0.6, 0.32)))
+// Done: two warm notes rising a fifth, settling softly.
+writeFileSync(join(here, 'done.wav'), wav(chime([[523.25, 0, -0.15, { decay: 10 }], [783.99, 0.08, 0.15, { decay: 7 }]], 0.7, 0.32)))
