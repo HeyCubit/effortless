@@ -2564,7 +2564,7 @@ describe('terminal art', () => {
   test('a frame is 16 by 2 cells of ▀, faded in from the left', () => {
     // 32 cells of three 4-byte words: 384 bytes, 512 base64 characters.
     expect(artFrame('swamp', 0)).toHaveLength(512)
-    for (const kind of ['cold', 'swamp', 'hot', 'down', 'brand', 'compacting', 'done'] as const) {
+    for (const kind of ['cold', 'swamp', 'hot', 'down', 'brand', 'calm', 'compacting', 'done'] as const) {
       expect(artPixel(kind, 3, 0, 1)).toBe(artPixel(kind, 9, 0, 1))
     }
   })
@@ -2573,6 +2573,7 @@ describe('terminal art', () => {
     const frames = (kind: Parameters<typeof artFrame>[0]) => new Set(Array.from({ length: 30 }, (_, t) => artFrame(kind, t))).size
     for (const kind of MOVING) expect(frames(kind)).toBeGreaterThan(1)
     expect(frames('brand')).toBe(1)
+    expect(frames('calm')).toBe(1)
     expect(frames('done')).toBe(1)
   })
 })

@@ -1,7 +1,7 @@
 // Art for the terminal's bands: a small Raster of `▀` cells, each two pixels tall (foreground on top, background
 // below). Pure functions of the kind and a frame count, so the art can be tested and blitted from a timer.
 
-export type ArtKind = 'cold' | 'swamp' | 'hot' | 'down' | 'brand' | 'compacting' | 'done'
+export type ArtKind = 'cold' | 'swamp' | 'hot' | 'down' | 'brand' | 'calm' | 'compacting' | 'done'
 
 /** The size every band's art is drawn at: 16 columns by 2 rows, 16 by 4 pixels. */
 export const ART_COLUMNS = 16
@@ -32,6 +32,8 @@ const PALETTE: Record<ArtKind, { ground: Rgb; deep: Rgb; light: Rgb; glow: Rgb }
   hot: { ground: hex('#1a110c'), deep: hex('#b8461b'), light: hex('#ffb06a'), glow: hex('#f08a3c') },
   down: { ground: hex('#12141b'), deep: hex('#39415a'), light: hex('#b4b8c4'), glow: hex('#6b7288') },
   brand: { ground: hex('#15121f'), deep: hex('#4a3f80'), light: hex('#e4dfff'), glow: hex('#a79cf7') },
+  // The dashboard's: the brand's sparkles in grey, since it shows all the time.
+  calm: { ground: hex('#141416'), deep: hex('#2a2a2f'), light: hex('#d4d4d8'), glow: hex('#6e6e76') },
   compacting: { ground: hex('#15121f'), deep: hex('#4a3f80'), light: hex('#e4dfff'), glow: hex('#a79cf7') },
   done: { ground: hex('#0f1c15'), deep: hex('#2f7a4c'), light: hex('#d8f5e3'), glow: hex('#5ec48a') },
 }
@@ -73,7 +75,7 @@ export function artPixel(kind: ArtKind, t: number, x: number, y: number, cols = 
     // Still flecks under a slow pulse: the judge is not answering.
     const pulse = 0.5 + 0.5 * Math.sin(t / 8)
     if (rand(x * 7 + y * 13) > 0.82) c = mix(c, p.light, 0.25 + 0.35 * pulse)
-  } else if (kind === 'brand' || kind === 'compacting') {
+  } else if (kind === 'brand' || kind === 'calm' || kind === 'compacting') {
     // Sparkles in fixed places: still for brand, twinkling while compacting.
     if (rand(x * 5 + y * 11 + 3) > 0.84) {
       const twinkle = kind === 'compacting' ? 0.5 + 0.5 * Math.sin(t / 2 + x * 1.7 + y) : 0.8
