@@ -2410,14 +2410,21 @@ Saved to ${out}.md and .json` }
         const toggles = SETUP_FOOTER.map(([part, label]) => {
           const off = shown.hide.includes(part)
           const after = off ? shown.hide.filter(h => h !== part) : [...shown.hide, part]
-          // The handoff bar's look: on is a quiet box with a tick, off is dim plain text. A box glyph drew in an odd font.
-          return off ? (
-            <Button key={`setup-show-${part}`} plain dimColor label={label} onPress={() => pick('hide', after.join(','))} />
-          ) : (
-            <Button key={`setup-show-${part}`} variant="secondary" label={`✓ ${label}`} onPress={() => pick('hide', after.join(','))} />
+          // A checkbox of its own beside the name: on is a primary button (white, a black tick), off a default button
+          // with a blank label, which draws as an outline. The box and the name both toggle it.
+          const toggle = () => pick('hide', after.join(','))
+          return (
+            <Box key={`setup-show-${part}`} flexDirection="row" alignItems="center">
+              {off ? (
+                <Button key={`setup-box-${part}`} label={'\u00a0'} onPress={toggle} />
+              ) : (
+                <Button key={`setup-box-${part}`} variant="primary" label="✓" onPress={toggle} />
+              )}
+              <Button key={`setup-name-${part}`} plain dimColor={off} label={label} onPress={toggle} />
+            </Box>
           )
         })
-        return band('Show at the bottom (both recommended):', 50, [...toggles, ...nav(nextButton)])
+        return band('Show at the bottom (both recommended):', 58, [...toggles, ...nav(nextButton)])
       }
       return band('⏻ Auto on or off. ⚙ all settings. Auto pauses on Fable.', 24, [
         ...nav(<Button key="setup-done" variant="primary" autoFocus label="Done" onPress={() => finishSetup($)} />),
