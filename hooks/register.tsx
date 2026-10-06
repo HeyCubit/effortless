@@ -1243,12 +1243,18 @@ function effortOf(v: Snap, inUse: ModelKey): Effort | undefined {
   return EFFORTS.includes(v.shownByApp as Effort) ? (v.shownByApp as Effort) : undefined
 }
 
+// For /effortless debug: how often the app asked for the band, when, and the last error drawing it.
+let renderCalls = 0
+let lastRenderAt = 0
+let lastRenderError = ''
+let sessionStarted = 0
 let handoffTimer: { cancel: () => void } | undefined
 const HANDOFF_POLL_MS = 1000
 
 export const register: Register = (on, options) => {
   config = readConfig(options)
   on('session.start', async ($, e, next) => {
+    sessionStarted = Date.now()
     keyFromFile = (await $.store.get('keyFromFile')) === true
     const storedAuto = await $.store.get('isAuto')
     if (typeof storedAuto === 'boolean') await update($, isAuto, () => storedAuto)
@@ -1323,6 +1329,20 @@ export const register: Register = (on, options) => {
     if (arg === 'handoff') {
       await startHandoff($)
       return { text: 'Writing the handoff. The chat is cleared and continues from it when it is done.' }
+    }
+    if (arg === 'debug') {
+      const ago = (t: number) => (t ? `${Math.round((Date.now() - t) / 1000)}s ago` : 'never')
+      return {
+        text: [
+          `session.start ${ago(sessionStarted)}`,
+          `band asked for ${renderCalls} times, last ${ago(lastRenderAt)}`,
+          `band error: ${lastRenderError || 'none'}`,
+          `settings open: ${await read($, settingsOpen)}`,
+          `setup step: ${await read($, setupStep)}`,
+          `handoff: ${await read($, handoffStage)}`,
+          `hidden: ${config.hide.join(',') || 'nothing'}`,
+        ].join(' | '),
+      }
     }
     if (arg === 'settings') {
       await openPluginSettings($)
@@ -1573,7 +1593,12 @@ Saved to ${out}.md and .json` }
 
   // Above the prompt: the terminal's rows (effort steps, Auto, and the model row when it is switched on).
   // On desktop nothing is drawn here, except the question when the judge suggests another model.
+  // Draws the bands and the settings panel. Counted and guarded so /effortless debug can say whether the app asks
+  // for it at all and whether drawing failed: an error here otherwise only leaves the slot empty.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    renderCalls++
+    lastRenderAt = Date.now()
+    try {
     if (e.props.hasSurvey) return next(e)
     const { Box, Text, Button, Svg } = $.ui.resolve(e)
     // The settings panel: a branded header bar, then one compact row per setting, a dim hint at the end of each row.
@@ -2014,5 +2039,9 @@ Saved to ${out}.md and .json` }
         </Box>
       </Box>
     )
+    } catch (error) {
+      lastRenderError = (error instanceof Error ? error.message : String(error)).slice(0, 300)
+      return next(e)
+    }
   })
 }
