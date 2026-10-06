@@ -1886,6 +1886,37 @@ describe('swamp band and setup entry', () => {
     await band.unmount()
   })
 
+  test('the line under the newest reply carries a swamp card with the commands; older lines keep no card', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 300_000, percent: 67 } } }) as never)
+    await start($, on)
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    const line = (durationMs: number) => ({ plugin: 'effortless', surface: 'desktop', component: 'TurnDuration', props: { word: 'Baked', durationMs } }) as never
+    const first = await $.ui.mount(line(3000))
+    expect(await drawn(first)).toContain('Baked 3s')
+    expect(await first.find({ key: 'turn-warn' })).toBeUndefined()
+    await mocked.advance(16_000)
+    const second = await $.ui.mount(line(5000))
+    expect(await drawn(second)).toContain('Chat is getting swamped')
+    expect(await drawn(second)).toContain('/compact or /effortless handoff')
+    const again = await $.ui.mount(line(3000))
+    expect(await again.find({ key: 'turn-warn' })).toBeUndefined()
+    await again.unmount()
+    await second.unmount()
+    await first.unmount()
+  })
+
+  test('/effortless save switches save mode on and off', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    await start($, on)
+    expect(String((await $.command.run({ command: 'effortless', args: 'save' })).text)).toContain('save mode on')
+    expect(String((await $.command.run({ command: 'effortless', args: 'save' })).text)).toContain('save mode off')
+  })
+
   test('the setup can be closed with the cross; the footer then offers Setup, which opens it again', async ($, on) => {
     engine(on)
     mock.clock(on)

@@ -356,7 +356,7 @@ export type JudgeConfig = {
 export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
 
 /** The parts of effortless a person can switch off in the settings. */
-export const HIDEABLE = ['handoff', 'timer', 'cold', 'swamp', 'hot', 'down'] as const
+export const HIDEABLE = ['handoff', 'timer', 'cold', 'swamp', 'hot', 'down', 'line'] as const
 export type Hideable = (typeof HIDEABLE)[number]
 let config: JudgeConfig = {
   judge: 'auto',
@@ -836,6 +836,50 @@ export function mostlyCached(usage: unknown): boolean {
   const read_ = u.cache_read_input_tokens ?? 0
   const all = read_ + (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0)
   return all > 0 && read_ / all > 0.5
+}
+
+/** Save mode on or off: Auto stays at medium or below until the limit resets. The hot band's button and
+ *  /effortless save. Says what it did. */
+async function toggleSave($: EngineInterface): Promise<string> {
+  const saving = (await read($, saveUntil)) !== null
+  const heat = await read($, hot)
+  const until = heat?.resetsAt ? new Date(heat.resetsAt).getTime() : (await $.clock.now()) + 5 * 3600_000
+  await update($, saveUntil, () => (saving ? null : until))
+  return saving ? 'save mode off' : 'save mode on, Auto stays at medium or below until the limit resets'
+}
+
+// The lines under replies as first drawn (session|word|duration), and the newest one, which alone carries a warning.
+const turnLines = new Map<string, { effort: string; cache: number | null; warn: TurnWarning | null }>()
+let newestTurn = ''
+
+type TurnWarning = { title: string; line: string; color: string; bg: string; edge: string; art: string }
+
+/** What the bands would warn about now, as the card under the newest reply says it: the same order and the same
+ *  hiding (a part switched off, a band closed with ✕), with a command in place of the band's buttons. */
+async function turnWarning($: EngineInterface): Promise<TurnWarning | null> {
+  if ((await read($, cacheLeft)) === 0 && !config.hide.includes('cold') && !(await read($, isColdHidden))) {
+    return { title: 'Chat went cold', line: 'Next message costs full price. Type /compact first.', color: ICE, bg: ICE_BG, edge: ICE_EDGE, art: FROST_SVG }
+  }
+  const heat = await read($, hot)
+  const heatHidden = await read($, hotHidden)
+  if (heat && !config.hide.includes('hot') && (heatHidden === null || heat.percent >= heatHidden + HOT_REGROW)) {
+    const window = heat.kind === 'five_hour' ? '5h' : 'weekly'
+    return {
+      title: `Running hot · ${Math.round(heat.percent)}% of your ${window} limit`,
+      line: 'Save mode keeps Auto at medium or below: /effortless save.',
+      color: EMBER, bg: EMBER_BG, edge: EMBER_EDGE, art: EMBER_SVG,
+    }
+  }
+  const swampTokens = await read($, swamped)
+  const hiddenAt = await read($, swampHiddenAt)
+  if (swampTokens !== null && !config.hide.includes('swamp') && (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW)) {
+    return {
+      title: `Chat is getting swamped · ${Math.round(swampTokens / 1000)}k tokens`,
+      line: 'Every message re-reads all of it. Type /compact or /effortless handoff.',
+      color: BOG, bg: BOG_BG, edge: BOG_EDGE, art: SWAMP_SVG,
+    }
+  }
+  return null
 }
 
 /** The countdown's colour for whole minutes left (rounded up, as cacheMinutes gives): none (grey), yellow or red. */
@@ -1703,6 +1747,7 @@ export const register: Register = (on, options) => {
       $.ui.invalidate('ui.render')
       return { text: 'The swamp band is showing now (a test). It goes away at the next check unless the chat really is swamped.' }
     }
+    if (arg === 'save') return { text: await toggleSave($) }
     if (arg === 'handoff' || arg === 'handoff full') {
       const full = arg === 'handoff full'
       if (full && !config.handoffSkill) return { text: 'No skill is set for the full handoff. Pick one in /effortless settings, under Handoff.' }
@@ -2011,18 +2056,51 @@ Saved to ${out}.md and .json` }
     )
   })
 
-  // While /effortless try card is on: the line under each reply carries the effort and the cache, in the brand colour.
+  // The line under each reply ("Baked 3s") in the brand's colours, with the effort and the cache. Split view's right
+  // pane draws no bands, but it draws this line, so under the newest reply a warning comes as a small branded card:
+  // the band's colours and art, and the command that does what the band's button would. Older lines keep what they
+  // showed when they were drawn, without the card.
   on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
-    if ((await $.store.get('tryCard').catch(() => false)) !== true) return next(e)
-    const { Box, Text } = $.ui.resolve(e)
-    const v = await snap($)
-    const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
+    if (config.hide.includes('line')) return next(e)
+    const { Box, Text, Svg } = $.ui.resolve(e)
+    const key = `${await $.session.id().catch(() => '')}|${e.props.word}|${e.props.durationMs}`
+    if (!turnLines.has(key)) newestTurn = key
+    const newest = key === newestTurn
+    let shown = turnLines.get(key)
+    if (!shown || newest) {
+      const v = await snap($)
+      const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
+      shown = {
+        effort: effortNow ? EFFORT_LABELS[effortNow] : 'Auto',
+        cache: v.cacheNow,
+        warn: newest ? await turnWarning($) : null,
+      }
+      turnLines.set(key, shown)
+    }
     const took = Math.max(1, Math.round(e.props.durationMs / 1000))
+    const warn = newest ? shown.warn : null
     return (
-      <Box key="try-turn" flexDirection="row" gap={1}>
-        <Text dimColor>{`${e.props.word} ${took < 60 ? `${took}s` : `${Math.floor(took / 60)}m ${took % 60}s`}`}</Text>
-        <Text color={ACCENT}>{`✦ ${effortNow ? EFFORT_LABELS[effortNow] : 'Auto'}`}</Text>
-        <Text dimColor>{`· cache ${v.cacheNow === null ? 'not started' : cacheLabel(v.cacheNow)}`}</Text>
+      <Box key="turn" flexDirection="column" gap={0}>
+        <Box key="turn-line" flexDirection="row" gap={1}>
+          <Text dimColor>{`${e.props.word} ${took < 60 ? `${took}s` : `${Math.floor(took / 60)}m ${took % 60}s`}`}</Text>
+          <Text color={ACCENT}>{`✦ ${shown.effort}`}</Text>
+          {shown.cache === null ? null : (
+            <Text dimColor={cacheColor(shown.cache) === undefined} color={cacheColor(shown.cache)}>{`· ${shown.cache <= 0 ? 'cache cold' : `cache ${cacheLabel(shown.cache)}`}`}</Text>
+          )}
+        </Box>
+        {warn ? (
+          <Box key="turn-warn" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
+            backgroundColor={warn.bg} borderStyle="round" borderColor={warn.edge}>
+            {/* A still image: an animated one sits in a frame the app rebuilds on every redraw. */}
+            <Box key="turn-warn-art" position="absolute" top={-1} right={0} bottom={-1}>
+              <Svg source={warn.art} alt={warn.title} width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+            </Box>
+            <Box key="turn-warn-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
+              <Text color={warn.color} bold wrap="truncate">{`✦ ${warn.title}`}</Text>
+              <Text wrap="truncate">{warn.line}</Text>
+            </Box>
+          </Box>
+        ) : null}
       </Box>
     )
   })
@@ -2112,6 +2190,7 @@ Saved to ${out}.md and .json` }
           ['swamp', 'Swamped'],
           ['hot', 'Running hot'],
           ['down', 'Judge down'],
+          ['line', 'Line under replies'],
         ] as const
       ).map(([part, label]) => {
         const off = hidden.includes(part)
@@ -2479,9 +2558,7 @@ Saved to ${out}.md and .json` }
               variant="primary"
               label={saving ? 'Save mode on' : 'Save mode'}
               onPress={async () => {
-                const until = heat.resetsAt ? new Date(heat.resetsAt).getTime() : (await $.clock.now()) + 5 * 3600_000
-                await update($, saveUntil, () => (saving ? null : until))
-                $.ui.toast(saving ? 'effortless: save mode off' : 'effortless: save mode on, Auto stays at medium or below until the limit resets')
+                $.ui.toast(`effortless: ${await toggleSave($)}`)
               }}
             />
             <Button key="hot-close" plain role="dismiss" label="✕" onPress={() => update($, hotHidden, () => heat.percent)} />
