@@ -1229,15 +1229,6 @@ async function choose($: EngineInterface, next: Pick | null) {
 // The context figures from the last usage check, for the cache tooltip.
 let lastContext: { tokens: number; window: number; percent: number } | null = null
 
-/**
- * A hover tooltip over footer text: the app's Text has none, but an interactive Svg shows its <title>. A see-through
- * rectangle the size of the text carries it, drawn over the text, so the text itself stays the app's own.
- */
-export function tipSvg(tip: string, width: number, height: number): string {
-  const esc = tip.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').split('\n').join('&#10;')
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" fill="#000" fill-opacity="0.001"><title>${esc}</title></rect></svg>`
-}
-
 /** A small ring filled to `percent`, for the context in the swamp band. */
 export function ringSvg(percent: number, color: string): string {
   const p = Math.max(0, Math.min(100, percent))
@@ -1267,6 +1258,29 @@ async function snap($: EngineInterface) {
   return { auto, autoModel, current, judging, wanted, shownByApp, modelNow, switchedNow, pausedNow, cacheNow, compacting }
 }
 type Snap = Awaited<ReturnType<typeof snap>>
+
+/** The hover cards' text: what Auto did and why, and what the cache countdown means with the context it guards. */
+function hoverTips(v: Snap): { effort: string; cache: string } {
+  const effortTip = !v.auto
+    ? 'Auto is off: the effort stays as you set it. The power button turns Auto on.'
+    : v.pausedNow
+      ? 'Auto waits on this model: an effort change would rewrite its prompt cache.'
+      : !effortOf(v, v.modelNow ?? 'sonnet')
+        ? 'This model runs without an effort level, so Auto has nothing to set.'
+      : [
+          v.current ? `Auto picked ${EFFORT_LABELS[v.current.effort]}${v.current.by !== 'manual' ? ` (${v.current.by})` : ''}` : 'Auto picks the effort for each message',
+          v.current?.why ? `Why: ${v.current.why}` : '',
+          `Lean: ${['much cheaper', 'cheaper', 'as the judge says', 'smarter', 'much smarter'][config.bias + 2]} · range ${config.floor} to ${config.ceiling}`,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+  const ctx = lastContext && lastContext.window ? ` · Context${lastContext.percent}% · ${kTokens(lastContext.tokens)}/${kTokens(lastContext.window)}` : ''
+  const cacheTip =
+    v.cacheNow === 0
+      ? `Prompt cache cold: the next message reads the whole chat again at full price. Compact first to save.${ctx}`
+      : `Prompt cache warm for ${cacheLabel(v.cacheNow ?? 0)} more: the next message reads the chat from cache, cheap and fast.${ctx}`
+  return { effort: effortTip, cache: cacheTip }
+}
 
 /** The effort to show: yours or the judge's, else what the app itself runs with; none on Haiku. */
 function effortOf(v: Snap, inUse: ModelKey): Effort | undefined {
@@ -1552,36 +1566,9 @@ Saved to ${out}.md and .json` }
   // "Low → High", and while Auto is off it says "Off" in the dim colour. Auto is switched with /effortless auto.
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     if (e.surface !== 'desktop') return next(e)
-    const { Box, Text, Button, Svg } = $.ui.resolve(e)
+    const { Box, Text, Button } = $.ui.resolve(e)
     const v = await snap($)
     const handoffNow = (await read($, handoffStage)) !== null
-    // Hover tips: what Auto did and why, and what the cache countdown means with the context it guards.
-    const tipped = (key: string, text: string, tip: string, node: unknown) => (
-      <Box key={key} position="relative">
-        {node}
-        <Box position="absolute" top={0} left={0}>
-          <Svg source={tipSvg(tip, Math.max(16, text.length * 8), 20)} alt={tip} width={Math.max(16, text.length * 8)} height={20} isInteractive />
-        </Box>
-      </Box>
-    )
-    const effortTip = !v.auto
-      ? 'Auto is off: the effort stays as you set it. The power button turns Auto on.'
-      : v.pausedNow
-        ? 'Auto waits on this model: an effort change would rewrite its prompt cache.'
-        : !effortOf(v, v.modelNow ?? 'sonnet')
-          ? 'This model runs without an effort level, so Auto has nothing to set.'
-        : [
-            v.current ? `Auto picked ${EFFORT_LABELS[v.current.effort]}${v.current.by !== 'manual' ? ` (${v.current.by})` : ''}` : 'Auto picks the effort for each message',
-            v.current?.why ? `Why: ${v.current.why}` : '',
-            `Lean: ${['much cheaper', 'cheaper', 'as the judge says', 'smarter', 'much smarter'][config.bias + 2]} · range ${config.floor} to ${config.ceiling}`,
-          ]
-            .filter(Boolean)
-            .join(' · ')
-    const ctx = lastContext && lastContext.window ? ` · Context${lastContext.percent}% · ${kTokens(lastContext.tokens)}/${kTokens(lastContext.window)}` : ''
-    const cacheTip =
-      v.cacheNow === 0
-        ? `Prompt cache cold: the next message reads the whole chat again at full price. Compact first to save.${ctx}`
-        : `Prompt cache warm for ${cacheLabel(v.cacheNow ?? 0)} more: the next message reads the chat from cache, cheap and fast.${ctx}`
     const needsSetup = await read($, setupPending)
     const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
     const label = v.judging
@@ -1602,14 +1589,9 @@ Saved to ${out}.md and .json` }
             {' Paused '}
           </Text>
         ) : v.auto ? (
-          tipped(
-            'effort-tip',
-            ` ${label} `,
-            effortTip,
-            <Text color={ACCENT} bold hover={{ scope: 'effort', backgroundColor: HOVER_BOX }}>
-              {` ${label} `}
-            </Text>,
-          )
+          <Text color={ACCENT} bold hover={{ scope: 'effort', backgroundColor: HOVER_BOX }}>
+            {` ${label} `}
+          </Text>
         ) : (
           <Text dimColor hover={{ scope: 'effort', backgroundColor: HOVER_BOX }}>
             {' Off '}
@@ -1659,20 +1641,14 @@ Saved to ${out}.md and .json` }
         {/* How long the prompt cache stays warm: grey, yellow from 20 minutes, red from 5, then "cold" (the next message
             writes the whole context again). Nothing before the first response. */}
         {/* Cold: the band above the prompt says it and holds Compact; the footer only shows the state, in ice blue. */}
-        {v.cacheNow === null
-          ? null
-          : tipped(
-              'cache-tip',
-              cacheLabel(v.cacheNow),
-              cacheTip,
-              v.cacheNow === 0 ? (
-                <Text color={ICE}>{cacheLabel(0)}</Text>
-              ) : cacheColor(v.cacheNow) ? (
-                <Text color={cacheColor(v.cacheNow)}>{cacheLabel(v.cacheNow)}</Text>
-              ) : (
-                <Text dimColor>{cacheLabel(v.cacheNow)}</Text>
-              ),
-            )}
+        {/* Hovering it reveals a card above the prompt (the cache scope); see the hover cards in AbovePrompt. */}
+        {v.cacheNow === 0 ? (
+          <Text color={ICE} hover={{ scope: 'cache', backgroundColor: HOVER_BOX }}>{cacheLabel(0)}</Text>
+        ) : v.cacheNow === null ? null : cacheColor(v.cacheNow) ? (
+          <Text color={cacheColor(v.cacheNow)} hover={{ scope: 'cache', backgroundColor: HOVER_BOX }}>{cacheLabel(v.cacheNow)}</Text>
+        ) : (
+          <Text dimColor hover={{ scope: 'cache', backgroundColor: HOVER_BOX }}>{cacheLabel(v.cacheNow)}</Text>
+        )}
       </Box>
     )
   })
@@ -2092,7 +2068,24 @@ Saved to ${out}.md and .json` }
         </Box>
       </Box>
     ) : null
-    if (e.surface !== 'terminal') return question ?? next(e)
+    if (e.surface !== 'terminal') {
+      if (question) return question
+      // Hover cards: hidden until the pointer rests on the footer's effort or cache text (same hover scope), then
+      // shown here above the prompt. Text has no tooltip of its own; a scope reveals across sites.
+      const tips = hoverTips(v)
+      const card = (key: string, scope: string, text: string) => (
+        <Box key={key} display="none" hover={{ scope, display: 'flex' }} paddingX={1} backgroundColor={BRAND_BG}
+          borderStyle="round" borderColor={BRAND_EDGE}>
+          <Text wrap="truncate">{text}</Text>
+        </Box>
+      )
+      return (
+        <Box key="hover-cards" flexDirection="column">
+          {card('tip-effort', 'effort', tips.effort)}
+          {card('tip-cache', 'cache', tips.cache)}
+        </Box>
+      )
+    }
 
     const notAligned = current && inUse !== 'haiku' && shownByApp && shownByApp !== current.effort
     const note = judging
