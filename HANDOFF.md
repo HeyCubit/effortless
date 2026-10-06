@@ -6,7 +6,9 @@
   (0 fail), push, `<cli> plugin marketplace update effortless`, `<cli> plugin update effortless@effortless`, restart.
 - CLI on this PC: `$APPDATA/Claude/claude-code/<version>/<hash>/claude.exe` (newest folder). `claude` on PATH is
   2.1.220: fails validate, has no `plugin test`.
-- Another chat builds a showcase site in `site/` in its own worktree. Leave `site/` alone.
+- Showcase site: branch `site-story` (pushed, not merged): scroll story with a big chat box, new footer, new logo
+  in `brand/`. Live Pages still shows the older main version. Waiting on Isac's OK to merge to main and republish.
+  State and do-not-repeat list: ai-setup `memory/effortless/site-design.md`. Leave `site/` and `brand/` to that work.
 - The main checkout (`~/Documents/effortless`) had two local `test(aid)` commits not on origin (2026-10-06), from
   another chat. Not pushed by the setup release.
 
