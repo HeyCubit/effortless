@@ -176,8 +176,8 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 
 /* ---------- The story: one big chat box, one feature at a time ---------- */
 .story{position:relative;height:calc(var(--n) * 90vh + 10vh)}
-.pin{--sc:var(--accent);position:sticky;isolation:isolate;top:0;height:100vh;display:flex;flex-direction:column;justify-content:center;gap:30px;width:min(960px,100%);margin:0 auto;padding:84px 24px 48px}
-.pin:before{content:"";position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:-1;pointer-events:none;background:radial-gradient(40% 45% at 50% 74%,color-mix(in srgb,var(--sc) 12%,transparent),transparent 72%),radial-gradient(#2a2733 1.1px,transparent 1.5px) 0 0/22px 22px;-webkit-mask-image:radial-gradient(60% 75% at 50% 60%,#000 35%,transparent);mask-image:radial-gradient(60% 75% at 50% 60%,#000 35%,transparent);transition:background .6s}
+.pin{--sc:var(--accent);position:sticky;isolation:isolate;top:0;height:100vh;display:flex;flex-direction:column;gap:20px;width:min(1240px,100%);margin:0 auto;padding:96px 32px 22px}
+.pin:before{content:"";position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:-1;pointer-events:none;background:radial-gradient(45% 40% at 50% 86%,color-mix(in srgb,var(--sc) 12%,transparent),transparent 72%),radial-gradient(#2a2733 1.1px,transparent 1.5px) 0 0/22px 22px;-webkit-mask-image:radial-gradient(60% 75% at 50% 60%,#000 35%,transparent);mask-image:radial-gradient(60% 75% at 50% 60%,#000 35%,transparent);transition:background .6s}
 .head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px}
 .caps{position:relative;flex:1;min-height:122px}
 .say{position:absolute;left:0;right:0;bottom:0;opacity:0;transform:translateX(-32px);transition:opacity .45s var(--ease),transform .8s var(--ease);pointer-events:none}
@@ -191,24 +191,36 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .go button[aria-current="step"]{color:var(--sc)}
 .go button:focus-visible{outline:2px solid var(--sc);outline-offset:1px;border-radius:6px}
 
-.win{position:relative;display:flex;flex-direction:column}
-.chat{height:min(170px,20vh);overflow:hidden;padding:0 6px 16px;display:flex;flex-direction:column;justify-content:flex-end;gap:12px;-webkit-mask-image:linear-gradient(transparent,#000 50%);mask-image:linear-gradient(transparent,#000 50%)}
-.msg{max-width:80%;font-size:15px;line-height:1.5;color:#cfccd9;animation:msg-in .45s var(--ease) both}
-.msg.me{align-self:flex-end;background:#232229;border-radius:12px;padding:8px 13px;color:var(--text)}
-.msg.sys{align-self:center;color:var(--sc);font-size:13px;font-weight:500}
+/* The chat takes whatever height is left, so the box and its bar sit just above the bottom edge. */
+.win{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
+.chat{flex:1;min-height:0;overflow:hidden;padding:0 6px 16px;display:flex;flex-direction:column;justify-content:flex-end;gap:12px;-webkit-mask-image:linear-gradient(transparent,#000 50%);mask-image:linear-gradient(transparent,#000 50%)}
+.msg{max-width:72%;font-size:17px;line-height:1.5;color:#cfccd9;animation:msg-in .45s var(--ease) both}
+.msg.me{align-self:flex-end;background:#232229;border-radius:14px;padding:10px 16px;color:var(--text)}
+.msg.sys{align-self:center;color:var(--sc);font-size:15px;font-weight:500}
 .msg.sys:before{content:"✦ "}
 .msg.gone{animation:msg-out .4s var(--ease) both}
 @keyframes msg-in{from{opacity:0;transform:translateY(8px)}}
 @keyframes msg-out{to{opacity:0;transform:translateY(-10px)}}
-.slot{min-height:70px;display:flex;flex-direction:column;justify-content:flex-end}
-.slot .band{margin-bottom:12px;min-height:58px;padding:11px 12px 11px 18px;font-size:15px;box-shadow:0 22px 50px -28px var(--c);animation:msg-in .5s var(--ease) both}
+.slot{min-height:86px;display:flex;flex-direction:column;justify-content:flex-end}
+.slot .band{margin-bottom:14px;min-height:72px;padding:14px 16px 14px 22px;gap:14px;border-radius:14px;font-size:17.5px;box-shadow:0 22px 50px -28px var(--c);animation:msg-in .5s var(--ease) both}
+/* A wide band would show where its art starts; the art fades in from the left instead. */
+.slot .band:before{width:min(640px,70%);-webkit-mask-image:linear-gradient(90deg,transparent,#000 55%);mask-image:linear-gradient(90deg,transparent,#000 55%)}
+.slot .band .btn{font-size:15px;padding:7px 14px}
 .slot .band.gone{animation:msg-out .35s var(--ease) both}
-.win .demo-box{min-height:136px;padding:22px 60px 22px 24px;border-radius:20px;background:#1b1a20;box-shadow:0 50px 100px -50px color-mix(in srgb,var(--sc) 50%,#000);transition:box-shadow .6s}
-.win .demo-in{font-size:19px;min-height:30px}
-.win .demo-in .caret{height:21px;vertical-align:-4px}
-.win .demo-send{right:18px;bottom:16px}
-.win .demo-send svg{width:18px;height:18px}
-.win .demo-foot{margin-top:12px;font-size:14px}
+.win .demo-box{min-height:clamp(150px,22vh,220px);padding:26px 70px 26px 30px;border-radius:24px;background:#1b1a20;box-shadow:0 50px 100px -50px color-mix(in srgb,var(--sc) 50%,#000);transition:box-shadow .6s}
+.win .demo-in{font-size:22px;min-height:34px}
+.win .demo-in .caret{height:25px;vertical-align:-5px}
+.win .demo-send{right:22px;bottom:20px;width:32px;height:32px}
+.win .demo-send svg{width:22px;height:22px}
+.win .demo-foot{margin:14px 6px 0;font-size:17px;gap:14px}
+.win .demo-foot .fl{gap:18px;font-size:19px}
+.win .demo-foot .fl svg{width:18px;height:18px}
+.win .demo-foot .fl .mode{font-size:17px}
+.win .demo-foot .fr{gap:8px}
+.win .demo-foot .k{width:28px;height:25px;border-radius:6px;font-size:13px}
+.win .demo-foot .lvl{margin-left:8px}
+.win .demo-foot .m{margin-left:10px}
+.win .demo-foot .ring{width:19px;height:19px;margin-left:10px}
 .demo-foot .warn{color:var(--yellow)}
 .demo-foot .bad{color:var(--red);font-weight:600}
 .press{animation:press .55s var(--ease)}
@@ -239,11 +251,20 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   .go{order:-1;margin:0 0 0 -10px}
   .say h3{font-size:26px;margin-bottom:8px}
   .say p{font-size:15px}
-  .chat{height:min(130px,16vh);gap:9px}
-  .msg{font-size:13.5px}
-  .slot .band{font-size:13.5px;min-height:50px;padding:9px 10px 9px 14px}
-  .win .demo-box{min-height:100px;padding:16px 50px 16px 18px}
+  .chat{gap:9px}
+  .msg{font-size:14px;max-width:84%}
+  .msg.me{padding:8px 12px}
+  .msg.sys{font-size:13px}
+  .slot{min-height:60px}
+  .slot .band{font-size:13.5px;min-height:50px;padding:9px 10px 9px 14px;gap:8px;border-radius:10px;margin-bottom:10px}
+  .slot .band .btn{font-size:12.5px;padding:5px 10px}
+  .win .demo-box{min-height:110px;padding:16px 50px 16px 18px;border-radius:18px}
   .win .demo-in{font-size:16px}
+  .win .demo-in .caret{height:18px;vertical-align:-3px}
+  .win .demo-send{right:12px;bottom:12px}
+  .win .demo-foot{font-size:13.5px;gap:8px;margin:10px 2px 0}
+  .win .demo-foot .fl{gap:12px;font-size:15px}
+  .win .demo-foot .k{width:22px;height:20px;font-size:11px}
 }
 @media (max-width:560px){
   .demo-foot .opt{display:none}
