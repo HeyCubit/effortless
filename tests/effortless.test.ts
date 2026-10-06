@@ -990,9 +990,8 @@ describe('judge choice (plugin settings)', () => {
       ceiling: 'max',
       hide: [],
       swampAt: 50,
-      animate: false,
     })
-    expect(readConfig({ swampAt: '20', animate: 'on' })).toMatchObject({ swampAt: 20, animate: true })
+    expect(readConfig({ swampAt: '20' })).toMatchObject({ swampAt: 20 })
     expect(readConfig({ swampAt: '33' }).swampAt).toBe(50)
     expect(readConfig({ handoffSkill: '/session-handoff', handoffAfter: 'confirm' })).toMatchObject({
       handoffSkill: 'session-handoff',
@@ -1185,8 +1184,7 @@ describe('setup guide', () => {
     // The right side: an interactive SVG (so its sparkles animate), a gradient, and sparkles that twinkle.
     const first = await drawn(band)
     expect(first).toContain('"type":"Svg"')
-    // Still art by default: a live frame flickers as the app redraws.
-    expect(first).toContain('"isInteractive":false')
+    expect(first).toContain('"isInteractive":true')
     expect(first).toContain('linearGradient')
     expect((first.match(/class=\\"sp\\"/g) ?? []).length).toBeGreaterThanOrEqual(8)
     await band.press({ key: 'setup-haiku' })
