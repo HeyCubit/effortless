@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Effort, ModelKey, Pick, Spent } from '../types'
+import type { Effort, ModelKey, Pick, SettingsDraft, Spent } from '../types'
 
 // The ladders the two sliders walk, cheapest first.
 export const MODELS: { key: ModelKey; label: string; long: string; id: string }[] = [
@@ -23,7 +23,7 @@ const ACCENT = '#a79cf7'
 const BRAND_BG = '#15121f'
 const BRAND_EDGE = '#4a3f80'
 // The settings panel's header bar: a shade lighter than the panel, so it reads as a title bar.
-const BRAND_HEAD = '#1d1830'
+const BRAND_HEAD = '#221c3a'
 // The box behind the level while it is hovered: the grey of the app's own pills.
 const HOVER_BOX = '#2b2b2f'
 const EFFORT_LABELS: Record<Effort, string> = { low: 'Low', medium: 'Medium', high: 'High', xhigh: 'XHigh', max: 'Max' }
@@ -86,6 +86,8 @@ const setupPending = atom({ plugin: 'effortless', key: 'setupPending' } as const
 // Why the judge the person picked is failing (Haiku stands in), or null when it works.
 // The effortless settings panel is open above the prompt.
 const settingsOpen = atom({ plugin: 'effortless', key: 'settingsOpen' } as const, false)
+// What was changed in the panel and not saved yet, by field; Save applies it all, the cross drops it.
+const settingsDraft = atom({ plugin: 'effortless', key: 'settingsDraft' } as const, {})
 const judgeDown = atom({ plugin: 'effortless', key: 'judgeDown' } as const, null)
 // The judge-down band was closed for this reason; a new reason shows it again.
 const judgeDownHidden = atom({ plugin: 'effortless', key: 'judgeDownHidden' } as const, null)
@@ -1041,6 +1043,21 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
   $.ui.invalidate('ui.render')
 }
 
+/** Saves every change in the panel's draft, then closes the panel. Nothing changed applies before this. */
+async function saveDraft($: EngineInterface) {
+  const draft = await read($, settingsDraft)
+  const { key, ...rest } = draft
+  for (const field of Object.keys(SETTING_FIELDS) as (keyof typeof SETTING_FIELDS)[]) {
+    const value = rest[field]
+    if (value !== undefined) await saveSetting($, field, value)
+  }
+  if (key?.trim()) await saveJevKey($, key)
+  await update($, settingsDraft, () => ({}))
+  await update($, settingsOpen, () => false)
+  $.ui.toast('effortless: settings saved.')
+  $.ui.invalidate('ui.render')
+}
+
 /** A TYPESAFE_API_KEY line set in an .env file's text: replaced where it is, added where it is not. */
 export function withJevKey(text: string, key: string): string {
   const line = `TYPESAFE_API_KEY=${key}`
@@ -1527,21 +1544,43 @@ Saved to ${out}.md and .json` }
       const { Input, Select } = $.ui.resolve(e)
       const opts = (values: readonly string[]) => values.map(value => ({ value, label: value }))
       const hasKey = Boolean(await jevKey($).catch(() => undefined)) || Boolean(await typesafeKeyAnywhere($).catch(() => undefined))
-      const close = () => update($, settingsOpen, () => false)
+      // A plain button with its own handler: a dismiss-role button may be taken by the app before onPress runs.
+      const close = async () => {
+        await update($, settingsDraft, () => ({}))
+        await update($, settingsOpen, () => false)
+        $.ui.invalidate('ui.render')
+      }
+      // The panel shows the draft over the saved settings; every control writes to the draft only.
+      const draft = await read($, settingsDraft)
+      const set = (field: keyof SettingsDraft) => async (value: string) => {
+        await update($, settingsDraft, d => ({ ...d, [field]: value }))
+        $.ui.invalidate('ui.render')
+      }
+      const shown = {
+        bias: draft.bias !== undefined ? Number(draft.bias) : config.bias,
+        floor: (draft.floor ?? config.floor) as Effort,
+        ceiling: (draft.ceiling ?? config.ceiling) as Effort,
+        judge: (draft.judge ?? config.judge) as JudgeConfig['judge'],
+        handoffAfter: draft.handoffAfter ?? config.handoffAfter,
+        handoffSkill: draft.handoffSkill ?? config.handoffSkill,
+        customUrl: draft.customUrl ?? config.customUrl,
+        customModel: draft.customModel ?? config.customModel,
+      }
+      const dirty = Object.keys(draft).length > 0
       // The slider: five stops, the marker on the one in force. No animation, a click moves it.
       const track: unknown[] = []
       for (const n of [-2, -1, 0, 1, 2]) {
         if (n > -2) track.push(<Text key={`t${n}`} dimColor>──</Text>)
-        track.push(<Button key={`bias${n + 2}`} plain label={n === config.bias ? '◉' : '○'} onPress={() => saveSetting($, 'bias', String(n))} />)
+        track.push(<Button key={`bias${n + 2}`} plain label={n === shown.bias ? '◉' : '○'} onPress={() => set('bias')(String(n))} />)
       }
       const biasWords = ['Many close calls go a step down.', 'Close calls go a step down.', 'As the judge says.',
-        'Close calls go a step up.', 'Many close calls go a step up.'][config.bias + 2]
+        'Close calls go a step up.', 'Many close calls go a step up.'][shown.bias + 2]
       const judgeWords = {
         auto: 'Jev with a key, else Haiku.',
         haiku: 'Your Claude login, no key.',
         jev: 'Most accurate. Key: typesafe.ai',
         custom: 'Its key: /plugin configure.',
-      }[config.judge]
+      }[shown.judge]
       const row = (key: string, label: string, children: unknown[], words?: string) => (
         <Box key={key} flexDirection="row" gap={1} alignItems="center">
           <Box width={8} flexShrink={0}>
@@ -1560,54 +1599,76 @@ Saved to ${out}.md and .json` }
           {input}
         </Box>
       )
+      const column = (key: string, rows: unknown[]) => (
+        <Box key={key} flexDirection="column" gap={1} flexGrow={1} width="50%">
+          {rows}
+        </Box>
+      )
       return (
-        <Box key="settings" flexDirection="column" overflow="hidden" backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
-          <Box key="settings-head" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
-            backgroundColor={BRAND_HEAD}>
+        <Box key="settings" position="relative" flexDirection="column" gap={1} paddingBottom={1} overflow="hidden"
+          backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
+          {/* The header bar: drawn edge to edge behind the title row, over the top border, like the bands' art. */}
+          <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={2} overflow="hidden" backgroundColor={BRAND_HEAD}>
             <Box key="settings-art" position="absolute" top={0} right={0} bottom={0}>
               <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
             </Box>
+          </Box>
+          <Box key="settings-head" flexDirection="row" alignItems="center" paddingX={1}>
             <Text color={ACCENT} bold>
               ✦ effortless settings
             </Text>
-            <Box flexGrow={1} />
-            <Button key="settings-close" plain role="dismiss" label="✕" onPress={close} />
+            {dirty ? <Text dimColor> · unsaved changes</Text> : null}
           </Box>
-          <Box key="settings-body" flexDirection="column" paddingX={1}>
-            {row('settings-bias', 'Effort', [
-              <Text key="cheap" dimColor>Cheaper</Text>,
-              <Box key="track" flexDirection="row" alignItems="center">
-                {track}
+          {/* The buttons sit in a later absolute layer: drawn after the art, so it does not cover them. */}
+          <Box key="settings-actions" position="absolute" top={0} right={1} flexDirection="row" gap={2} alignItems="center">
+            <Button key="settings-save" variant="primary" label="Save" onPress={() => saveDraft($)} />
+            <Button key="settings-close" plain label="✕" onPress={close} />
+          </Box>
+          <Box key="settings-body" flexDirection="row" gap={4} paddingX={2}>
+            {column('settings-left', [
+              row('settings-bias', 'Effort', [
+                <Text key="cheap" dimColor>Cheaper</Text>,
+                <Box key="track" flexDirection="row" alignItems="center">
+                  {track}
+                </Box>,
+                <Text key="smart" dimColor>Smarter</Text>,
+              ]),
+              row('settings-range', 'Limits', [
+                <Select key="settings-floor" label="Min" value={shown.floor} options={opts(EFFORTS)} onSelect={set('floor')} />,
+                <Select key="settings-ceiling" label="Max" value={shown.ceiling} options={opts(EFFORTS)} onSelect={set('ceiling')} />,
+              ]),
+              <Box key="left-hint" paddingLeft={9}>
+                <Text dimColor wrap="truncate">{`${biasWords} Auto stays between Min and Max.`}</Text>
               </Box>,
-              <Text key="smart" dimColor>Smarter</Text>,
-            ], biasWords)}
-            {row('settings-range', 'Limits', [
-              <Select key="settings-floor" label="Min" value={config.floor} options={opts(EFFORTS)} onSelect={v => saveSetting($, 'floor', v)} />,
-              <Select key="settings-ceiling" label="Max" value={config.ceiling} options={opts(EFFORTS)} onSelect={v => saveSetting($, 'ceiling', v)} />,
-            ], 'Auto stays between these.')}
-            {row('settings-judge', 'Judge', [
-              <Select key="settings-judge-pick" value={config.judge} options={opts(['auto', 'haiku', 'jev', 'custom'])}
-                onSelect={v => saveSetting($, 'judge', v)} />,
-              ...(config.judge === 'jev' || config.judge === 'auto'
-                ? [field('key-field', <Input key="settings-key" placeholder={hasKey ? 'Key saved. Paste to replace' : 'Paste TypeSafe key'}
-                    submitLabel="save" onSubmit={v => saveJevKey($, v)} />, 30)]
-                : []),
-              ...(config.judge === 'custom'
-                ? [
-                    field('url-field', <Input key="settings-url" placeholder="Chat completions URL" value={config.customUrl} submitLabel="save"
-                      onSubmit={v => saveSetting($, 'customUrl', v.trim())} />, 30),
-                    field('model-field', <Input key="settings-model" placeholder="Model" value={config.customModel} submitLabel="save"
-                      onSubmit={v => saveSetting($, 'customModel', v.trim())} />, 16),
-                  ]
-                : []),
-            ], judgeWords)}
-            {row('settings-handoff', 'Handoff', [
-              <Select key="settings-after-pick" value={config.handoffAfter}
-                options={[{ value: 'continue', label: 'then carry on' }, { value: 'confirm', label: 'then wait' }]}
-                onSelect={v => saveSetting($, 'handoffAfter', v)} />,
-              field('skill-field', <Input key="settings-skill" placeholder="Built-in, or a skill name" value={config.handoffSkill}
-                submitLabel="save" onSubmit={v => saveSetting($, 'handoffSkill', v.trim().replace(/^\//, ''))} />, 30),
-            ], 'The ⇥ button.')}
+            ])}
+            {column('settings-right', [
+              row('settings-judge', 'Judge', [
+                <Select key="settings-judge-pick" value={shown.judge} options={opts(['auto', 'haiku', 'jev', 'custom'])}
+                  onSelect={set('judge')} />,
+                ...(shown.judge === 'jev' || shown.judge === 'auto'
+                  ? [field('key-field', <Input key="settings-key" placeholder={hasKey ? 'Key saved. Paste to replace' : 'Paste TypeSafe key'}
+                      value={draft.key ?? ''} submitLabel="keep" onInput={set('key')} onSubmit={set('key')} />, 30)]
+                  : []),
+                ...(shown.judge === 'custom'
+                  ? [
+                      field('url-field', <Input key="settings-url" placeholder="Chat completions URL" value={shown.customUrl} submitLabel="keep"
+                        onInput={set('customUrl')} onSubmit={set('customUrl')} />, 22),
+                      field('model-field', <Input key="settings-model" placeholder="Model" value={shown.customModel} submitLabel="keep"
+                        onInput={set('customModel')} onSubmit={set('customModel')} />, 12),
+                    ]
+                  : []),
+              ]),
+              row('settings-handoff', 'Handoff', [
+                <Select key="settings-after-pick" value={shown.handoffAfter}
+                  options={[{ value: 'continue', label: 'then carry on' }, { value: 'confirm', label: 'then wait' }]}
+                  onSelect={set('handoffAfter')} />,
+                field('skill-field', <Input key="settings-skill" placeholder="Built-in, or a skill name" value={shown.handoffSkill}
+                  submitLabel="keep" onInput={set('handoffSkill')} onSubmit={set('handoffSkill')} />, 26),
+              ]),
+              <Box key="right-hint" paddingLeft={9}>
+                <Text dimColor wrap="truncate">{`${judgeWords} Handoff is the ⇥ button.`}</Text>
+              </Box>,
+            ])}
           </Box>
         </Box>
       )
