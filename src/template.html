@@ -165,7 +165,7 @@ h2{margin:0;font:500 clamp(28px,3.6vw,42px)/1.12 var(--display);letter-spacing:-
 .cmds{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-top:32px;max-width:640px}
 .cmd{display:flex;align-items:center;gap:12px;background:#0c0c0f;border:1px solid var(--line);border-radius:12px;padding:8px 8px 8px 18px}
 .cmd code{flex:1;min-width:0;overflow-x:auto;white-space:nowrap;background:none;padding:6px 0;font-size:14.5px;color:var(--text)}
-.cmd .p{color:var(--accent);margin-right:4px}
+.cmd code:before{content:"›";color:var(--accent);margin-right:10px;user-select:none}
 .copy{display:inline-flex;align-items:center;gap:7px;font:500 13px var(--sans);color:var(--text);background:#1f1e25;border:1px solid #2e2c36;border-radius:8px;padding:8px 12px;cursor:pointer;flex-shrink:0}
 .copy:hover{background:#2a2832}.copy svg{width:14px;height:14px}
 .copy:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -299,8 +299,8 @@ h2{margin:0;font:500 clamp(28px,3.6vw,42px)/1.12 var(--display);letter-spacing:-
     <h2>Two lines in the chat box.</h2>
     <p class="lead">No terminal. Paste both into Claude Code, restart, and a short setup asks who should judge your prompts.</p>
     <div class="cmds">
-      <div class="cmd"><code><span class="p">›</span> /plugin marketplace add HeyCubit/effortless</code><button type="button" class="copy" data-copy="/plugin marketplace add HeyCubit/effortless" aria-label="Copy /plugin marketplace add HeyCubit/effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Copy</span></button></div>
-      <div class="cmd"><code><span class="p">›</span> /plugin install effortless@effortless</code><button type="button" class="copy" data-copy="/plugin install effortless@effortless" aria-label="Copy /plugin install effortless@effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Copy</span></button></div>
+      <div class="cmd"><code>/plugin marketplace add HeyCubit/effortless</code><button type="button" class="copy" data-copy="/plugin marketplace add HeyCubit/effortless" aria-label="Copy /plugin marketplace add HeyCubit/effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Copy</span></button></div>
+      <div class="cmd"><code>/plugin install effortless@effortless</code><button type="button" class="copy" data-copy="/plugin install effortless@effortless" aria-label="Copy /plugin install effortless@effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Copy</span></button></div>
     </div>
     <ol class="steps">
       <li><span class="n">01</span><b>Paste</b>Both lines, in Claude Code's chat box.</li>
@@ -347,8 +347,8 @@ h2{margin:0;font:500 clamp(28px,3.6vw,42px)/1.12 var(--display);letter-spacing:-
   <section class="end">
     <h2>Stop touching the Effort control.</h2>
     <div class="cmds">
-      <div class="cmd"><code><span class="p">›</span> /plugin marketplace add HeyCubit/effortless</code><button type="button" class="copy" data-copy="/plugin marketplace add HeyCubit/effortless" aria-label="Copy /plugin marketplace add HeyCubit/effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Copy</span></button></div>
-      <div class="cmd"><code><span class="p">›</span> /plugin install effortless@effortless</code><button type="button" class="copy" data-copy="/plugin install effortless@effortless" aria-label="Copy /plugin install effortless@effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Copy</span></button></div>
+      <div class="cmd"><code>/plugin marketplace add HeyCubit/effortless</code><button type="button" class="copy" data-copy="/plugin marketplace add HeyCubit/effortless" aria-label="Copy /plugin marketplace add HeyCubit/effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Copy</span></button></div>
+      <div class="cmd"><code>/plugin install effortless@effortless</code><button type="button" class="copy" data-copy="/plugin install effortless@effortless" aria-label="Copy /plugin install effortless@effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Copy</span></button></div>
     </div>
     <div class="cta"><a class="gh" href="https://github.com/HeyCubit/effortless">__GITHUB__<span>Star on GitHub</span></a></div>
   </section>
@@ -363,13 +363,21 @@ h2{margin:0;font:500 clamp(28px,3.6vw,42px)/1.12 var(--display);letter-spacing:-
 </footer>
 
 <script>
-// The copy buttons put their command on the clipboard and say so for a moment.
+// The copy buttons put their command on the clipboard and say so for a moment. Where the browser refuses the clipboard,
+// the command is selected and copied the old way, or left selected with a hint to press Ctrl+C.
 document.addEventListener('click',function(e){
-  var b=e.target.closest('[data-copy]');if(!b||!navigator.clipboard)return;
-  navigator.clipboard.writeText(b.dataset.copy).then(function(){
-    var s=b.querySelector('span');b.classList.add('ok');s.textContent='Copied';
-    setTimeout(function(){b.classList.remove('ok');s.textContent='Copy'},1400);
-  }).catch(function(){});
+  var b=e.target.closest('[data-copy]');if(!b)return;
+  var s=b.querySelector('span'),code=b.parentNode.querySelector('code');
+  // Only one button says Copied at a time.
+  document.querySelectorAll('[data-copy]').forEach(function(o){if(o!==b){clearTimeout(o.t);o.classList.remove('ok');o.querySelector('span').textContent='Copy';}});
+  function say(t,ok){b.classList.toggle('ok',ok);s.textContent=t;clearTimeout(b.t);b.t=setTimeout(function(){b.classList.remove('ok');s.textContent='Copy'},ok?1400:3000);}
+  function fallback(){
+    var r=document.createRange();r.selectNodeContents(code);var sel=getSelection();sel.removeAllRanges();sel.addRange(r);
+    var done=false;try{done=document.execCommand('copy')}catch(err){}
+    say(done?'Copied':'Press Ctrl+C',done);
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(b.dataset.copy).then(function(){say('Copied',true)},fallback);
+  else fallback();
 });
 
 // The star count, live from GitHub. Hidden until there is at least one.
