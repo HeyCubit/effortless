@@ -78,6 +78,8 @@ const isCompacting = atom({ plugin: 'effortless', key: 'isCompacting' } as const
 // The person closed the cold band; it comes back the next time the cache goes cold.
 // The test pane of /effortless try pane.
 const TRY_PANE = 'effortless-try'
+// The side panel: the bands' facts and buttons where the app draws no bands (split view's right pane).
+const PANEL = 'effortless-panel'
 // Where a handoff is: null idle, writing (the handoff turn runs), clearing (clear and resend).
 const handoffStage = atom({ plugin: 'effortless', key: 'handoffStage' } as const, null)
 // The handoff bar above the prompt, open with the choice shown in it, or null.
@@ -85,6 +87,8 @@ const handoffPick = atom({ plugin: 'effortless', key: 'handoffPick' } as const, 
 // The context is swamped: tokens read per request, or null below the line. Drives the swamp band.
 const swamped = atom({ plugin: 'effortless', key: 'swamped' } as const, null)
 // The swamp band was closed at this many tokens; it comes back once the context has grown well past it.
+// Whether this plugin's side panel is open (/effortless panel toggles it).
+let panelOpen = false
 // The newest reply's text, so the warning card goes under its last block and nowhere else.
 const lastAnswer = atom({ plugin: 'effortless', key: 'lastAnswer' } as const, '')
 const swampHiddenAt = atom({ plugin: 'effortless', key: 'swampHiddenAt' } as const, null)
@@ -860,7 +864,7 @@ type TurnWarning = { kind: 'cold' | 'hot' | 'swamp'; title: string; line: string
  *  hiding (a part switched off, a band closed with ✕), with a command in place of the band's buttons. */
 async function turnWarning($: EngineInterface): Promise<TurnWarning | null> {
   if ((await read($, cacheLeft)) === 0 && !config.hide.includes('cold') && !(await read($, isColdHidden))) {
-    return { kind: 'cold', title: 'Chat went cold', line: 'Next message costs full price. Type /compact first.', color: ICE, bg: ICE_BG, edge: ICE_EDGE, art: FROST_SVG }
+    return { kind: 'cold', title: 'Chat went cold', line: 'Next message costs full price. Type /compact first, or open /effortless panel.', color: ICE, bg: ICE_BG, edge: ICE_EDGE, art: FROST_SVG }
   }
   const heat = await read($, hot)
   const heatHidden = await read($, hotHidden)
@@ -869,7 +873,7 @@ async function turnWarning($: EngineInterface): Promise<TurnWarning | null> {
     return {
       kind: 'hot',
       title: `Running hot · ${Math.round(heat.percent)}% of your ${window} limit`,
-      line: 'Save mode keeps Auto at medium or below: /effortless save.',
+      line: 'Save mode keeps Auto at medium or below: /effortless save, or open /effortless panel.',
       color: EMBER, bg: EMBER_BG, edge: EMBER_EDGE, art: EMBER_SVG,
     }
   }
@@ -879,7 +883,7 @@ async function turnWarning($: EngineInterface): Promise<TurnWarning | null> {
     return {
       kind: 'swamp',
       title: `Chat is getting swamped · ${Math.round(swampTokens / 1000)}k tokens`,
-      line: 'Every message re-reads all of it. Type /compact or /effortless handoff.',
+      line: 'Every message re-reads all of it. /compact, /effortless handoff, or open /effortless panel.',
       color: BOG, bg: BOG_BG, edge: BOG_EDGE, art: SWAMP_SVG,
     }
   }
@@ -1825,6 +1829,16 @@ export const register: Register = (on, options) => {
       return { text: 'The swamp band is showing now (a test). It goes away at the next check unless the chat really is swamped.' }
     }
     if (arg === 'save') return { text: await toggleSave($) }
+    if (arg === 'panel') {
+      if (panelOpen) {
+        await $.ui.close({ id: PANEL }).catch(() => undefined)
+        panelOpen = false
+        return { text: 'panel closed' }
+      }
+      const opened = await $.ui.open({ id: PANEL, title: 'effortless' })
+      panelOpen = opened.isPlaced
+      return { text: opened.isPlaced ? 'panel open' : `the app did not place the panel: ${'reason' in opened ? opened.reason : 'no reason given'}` }
+    }
     if (arg === 'handoff' || arg === 'handoff full') {
       const full = arg === 'handoff full'
       if (full && !config.handoffSkill) return { text: 'No skill is set for the full handoff. Pick one in /effortless settings, under Handoff.' }
@@ -2167,15 +2181,8 @@ Saved to ${out}.md and .json` }
     if (!answer || !text || !answer.endsWith(text)) return next(e)
     const warn = await turnWarning($)
     if (!warn) return next(e)
-    const { Box, Text, Svg, Button } = $.ui.resolve(e)
+    const { Box, Text, Svg } = $.ui.resolve(e)
     const drawn = await next(e)
-    // A test of whether buttons in a reply's card take a press (the try card's, in a command's output, did not):
-    // each press says so in a toast before it acts. Handoff starts at once with the last choice, since the bar it
-    // would open is not drawn where this card is needed.
-    const press = (what: string, act: () => Promise<unknown>) => async () => {
-      $.ui.toast(`card button pressed: ${what}`)
-      await act()
-    }
     return (
       <Box key="reply" flexDirection="column" gap={1}>
         {drawn}
@@ -2189,20 +2196,51 @@ Saved to ${out}.md and .json` }
             <Text color={warn.color} bold wrap="truncate">{`✦ ${warn.title}`}</Text>
             <Text wrap="truncate">{warn.line}</Text>
           </Box>
-          <Box flexGrow={1} minWidth={2} />
-          <Box key="reply-warn-actions" position="relative" flexShrink={0} flexDirection="row" gap={1} alignItems="center">
-            {warn.kind === 'hot' ? (
-              <Button key="reply-save" variant="primary" label="Save mode" onPress={press('Save mode', async () => $.ui.toast(`effortless: ${await toggleSave($)}`))} />
-            ) : (
-              <Button key="reply-compact" variant="primary" label="Compact" onPress={press('Compact', () => compactCold($))} />
-            )}
-            {warn.kind === 'swamp' ? (
-              <Button key="reply-handoff" label="Handoff" onPress={press('Handoff', async () => {
-                const choice = await lastHandoffChoice($)
-                await startHandoff($, choice.kind === 'full', choice.after)
-              })} />
-            ) : null}
+        </Box>
+      </Box>
+    )
+  })
+
+  // The side panel (/effortless panel): what the footer and the bands say, with their buttons, for split view's right
+  // pane, where the app draws neither. Each press says so in a toast for now: a test of whether a pane takes clicks.
+  on('ui.render', { component: 'Pane', requestId: PANEL }, async ($, e) => {
+    const { Box, Text, Button, Svg } = $.ui.resolve(e)
+    const v = await snap($)
+    const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
+    const warn = await turnWarning($)
+    const compacting = await read($, isCompacting)
+    const saving = (await read($, saveUntil)) !== null
+    const handing = (await read($, handoffStage)) !== null
+    const press = (what: string, act: () => Promise<unknown>) => async () => {
+      $.ui.toast(`panel button pressed: ${what}`)
+      await act()
+    }
+    const tint = warn ?? { color: ACCENT, bg: BRAND_BG, edge: BRAND_EDGE, art: BRAND_SVG, title: 'All good', line: 'Nothing needs you right now.' }
+    return (
+      <Box key="panel" flexDirection="column" gap={1}>
+        <Box key="panel-head" position="relative" flexDirection="column" paddingX={1} overflow="hidden"
+          backgroundColor={tint.bg} borderStyle="round" borderColor={tint.edge}>
+          <Box key="panel-art" position="absolute" top={-1} right={0} bottom={-1}>
+            <Svg source={tint.art} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
           </Box>
+          <Box key="panel-words" position="relative" flexDirection="column" minWidth={0}>
+            <Text color={tint.color} bold wrap="truncate">{`✦ ${tint.title}`}</Text>
+            <Text wrap="truncate">{tint.line.replace(/,? or open \/effortless panel\.?$/, '.')}</Text>
+          </Box>
+        </Box>
+        <Box key="panel-facts" flexDirection="row" gap={1} paddingX={1}>
+          <Text color={ACCENT}>{`✦ ${effortNow ? EFFORT_LABELS[effortNow] : 'Auto'}`}</Text>
+          {v.cacheNow === null ? null : (
+            <Text dimColor={cacheColor(v.cacheNow) === undefined} color={cacheColor(v.cacheNow)}>{`· ${v.cacheNow <= 0 ? 'cache cold' : `cache ${cacheLabel(v.cacheNow)}`}`}</Text>
+          )}
+        </Box>
+        <Box key="panel-actions" flexDirection="row" gap={1} paddingX={1} flexWrap="wrap">
+          <Button key="panel-compact" variant="primary" label={compacting ? 'Compacting…' : 'Compact'} onPress={press('Compact', () => compactCold($))} />
+          <Button key="panel-handoff" label={handing ? 'Handing off…' : 'Handoff'} onPress={press('Handoff', async () => {
+            const choice = await lastHandoffChoice($)
+            await startHandoff($, choice.kind === 'full', choice.after)
+          })} />
+          <Button key="panel-save" plain label={saving ? 'Save mode on' : 'Save mode'} onPress={press('Save mode', async () => $.ui.toast(`effortless: ${await toggleSave($)}`))} />
         </Box>
       </Box>
     )
