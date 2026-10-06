@@ -31,7 +31,7 @@
 
 ## Next
 0. Narrow band confirmed by Isac (1.35.13). Still unseen: an effort
-   change glows purple and fades to white in 1.4 s. Neither seen in the app yet.
+   change glows purple and fades to white in 1.4 s.
 1. Isac opens an old chat: cold band should show. If not, `/effortless debug` and look for classic.SessionStart.
 2. Isac opens plain `claude` in a terminal and looks at the bands (2.1.285 now loads the mod).
 
