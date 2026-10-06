@@ -19,7 +19,7 @@ Type these two lines in Claude Code's chat box, no terminal needed:
 /plugin install effortless@effortless
 ```
 
-Restart Claude Code. A short setup opens above the prompt the first time: pick **Jev** (recommended: about 4x faster than Haiku, needs a TypeSafe key), **Haiku** (one click, no key, runs on your own Claude login) or **your own AI**, and it asks only for what that choice needs. Run `/effortless setup` to change it later.
+Restart Claude Code. A short setup opens above the prompt the first time: pick **Jev** (API key needed, about 4x faster than Haiku), **Haiku** (one click, no key, runs on your own Claude login) or **your own AI**, and it asks only for what that choice needs. Run `/effortless setup` to change it later.
 
 From a terminal it is the same without the slashes: `claude plugin marketplace add HeyCubit/effortless`, then `claude plugin install effortless@effortless`.
 
@@ -31,7 +31,7 @@ Run `/plugin configure effortless@effortless` in Claude Code. Left unset, `auto`
 |---|---|---|
 | `auto` (default) | Jev when a TypeSafe key is set, Haiku otherwise | |
 | `haiku` | nothing, uses your Claude login | about 1 s |
-| `jev` (recommended) | a [TypeSafe](https://typesafe.ai) key, in the settings or `TYPESAFE_API_KEY` (with `jev` picked, also `~/.config/jev/.env`) | about 0.25 s |
+| `jev` | a [TypeSafe](https://typesafe.ai) key, in the settings or `TYPESAFE_API_KEY` (with `jev` picked, also `~/.config/jev/.env`) | about 0.25 s |
 | `custom` | any OpenAI-compatible chat completions endpoint: URL, model and key | depends |
 
 Custom examples:
