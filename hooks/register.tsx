@@ -1420,7 +1420,7 @@ Saved to ${out}.md and .json` }
           </Box>
           <Box flexShrink={0}>
             <Text color={ICE} bold wrap="truncate">
-              ✦ ❄ Chat went cold
+              ✦ Chat went cold
             </Text>
           </Box>
           <Text wrap="truncate">Next message costs full price. Compact first.</Text>
@@ -1457,7 +1457,7 @@ Saved to ${out}.md and .json` }
           </Box>
           <Box flexShrink={0}>
             <Text color={BOG} bold wrap="truncate">
-              ✦ ≋ Chat is getting swamped
+              ✦ Chat is getting swamped
             </Text>
           </Box>
           <Text wrap="truncate">{`${Math.round(swampTokens / 1000)}k tokens re-read every message.`}</Text>
