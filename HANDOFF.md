@@ -1,7 +1,7 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.35.12, pushed and installed. Direct pushes, no open PRs. Several chats push
+- `main` on HeyCubit/effortless, version 1.35.13, pushed and installed. Direct pushes, no open PRs. Several chats push
   to main: fetch and rebase before every push, and read the version after the pull (others bump it too).
 - Release: bump `version` in `.claude-plugin/plugin.json`, `<cli> plugin validate .`, `<cli> plugin test .`
   (0 fail, 139 tests; the 2.1.288 CLI refuses `plugin test` in the agent sandbox, plain `claude` = 2.1.285 runs it), push, `<cli> plugin marketplace update effortless`, `<cli> plugin update effortless@effortless`.
@@ -30,7 +30,7 @@
 - Desktop not seen: Compact complete card, progress sounds in a real task.
 
 ## Next
-0. After an app restart (1.35.12): narrow window, the band row clips instead of running under the buttons; an effort
+0. After an app restart (1.35.13): narrow window, the band row clips instead of running under the buttons; an effort
    change glows purple and fades to white in 1.4 s. Neither seen in the app yet.
 1. Isac opens an old chat: cold band should show. If not, `/effortless debug` and look for classic.SessionStart.
 2. Isac opens plain `claude` in a terminal and looks at the bands (2.1.285 now loads the mod).
