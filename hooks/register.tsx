@@ -1889,16 +1889,20 @@ export function dashboardLines(d: {
   }
 }
 
-/** How long the effort word glows after it changes, and the step of its fade. */
-const FLASH_MS = 1400
+/** How long the effort word glows after it changes: held at full colour, then faded out; and the step of the fade. */
+const FLASH_HOLD_MS = 1000
+const FLASH_MS = 3500
 const FLASH_TICK_MS = 100
-/** The effort word's colour `ms` after it changed: accent at once, easing out to the band's white. */
+/** The glow: a stronger violet than the accent, so a switch is seen at a glance. */
+const FLASH_COLOR = '#9b7bff'
+/** The effort word's colour `ms` after it changed: the glow, held, then easing out to the band's white. */
 export function flashColor(ms: number | null): string {
   if (ms === null || ms >= FLASH_MS) return DASH_TEXT
-  const t = Math.max(0, ms) / FLASH_MS
-  const k = 1 - (1 - t) * (1 - t)
+  if (ms <= FLASH_HOLD_MS) return FLASH_COLOR
+  const t = (ms - FLASH_HOLD_MS) / (FLASH_MS - FLASH_HOLD_MS)
+  const k = t * t
   const ch = (hex: string, i: number) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16)
-  return `#${[0, 1, 2].map(i => Math.round(ch(ACCENT, i) + (ch(DASH_TEXT, i) - ch(ACCENT, i)) * k).toString(16).padStart(2, '0')).join('')}`
+  return `#${[0, 1, 2].map(i => Math.round(ch(FLASH_COLOR, i) + (ch(DASH_TEXT, i) - ch(FLASH_COLOR, i)) * k).toString(16).padStart(2, '0')).join('')}`
 }
 // The word the dashboard last showed and when it last changed, so a new effort glows and fades. Not while the judge
 // decides: the word it lands on is compared with the one before.

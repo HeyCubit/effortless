@@ -1,7 +1,7 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.35.13, pushed and installed. Direct pushes, no open PRs. Several chats push
+- `main` on HeyCubit/effortless, version 1.35.14, pushed and installed. Direct pushes, no open PRs. Several chats push
   to main: fetch and rebase before every push, and read the version after the pull (others bump it too).
 - Release: bump `version` in `.claude-plugin/plugin.json`, `<cli> plugin validate .`, `<cli> plugin test .`
   (0 fail, 139 tests; the 2.1.288 CLI refuses `plugin test` in the agent sandbox, plain `claude` = 2.1.285 runs it), push, `<cli> plugin marketplace update effortless`, `<cli> plugin update effortless@effortless`.
@@ -31,7 +31,7 @@
 
 ## Next
 0. Narrow band confirmed by Isac (1.35.13). Still unseen: an effort
-   change glows purple and fades to white in 1.4 s.
+   change glows purple and fades to white (1.35.14: 1 s hold, 2.5 s fade, #9b7bff).
 1. Isac opens an old chat: cold band should show. If not, `/effortless debug` and look for classic.SessionStart.
 2. Isac opens plain `claude` in a terminal and looks at the bands (2.1.285 now loads the mod).
 
