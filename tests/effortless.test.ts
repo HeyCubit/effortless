@@ -1140,7 +1140,7 @@ describe('setup guide', () => {
     // Branded: the name in the footer's purple.
     expect(await drawn(band)).toContain('"color":"#a79cf7"')
     expect(await drawn(band)).toContain('✦ effortless')
-    expect(await drawn(band)).toContain('Jev (API Needed)')
+    expect(await drawn(band)).toContain('Jev (API)')
     // The right side: an interactive SVG (so its sparkles animate), a gradient, and sparkles that twinkle.
     const first = await drawn(band)
     expect(first).toContain('"type":"Svg"')
@@ -1176,8 +1176,8 @@ describe('setup guide', () => {
     const band = await $.ui.mount(DESK)
     await band.press({ key: 'setup-jev' })
     expect(set).toEqual([{ key: 'effortless.judge', value: 'jev' }])
-    expect(await drawn(band)).toContain('TypeSafe API key')
-    expect(await drawn(band)).toContain('Restart Claude Code after saving')
+    expect(await drawn(band)).toContain('TypeSafe key')
+    expect(await drawn(band)).toContain('then restart')
     expect(await drawn(band)).toContain('typesafe.ai')
     expect(await band.find({ key: 'setup-haiku' })).toBeUndefined()
     await band.press({ key: 'setup-open' })
