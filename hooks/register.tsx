@@ -1971,27 +1971,26 @@ Saved to ${out}.md and .json` }
     if (choice) {
       const setBar = (change: Partial<HandoffChoice>) => async () => {
         await update($, handoffPick, () => ({ ...choice, ...change }))
-        $.ui.invalidate('ui.render')
+        // The write alone redraws the bar; a full invalidate redraws the art too, which flickers.
       }
       const { Select } = $.ui.resolve(e)
       const fullReady = Boolean(config.handoffSkill)
       const what = handoffWhat(choice, config.handoffSkill)
       return (
-        <Box key="handoff-bar" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
+        // Two rows: the title and the controls, then the line on what happens, which gets the whole width.
+        <Box key="handoff-bar" position="relative" flexDirection="column" paddingX={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
             <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
           </Box>
+          <Box key="handoff-top" position="relative" flexDirection="row" alignItems="center">
           <Box flexShrink={0}>
             <Text color={ACCENT} bold wrap="truncate">
               ⇥ Handoff
             </Text>
           </Box>
-          <Text dimColor wrap="truncate">
-            {choice.kind === 'full' && !fullReady ? 'Full needs a skill: pick one in ⚙ under Handoff.' : `${what.by}. ${what.then}`}
-          </Text>
           <Box flexGrow={1} minWidth={60} />
-          <Box key="handoff-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
+          <Box key="handoff-actions" position="absolute" top={0} right={0} bottom={0} flexDirection="row" gap={1} alignItems="center">
             <Button key="handoff-quick" hotkey="q" variant={choice.kind === 'quick' ? 'primary' : 'secondary'} label="Quick"
               onPress={setBar({ kind: 'quick' })} />
             <Button key="handoff-full" hotkey="f" variant={choice.kind === 'full' ? 'primary' : 'secondary'} dimColor={!fullReady}
@@ -2006,6 +2005,10 @@ Saved to ${out}.md and .json` }
             <Button key="handoff-go" variant="primary" autoFocus label="Go" onPress={() => goHandoff($, choice)} />
             <Button key="handoff-close" plain role="dismiss" label="✕" onPress={() => closeHandoffBar($)} />
           </Box>
+          </Box>
+          <Text key="handoff-what" dimColor wrap="truncate">
+            {choice.kind === 'full' && !fullReady ? 'Full needs a skill: pick one in ⚙ under Handoff.' : `${what.by}. ${what.then}`}
+          </Text>
         </Box>
       )
     }
