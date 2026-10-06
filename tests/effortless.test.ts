@@ -1622,3 +1622,12 @@ describe('switching parts off', () => {
     await footer.unmount()
   })
 })
+
+describe('the command file', () => {
+  test('/effortless:effortless, as the app may name the command file, is answered by the mod', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    const answer = await $.command.run({ command: 'effortless:effortless', args: 'settings' } as never)
+    expect(String((answer as { text?: string }).text)).toContain('settings are open')
+  })
+})
