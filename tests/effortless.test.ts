@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText } from '../hooks/register'
+import { endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText } from '../hooks/register'
 
 const BAND = {
   component: 'AbovePrompt',
@@ -35,12 +35,12 @@ function judgeSays(on: On, text: string) {
 }
 
 /** What sits beneath the plugins in a session: the prompt goes through, the status line takes text. */
-function engine(on: On, env: Record<string, string> = {}, sessionModel = 'claude-opus-5-5') {
+function engine(on: On, env: Record<string, string> = {}, sessionModel = 'claude-opus-5-5', said: { role: string; text: string }[] = []) {
   mock.store(on)
   mock.env(on, { EFFORTLESS_MODEL_UI: '1', ...env })
   on('prompt.submit', (_$, e) => ({ text: e.text }))
   on('ui.status', () => ({ value: undefined }))
-  on('session.messages', () => ({ value: [] }))
+  on('session.messages', () => ({ value: said }) as never)
   on('session.model', () => ({ value: sessionModel }))
   on('command.list', () => ({ value: [{ name: 'model' }, { name: 'effort' }] as never }))
 }
@@ -1267,5 +1267,38 @@ describe('judge benchmark', () => {
     expect(res.text).toContain('| haiku | 100% |')
     expect(res.text).toContain('| always medium |')
     expect(Object.keys(written).some(p => p.endsWith('.md'))).toBe(true)
+  })
+})
+
+describe('short answers to a question', () => {
+  test('a short reply after a question goes to the judge; between two steps it keeps the effort', () => {
+    const asked = 'user: tidy up\nassistant: Done. Should I archive it?'
+    const told = 'user: add export\nassistant: Added the button. Next I wire it up.'
+    expect(endsOnQuestion(asked)).toBe(true)
+    expect(endsOnQuestion(told)).toBe(false)
+    expect(endsOnQuestion('')).toBe(false)
+    expect(keepsEffort('yes', asked)).toBe(false)
+    expect(keepsEffort('go', told)).toBe(true)
+    expect(keepsEffort('build the whole thing', told)).toBe(false)
+  })
+
+  test('"yes" to "should I archive it?" is judged, not kept', async ($, on) => {
+    const said: { role: string; text: string }[] = []
+    engine(on, {}, 'claude-sonnet-5-5', said)
+    mock.clock(on)
+    const asked = judgeSays(on, '{"model":"sonnet","effort":"high","why":"x"}')
+    await $.prompt.submit({ text: 'refactor the sync engine end to end', wait: false, origin: { kind: 'composer' } })
+    said.push({ role: 'assistant', text: 'Done. Should I archive the old branch?' })
+    await $.prompt.submit({ text: 'yes', wait: false, origin: { kind: 'composer' } })
+    expect(asked.length).toBe(2)
+  })
+
+  test('Jev unsure: Haiku makes the call', async ($, on) => {
+    engine(on, { TYPESAFE_API_KEY: 'k' }, 'claude-sonnet-5-5')
+    mock.clock(on)
+    const asked = judgeSays(on, '{"model":"sonnet","effort":"low","why":"x"}')
+    on('http.fetch', () => ({ value: { status: 200, ok: true, headers: {}, text: jevReply('high', 0.3, 'sonnet') } }))
+    await $.prompt.submit({ text: 'show me the last five commits please', wait: false, origin: { kind: 'composer' } })
+    expect(asked.length).toBe(1)
   })
 })

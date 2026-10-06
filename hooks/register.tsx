@@ -157,6 +157,21 @@ export function isFollowUp(text: string): boolean {
   return t.length > 0 && t.length <= 12 && t.split(/\s+/).length <= 2
 }
 
+/**
+ * Whether the assistant's last reply ended on a question ("Should I archive it?", "A, B or C?"). A short message
+ * after one answers it, and the answer can start a small or a big job, so it goes to the judge instead of keeping
+ * the effort.
+ */
+export function endsOnQuestion(context: string): boolean {
+  const reply = context.split('\nassistant: ').pop() ?? ''
+  return context.includes('assistant: ') && reply.slice(-400).includes('?')
+}
+
+/** A short follow-up that keeps the current effort: "go" between two steps, not an answer to a question. */
+export function keepsEffort(message: string, context: string): boolean {
+  return isFollowUp(message) && !endsOnQuestion(context)
+}
+
 /** The TypeSafe key in a ~/.config/jev/.env file's text, the same file the jev-* skills read. */
 export function parseJevKey(text: string): string | undefined {
   const value = text.match(/^\s*TYPESAFE_API_KEY\s*=\s*(.*?)\s*$/m)?.[1].replace(/^['"]|['"]$/g, '')
@@ -167,6 +182,7 @@ export function parseJevKey(text: string): string | undefined {
  * Jev's answer as a verdict. Below even odds on the effort it is unsure, and an unsure call keeps the
  * current effort: that is what a "go" between two steps of work should do.
  */
+const UNSURE = 'unsure, keeping'
 export function parseJevAnswer(text: string, current: Pick | null): { model: ModelKey; effort: Effort; why: string } | undefined {
   let json: Record<string, unknown>
   try {
@@ -181,7 +197,7 @@ export function parseJevAnswer(text: string, current: Pick | null): { model: Mod
   if (!effort || !EFFORTS.includes(effort)) return undefined
   const model = MODELS.find(m => m.key === answers?.model?.choice)?.key ?? current?.model ?? 'sonnet'
   const sure = answers?.effort?.confidence ?? answers?.effort?.probabilities?.[effort]
-  if (current && typeof sure === 'number' && sure < 0.5) return { model, effort: current.effort, why: 'unsure, keeping' }
+  if (current && typeof sure === 'number' && sure < 0.5) return { model, effort: current.effort, why: UNSURE }
   return { model, effort, why: typeof sure === 'number' ? `${Math.round(sure * 100)}% sure` : '' }
 }
 
@@ -326,9 +342,15 @@ async function judge($: EngineInterface, prompt: string, current: Pick | null): 
   const key = config.judge === 'auto' || config.judge === 'jev' ? await jevKey($).catch(() => undefined) : undefined
   if (key) {
     const jev = await askJev($, key, prompt, current, context)
-    if (jev) return jev
+    if (jev) return jev.verdict?.why === UNSURE ? haikuAfter($, jev, prompt, current, context) : jev
   }
   return askHaiku($, prompt, current, context)
+}
+
+/** Jev was unsure: Haiku makes the call, and both judges' tokens count. */
+async function haikuAfter($: EngineInterface, jev: Judged, prompt: string, current: Pick | null, context: string): Promise<Judged> {
+  const haiku = await askHaiku($, prompt, current, context)
+  return haiku.verdict ? { verdict: haiku.verdict, tokens: haiku.tokens + jev.tokens } : jev
 }
 
 /** Jev on TypeSafe: an answer, or nothing when it fails, is unsure of its own format or takes too long. */
@@ -396,7 +418,7 @@ async function askHaiku($: EngineInterface, prompt: string, current: Pick | null
 // The judge benchmark (/effortless bench): labelled prompts in bench/judge-cases.json, each run through the same
 // pipeline a real prompt takes (a short follow-up keeps the current effort, anything else goes to a judge).
 export type BenchCase = { id: string; kind: string; current: Pick; context?: string; message: string; ok: Effort[] }
-export type BenchAnswer = { id: string; judge: string; effort?: Effort; ms: number; tokens: number }
+export type BenchAnswer = { id: string; judge: string; effort?: Effort; by?: string; why?: string; ms: number; tokens: number }
 
 /** Where an answer lands against the labels: right, too low (risks quality), too high (wastes), or no answer. */
 export function benchGrade(c: BenchCase, effort: Effort | undefined): 'hit' | 'under' | 'over' | 'none' {
@@ -435,7 +457,7 @@ export function benchReport(cases: BenchCase[], answers: BenchAnswer[]): string 
   }
   const misses = answers
     .filter(a => !a.judge.startsWith('always') && benchGrade(byId.get(a.id)!, a.effort) !== 'hit')
-    .map(a => `- ${a.judge} ${a.id}: said ${a.effort ?? 'nothing'}, wanted ${byId.get(a.id)!.ok.join('/')}: "${byId.get(a.id)!.message.slice(0, 60)}"`)
+    .map(a => `- ${a.judge}${a.by && a.by !== a.judge ? ` (via ${a.by})` : ''} ${a.id}: said ${a.effort ?? 'nothing'}${a.why ? ` (${a.why})` : ''}, wanted ${byId.get(a.id)!.ok.join('/')}: "${byId.get(a.id)!.message.slice(0, 60)}"`)
   return [...lines, '', 'Misses:', ...(misses.length ? misses : ['- none'])].join('\n')
 }
 
@@ -445,7 +467,14 @@ async function runBench($: EngineInterface, cases: BenchCase[]): Promise<BenchAn
   const judges: [string, (c: BenchCase) => Promise<Judged | undefined>][] = [
     ['haiku', c => askHaiku($, c.message, c.current, c.context ?? '')],
   ]
-  if (key) judges.push(['jev', c => askJev($, key, c.message, c.current, c.context ?? '')])
+  if (key)
+    judges.push([
+      'jev',
+      async c => {
+        const jev = await askJev($, key, c.message, c.current, c.context ?? '')
+        return jev?.verdict?.why === UNSURE ? haikuAfter($, jev, c.message, c.current, c.context ?? '') : jev
+      },
+    ])
   if (config.customUrl) judges.push(['custom', c => askCustom($, c.message, c.current, c.context ?? '')])
   const answers: BenchAnswer[] = []
   // Baselines: what a fixed effort would score on the same labels.
@@ -457,13 +486,13 @@ async function runBench($: EngineInterface, cases: BenchCase[]): Promise<BenchAn
     while (next < jobs.length) {
       const { name, ask, c } = jobs[next++]
       // The mod never asks a judge about a short follow-up: it keeps the current effort.
-      if (isFollowUp(c.message)) {
+      if (keepsEffort(c.message, c.context ?? '')) {
         answers.push({ id: c.id, judge: name, effort: c.current.effort, ms: 0, tokens: 0 })
         continue
       }
       const started = await $.clock.now()
       const got = await ask(c).catch(() => undefined)
-      answers.push({ id: c.id, judge: name, effort: got?.verdict?.effort, ms: (await $.clock.now()) - started, tokens: got?.tokens ?? 0 })
+      answers.push({ id: c.id, judge: name, effort: got?.verdict?.effort, by: got?.verdict?.by, why: got?.verdict?.why, ms: (await $.clock.now()) - started, tokens: got?.tokens ?? 0 })
     }
   }
   await Promise.all([worker(), worker(), worker(), worker()])
@@ -931,7 +960,7 @@ Saved to ${out}.md and .json` }
     if (!cacheSafe(modelId) && keyOf(modelId) !== 'haiku') return next(e)
     // "go", "ok", "yes" between two steps of work keep the effort Auto already chose; no judge is asked.
     const before = await read($, pick)
-    if (wantsEffort && before && before.by !== 'manual' && isFollowUp(e.text)) {
+    if (wantsEffort && before && before.by !== 'manual' && isFollowUp(e.text) && keepsEffort(e.text, await recentContext($).catch(() => ''))) {
       await countPrompt($, before.effort, undefined, 0, 0)
       void proof($, `follow-up "${e.text.trim()}": keeping ${before.effort}`)
       return next(e)
