@@ -75,6 +75,8 @@ const paused = atom({ plugin: 'effortless', key: 'paused' } as const, false)
 const cacheLeft = atom({ plugin: 'effortless', key: 'cacheLeft' } as const, null)
 const isCompacting = atom({ plugin: 'effortless', key: 'isCompacting' } as const, false)
 // The person closed the cold band; it comes back the next time the cache goes cold.
+// The test pane of /effortless try pane.
+const TRY_PANE = 'effortless-try'
 // Where a handoff is: null idle, writing (the handoff turn runs), clearing (clear and resend).
 const handoffStage = atom({ plugin: 'effortless', key: 'handoffStage' } as const, null)
 // The handoff bar above the prompt, open with the choice shown in it, or null.
@@ -1623,10 +1625,17 @@ export const register: Register = (on, options) => {
     if (arg === 'try') {
       $.ui.status('effortless · High · cache 42m')
       $.ui.log('effortless · Chat went cold. The next message costs full price: /compact first.')
-      $.ui.toast('effortless: chat is getting swamped (52% of context). /compact or /effortless handoff', { timeoutMs: 8000 })
+      $.ui.toast('Chat is getting swamped (52% of context). /compact or /effortless handoff', { timeoutMs: 8000 })
       return { text: 'Shown: a status line under the prompt, a dim line in the chat, and a notice in the top right corner.' }
     }
+    // A pane: a framed region the app places, drawn with the same elements as the bands. A test of whether split
+    // view's right pane draws one.
+    if (arg === 'try pane') {
+      const opened = await $.ui.open({ id: TRY_PANE, title: 'effortless' })
+      return { text: opened.isPlaced ? 'Pane opened.' : `The app did not place the pane: ${'reason' in opened ? opened.reason : 'no reason given'}` }
+    }
     if (arg === 'try clear') {
+      await $.ui.close({ id: TRY_PANE }).catch(() => undefined)
       $.ui.status(undefined)
       return { text: 'Status line cleared.' }
     }
@@ -1932,6 +1941,20 @@ Saved to ${out}.md and .json` }
         ) : (
           <Text dimColor hover={{ scope: 'cache', backgroundColor: HOVER_BOX }}>{cacheLabel(v.cacheNow)}</Text>
         )}
+      </Box>
+    )
+  })
+
+  // The test pane of /effortless try pane: the footer's facts in the brand's colours.
+  on('ui.render', { component: 'Pane', requestId: TRY_PANE }, async ($, e) => {
+    const { Box, Text } = $.ui.resolve(e)
+    const v = await snap($)
+    const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
+    return (
+      <Box flexDirection="column" paddingX={1} backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
+        <Text color={ACCENT} bold>✦ effortless</Text>
+        <Text>{`Effort ${effortNow ? EFFORT_LABELS[effortNow] : 'Auto'} · cache ${v.cacheNow === null ? 'not started' : cacheLabel(v.cacheNow)}`}</Text>
+        <Text dimColor>A pane, to see if this side of split view draws one.</Text>
       </Box>
     )
   })
