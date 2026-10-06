@@ -10,7 +10,7 @@ one row per step, so nobody has to open ⚙ to get effortless set the way they l
 | 1/4 custom | Your judge: a chat completions URL and a model. | URL field, model field, Next |
 | 2/4 lean | On close calls, lean cheaper or smarter? | five-stop slider, Next |
 | 3/4 handoff | ⇥ at the bottom moves the chat to a fresh one. Full handoff by: | skill picker, Next |
-| 4/4 footer | Show at the bottom (both recommended): | checkbox + name for Cache timer and ⇥ Handoff (on: white box, black tick; off: outlined box), Next |
+| 4/4 footer | Show these (all recommended): | checkbox + name for Cache timer, ⇥ Handoff and Progress bar (on: white box, black tick; off: outlined box), Next |
 | done | ⏻ at the bottom turns Auto on or off, ⚙ changes all this. Auto pauses on Fable. | Done |
 
 - Back on every step but the first; ✕ closes the guide.
