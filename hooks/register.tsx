@@ -1634,7 +1634,14 @@ export const register: Register = (on, options) => {
       const opened = await $.ui.open({ id: TRY_PANE, title: 'effortless' })
       return { text: opened.isPlaced ? 'Pane opened.' : `The app did not place the pane: ${'reason' in opened ? opened.reason : 'no reason given'}` }
     }
+    // Cards in the chat: this command's own output row drawn as a branded card, and from now on the line under each
+    // reply ("Baked 3s") carries the effort and cache. A test of whether the chat's rows draw where the bands do not.
+    if (arg === 'try card') {
+      await $.store.set('tryCard', true)
+      return { text: 'card' }
+    }
     if (arg === 'try clear') {
+      await $.store.set('tryCard', false)
       await $.ui.close({ id: TRY_PANE }).catch(() => undefined)
       $.ui.status(undefined)
       return { text: 'Status line cleared.' }
@@ -1941,6 +1948,49 @@ Saved to ${out}.md and .json` }
         ) : (
           <Text dimColor hover={{ scope: 'cache', backgroundColor: HOVER_BOX }}>{cacheLabel(v.cacheNow)}</Text>
         )}
+      </Box>
+    )
+  })
+
+  // /effortless try card: its output row drawn as a branded card, with a button.
+  on('ui.render', { component: 'CommandOutput' }, async ($, e, next) => {
+    if (!/effortless$/.test(e.props.command) || e.props.args.trim() !== 'try card') return next(e)
+    const { Box, Text, Button, Svg } = $.ui.resolve(e)
+    const v = await snap($)
+    const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
+    return (
+      <Box key="try-card" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
+        backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
+        <Box key="try-card-art" position="absolute" top={-1} right={0} bottom={-1}>
+          <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+        </Box>
+        <Box key="try-card-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
+          <Text color={ACCENT} bold wrap="truncate">✦ effortless</Text>
+          <Text dimColor wrap="truncate">
+            {`Effort ${effortNow ? EFFORT_LABELS[effortNow] : 'Auto'} · cache ${v.cacheNow === null ? 'not started' : cacheLabel(v.cacheNow)}. A card in the chat.`}
+          </Text>
+        </Box>
+        <Box flexGrow={1} minWidth={2} />
+        <Box key="try-card-actions" position="relative" flexShrink={0} flexDirection="row" gap={1} alignItems="center">
+          <Button key="try-card-settings" label="Settings" onPress={() => openPluginSettings($)} />
+          <Button key="try-card-handoff" variant="primary" label="Handoff" onPress={() => openHandoffBar($)} />
+        </Box>
+      </Box>
+    )
+  })
+
+  // While /effortless try card is on: the line under each reply carries the effort and the cache, in the brand colour.
+  on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
+    if ((await $.store.get('tryCard').catch(() => false)) !== true) return next(e)
+    const { Box, Text } = $.ui.resolve(e)
+    const v = await snap($)
+    const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
+    const took = Math.max(1, Math.round(e.props.durationMs / 1000))
+    return (
+      <Box key="try-turn" flexDirection="row" gap={1}>
+        <Text dimColor>{`${e.props.word} ${took < 60 ? `${took}s` : `${Math.floor(took / 60)}m ${took % 60}s`}`}</Text>
+        <Text color={ACCENT}>{`✦ ${effortNow ? EFFORT_LABELS[effortNow] : 'Auto'}`}</Text>
+        <Text dimColor>{`· cache ${v.cacheNow === null ? 'not started' : cacheLabel(v.cacheNow)}`}</Text>
       </Box>
     )
   })
