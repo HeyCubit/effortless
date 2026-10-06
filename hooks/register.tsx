@@ -991,7 +991,7 @@ export const register: Register = (on, options) => {
               <Text>Who should pick the effort for each prompt?</Text>
             </Box>
             <Box flexDirection="row" gap={1} alignItems="center">
-              <Button key="setup-jev" variant="primary" label="Jev (recommended)" onPress={() => pickJudge($, 'jev')} />
+              <Button key="setup-jev" variant="primary" label="Jev (API Needed)" onPress={() => pickJudge($, 'jev')} />
               <Button key="setup-haiku" label="Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />
               <Button key="setup-custom" label="Your own AI" onPress={() => pickJudge($, 'custom')} />
               <Button key="setup-later" plain dimColor label="Later" onPress={() => finishSetup($)} />
