@@ -221,6 +221,12 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .win .demo-foot .lvl{margin-left:8px}
 .win .demo-foot .m{margin-left:10px}
 .win .demo-foot .ring{width:19px;height:19px;margin-left:10px}
+/* The lens: a copy of the footer, enlarged and centred on whatever the scene changes. */
+.lens{--l:250px;position:absolute;left:0;top:2%;z-index:2;width:var(--l);height:var(--l);border-radius:50%;overflow:hidden;background:#141318;box-shadow:0 0 0 2px color-mix(in srgb,var(--sc) 75%,transparent),0 0 60px -10px color-mix(in srgb,var(--sc) 45%,transparent),0 40px 80px -30px #000;opacity:0;transform:scale(.8);transition:opacity .4s var(--ease),transform .6s var(--ease),box-shadow .6s;pointer-events:none}
+.lens.on{opacity:1;transform:none}
+.lens .zoom{position:absolute;left:0;top:0;transform-origin:0 0;transition:transform .5s var(--ease)}
+.lens .zoom .demo-foot{margin:0}
+.lens:after{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(55% 45% at 30% 18%,#ffffff17,transparent 65%),radial-gradient(closest-side,transparent 78%,#0008);pointer-events:none}
 .demo-foot .warn{color:var(--yellow)}
 .demo-foot .bad{color:var(--red);font-weight:600}
 .press{animation:press .55s var(--ease)}
@@ -265,6 +271,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   .win .demo-foot{font-size:13.5px;gap:8px;margin:10px 2px 0}
   .win .demo-foot .fl{gap:12px;font-size:15px}
   .win .demo-foot .k{width:22px;height:20px;font-size:11px}
+  .lens{--l:150px;left:auto;right:0;top:0}
 }
 @media (max-width:560px){
   .demo-foot .opt{display:none}
@@ -478,6 +485,20 @@ document.addEventListener('click',function(e){
   function base(){chat.innerHTML='';slot.innerHTML='';input('');ho.classList.remove('hl');lvl.classList.remove('hl');foot('Medium','42m');}
   function again(f,ms){if(!still)later(ms||2600,f);}
 
+  // The lens follows one element of the footer; any change there is redrawn, enlarged.
+  var bar=story.querySelector('.win .demo-foot'),lens=document.createElement('div'),zoom=document.createElement('div'),aimed=null,K=2;
+  lens.className='lens';zoom.className='zoom';lens.appendChild(zoom);story.querySelector('.win').appendChild(lens);
+  function draw(){
+    if(!aimed){lens.classList.remove('on');return;}
+    var c=bar.cloneNode(true);c.querySelectorAll('[id]').forEach(function(n){n.removeAttribute('id')});c.style.width=bar.offsetWidth+'px';
+    zoom.innerHTML='';zoom.appendChild(c);
+    var b=bar.getBoundingClientRect(),r=aimed.getBoundingClientRect(),half=lens.offsetWidth/2;
+    zoom.style.transform='translate('+(half-(r.left-b.left+r.width/2)*K)+'px,'+(half-(r.top-b.top+r.height/2)*K)+'px) scale('+K+')';
+    lens.classList.add('on');}
+  function aim(el){aimed=el;draw();}
+  new MutationObserver(draw).observe(bar,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class']});
+  addEventListener('resize',draw);
+
   var COLD='<div class="band ice"><span class="t">✦ Chat went cold</span><span class="d">Next message costs full price. Compact first.</span><span class="acts"><span class="btn">Not now</span><span class="btn primary">Compact</span></span></div>';
   var SWAMP='<div class="band bog"><span class="t">✦ Chat is getting swamped</span><span class="ring"><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%3E%3Ccircle%20cx%3D%228%22%20cy%3D%228%22%20r%3D%226%22%20fill%3D%22none%22%20stroke%3D%22%23a7c98f%22%20stroke-opacity%3D%22.25%22%20stroke-width%3D%222.2%22%2F%3E%3Ccircle%20cx%3D%228%22%20cy%3D%228%22%20r%3D%226%22%20fill%3D%22none%22%20stroke%3D%22%23a7c98f%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-dasharray%3D%2227.14%2037.70%22%20transform%3D%22rotate%28-90%208%208%29%22%2F%3E%3C%2Fsvg%3E" alt="">72%</span><span class="d">180k tokens re-read every message.</span><span class="acts"><span class="btn primary">Compact <span class="k">C</span></span><span class="btn">Handoff <span class="k">H</span></span></span></div>';
   var HOT='<div class="band ember"><span class="t">✦ Running hot</span><span class="d">84% of your 5h limit used · resets 16:20</span><span class="acts"><span class="btn primary">Save mode</span></span></div>';
@@ -486,25 +507,25 @@ document.addEventListener('click',function(e){
 
   // Every scene sets up its band at once, so someone scrolling past still sees it, and only then plays it out.
   var scenes=[
-    function effort(){base();
+    function effort(){base();aim(lvl);
       later(900,function(){ask('rename this variable to userId','Low','Renamed in 4 files.',function(){
         ask('plan the billing migration, all services','XHigh','Here is a plan in five stages, starting with the read path…',function(){
           ask('add a test for the date parser','Medium','Added 6 cases, including leap days.',function(){again(effort);});});});});},
-    function cold(){base();msg('me','the login test fails about one run in five');foot('Medium','Cold','bad');var b=band(COLD);
+    function cold(){base();aim(cache);msg('me','the login test fails about one run in five');foot('Medium','Cold','bad');var b=band(COLD);
       later(3000,function(){press(b.querySelector('.primary'),function(){unband();wipe();
         later(450,function(){msg('sys','Chat compacted');foot('Medium','59m');again(cold,2200);});});});},
-    function swamp(){base();msg('me','now the retry logic');var b=band(SWAMP);
+    function swamp(){base();aim(null);msg('me','now the retry logic');var b=band(SWAMP);
       later(3000,function(){press(b.querySelector('.primary'),function(){unband();wipe();
         later(450,function(){msg('sys','Chat compacted');again(swamp,2200);});});});},
-    function hot(){base();msg('me','now split the auth module into two');var b=band(HOT);
+    function hot(){base();aim(lvl);msg('me','now split the auth module into two');var b=band(HOT);
       later(3000,function(){press(b.querySelector('.primary'),function(){unband();msg('sys','Save mode on until 16:20');
         later(700,function(){ask('plan the billing migration, all services','Medium','Here is a plan in five stages…',function(){again(hot,2400);});});});});},
-    function handoff(){base();msg('me','nice, now the retry logic');ho.classList.add('hl');var b=band(HANDOFF);
+    function handoff(){base();aim(ho);msg('me','nice, now the retry logic');ho.classList.add('hl');var b=band(HANDOFF);
       later(3000,function(){ho.classList.remove('hl');press(b.querySelector('.primary'),function(){b.querySelector('.what').textContent='Writing the handoff note…';
         later(1600,function(){unband();wipe();
           later(450,function(){foot('Medium','59m');msg('sys','Handoff note loaded');
             later(500,function(){msg('ai','Picking up from the note: next, log each attempt.');again(handoff,3200);});});});});});},
-    function setup(){base();foot('Off','60m');msg('sys','effortless installed');var b=band(SETUP);
+    function setup(){base();aim(lvl);foot('Off','60m');msg('sys','effortless installed');var b=band(SETUP);
       later(3000,function(){press(b.querySelector('[data-pick]'),function(){
         b.querySelector('.d').textContent='Haiku judges your prompts. No key needed.';b.querySelector('.acts').remove();foot('Medium','60m');
         later(2400,function(){unband();later(400,function(){ask('add a test for the date parser','Medium','Added 6 cases, including leap days.',function(){again(setup,2400);});});});});});}
