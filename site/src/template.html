@@ -104,7 +104,7 @@ h1 .spark{width:.62em;height:.62em;flex-shrink:0;}
 .chip .handoff:before{top:-12px;bottom:-12px;width:auto}
 .chip .t{font-weight:700}
 .chip .band{filter:grayscale(1) brightness(.8);transition:transform .45s var(--ease),border-color .3s,filter .45s,box-shadow .45s var(--ease)}
-.stack .chip:hover .band,.stack .chip:focus-visible .band{filter:none;transform:translateX(-10px);border-color:var(--c);box-shadow:0 18px 40px -26px #000,0 0 0 1px var(--c)}
+.stack .chip:hover .band,.stack .chip:focus-visible .band,.stack .chip.auto .band{filter:none;transform:translateX(-10px);border-color:var(--c);box-shadow:0 18px 40px -26px #000,0 0 0 1px var(--c)}
 .chip:focus-visible{outline:none}
 .chip .btn{transition:background .2s,color .2s}
 .chip .btn:not(.primary):hover{background:var(--hover)}
@@ -179,10 +179,10 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .pin{--sc:var(--accent);position:sticky;isolation:isolate;top:0;height:100vh;display:flex;flex-direction:column;gap:20px;width:min(1240px,100%);margin:0 auto;padding:96px 32px 22px}
 .pin:before{content:"";position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:-1;pointer-events:none;background:radial-gradient(45% 40% at 50% 86%,color-mix(in srgb,var(--sc) 12%,transparent),transparent 72%),radial-gradient(#2a2733 1.1px,transparent 1.5px) 0 0/22px 22px;-webkit-mask-image:radial-gradient(60% 75% at 50% 60%,#000 35%,transparent);mask-image:radial-gradient(60% 75% at 50% 60%,#000 35%,transparent);transition:background .6s}
 .head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px}
-.caps{position:relative;flex:1;min-height:122px}
+.caps{position:relative;flex:1;min-height:56px}
 .say{position:absolute;left:0;right:0;bottom:0;opacity:0;transform:translateX(-32px);transition:opacity .45s var(--ease),transform .8s var(--ease);pointer-events:none}
 .say.on{opacity:1;transform:none;pointer-events:auto}
-.say h3{margin:0 0 10px;font:500 clamp(28px,3.4vw,44px)/1.1 var(--display);letter-spacing:-.02em;color:#f4f2ff;text-wrap:balance}
+.say h3{margin:0;font:500 clamp(28px,3.4vw,44px)/1.1 var(--display);letter-spacing:-.02em;color:#f4f2ff;text-wrap:balance}
 .say p{margin:0;color:#c3bfd2;font-size:17px;line-height:1.55;max-width:34em}
 .say kbd{font:inherit;padding:1px 6px;border-radius:5px;background:#2a2930;color:var(--text)}
 .go{display:flex;gap:2px;margin-right:-10px;flex-shrink:0}
@@ -247,7 +247,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 @media (max-width:960px){
   .pin{gap:18px;padding:64px 16px 20px}
   .head{flex-direction:column;align-items:stretch;gap:6px}
-  .caps{min-height:150px}
+  .caps{min-height:66px}
   .go{order:-1;margin:0 0 0 -10px}
   .say h3{font-size:26px;margin-bottom:8px}
   .say p{font-size:15px}
@@ -276,13 +276,22 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   .copy span{display:none}
 }
 
-.site-foot{margin-top:56px;border-top:1px solid var(--line);padding:28px 0 48px}
-.site-foot .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;color:var(--dim);font-size:14px}
-.site-foot .name{display:inline-flex;align-items:center;gap:8px;color:var(--text);font:500 17px var(--display)}
-.site-foot .name svg{width:16px;height:16px}
-.site-foot a{display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:var(--text);padding:8px 14px;border-radius:10px;background:var(--surface);border:1px solid var(--line);font-weight:500}
-.site-foot a:hover{background:var(--hover)}
-.site-foot a svg{width:16px;height:16px}
+/* ---------- Footer: the name, huge, sinking into a purple haze at the bottom of the page ---------- */
+.site-foot{position:relative;isolation:isolate;overflow:hidden;margin-top:140px;padding-top:28px}
+.site-foot:before{content:"";position:absolute;left:50%;bottom:-30%;width:120%;height:110%;transform:translateX(-50%);z-index:-1;pointer-events:none;background:radial-gradient(50% 55% at 50% 100%,#6d5fd666,#3a2f7a33 45%,transparent 75%)}
+.foot-row{max-width:1180px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.foot-row .name{display:inline-flex;align-items:center;gap:8px;color:var(--text);font:500 17px var(--display)}
+.foot-row .name svg{width:16px;height:16px}
+.foot-row .name small{margin-left:6px;color:var(--dim);font:400 14px var(--sans)}
+.foot-row nav{display:flex;align-items:center;gap:24px}
+.foot-row nav a{display:inline-flex;align-items:center;gap:7px;color:var(--muted);text-decoration:none;font-size:14.5px;transition:color .2s}
+.foot-row nav a:hover{color:var(--text)}
+.foot-row nav svg{width:15px;height:15px}
+.foot-word{position:relative;margin:30px 0 -.2em;text-align:center;font:600 clamp(96px,21vw,340px)/.9 var(--display);letter-spacing:-.055em;white-space:nowrap;user-select:none;pointer-events:none}
+.foot-word span{display:block}
+.foot-word .crisp{background:linear-gradient(180deg,#d9d3ff 0%,#a79cf7 38%,#5f53b8 70%,transparent 96%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.foot-word .soft{position:absolute;inset:0;color:#8e7ff5;opacity:.35;filter:blur(26px) url(#grainy)}
+@media (max-width:560px){.foot-row nav{gap:16px}.foot-row .name small{display:none}}
 
 /* ---------- Narrow screens: the deck stands below the words ---------- */
 @media (max-width:1080px){
@@ -380,12 +389,12 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
     <div class="pin">
       <div class="head">
         <div class="caps">
-          <div class="say" data-i="0"><h3>Every prompt gets the effort it needs.</h3><p>A small judge reads each prompt first. A rename gets Low, a migration plan gets XHigh.</p></div>
-          <div class="say" data-i="1"><h3>It tells you when the cache goes cold.</h3><p>The footer counts down. At zero, one click compacts the chat.</p></div>
-          <div class="say" data-i="2"><h3>And when the chat gets heavy.</h3><p>Past 150k tokens, Compact or Handoff is one key away.</p></div>
-          <div class="say" data-i="3"><h3>It eases off before you hit the limit.</h3><p>Save mode keeps effort at Medium until the limit resets.</p></div>
-          <div class="say" data-i="4"><h3>A fresh chat, nothing lost.</h3><p>⇥ writes a handoff note in seconds and carries on from it.</p></div>
-          <div class="say" data-i="5"><h3>Set up in one click.</h3><p>Pick who judges your prompts. Haiku needs no key.</p></div>
+          <div class="say" data-i="0"><h3>Every prompt gets the effort it needs.</h3></div>
+          <div class="say" data-i="1"><h3>It tells you when the cache goes cold.</h3></div>
+          <div class="say" data-i="2"><h3>And when the chat gets heavy.</h3></div>
+          <div class="say" data-i="3"><h3>It eases off before you hit the limit.</h3></div>
+          <div class="say" data-i="4"><h3>A fresh chat, nothing lost.</h3></div>
+          <div class="say" data-i="5"><h3>Set up in one click.</h3></div>
         </div>
         <div class="go"><button type="button" data-go="0" aria-label="Effort">1</button><button type="button" data-go="1" aria-label="Cold cache">2</button><button type="button" data-go="2" aria-label="Swamped">3</button><button type="button" data-go="3" aria-label="Running hot">4</button><button type="button" data-go="4" aria-label="Handoff">5</button><button type="button" data-go="5" aria-label="Setup">6</button></div>
       </div>
@@ -411,10 +420,11 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 </main>
 
 <footer class="site-foot">
-  <div class="wrap">
-    <span class="name">__SPARK__effortless</span>
-    <a href="https://github.com/HeyCubit/effortless">__GITHUB__GitHub</a>
+  <div class="foot-row">
+    <span class="name">__SPARK__effortless<small>A Claude Code mod</small></span>
+    <nav><a href="#how">How it works</a><a href="#install">Install</a><a href="https://github.com/HeyCubit/effortless">__GITHUB__GitHub</a></nav>
   </div>
+  <div class="foot-word" aria-hidden="true"><span class="soft">effortless</span><span class="crisp">effortless</span></div>
 </footer>
 
 <script>
@@ -455,7 +465,7 @@ document.addEventListener('click',function(e){
   var still=matchMedia('(prefers-reduced-motion: reduce)').matches,timers=[],cur=-1;
   function later(ms,f){timers.push(setTimeout(f,still?0:ms));}
   function stop(){timers.forEach(clearTimeout);timers=[];}
-  function msg(kind,html){var m=document.createElement('div');m.className='msg '+kind;m.innerHTML=html;chat.appendChild(m);while(chat.children.length>3)chat.removeChild(chat.firstChild);return m;}
+  function msg(kind,html){var m=document.createElement('div');m.className='msg '+kind;m.innerHTML=html;chat.appendChild(m);while(chat.children.length>2)chat.removeChild(chat.firstChild);return m;}
   function wipe(){Array.prototype.forEach.call(chat.children,function(m){m.classList.add('gone')});later(380,function(){chat.innerHTML=''});}
   function band(html){slot.innerHTML=html;return slot.firstChild;}
   function unband(){var b=slot.firstChild;if(!b)return;b.classList.add('gone');later(330,function(){slot.innerHTML=''});}
@@ -465,9 +475,7 @@ document.addEventListener('click',function(e){
   function press(el,done){if(!el)return done&&done();el.classList.remove('press');void el.offsetWidth;el.classList.add('press');later(420,done||function(){});}
   function ask(s,level,reply,done){type(s,function(){input('');msg('me',s);var prev=lvl.textContent;lvl.textContent='Deciding…';
     later(650,function(){lvl.textContent=prev===level?level:prev+' → '+level;lvl.classList.add('hl');msg('ai',reply);later(1300,function(){lvl.textContent=eff.textContent=level;lvl.classList.remove('hl');done&&done();});});});}
-  function base(){chat.innerHTML='';slot.innerHTML='';input('');ho.classList.remove('hl');lvl.classList.remove('hl');foot('Medium','42m');
-    msg('me','the login test fails about one run in five');
-    msg('ai','Fixed. The cookie was read before the mock server set it.');}
+  function base(){chat.innerHTML='';slot.innerHTML='';input('');ho.classList.remove('hl');lvl.classList.remove('hl');foot('Medium','42m');}
   function again(f,ms){if(!still)later(ms||2600,f);}
 
   var COLD='<div class="band ice"><span class="t">✦ Chat went cold</span><span class="d">Next message costs full price. Compact first.</span><span class="acts"><span class="btn">Not now</span><span class="btn primary">Compact</span></span></div>';
@@ -482,13 +490,13 @@ document.addEventListener('click',function(e){
       later(900,function(){ask('rename this variable to userId','Low','Renamed in 4 files.',function(){
         ask('plan the billing migration, all services','XHigh','Here is a plan in five stages, starting with the read path…',function(){
           ask('add a test for the date parser','Medium','Added 6 cases, including leap days.',function(){again(effort);});});});});},
-    function cold(){base();foot('Medium','Cold','bad');var b=band(COLD);
+    function cold(){base();msg('me','the login test fails about one run in five');foot('Medium','Cold','bad');var b=band(COLD);
       later(3000,function(){press(b.querySelector('.primary'),function(){unband();wipe();
         later(450,function(){msg('sys','Chat compacted');foot('Medium','59m');again(cold,2200);});});});},
     function swamp(){base();msg('me','now the retry logic');var b=band(SWAMP);
       later(3000,function(){press(b.querySelector('.primary'),function(){unband();wipe();
         later(450,function(){msg('sys','Chat compacted');again(swamp,2200);});});});},
-    function hot(){base();var b=band(HOT);
+    function hot(){base();msg('me','now split the auth module into two');var b=band(HOT);
       later(3000,function(){press(b.querySelector('.primary'),function(){unband();msg('sys','Save mode on until 16:20');
         later(700,function(){ask('plan the billing migration, all services','Medium','Here is a plan in five stages…',function(){again(hot,2400);});});});});},
     function handoff(){base();msg('me','nice, now the retry logic');ho.classList.add('hl');var b=band(HANDOFF);
@@ -496,7 +504,7 @@ document.addEventListener('click',function(e){
         later(1600,function(){unband();wipe();
           later(450,function(){foot('Medium','59m');msg('sys','Handoff note loaded');
             later(500,function(){msg('ai','Picking up from the note: next, log each attempt.');again(handoff,3200);});});});});});},
-    function setup(){base();chat.innerHTML='';foot('Off','60m');msg('sys','effortless installed');var b=band(SETUP);
+    function setup(){base();foot('Off','60m');msg('sys','effortless installed');var b=band(SETUP);
       later(3000,function(){press(b.querySelector('[data-pick]'),function(){
         b.querySelector('.d').textContent='Haiku judges your prompts. No key needed.';b.querySelector('.acts').remove();foot('Medium','60m');
         later(2400,function(){unband();later(400,function(){ask('add a test for the date parser','Medium','Added 6 cases, including leap days.',function(){again(setup,2400);});});});});});}
@@ -544,6 +552,20 @@ fetch('https://api.github.com/repos/HeyCubit/effortless').then(function(r){retur
   }
   setInterval(function(){if(seen&&mins>1){mins--;cache.textContent=mins+'m';}},900);
   setTimeout(run,1400);
+})();
+
+// With nobody pointing at them, the bands light up one at a time, as if hovered. A hover takes over, and the cycle
+// picks up again from the next band once the pointer leaves.
+(function(){
+  var stack=document.getElementById('stack'),chips=stack?stack.querySelectorAll('.chip'):[];
+  if(!chips.length||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  var i=-1,held=false,seen=true,timer=0;
+  function lit(k){chips.forEach(function(c,n){c.classList.toggle('auto',n===k)});}
+  function tick(){if(!held&&seen){i=(i+1)%chips.length;lit(i);}timer=setTimeout(tick,2400);}
+  stack.addEventListener('mouseenter',function(){held=true;lit(-1);});
+  stack.addEventListener('mouseleave',function(){held=false;clearTimeout(timer);timer=setTimeout(tick,900);});
+  if('IntersectionObserver' in window)new IntersectionObserver(function(es){seen=es[0].isIntersecting;if(!seen)lit(-1);}).observe(stack);
+  timer=setTimeout(tick,2200);
 })();
 
 // The stack is scaled so it runs from the top of the opening to the bottom.
