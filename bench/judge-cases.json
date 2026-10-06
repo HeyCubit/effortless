@@ -955,6 +955,20 @@
     "medium",
     "high"
    ]
+  },
+  {
+   "id": "a09",
+   "kind": "answer",
+   "current": {
+    "model": "opus",
+    "effort": "high"
+   },
+   "context": "user: a handoff button: write the handoff, open a new chat with it and archive this one, or clear and auto-send it. One click.\nassistant: I checked what the mod can do. Run the handoff, catch the text, /clear, auto-send: yes. Open a new chat and archive the old one: no, the mod API has no access to the app's chat list. So option 2 works fully. First question: what should write the handoff by default?",
+   "message": "Yes, but it can probably archive the one you're at and create a new one, but not show the new one directly. It can create it and show you that this one is archived, and then you can get to the next session. Maybe a button in the UI that opens that session.",
+   "ok": [
+    "medium",
+    "high"
+   ]
   }
  ]
 }
