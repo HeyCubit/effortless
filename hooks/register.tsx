@@ -1599,77 +1599,62 @@ Saved to ${out}.md and .json` }
           {input}
         </Box>
       )
-      const column = (key: string, rows: unknown[]) => (
-        <Box key={key} flexDirection="column" gap={1} flexGrow={1} width="50%">
-          {rows}
-        </Box>
-      )
+      // One column, a row per setting, its hint at the end. The header is three absolute layers, drawn in order (bar and
+      // art, then the title, then the buttons): an absolute layer covers whatever is in the flow, so nothing of the
+      // header is in the flow but a spacer that keeps its row free.
       return (
-        <Box key="settings" position="relative" flexDirection="column" gap={1} paddingBottom={1} overflow="hidden"
+        <Box key="settings" position="relative" flexDirection="column" gap={1} paddingX={2} paddingBottom={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
-          {/* The header bar: drawn edge to edge behind the title row, over the top border, like the bands' art. */}
           <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={2} overflow="hidden" backgroundColor={BRAND_HEAD}>
             <Box key="settings-art" position="absolute" top={0} right={0} bottom={0}>
               <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
             </Box>
           </Box>
-          <Box key="settings-head" flexDirection="row" alignItems="center" paddingX={1}>
+          <Box key="settings-title" position="absolute" top={0} left={1} flexDirection="row" alignItems="center">
             <Text color={ACCENT} bold>
               ✦ effortless settings
             </Text>
             {dirty ? <Text dimColor> · unsaved changes</Text> : null}
           </Box>
-          {/* The buttons sit in a later absolute layer: drawn after the art, so it does not cover them. */}
           <Box key="settings-actions" position="absolute" top={0} right={1} flexDirection="row" gap={2} alignItems="center">
             <Button key="settings-save" variant="primary" label="Save" onPress={() => saveDraft($)} />
             <Button key="settings-close" plain label="✕" onPress={close} />
           </Box>
-          <Box key="settings-body" flexDirection="row" gap={4} paddingX={2}>
-            {column('settings-left', [
-              row('settings-bias', 'Effort', [
-                <Text key="cheap" dimColor>Cheaper</Text>,
-                <Box key="track" flexDirection="row" alignItems="center">
-                  {track}
-                </Box>,
-                <Text key="smart" dimColor>Smarter</Text>,
-              ]),
-              row('settings-range', 'Limits', [
-                <Select key="settings-floor" label="Min" value={shown.floor} options={opts(EFFORTS)} onSelect={set('floor')} />,
-                <Select key="settings-ceiling" label="Max" value={shown.ceiling} options={opts(EFFORTS)} onSelect={set('ceiling')} />,
-              ]),
-              <Box key="left-hint" paddingLeft={9}>
-                <Text dimColor wrap="truncate">{`${biasWords} Auto stays between Min and Max.`}</Text>
-              </Box>,
-            ])}
-            {column('settings-right', [
-              row('settings-judge', 'Judge', [
-                <Select key="settings-judge-pick" value={shown.judge} options={opts(['auto', 'haiku', 'jev', 'custom'])}
-                  onSelect={set('judge')} />,
-                ...(shown.judge === 'jev' || shown.judge === 'auto'
-                  ? [field('key-field', <Input key="settings-key" placeholder={hasKey ? 'Key saved. Paste to replace' : 'Paste TypeSafe key'}
-                      value={draft.key ?? ''} submitLabel="keep" onInput={set('key')} onSubmit={set('key')} />, 30)]
-                  : []),
-                ...(shown.judge === 'custom'
-                  ? [
-                      field('url-field', <Input key="settings-url" placeholder="Chat completions URL" value={shown.customUrl} submitLabel="keep"
-                        onInput={set('customUrl')} onSubmit={set('customUrl')} />, 22),
-                      field('model-field', <Input key="settings-model" placeholder="Model" value={shown.customModel} submitLabel="keep"
-                        onInput={set('customModel')} onSubmit={set('customModel')} />, 12),
-                    ]
-                  : []),
-              ]),
-              row('settings-handoff', 'Handoff', [
-                <Select key="settings-after-pick" value={shown.handoffAfter}
-                  options={[{ value: 'continue', label: 'then carry on' }, { value: 'confirm', label: 'then wait' }]}
-                  onSelect={set('handoffAfter')} />,
-                field('skill-field', <Input key="settings-skill" placeholder="Built-in, or a skill name" value={shown.handoffSkill}
-                  submitLabel="keep" onInput={set('handoffSkill')} onSubmit={set('handoffSkill')} />, 26),
-              ]),
-              <Box key="right-hint" paddingLeft={9}>
-                <Text dimColor wrap="truncate">{`${judgeWords} Handoff is the ⇥ button.`}</Text>
-              </Box>,
-            ])}
-          </Box>
+          <Box key="settings-spacer" height={1} />
+          {row('settings-bias', 'Effort', [
+            <Text key="cheap" dimColor>Cheaper</Text>,
+            <Box key="track" flexDirection="row" alignItems="center">
+              {track}
+            </Box>,
+            <Text key="smart" dimColor>Smarter</Text>,
+          ], biasWords)}
+          {row('settings-range', 'Limits', [
+            <Select key="settings-floor" label="Min" value={shown.floor} options={opts(EFFORTS)} onSelect={set('floor')} />,
+            <Select key="settings-ceiling" label="Max" value={shown.ceiling} options={opts(EFFORTS)} onSelect={set('ceiling')} />,
+          ], 'Auto stays between these.')}
+          {row('settings-judge', 'Judge', [
+            <Select key="settings-judge-pick" value={shown.judge} options={opts(['auto', 'haiku', 'jev', 'custom'])}
+              onSelect={set('judge')} />,
+            ...(shown.judge === 'jev' || shown.judge === 'auto'
+              ? [field('key-field', <Input key="settings-key" placeholder={hasKey ? 'Key saved. Paste to replace' : 'Paste TypeSafe key'}
+                  value={draft.key ?? ''} submitLabel="ok" onInput={set('key')} onSubmit={set('key')} />, 30)]
+              : []),
+            ...(shown.judge === 'custom'
+              ? [
+                  field('url-field', <Input key="settings-url" placeholder="Chat completions URL" value={shown.customUrl} submitLabel="ok"
+                    onInput={set('customUrl')} onSubmit={set('customUrl')} />, 30),
+                  field('model-field', <Input key="settings-model" placeholder="Model" value={shown.customModel} submitLabel="ok"
+                    onInput={set('customModel')} onSubmit={set('customModel')} />, 16),
+                ]
+              : []),
+          ], judgeWords)}
+          {row('settings-handoff', 'Handoff', [
+            <Select key="settings-after-pick" value={shown.handoffAfter}
+              options={[{ value: 'continue', label: 'then carry on' }, { value: 'confirm', label: 'then wait' }]}
+              onSelect={set('handoffAfter')} />,
+            field('skill-field', <Input key="settings-skill" placeholder="Built-in, or a skill name" value={shown.handoffSkill}
+              submitLabel="ok" onInput={set('handoffSkill')} onSubmit={set('handoffSkill')} />, 30),
+          ], 'The ⇥ button.')}
         </Box>
       )
     }
