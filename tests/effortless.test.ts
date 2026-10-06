@@ -1171,6 +1171,8 @@ describe('setup guide', () => {
     await band.press({ key: 'setup-jev' })
     expect(set).toEqual([{ key: 'effortless.judge', value: 'jev' }])
     expect(await drawn(band)).toContain('TypeSafe API key')
+    expect(await drawn(band)).toContain('Restart Claude Code after saving')
+    expect(await drawn(band)).toContain('typesafe.ai')
     expect(await band.find({ key: 'setup-haiku' })).toBeUndefined()
     await band.press({ key: 'setup-open' })
     expect(filled).toEqual(['/plugin configure effortless@effortless'])
