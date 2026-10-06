@@ -2634,10 +2634,15 @@ describe('dashboard', () => {
 
   test("desktop: the band above the prompt at rest, with Auto, Handoff and settings; the footer is the app's own", DASH, async ($, on) => {
     engine(on)
-    mock.clock(on)
+    const mocked = mock.clock(on)
+    on('session.usage', () => ({ value: { context: { tokens: 180_000, window: 1_000_000, percent: 18 } } }) as never)
     await start($, on)
     await closeSetup($, DESK_BAND)
+    await mocked.advance(16_000)
     const band = await $.ui.mount(DESK_BAND)
+    // The context as a ring and a figure, as the swamp band shows it.
+    expect(await band.find({ key: 'dash-ring' })).toBeDefined()
+    expect(await drawn(band)).toContain('"children":["18%"]')
     expect(await band.find({ key: 'dash-auto' })).toBeDefined()
     expect(await band.find({ key: 'dash-settings' })).toBeDefined()
     expect(await drawn(band)).toContain('✦ ')
