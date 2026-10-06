@@ -1629,7 +1629,7 @@ describe('handoff', () => {
     await footer.unmount()
   })
 
-  test('without a skill, Full says to pick one and Go does nothing', async ($, on) => {
+  test('without a skill, Full says so and its button opens the settings to pick one; nothing runs', async ($, on) => {
     const { forked, ran } = handoffEngine(on)
     const mocked = mock.clock(on)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
@@ -1637,9 +1637,11 @@ describe('handoff', () => {
     await footer.press({ key: 'handoff' })
     const bar = await $.ui.mount(DESK_BAND)
     await bar.press({ key: 'handoff-full' })
-    expect(await drawn(bar)).toContain('Full needs a skill')
-    await bar.press({ key: 'handoff-go' })
+    expect(await drawn(bar)).toContain('none is set yet')
+    expect(await bar.find({ key: 'handoff-go' })).toBeUndefined()
+    await bar.press({ key: 'handoff-pick' })
     await mocked.advance(2500)
+    expect(await drawn(bar)).toContain('effortless settings')
     expect(forked).toEqual([])
     expect(ran).not.toContain('clear')
     await bar.unmount()
