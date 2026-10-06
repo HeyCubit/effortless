@@ -33,7 +33,7 @@ restart:
 { "env": { "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1" } }
 ```
 
-Tested on Claude Code 2.1.286 and 2.1.288 at 80 and 120 columns. Below 90 columns the bands leave their art out.
+Tested on Claude Code 2.1.285 (stable), 2.1.286 and 2.1.288 at 80 and 120 columns. Below 90 columns the bands leave their art out.
 
 ## Pick your judge
 
