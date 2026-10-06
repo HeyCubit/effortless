@@ -2220,6 +2220,9 @@ describe('progress bar', () => {
     expect(await band.find({ key: 'progress-bar' })).toBeDefined()
     expect(await drawn(band)).toContain('Step 2 of 4')
     expect(await drawn(band)).toContain('Doing step 2')
+    // On desktop the track is one still image, never a row of line characters.
+    expect(await drawn(band)).toContain('<svg')
+    expect(await drawn(band)).not.toContain('━')
     await band.unmount()
     await $.tool.call({ tool: 'TodoWrite', todos: todos(['completed', 'completed', 'completed', 'completed']) } as never)
     await endTurn($, 'All four steps are done.')

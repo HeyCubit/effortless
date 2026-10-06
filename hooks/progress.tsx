@@ -238,6 +238,9 @@ export type ProgressDraw = {
   Text: any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Button: any
+  /** The surface's Svg, on the surfaces that have one (not the terminal): the track is drawn as one still image. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Svg?: any
   maxRows: number
   onClose: () => unknown
 }
@@ -254,6 +257,50 @@ export function progressShows(p: Progress | null, hiddenKey: string | null, when
   return p.steps.length >= MIN_STEPS && hiddenKey !== stepsKey(p.steps)
 }
 
+/**
+ * The track as one still image, for the surfaces that draw Svg: a rounded segment per step (filled when completed,
+ * half filled when in progress, a faint groove when pending), past SEGMENTS_MAX one continuous fill, and a dot at the
+ * finish. A row of characters cannot be clipped to a share of the row there, so it spilled into the title.
+ */
+export function progressTrackSvg(p: Progress): string {
+  const look = LOOKS[p.phase]
+  const W = 1000
+  const H = 14
+  const end = 22
+  const r = 4
+  const y = 3
+  const h = 8
+  const groove = '<rect x="X" y="' + y + '" width="WW" height="' + h + '" rx="' + r + '" fill="#ffffff" fill-opacity=".09"/>'
+  const lit = (x: number, w: number) =>
+    '<rect x="' + x.toFixed(1) + '" y="' + y + '" width="' + Math.max(0, w).toFixed(1) + '" height="' + h + '" rx="' + r + '" fill="url(#fill-' + p.phase + ')"/>'
+  const dim = (x: number, w: number) => groove.replace('X', x.toFixed(1)).replace('WW', Math.max(0, w).toFixed(1))
+  const total = p.steps.length
+  const room = W - end
+  const parts: string[] = []
+  if (total > 0 && total <= SEGMENTS_MAX) {
+    const gap = 8
+    const seg = (room - gap * (total - 1)) / total
+    p.steps.forEach((step, i) => {
+      const x = i * (seg + gap)
+      const doneAll = p.phase === 'done' || step.status === 'completed'
+      if (doneAll) parts.push(lit(x, seg))
+      else if (step.status === 'in_progress') parts.push(dim(x, seg), lit(x, seg / 2), '<circle cx="' + (x + seg / 2).toFixed(1) + '" cy="7" r="5" fill="' + look.color + '" fill-opacity=".35"/>')
+      else parts.push(dim(x, seg))
+    })
+  } else {
+    const share = p.phase === 'done' ? 1 : progressShare(p.steps)
+    parts.push(dim(0, room), lit(0, room * share))
+  }
+  const finished = p.phase === 'done'
+  const dot = '<circle cx="' + (W - 7) + '" cy="7" r="5" fill="' + (finished ? look.color : 'none') + '" stroke="' + look.color + '" stroke-opacity="' + (finished ? 1 : 0.5) + '" stroke-width="1.5"/>'
+  return (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' +
+    '<style>svg{background:transparent;display:block}</style>' +
+    '<defs><linearGradient id="fill-' + p.phase + '" x1="0" x2="1"><stop offset="0" stop-color="' + look.color + '" stop-opacity=".75"/><stop offset="1" stop-color="' + look.color + '"/></linearGradient></defs>' +
+    parts.join('') + dot + '</svg>'
+  )
+}
+
 /** The bar's first words: where the task is. */
 export function progressTitle(p: Progress): string {
   const total = p.steps.length
@@ -267,7 +314,8 @@ export function progressTitle(p: Progress): string {
 
 /**
  * The band: the brand surface (or yellow, or green), the title and the step on the first row, the track below it.
- * Plain Box and Text: the bar redraws as steps move, and an animated Svg flickers on every redraw.
+ * The track is a still Svg where the surface has one (a still image does not flicker; an animated one would), else
+ * a row of characters.
  */
 export function drawProgress(p: Progress, d: ProgressDraw) {
   const { Box, Text, Button } = d
@@ -343,14 +391,20 @@ export function drawProgress(p: Progress, d: ProgressDraw) {
         <Box flexGrow={1} />
         {closeButton}
       </Box>
-      <Box key="progress-track" flexDirection="row" gap={total <= SEGMENTS_MAX ? 1 : 0} alignItems="center">
-        {track}
-        <Box key="progress-flag" flexShrink={0}>
-          <Text color={p.phase === 'done' ? look.color : undefined} dimColor={p.phase !== 'done'}>
-            ⚑
-          </Text>
+      {d.Svg ? (
+        <Box key="progress-track" flexDirection="row">
+          <d.Svg source={progressTrackSvg(p)} alt={title} />
         </Box>
-      </Box>
+      ) : (
+        <Box key="progress-track" flexDirection="row" gap={total <= SEGMENTS_MAX ? 1 : 0} alignItems="center">
+          {track}
+          <Box key="progress-flag" flexShrink={0}>
+            <Text color={p.phase === 'done' ? look.color : undefined} dimColor={p.phase !== 'done'}>
+              ⚑
+            </Text>
+          </Box>
+        </Box>
+      )}
     </Box>
   )
 }
