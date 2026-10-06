@@ -6,20 +6,27 @@ import { fileURLToPath } from 'node:url'
 const RATE = 22050
 const here = dirname(fileURLToPath(import.meta.url))
 
-/** Notes as [frequency Hz, start s, length s]: a soft bell, a sine with a quiet octave, fading out. */
-function chime(notes, seconds, gain = 0.32) {
+/**
+ * Notes as [frequency Hz, start s, length s]: a soft marimba-like tone (the fundamental, a quiet octave and a quick
+ * woody overtone near 4x), a gentle attack, a long fade, and a faint echo. Quiet on purpose: a chime, not an alarm.
+ */
+function chime(notes, seconds, gain = 0.16) {
   const samples = new Float32Array(Math.round(RATE * seconds))
   for (const [freq, start, length] of notes) {
     const from = Math.round(start * RATE)
     const count = Math.round(length * RATE)
     for (let i = 0; i < count && from + i < samples.length; i++) {
       const t = i / RATE
-      const attack = Math.min(1, t / 0.008)
-      const decay = Math.exp(-t * 5.5)
-      const tone = Math.sin(2 * Math.PI * freq * t) + 0.25 * Math.sin(4 * Math.PI * freq * t)
-      samples[from + i] += tone * attack * decay * gain
+      const attack = Math.min(1, t / 0.015)
+      const body = Math.sin(2 * Math.PI * freq * t) * Math.exp(-t * 3.2)
+      const octave = 0.12 * Math.sin(4 * Math.PI * freq * t) * Math.exp(-t * 5)
+      const wood = 0.18 * Math.sin(2 * Math.PI * freq * 3.93 * t) * Math.exp(-t * 28)
+      samples[from + i] += (body + octave + wood) * attack * gain
     }
   }
+  // A faint echo, so the note rings in a room instead of stopping dead.
+  const delay = Math.round(0.11 * RATE)
+  for (let i = samples.length - 1; i >= delay; i--) samples[i] += samples[i - delay] * 0.22
   return samples
 }
 
@@ -42,7 +49,7 @@ function wav(samples) {
   return Buffer.concat([head, data])
 }
 
-// A question: two notes up, a fourth apart, like a raised voice at the end of a sentence.
-writeFileSync(join(here, 'question.wav'), wav(chime([[659.25, 0, 0.5], [880, 0.14, 0.6]], 0.75)))
-// Done: a major arpeggio up to the octave.
-writeFileSync(join(here, 'done.wav'), wav(chime([[523.25, 0, 0.5], [659.25, 0.1, 0.5], [783.99, 0.2, 0.5], [1046.5, 0.3, 0.8]], 1.1, 0.22)))
+// A question: two notes up a fourth, soft, like a raised voice at the end of a sentence.
+writeFileSync(join(here, 'question.wav'), wav(chime([[587.33, 0, 0.9], [783.99, 0.16, 1.0]], 1.3)))
+// Done: a gentle rising arpeggio that settles on the octave.
+writeFileSync(join(here, 'done.wav'), wav(chime([[523.25, 0, 0.9], [659.25, 0.11, 0.9], [783.99, 0.22, 0.9], [1046.5, 0.33, 1.2]], 1.7, 0.12)))

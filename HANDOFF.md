@@ -1,7 +1,7 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.29.1 (the progress bar, its track a still image on desktop), pushed and installed. Direct pushes, no open PRs.
+- `main` on HeyCubit/effortless, version 1.29.2 (the progress bar: animated track on desktop, softer chimes), pushed and installed. Direct pushes, no open PRs.
 - Release: bump `version` in `.claude-plugin/plugin.json`, `<cli> plugin validate .`, `<cli> plugin test .`
   (0 fail), push, `<cli> plugin marketplace update effortless`, `<cli> plugin update effortless@effortless`, restart.
 - CLI on this PC: `$APPDATA/Claude/claude-code/<version>/<hash>/claude.exe` (newest folder). `claude` on PATH is
@@ -33,6 +33,8 @@
    compact), where a rewrite costs almost nothing.
 
 ## Decided, do not redo
+- Progress bar animated (Isac 2026-10-06: wanted motion in the current step; option B of three: shimmer + pulsing tip,
+  glow, done lights up in order). Chimes softened after Isac called the first ones terrible.
 - Progress bar (2026-10-06, design left to the builder): 3+ steps from TodoWrite or TaskCreate/TaskUpdate; a judge
   pick of high+ shows "Planning" first; yellow + chime when Claude asks, green + chime when done. Active bar above
   the alert bands, done/paused below. Plain Box/Text. Off: `progress`, `sounds` in `hide` and Settings > Show.

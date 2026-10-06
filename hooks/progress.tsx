@@ -258,22 +258,33 @@ export function progressShows(p: Progress | null, hiddenKey: string | null, when
 }
 
 /**
- * The track as one still image, for the surfaces that draw Svg: a rounded segment per step (filled when completed,
+ * The track as one image, for the surfaces that draw Svg: a rounded segment per step (filled when completed,
  * half filled when in progress, a faint groove when pending), past SEGMENTS_MAX one continuous fill, and a dot at the
  * finish. A row of characters cannot be clipped to a share of the row there, so it spilled into the title.
  */
 export function progressTrackSvg(p: Progress): string {
   const look = LOOKS[p.phase]
+  const id = p.phase
   const W = 1000
-  const H = 14
-  const end = 22
-  const r = 4
-  const y = 3
+  const H = 16
+  const end = 24
+  const y = 4
   const h = 8
-  const groove = '<rect x="X" y="' + y + '" width="WW" height="' + h + '" rx="' + r + '" fill="#ffffff" fill-opacity=".09"/>'
-  const lit = (x: number, w: number) =>
-    '<rect x="' + x.toFixed(1) + '" y="' + y + '" width="' + Math.max(0, w).toFixed(1) + '" height="' + h + '" rx="' + r + '" fill="url(#fill-' + p.phase + ')"/>'
-  const dim = (x: number, w: number) => groove.replace('X', x.toFixed(1)).replace('WW', Math.max(0, w).toFixed(1))
+  const r = 4
+  const n = (v: number) => v.toFixed(1)
+  const finished = p.phase === 'done'
+  // Filled segments glow softly; the current one has a light sweeping across it and a pulsing tip; a finished task
+  // lights up its segments one after another and its finish dot pulses.
+  const groove = (x: number, w: number) =>
+    `<rect x="${n(x)}" y="${y}" width="${n(Math.max(0, w))}" height="${h}" rx="${r}" fill="#ffffff" fill-opacity=".08"/>`
+  const lit = (x: number, w: number, order = -1) =>
+    `<rect x="${n(x)}" y="${y}" width="${n(Math.max(0, w))}" height="${h}" rx="${r}" fill="url(#fill-${id})" filter="url(#glow-${id})"` +
+    (finished && order >= 0 ? ` class="pop" style="animation-delay:${(order * 0.12).toFixed(2)}s"` : '') +
+    '/>'
+  const current = (x: number, w: number) =>
+    `<clipPath id="clip-${id}"><rect x="${n(x)}" y="${y}" width="${n(w)}" height="${h}" rx="${r}"/></clipPath>` +
+    `<rect clip-path="url(#clip-${id})" class="sweep" x="${n(x - 70)}" y="${y}" width="70" height="${h}" fill="url(#shine)"/>` +
+    `<circle class="pulse" cx="${n(x + w)}" cy="8" r="5.5" fill="${look.color}"/>`
   const total = p.steps.length
   const room = W - end
   const parts: string[] = []
@@ -282,21 +293,31 @@ export function progressTrackSvg(p: Progress): string {
     const seg = (room - gap * (total - 1)) / total
     p.steps.forEach((step, i) => {
       const x = i * (seg + gap)
-      const doneAll = p.phase === 'done' || step.status === 'completed'
-      if (doneAll) parts.push(lit(x, seg))
-      else if (step.status === 'in_progress') parts.push(dim(x, seg), lit(x, seg / 2), '<circle cx="' + (x + seg / 2).toFixed(1) + '" cy="7" r="5" fill="' + look.color + '" fill-opacity=".35"/>')
-      else parts.push(dim(x, seg))
+      parts.push(groove(x, seg))
+      if (finished || step.status === 'completed') parts.push(lit(x, seg, i))
+      else if (step.status === 'in_progress') parts.push(lit(x, seg / 2), current(x, seg / 2))
     })
   } else {
-    const share = p.phase === 'done' ? 1 : progressShare(p.steps)
-    parts.push(dim(0, room), lit(0, room * share))
+    const fill = room * (finished ? 1 : progressShare(p.steps))
+    parts.push(groove(0, room), lit(0, fill, 0))
+    if (!finished && fill > 0) parts.push(current(0, fill))
   }
-  const finished = p.phase === 'done'
-  const dot = '<circle cx="' + (W - 7) + '" cy="7" r="5" fill="' + (finished ? look.color : 'none') + '" stroke="' + look.color + '" stroke-opacity="' + (finished ? 1 : 0.5) + '" stroke-width="1.5"/>'
+  const dot = finished
+    ? `<circle class="pulse" cx="${W - 9}" cy="8" r="5.5" fill="${look.color}"/>`
+    : `<circle cx="${W - 9}" cy="8" r="5" fill="none" stroke="${look.color}" stroke-opacity=".55" stroke-width="1.6"/>`
   return (
-    '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' +
-    '<style>svg{background:transparent;display:block}</style>' +
-    '<defs><linearGradient id="fill-' + p.phase + '" x1="0" x2="1"><stop offset="0" stop-color="' + look.color + '" stop-opacity=".75"/><stop offset="1" stop-color="' + look.color + '"/></linearGradient></defs>' +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
+    '<style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}' +
+    '.sweep{animation:sweep 1.8s linear infinite}@keyframes sweep{to{transform:translateX(320px)}}' +
+    '.pulse{transform-box:fill-box;transform-origin:center;opacity:.55;animation:pulse 1.6s ease-in-out infinite}' +
+    '@keyframes pulse{50%{opacity:1;transform:scale(1.25)}}' +
+    '.pop{opacity:0;animation:pop .45s ease-out forwards}@keyframes pop{to{opacity:1}}</style>' +
+    `<defs><linearGradient id="fill-${id}" x1="0" x2="1"><stop offset="0" stop-color="${look.color}" stop-opacity=".6"/>` +
+    `<stop offset="1" stop-color="${look.color}"/></linearGradient>` +
+    '<linearGradient id="shine"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".6"/>' +
+    '<stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
+    `<filter id="glow-${id}" x="-10%" y="-200%" width="120%" height="500%"><feGaussianBlur stdDeviation="2.5" result="b"/>` +
+    '<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>' +
     parts.join('') + dot + '</svg>'
   )
 }
@@ -314,8 +335,8 @@ export function progressTitle(p: Progress): string {
 
 /**
  * The band: the brand surface (or yellow, or green), the title and the step on the first row, the track below it.
- * The track is a still Svg where the surface has one (a still image does not flicker; an animated one would), else
- * a row of characters.
+ * The track is an animated Svg where the surface has one, else a row of characters. Its frame is rebuilt when the
+ * bar redraws, which happens only when a step or the state changes.
  */
 export function drawProgress(p: Progress, d: ProgressDraw) {
   const { Box, Text, Button } = d
@@ -393,7 +414,7 @@ export function drawProgress(p: Progress, d: ProgressDraw) {
       </Box>
       {d.Svg ? (
         <Box key="progress-track" flexDirection="row">
-          <d.Svg source={progressTrackSvg(p)} alt={title} />
+          <d.Svg source={progressTrackSvg(p)} alt={title} isInteractive />
         </Box>
       ) : (
         <Box key="progress-track" flexDirection="row" gap={total <= SEGMENTS_MAX ? 1 : 0} alignItems="center">
