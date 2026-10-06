@@ -383,8 +383,9 @@ export function progressTitle(p: Progress): string {
 
 /**
  * The band: the brand surface (or yellow, or green), the title and the step on the first row, the track below it.
- * The track is an animated Svg where the surface has one, else a row of characters. Its frame is rebuilt when the
- * bar redraws, which happens only when a step or the state changes.
+ * The track is a still Svg where the surface has one, else a row of characters: an interactive Svg sits in a frame of
+ * a fixed default size (about 300 by 150) unless given both sizes, and the track has no fixed width. The motion is in
+ * the art behind the band, which has a fixed size.
  */
 export function drawProgress(p: Progress, d: ProgressDraw) {
   const { Box, Text, Button } = d
@@ -472,7 +473,7 @@ export function drawProgress(p: Progress, d: ProgressDraw) {
       </Box>
       {d.Svg ? (
         <Box key="progress-track" position="relative" flexDirection="row">
-          <d.Svg source={progressTrackSvg(p)} alt={title} isInteractive />
+          <d.Svg source={progressTrackSvg(p)} alt={title} />
         </Box>
       ) : (
         <Box key="progress-track" flexDirection="row" gap={total <= SEGMENTS_MAX ? 1 : 0} alignItems="center">
