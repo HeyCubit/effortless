@@ -2478,12 +2478,13 @@ describe('progress bar', () => {
     expect(played).toEqual([])
   })
 
-  test('the system prompt asks Claude to keep a step list for multi-step work, so the bar has steps', async ($, on) => {
+  test('the first message context asks Claude to keep a step list for multi-step work, so the bar has steps', async ($, on) => {
     engine(on)
-    on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'You are Claude.', scope: 'shared' }] }))
+    on('prompt.context', () => ({ blocks: [{ name: 'currentDate', text: 'Today is 2026-10-06.' }] }))
     await start($, on)
-    const { sections } = await $.prompt.compose({ model: 'claude-opus-5-5', promptModel: 'claude-opus-5-5', surfaces: [], tools: [], outputStyle: null, traits: [] })
-    expect(sections.find(s => s.id === 'effortless-progress')?.text).toContain('three or more distinct steps')
+    const { blocks } = await $.prompt.context({ blocks: [] })
+    expect(blocks.map(b => b.name)).toEqual(['currentDate', 'effortless-progress'])
+    expect(blocks.find(b => b.name === 'effortless-progress')?.text).toContain('three or more distinct steps')
   })
 
   test('/effortless progress shows the bar working, asking and done, then clears it', async ($, on) => {

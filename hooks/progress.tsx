@@ -194,11 +194,13 @@ export function registerProgress(on: On, hidden: () => readonly string[]) {
   const off = () => hidden().includes('progress')
 
   // The bar follows the task tools, and Claude writes a list only when it decides to: this line asks it to for real
-  // multi-step work, so the bar has steps to show. Static text, so the prompt cache stays warm.
-  on('prompt.compose', async ($, e, next) => {
+  // multi-step work, so the bar has steps to show. Static text, so the prompt cache stays warm. It rides in the first
+  // message's context, not the system prompt: prompt.compose is missing on the stable CLI (2.1.285) and a module that
+  // names it does not load there at all.
+  on('prompt.context', async ($, e, next) => {
     const result = await next(e)
     if (off()) return result
-    return { sections: [...result.sections, { id: 'effortless-progress', text: PROGRESS_PROMPT, scope: 'session' as const }] }
+    return { ...result, blocks: [...result.blocks, { name: 'effortless-progress', text: PROGRESS_PROMPT }] }
   })
 
   on('tool.call', async ($, e, next) => {
