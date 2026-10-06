@@ -2014,6 +2014,22 @@ describe('swamp band and setup entry', () => {
     expect(String((await $.command.run({ command: 'effortless', args: 'save' })).text)).toContain('save mode off')
   })
 
+  test('save mode paints the footer level ember; off again, it is purple', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    await start($, on)
+    await $.command.run({ command: 'effortless', args: 'save' })
+    const footer = await $.ui.mount(FOOTER)
+    expect(await drawn(footer)).toContain('"color":"#f08a3c"')
+    await $.command.run({ command: 'effortless', args: 'save' })
+    await footer.unmount()
+    const again = await $.ui.mount(FOOTER)
+    const text = await drawn(again)
+    expect(text).not.toContain('"color":"#f08a3c"')
+    expect(text).toContain('"color":"#a79cf7"')
+    await again.unmount()
+  })
+
   test('the setup can be closed with the cross; the footer then offers Setup, which opens it again', async ($, on) => {
     engine(on)
     mock.clock(on)
