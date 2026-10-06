@@ -991,9 +991,20 @@ let handoffText: string | undefined
 let handoffDriving = false
 
 /** Starts a handoff: asks for it (built-in prompt or the person's own skill); the rest follows when it is written. */
+// A handoff asked for and not begun: begun from the session's timer, where a prompt may be sent (a command or a press
+// may hold the turn, and the app refuses a prompt sent from there).
+let handoffQueued = false
+
 async function startHandoff($: EngineInterface) {
   if ((await read($, handoffStage)) !== null) return
   await update($, handoffStage, () => 'writing')
+  handoffQueued = true
+}
+
+/** Writes the handoff: a fork for the built-in prompt, the person's own skill as a turn. Runs from the timer. */
+async function writeHandoff($: EngineInterface) {
+  if (!handoffQueued) return
+  handoffQueued = false
   try {
     if (config.handoffSkill) {
       await $.command.run({ command: config.handoffSkill, args: '' })
@@ -1016,6 +1027,7 @@ async function startHandoff($: EngineInterface) {
 
 /** Clears the chat and sends the written handoff into it. Runs from the session's timer, when nothing waits on it. */
 export async function finishHandoff($: EngineInterface) {
+  await writeHandoff($)
   if (handoffText === undefined || handoffDriving) return
   handoffDriving = true
   const text = handoffText
