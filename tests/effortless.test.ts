@@ -1319,3 +1319,25 @@ describe('images', () => {
     expect(asked[1]).toContain('1 image')
   })
 })
+
+describe('cold band', () => {
+  test('shows above the prompt when the cache is cold, compacts in one click, and hides until the next cold', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    on('session.compact', () => ({ value: { messages: [] } }) as never)
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const DESK = { plugin: 'effortless', surface: 'desktop', ...BAND } as never
+    const guide = await $.ui.mount(DESK)
+    await guide.press({ key: 'setup-later' })
+    await guide.unmount()
+    await $.command.run({ command: 'effortless', args: 'cold' })
+    const band = await $.ui.mount(DESK)
+    expect(await drawn(band)).toContain('Chat went cold')
+    expect(await drawn(band)).toContain('class=\\"f\\"')
+    await band.press({ key: 'cold-hide' })
+    await band.unmount()
+    await expect($.ui.mount(DESK)).rejects.toThrow()
+  })
+})

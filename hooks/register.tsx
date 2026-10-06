@@ -59,8 +59,12 @@ const paused = atom({ plugin: 'effortless', key: 'paused' } as const, false)
 // 0 once it has gone cold. Updated only when the minute changes, so the footer redraws once a minute at most.
 const cacheLeft = atom({ plugin: 'effortless', key: 'cacheLeft' } as const, null)
 const isCompacting = atom({ plugin: 'effortless', key: 'isCompacting' } as const, false)
+// The person closed the cold band; it comes back the next time the cache goes cold.
+const isColdHidden = atom({ plugin: 'effortless', key: 'isColdHidden' } as const, false)
 // The setup guide above the prompt: which step it shows, or null when it is closed.
 const setupStep = atom({ plugin: 'effortless', key: 'setupStep' } as const, null)
+// The band above the prompt when the cache has gone cold: an icy gradient with snowflakes drifting down.
+const FROST_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="30"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.f path{stroke:#e6f4ff;stroke-width:.9;stroke-linecap:round;fill:none}.f{opacity:0;animation-name:drift;animation-timing-function:linear;animation-iteration-count:infinite}@keyframes drift{0%{opacity:0;transform:translate(0,-8px) rotate(0deg)}15%{opacity:.85}85%{opacity:.85}100%{opacity:0;transform:translate(4px,10px) rotate(120deg)}}.g{animation:breathe 5s ease-in-out infinite}@keyframes breathe{0%,100%{opacity:.75}50%{opacity:1}}</style><defs><linearGradient id="ice" x1="0" x2="1"><stop offset="0" stop-color="#7cc4ff" stop-opacity="0"/><stop offset=".45" stop-color="#7cc4ff" stop-opacity=".16"/><stop offset="1" stop-color="#b9e2ff" stop-opacity=".45"/></linearGradient><linearGradient id="rime" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".25" stop-color="#fff" stop-opacity="0"/><stop offset=".8" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".18"/></linearGradient><pattern id="grain" width="3" height="3" patternUnits="userSpaceOnUse"><rect width="1" height="1" fill="#fff" fill-opacity=".08"/></pattern></defs><rect class="g" width="100%" height="30" rx="7" fill="url(#ice)"/><rect width="100%" height="30" rx="7" fill="url(#rime)"/><rect x="35%" width="65%" height="30" rx="7" fill="url(#grain)"/><svg x="14%" y="0" width="1" height="30" overflow="visible"><g class="f" style="animation-duration:7.0s;animation-delay:-0s"><g transform="translate(0 9)"><path d="M-0.00 -4.00L0.00 4.00M3.46 -2.00L-3.46 2.00M3.46 2.00L-3.46 -2.00M0.00 2.20L0.82 3.18M0.00 2.20L-0.82 3.18M-1.91 1.10L-2.34 2.30M-1.91 1.10L-3.17 0.88M-1.91 -1.10L-3.17 -0.88M-1.91 -1.10L-2.34 -2.30M-0.00 -2.20L-0.82 -3.18M-0.00 -2.20L0.82 -3.18M1.91 -1.10L2.34 -2.30M1.91 -1.10L3.17 -0.88M1.91 1.10L3.17 0.88M1.91 1.10L2.34 2.30"/></g></g></svg><svg x="27%" y="0" width="1" height="30" overflow="visible"><g class="f" style="animation-duration:9.0s;animation-delay:-2.5s"><g transform="translate(0 20)"><path d="M-0.00 -3.00L0.00 3.00M2.60 -1.50L-2.60 1.50M2.60 1.50L-2.60 -1.50M0.00 1.65L0.62 2.39M0.00 1.65L-0.62 2.39M-1.43 0.82L-1.76 1.73M-1.43 0.82L-2.37 0.66M-1.43 -0.83L-2.37 -0.66M-1.43 -0.83L-1.76 -1.73M-0.00 -1.65L-0.62 -2.39M-0.00 -1.65L0.62 -2.39M1.43 -0.83L1.76 -1.73M1.43 -0.83L2.37 -0.66M1.43 0.83L2.37 0.66M1.43 0.83L1.76 1.73"/></g></g></svg><svg x="39%" y="0" width="1" height="30" overflow="visible"><g class="f" style="animation-duration:8.0s;animation-delay:-4.1s"><g transform="translate(0 7)"><path d="M-0.00 -3.50L0.00 3.50M3.03 -1.75L-3.03 1.75M3.03 1.75L-3.03 -1.75M0.00 1.93L0.72 2.78M0.00 1.93L-0.72 2.78M-1.67 0.96L-2.05 2.01M-1.67 0.96L-2.77 0.77M-1.67 -0.96L-2.77 -0.77M-1.67 -0.96L-2.05 -2.01M-0.00 -1.93L-0.72 -2.78M-0.00 -1.93L0.72 -2.78M1.67 -0.96L2.05 -2.01M1.67 -0.96L2.77 -0.77M1.67 0.96L2.77 0.77M1.67 0.96L2.05 2.01"/></g></g></svg><svg x="50%" y="0" width="1" height="30" overflow="visible"><g class="f" style="animation-duration:10.0s;animation-delay:-1.2s"><g transform="translate(0 18)"><path d="M-0.00 -2.60L0.00 2.60M2.25 -1.30L-2.25 1.30M2.25 1.30L-2.25 -1.30M0.00 1.43L0.53 2.07M0.00 1.43L-0.53 2.07M-1.24 0.71L-1.52 1.50M-1.24 0.71L-2.06 0.57M-1.24 -0.72L-2.06 -0.57M-1.24 -0.72L-1.52 -1.50M-0.00 -1.43L-0.53 -2.07M-0.00 -1.43L0.53 -2.07M1.24 -0.72L1.52 -1.50M1.24 -0.72L2.06 -0.57M1.24 0.72L2.06 0.57M1.24 0.72L1.52 1.50"/></g></g></svg><svg x="61%" y="0" width="1" height="30" overflow="visible"><g class="f" style="animation-duration:7.5s;animation-delay:-3.3s"><g transform="translate(0 10)"><path d="M-0.00 -4.20L0.00 4.20M3.64 -2.10L-3.64 2.10M3.64 2.10L-3.64 -2.10M0.00 2.31L0.86 3.34M0.00 2.31L-0.86 3.34M-2.00 1.16L-2.46 2.42M-2.00 1.16L-3.32 0.92M-2.00 -1.16L-3.32 -0.92M-2.00 -1.16L-2.46 -2.42M-0.00 -2.31L-0.86 -3.34M-0.00 -2.31L0.86 -3.34M2.00 -1.16L2.46 -2.42M2.00 -1.16L3.32 -0.92M2.00 1.16L3.32 0.92M2.00 1.16L2.46 2.42"/></g></g></svg><svg x="70%" y="0" width="1" height="30" overflow="visible"><g class="f" style="animation-duration:8.5s;animation-delay:-5.0s"><g transform="translate(0 21)"><path d="M-0.00 -3.00L0.00 3.00M2.60 -1.50L-2.60 1.50M2.60 1.50L-2.60 -1.50M0.00 1.65L0.62 2.39M0.00 1.65L-0.62 2.39M-1.43 0.82L-1.76 1.73M-1.43 0.82L-2.37 0.66M-1.43 -0.83L-2.37 -0.66M-1.43 -0.83L-1.76 -1.73M-0.00 -1.65L-0.62 -2.39M-0.00 -1.65L0.62 -2.39M1.43 -0.83L1.76 -1.73M1.43 -0.83L2.37 -0.66M1.43 0.83L2.37 0.66M1.43 0.83L1.76 1.73"/></g></g></svg><svg x="79%" y="0" width="1" height="30" overflow="visible"><g class="f" style="animation-duration:9.5s;animation-delay:-0.7s"><g transform="translate(0 8)"><path d="M-0.00 -3.40L0.00 3.40M2.94 -1.70L-2.94 1.70M2.94 1.70L-2.94 -1.70M0.00 1.87L0.70 2.70M0.00 1.87L-0.70 2.70M-1.62 0.93L-1.99 1.96M-1.62 0.93L-2.69 0.75M-1.62 -0.94L-2.69 -0.75M-1.62 -0.94L-1.99 -1.96M-0.00 -1.87L-0.70 -2.70M-0.00 -1.87L0.70 -2.70M1.62 -0.94L1.99 -1.96M1.62 -0.94L2.69 -0.75M1.62 0.94L2.69 0.75M1.62 0.94L1.99 1.96"/></g></g></svg><svg x="88%" y="0" width="1" height="30" overflow="visible"><g class="f" style="animation-duration:7.8s;animation-delay:-2.0s"><g transform="translate(0 17)"><path d="M-0.00 -4.00L0.00 4.00M3.46 -2.00L-3.46 2.00M3.46 2.00L-3.46 -2.00M0.00 2.20L0.82 3.18M0.00 2.20L-0.82 3.18M-1.91 1.10L-2.34 2.30M-1.91 1.10L-3.17 0.88M-1.91 -1.10L-3.17 -0.88M-1.91 -1.10L-2.34 -2.30M-0.00 -2.20L-0.82 -3.18M-0.00 -2.20L0.82 -3.18M1.91 -1.10L2.34 -2.30M1.91 -1.10L3.17 -0.88M1.91 1.10L3.17 0.88M1.91 1.10L2.34 2.30"/></g></g></svg><svg x="95%" y="0" width="1" height="30" overflow="visible"><g class="f" style="animation-duration:9.2s;animation-delay:-4.6s"><g transform="translate(0 9)"><path d="M-0.00 -2.80L0.00 2.80M2.42 -1.40L-2.42 1.40M2.42 1.40L-2.42 -1.40M0.00 1.54L0.58 2.23M0.00 1.54L-0.58 2.23M-1.33 0.77L-1.64 1.61M-1.33 0.77L-2.22 0.61M-1.33 -0.77L-2.22 -0.61M-1.33 -0.77L-1.64 -1.61M-0.00 -1.54L-0.58 -2.23M-0.00 -1.54L0.58 -2.23M1.33 -0.77L1.64 -1.61M1.33 -0.77L2.22 -0.61M1.33 0.77L2.22 0.61M1.33 0.77L1.64 1.61"/></g></g></svg></svg>`
 const SETTINGS_COMMAND = '/plugin configure effortless@effortless'
 // The right of the setup guide, pure decoration (the name is on the left): a purple gradient with a soft glow,
 // faint light streaks and grain, a still star, and small sparkles that twinkle in and out here and there. One constant source, so the app never rebuilds its frame (a changing source flickers); the
@@ -770,6 +774,7 @@ async function cacheTouched($: EngineInterface, usage: unknown) {
     void proof($, `cache lifetime ${ttl}`)
   }
   cacheExpires = now + CACHE_TTL[cacheTtl]
+  if (await read($, isColdHidden)) await update($, isColdHidden, () => false)
   await showCache($)
 }
 
@@ -1202,6 +1207,25 @@ Saved to ${out}.md and .json` }
           />
           <Button key="setup-back" plain dimColor label="Back" onPress={() => update($, setupStep, () => 'pick')} />
           {brand}
+        </Box>
+      )
+    }
+    // The cache went cold: the next message writes the whole chat again at full price. Said where it cannot be missed.
+    if ((await read($, cacheLeft)) === 0 && !(await read($, isColdHidden))) {
+      const compacting = await read($, isCompacting)
+      return (
+        <Box flexDirection="row" gap={1} alignItems="center">
+          <Box flexShrink={0}>
+            <Text color={ICE} bold wrap="truncate">
+              ❄ Chat went cold
+            </Text>
+          </Box>
+          <Text wrap="truncate">The next message re-reads all of it at full price. Staying here? Compact first.</Text>
+          <Button key="cold-compact" variant="primary" label={compacting ? 'Compacting…' : 'Compact'} onPress={() => compactCold($)} />
+          <Button key="cold-hide" plain dimColor label="Not now" onPress={() => update($, isColdHidden, () => true)} />
+          <Box key="frost" flexGrow={1} flexShrink={1} minWidth={0}>
+            <Svg source={FROST_SVG} alt="frost" height={30} isInteractive />
+          </Box>
         </Box>
       )
     }
