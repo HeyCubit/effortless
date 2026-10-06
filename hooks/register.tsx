@@ -797,20 +797,15 @@ async function compactCold($: EngineInterface) {
   if (await read($, isCompacting)) return
   await update($, isCompacting, () => true)
   try {
-    const result = await $.session.compact()
-    if (!result?.skip) {
-      cacheExpires = 0
-      await update($, cacheLeft, () => null)
-    }
+    // The app's own /compact, run as if typed: nothing lands in the prompt box, nothing to send. It waits for the
+    // session to be idle, where a direct $.session.compact() is refused whenever the app counts a turn as running.
+    await $.command.run({ command: 'compact', args: '' })
+    cacheExpires = 0
+    await update($, cacheLeft, () => null)
   } catch (error) {
-    // Say what actually stopped it: a running turn is the usual reason, but not the only one.
     const why = error instanceof Error ? error.message : String(error)
     void proof($, `compact failed: ${why}`)
-    $.ui.toast(
-      /turn|running|busy/i.test(why)
-        ? "effortless: can't compact while Claude is working"
-        : `effortless: compact failed: ${why.slice(0, 140)}`,
-    )
+    $.ui.toast(`effortless: compact failed: ${why.slice(0, 140)}`)
   } finally {
     await update($, isCompacting, () => false)
   }
