@@ -882,9 +882,9 @@ async function toggleSave($: EngineInterface): Promise<string> {
   return saving ? 'save mode off' : 'save mode on, Auto stays at medium or below until the limit resets'
 }
 
-type TurnWarning = { kind: 'cold' | 'hot' | 'swamp'; title: string; line: string; color: string; bg: string; edge: string; art: string }
+type TurnWarning = { kind: 'cold' | 'hot'; title: string; line: string; color: string; bg: string; edge: string; art: string }
 
-/** What the bands would warn about now, as the card under the newest reply says it: the same order and the same
+/** What the cold and hot bands would warn about now, as the card under the newest reply says it: the same order and the same
  *  hiding (a part switched off, a band closed with ✕), with a command in place of the band's buttons. */
 async function turnWarning($: EngineInterface): Promise<TurnWarning | null> {
   if ((await read($, cacheLeft)) === 0 && !config.hide.includes('cold') && !(await read($, isColdHidden))) {
@@ -901,16 +901,7 @@ async function turnWarning($: EngineInterface): Promise<TurnWarning | null> {
       color: EMBER, bg: EMBER_BG, edge: EMBER_EDGE, art: EMBER_SVG,
     }
   }
-  const swampTokens = await read($, swamped)
-  const hiddenAt = await read($, swampHiddenAt)
-  if (swampTokens !== null && !config.hide.includes('swamp') && (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW)) {
-    return {
-      kind: 'swamp',
-      title: `Chat is getting swamped · ${Math.round(swampTokens / 1000)}k tokens`,
-      line: 'Every message re-reads all of it. Type /compact or /effortless handoff.',
-      color: BOG, bg: BOG_BG, edge: BOG_EDGE, art: SWAMP_SVG,
-    }
-  }
+  // Swamped is said by the band above the prompt only: a card under every reply was noise in a long chat.
   return null
 }
 

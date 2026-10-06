@@ -1940,7 +1940,7 @@ describe('swamp band and setup entry', () => {
     await band.unmount()
   })
 
-  test('a swamp card hangs under the newest reply only, and goes when a new reply lands', async ($, on) => {
+  test('a swamped chat draws no card under the reply: the band above the prompt says it', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
     on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 300_000, percent: 67 } } }) as never)
@@ -1955,20 +1955,14 @@ describe('swamp band and setup entry', () => {
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
     await mocked.advance(16_000)
-    const reply = (text: string) =>
-      ({ plugin: 'effortless', surface: 'desktop', component: 'AssistantMessage', props: { text, isFirstOfReply: true } }) as never
     await $.turn.complete({ turnId: 't1', answer: 'First answer.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
-    const first = await $.ui.mount(reply('First answer.'))
-    expect(await drawn(first)).toContain('Chat is getting swamped')
-    expect(await drawn(first)).toContain('/compact or /effortless handoff')
-    await first.unmount()
-    await $.turn.complete({ turnId: 't2', answer: 'Second answer.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
-    const old = await $.ui.mount(reply('First answer.'))
-    expect(await old.find({ key: 'reply-warn' })).toBeUndefined()
-    await old.unmount()
-    const newest = await $.ui.mount(reply('Second answer.'))
-    expect(await newest.find({ key: 'reply-warn' })).toBeDefined()
-    await newest.unmount()
+    const reply = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', component: 'AssistantMessage', props: { text: 'First answer.', isFirstOfReply: true } } as never)
+    expect(await reply.find({ key: 'reply-warn' })).toBeUndefined()
+    expect(await drawn(reply)).not.toContain('swamped')
+    await reply.unmount()
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('Chat is getting swamped')
+    await band.unmount()
   })
 
   test('/effortless save switches save mode on and off', async ($, on) => {
