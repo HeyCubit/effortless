@@ -7,9 +7,9 @@
   (0 fail), push, `<cli> plugin marketplace update effortless`, `<cli> plugin update effortless@effortless`, restart.
 - CLI on this PC: `$APPDATA/Claude/claude-code/<version>/<hash>/claude.exe` (newest folder). The agent sandbox sees a
   virtualised AppData, so Isac uses plain `claude`. `claude` on PATH is old: no `plugin test`.
-- Showcase site: branch `site-story` (pushed, not merged): scroll story with a big chat box, new footer, new logo
-  in `brand/`. Live Pages still shows the older main version. Waiting on Isac's OK to merge to main and republish.
-  State and do-not-repeat list: ai-setup `memory/effortless/site-design.md`. Leave `site/` and `brand/` to that work.
+- Showcase site: live at https://heycubit.github.io/effortless/ (Pages serves branch `gh-pages`, which holds the
+  contents of `site/`; publish with a commit whose tree is `main:site`). Logo upload as the repo social preview
+  waits for Isac (`brand/social-preview.png`). Design notes: ai-setup `memory/effortless/site-design.md`.
   Untracked `docs/brand/` waits for Isac.
 
 ## Where things stand
