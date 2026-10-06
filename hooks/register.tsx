@@ -1870,7 +1870,7 @@ export function dashboardLines(d: {
   contextPercent: number | null
   reason: string
   last: { cost: number; ms: number } | null
-}): { head: string; detail: string } {
+}): { head: string; what: string; rest: string; detail: string } {
   const level = d.effort ? EFFORT_LABELS[d.effort] : 'Auto'
   // Auto on or off is the button's to say (and the terminal's effort row's), not the text's.
   const what = d.judging ? 'Deciding…' : !d.auto ? 'Off' : d.paused ? `${level} · Auto paused` : level
@@ -1880,7 +1880,52 @@ export function dashboardLines(d: {
     d.contextPercent === null ? null : `${Math.round(d.contextPercent)}% context`,
   ]
   const last = d.last ? `last reply ≈${tokens(Math.round(d.last.cost))} tokens · ${Math.max(1, Math.round(d.last.ms / 1000))}s` : null
-  return { head: head.filter(Boolean).join(' · '), detail: [d.reason, last].filter(Boolean).join(' · ') }
+  const shown = head.filter(Boolean) as string[]
+  return {
+    head: shown.join(' · '),
+    what,
+    rest: shown.slice(1).map(part => ` · ${part}`).join(''),
+    detail: [d.reason, last].filter(Boolean).join(' · '),
+  }
+}
+
+/** How long the effort word glows after it changes, and the step of its fade. */
+const FLASH_MS = 1400
+const FLASH_TICK_MS = 100
+/** The effort word's colour `ms` after it changed: accent at once, easing out to the band's white. */
+export function flashColor(ms: number | null): string {
+  if (ms === null || ms >= FLASH_MS) return DASH_TEXT
+  const t = Math.max(0, ms) / FLASH_MS
+  const k = 1 - (1 - t) * (1 - t)
+  const ch = (hex: string, i: number) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16)
+  return `#${[0, 1, 2].map(i => Math.round(ch(ACCENT, i) + (ch(DASH_TEXT, i) - ch(ACCENT, i)) * k).toString(16).padStart(2, '0')).join('')}`
+}
+// The word the dashboard last showed and when it last changed, so a new effort glows and fades. Not while the judge
+// decides: the word it lands on is compared with the one before.
+let flashWord: string | null = null
+let flashAt: number | null = null
+let flashTimer: { cancel(): void } | null = null
+
+async function effortFlash($: EngineInterface, what: string, judging: boolean): Promise<string> {
+  const now = await $.clock.now()
+  if (!judging) {
+    if (flashWord !== null && flashWord !== what) flashAt = now
+    flashWord = what
+  }
+  const since = flashAt === null ? null : now - flashAt
+  if (since !== null && since < FLASH_MS && !flashTimer) {
+    flashTimer = $.clock.every(FLASH_TICK_MS, () => {
+      void $.clock.now().then(t => {
+        if (flashAt === null || t - flashAt >= FLASH_MS) {
+          flashTimer?.cancel()
+          flashTimer = null
+          flashAt = null
+        }
+        $.ui.invalidate('ui.render')
+      })
+    })
+  }
+  return flashColor(since)
 }
 
 /** The dashboard: what effortless is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
@@ -1895,7 +1940,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     : v.auto
       ? 'Auto picks the effort at the next prompt'
       : 'You pick the effort'
-  const { head, detail } = dashboardLines({
+  const { head, what, rest, detail } = dashboardLines({
     auto: v.auto,
     paused: Boolean(v.pausedNow),
     judging: Boolean(v.judging),
@@ -1928,6 +1973,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   if (e.surface === 'terminal')
     return terminalBand($, e, { key: 'dash', kind: 'calm', color: DASH_TEXT, bg: DASH_BG, edge: DASH_EDGE, title: head.replace(/^✦ /, ''), detail, buttons })
   const Svg = 'Svg' in els ? els.Svg : undefined
+  const wordColor = await effortFlash($, what, Boolean(v.judging))
   return (
     <Box key="dash" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
       backgroundColor={DASH_BG} borderStyle="round" borderColor={DASH_EDGE}>
@@ -1936,11 +1982,19 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           <Svg source={DASH_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         </Box>
       ) : null}
-      {/* One row: the figures first; the reason and the last reply after them, dim, cut first when room runs out. */}
-      <Box key="dash-words" position="relative" flexDirection="row" gap={2} flexShrink={1} minWidth={0}>
-        <Box flexShrink={0} flexDirection="row">
+      {/* One row: the figures first; the reason and the last reply after them, dim, cut first when room runs out. The
+          effort word stays whole; the cache after it is cut next, and the row clips rather than run under the buttons. */}
+      <Box key="dash-words" position="relative" flexDirection="row" gap={2} flexShrink={1} minWidth={0} overflow="hidden">
+        <Box flexShrink={1} minWidth={0} flexDirection="row">
           <Text color={ACCENT} bold>✦ </Text>
-          <Text color={DASH_TEXT} bold>{head.replace(/^✦ /, '')}</Text>
+          <Box flexShrink={0}>
+            <Text key="dash-level" color={wordColor} bold>{what}</Text>
+          </Box>
+          {rest ? (
+            <Box flexShrink={1} minWidth={0}>
+              <Text color={DASH_TEXT} bold wrap="truncate">{rest}</Text>
+            </Box>
+          ) : null}
         </Box>
         {Svg && lastContext && lastContext.window ? (
           <Box key="dash-ring" flexShrink={0} flexDirection="row" gap={1} alignItems="center">

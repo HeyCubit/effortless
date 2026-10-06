@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, weighted } from '../hooks/register'
+import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, weighted } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
 
@@ -2644,6 +2644,46 @@ describe('dashboard', () => {
     expect(dashboardLines({ ...base, auto: false }).head).toBe(`✦ Off · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines({ ...base, cacheNow: null, contextPercent: null }).head).toBe('✦ Medium')
     expect(weighted({ input_tokens: 10, output_tokens: 2, cache_read_input_tokens: 1000, cache_creation_input_tokens: 4 })).toBe(10 + 10 + 100 + 5)
+  })
+
+  test('the effort word and the figures after it are drawn apart, so the figures can be cut and the word stays whole', () => {
+    const base = { auto: true, paused: false, judging: false, effort: 'low' as const, cacheNow: 42, contextPercent: null, reason: '', last: null }
+    expect(dashboardLines(base).what).toBe('Low')
+    expect(dashboardLines(base).rest).toBe(` · cache ${cacheLabel(42)}`)
+    expect(dashboardLines({ ...base, cacheNow: null }).rest).toBe('')
+  })
+
+  test('a new effort glows in the accent and fades to the band white', () => {
+    expect(flashColor(0)).toBe('#a79cf7')
+    expect(flashColor(null)).toBe('#d4d4d8')
+    expect(flashColor(1400)).toBe('#d4d4d8')
+    const mid = flashColor(700)
+    expect(mid).not.toBe('#a79cf7')
+    expect(mid).not.toBe('#d4d4d8')
+  })
+
+  test('desktop: the effort word lights up when the effort changes, then goes back to white', DASH, async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    on('prompt.read', () => ({ value: { text: '', cursor: 0 } }) as never)
+    on('prompt.fill', () => ({ isFilled: true }) as never)
+    await start($, on)
+    await closeSetup($, DESK_BAND)
+    const color = async () => {
+      const band = await $.ui.mount(DESK_BAND)
+      const text = await drawn(band)
+      await band.unmount()
+      // Picking an effort by hand turns Auto off, so the word becomes Off.
+      return text.includes('"color":"#a79cf7","bold":true},"children":["Off"]') ? 'accent' : text.includes('"color":"#d4d4d8","bold":true},"children":["Off"]') ? 'white' : text
+    }
+    const first = await $.ui.mount(DESK_BAND)
+    await first.unmount()
+    const rows = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
+    await rows.press({ key: 'e-low' })
+    await rows.unmount()
+    expect(await color()).toBe('accent')
+    await mocked.advance(2000)
+    expect(await color()).toBe('white')
   })
 
   test("desktop: the band above the prompt at rest, with Auto, Handoff and settings; the footer is the app's own", DASH, async ($, on) => {
