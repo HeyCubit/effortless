@@ -21,13 +21,13 @@ Restart Claude Code. It works right away with Haiku as the judge, on your own Cl
 
 ## Pick your judge
 
-Run `/plugin configure effortless@effortless` in Claude Code, or set it at install time with `--config judge=...`. Left unset, `auto` applies.
+Run `/plugin configure effortless@effortless` in Claude Code. Left unset, `auto` applies.
 
 | Judge | What it needs | Speed |
 |---|---|---|
-| `auto` (default) | Jev when a TypeSafe key is found, Haiku otherwise | |
+| `auto` (default) | Jev when a TypeSafe key is set, Haiku otherwise | |
 | `haiku` | nothing, uses your Claude login | about 1 s |
-| `jev` | a [TypeSafe](https://typesafe.ai) key, in the settings, `TYPESAFE_API_KEY`, or `~/.config/jev/.env` | about 0.25 s |
+| `jev` | a [TypeSafe](https://typesafe.ai) key, in the settings or `TYPESAFE_API_KEY` (with `jev` picked, also `~/.config/jev/.env`) | about 0.25 s |
 | `custom` | any OpenAI-compatible chat completions endpoint: URL, model and key | depends |
 
 Custom examples:
@@ -42,6 +42,13 @@ Custom examples:
 Keys are stored as secret settings by Claude Code, never in a file of this repo. If a judge fails or takes longer than 3 seconds, effortless falls back to Haiku for that prompt.
 
 Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and ask no judge.
+
+## Keys and trust
+
+- The default judge needs **no key**: Haiku runs on your own Claude login.
+- A key is only needed for `jev` or `custom`. Enter it with `/plugin configure`, never on the command line, so it stays out of your shell history. Claude Code keeps it in its secure storage, not in a file.
+- A key is sent only to the judge you picked (TypeSafe, or the custom URL you entered), and to nothing else. Use a key with a spending limit if your provider offers one.
+- Like any Claude Code plugin, this mod runs code on your machine. It is one file, [`hooks/register.tsx`](hooks/register.tsx): read it before you install if you do not know the author.
 
 ## Commands
 
