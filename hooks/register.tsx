@@ -1181,7 +1181,7 @@ Saved to ${out}.md and .json` }
       const openSettings = () => typeCommand($, SETTINGS_COMMAND)
       // The same build as the cold band: one styled surface, the art a backdrop layer behind the right side, and the
       // buttons in a later layer so they are drawn on top of it. The text keeps clear of them with a spacer.
-      const band = (words: string, buttons: unknown) => (
+      const band = (words: string, buttons: unknown[]) => (
         <Box
           key="setup"
           position="relative"
@@ -1212,23 +1212,23 @@ Saved to ${out}.md and .json` }
       if (step === 'pick')
         return band(
           'Who picks the effort?',
-          <>
-            <Button key="setup-jev" variant="primary" label="Jev (API)" onPress={() => pickJudge($, 'jev')} />
-            <Button key="setup-haiku" label="Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />
+          [
+            <Button key="setup-jev" variant="primary" label="Jev (API)" onPress={() => pickJudge($, 'jev')} />,
+            <Button key="setup-haiku" label="Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />,
             <Button key="setup-later" label="⏎" onPress={() => finishSetup($)} />
-          </>,
+          ],
         )
       return band(
         step === 'jev' ? 'Paste a TypeSafe key (typesafe.ai) in settings, then restart.' : 'Fill in URL, model and key in settings, then restart.',
-        <>
-          <Button key="setup-open" variant="primary" label="Open settings" onPress={openSettings} />
+        [
+          <Button key="setup-open" variant="primary" label="Open settings" onPress={openSettings} />,
           <Button
             key="setup-done"
             label="Done"
             onPress={() => finishSetup($, 'effortless: restart Claude Code so the new settings are used.')}
-          />
+          />,
           <Button key="setup-back" plain label="Back" onPress={() => update($, setupStep, () => 'pick')} />
-        </>,
+        ],
       )
     }
     // The cache went cold: the next message writes the whole chat again at full price. Said where it cannot be missed.
