@@ -102,7 +102,7 @@
     "hide": {
       "type": "string",
       "title": "Switched off",
-      "description": "Comma-separated: handoff (the footer button), timer (the cache countdown), cold, swamp, hot, down (the alert bands), line (the line under each reply and its warning card). Empty shows everything.",
+      "description": "Comma-separated: handoff (the footer button), timer (the cache countdown), cold, swamp, hot, down (the alert bands), line (the line under each reply and its warning card), progress (the progress bar), sounds (its chimes). Empty shows everything.",
       "default": ""
     },
     "swampAt": {

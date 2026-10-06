@@ -1,6 +1,6 @@
 ---
-description: effortless settings and tools. /effortless settings, handoff, setup, bench, auto, stats; try a band with cold, swamp, hot or down.
-argument-hint: settings | debug | handoff [full] | setup | bench | auto | stats | cold | swamp | hot | down
+description: effortless settings and tools. /effortless settings, handoff, setup, bench, auto, stats; try a band with cold, swamp, hot or down, or the progress bar with progress.
+argument-hint: settings | debug | handoff [full] | setup | bench | auto | stats | cold | swamp | hot | down | progress [ask|done|clear]
 ---
 
 The effortless mod answers this command itself, so this text is only read when the mod did not load.
