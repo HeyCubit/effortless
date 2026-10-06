@@ -1273,10 +1273,6 @@ export const register: Register = (on, options) => {
     // Clear the status entry older versions set.
     $.ui.status(undefined)
     await modelIs($, await $.session.model()).catch(() => undefined)
-    await $.command.register({
-      name: 'effortless',
-      description: 'Handoff to a fresh chat: /effortless handoff. Try the bands: /effortless swamp, hot, down, cold. Settings: /effortless settings. Setup: /effortless setup. Judge test: /effortless bench. Auto on/off: /effortless auto. What Auto cost: /effortless stats. Try Compact: /effortless cold.',
-    })
     return next(e)
   })
 
@@ -1293,7 +1289,10 @@ export const register: Register = (on, options) => {
     return result
   })
 
-  on('command.run', { command: 'effortless' }, async ($, e) => {
+  // /effortless is a command file in the plugin (commands/effortless.md), so the app lists it before the session has
+  // started; this hook answers it, and the file's text never reaches the model. Both spellings the app may use.
+  on('command.run', async ($, e, next) => {
+    if (e.command !== 'effortless' && e.command !== 'effortless:effortless') return next(e)
     const wanted = await read($, suggestion)
     const arg = e.args.trim().toLowerCase()
     if (arg === 'auto') {
