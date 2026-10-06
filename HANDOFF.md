@@ -1,7 +1,7 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.29.4 (progress bar from 1.29; setup checkboxes), pushed and installed. Direct pushes, no open PRs.
+- `main` on HeyCubit/effortless, version 1.30.1 (progress bar: a pill per step, the current one animated; background art), pushed and installed. Direct pushes, no open PRs.
 - Release: bump `version` in `.claude-plugin/plugin.json`, `<cli> plugin validate .`, `<cli> plugin test .`
   (0 fail), push, `<cli> plugin marketplace update effortless`, `<cli> plugin update effortless@effortless`, restart.
 - CLI on this PC: `$APPDATA/Claude/claude-code/<version>/<hash>/claude.exe` (newest folder). `claude` on PATH is
@@ -33,8 +33,9 @@
    compact), where a rewrite costs almost nothing.
 
 ## Decided, do not redo
-- Progress bar animated (Isac 2026-10-06: wanted motion in the current step; option B of three: shimmer + pulsing tip,
-  glow, done lights up in order) plus background art: sparkles, rising ? when asking, rising checkmarks when done.
+- Progress bar design (Isac 2026-10-06): a fixed-size pill per step, done filled with a tick, the current one a
+  streaming speed fill (the only animated pill), pending an outline; background art: sparkles, rising ? when asking,
+  rising checkmarks when done. An interactive Svg needs both width and height (else a 300x150 frame).
   Finish line is a flag that turns into a ticked circle. Done shows before the alert bands (Isac: swamp hid it).
   Chimes softened after Isac called the first ones terrible.
 - Progress bar (2026-10-06, design left to the builder): 3+ steps from TodoWrite or TaskCreate/TaskUpdate; a judge
