@@ -1319,11 +1319,11 @@ export const SETUP_FOOTER = [
 
 /** The lean's five stops, cheaper to smarter: a name, and what it does to the judge's pick (see tipped). */
 export const LEAN_STOPS = [
-  ['Cheapest', 'most unsure picks go one step lower.'],
-  ['Cheaper', 'the most unsure picks go one step lower.'],
-  ['Balanced', "the judge's pick stands."],
-  ['Smarter', 'the most unsure picks go one step higher.'],
-  ['Smartest', 'most unsure picks go one step higher.'],
+  ['Cheapest', 'more picks go lower'],
+  ['Cheaper', 'unsure picks go lower'],
+  ['Balanced', 'the judge decides'],
+  ['Smarter', 'unsure picks go higher'],
+  ['Smartest', 'more picks go higher'],
 ] as const
 
 /** The guide's step after this one: the judge (with its key or URL), the lean, the handoff, the footer, then done. */
@@ -2280,7 +2280,7 @@ Saved to ${out}.md and .json` }
         </Box>
       )
       if (step === 'pick')
-        return band('Who picks the effort for each message?', 54, [
+        return band('Who picks the effort?', 62, [
           // Each mark sits tight against its own button; the pairs stand apart.
           <Box key="pick-jev" flexDirection="row" gap={1} alignItems="center">
             <Svg source={TYPESAFE_MARK} alt="TypeSafe" width={12} height={18} />
@@ -2299,7 +2299,7 @@ Saved to ${out}.md and .json` }
           ),
         ])
       if (step === 'jev')
-        return band('Paste a TypeSafe key from typesafe.ai.', 44, [
+        return band('Key from typesafe.ai:', 52, [
           <Box key="key-field" width={30} flexShrink={1}>
             <Input key="setup-key" placeholder="TypeSafe key" value={draft.key ?? ''} submitLabel="Save"
               onInput={(v: string) => pick('key', v)}
@@ -2313,7 +2313,7 @@ Saved to ${out}.md and .json` }
           ...nav(<Button key="setup-skip" plain label="Skip" onPress={go('lean')} />),
         ])
       if (step === 'custom')
-        return band('Your judge: a chat completions URL and a model.', 62, [
+        return band('Your judge, URL and model:', 70, [
           <Box key="url-field" width={28} flexShrink={1}>
             <Input key="setup-url" placeholder="URL" value={shown.customUrl} submitLabel="ok"
               onInput={(v: string) => pick('customUrl', v)}
@@ -2344,11 +2344,11 @@ Saved to ${out}.md and .json` }
         const side = (label: string, lit: boolean) =>
           lit ? <Text key={label} color={ACCENT}>{label}</Text> : <Text key={label} dimColor>{label}</Text>
         return band(
-          <Box key="setup-what" flexDirection="row">
+          <Box key="setup-what" flexDirection="row" flexShrink={1} minWidth={0}>
             <Text color={ACCENT} bold wrap="truncate">{`${name}: `}</Text>
             <Text wrap="truncate">{does}</Text>
           </Box>,
-          48,
+          62,
           [
             side('Cheaper', lean < 0),
             <Box key="track" flexDirection="row" alignItems="center">
@@ -2361,7 +2361,7 @@ Saved to ${out}.md and .json` }
       }
       if (step === 'handoff') {
         const skillNames = await read($, installedSkills)
-        return band('⇥ at the bottom moves the chat to a fresh one. Full handoff by:', 40, [
+        return band('Who writes a Full ⇥ handoff?', 48, [
           <Select key="setup-skill" value={shown.handoffSkill || '-'}
             options={[
               { value: '-', label: 'none, quick only' },
@@ -2378,9 +2378,9 @@ Saved to ${out}.md and .json` }
           const after = off ? shown.hide.filter(h => h !== part) : [...shown.hide, part]
           return <Button key={`setup-show-${part}`} plain label={`${off ? '☐' : '☑'} ${label}`} onPress={() => pick('hide', after.join(','))} />
         })
-        return band('What shows at the bottom? Both are recommended.', 40, [...toggles, ...nav(nextButton)])
+        return band('Show at the bottom (both recommended):', 50, [...toggles, ...nav(nextButton)])
       }
-      return band('⏻ at the bottom turns Auto on or off, ⚙ changes all this. Auto pauses on Fable.', 18, [
+      return band('⏻ Auto on or off. ⚙ all settings. Auto pauses on Fable.', 24, [
         ...nav(<Button key="setup-done" variant="primary" autoFocus label="Done" onPress={() => finishSetup($)} />),
       ])
     }
