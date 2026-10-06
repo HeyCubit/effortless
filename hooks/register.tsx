@@ -72,6 +72,8 @@ const FROST_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="6
 // The frost is drawn larger than the band and cut by it: wide enough for the right side, tall enough for any band.
 const FROST_WIDTH = 440
 const FROST_HEIGHT = 64
+// TypeSafe's mark (from typesafe.ai), drawn beside the Jev button: a Button holds text only.
+const TYPESAFE_MARK = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="18" viewBox="0 0 16.487 24"><style>svg{background:transparent;display:block}</style><path d="M 12.756 2.928 L 12.756 7.067 L 16.486 9.487 L 16.487 18.652 L 8.244 24 L 3.732 21.073 L 3.732 16.82 L 0 14.399 L 0 5.35 L 0.355 5.118 L 8.244 0 Z M 5.94 20.65 L 8.242 22.144 L 14.275 18.227 L 11.975 16.735 Z M 9.022 10.332 L 9.022 14.4 L 5.29 16.822 L 5.29 19.216 L 11.197 15.383 L 11.197 8.921 Z M 12.756 15.384 L 14.928 16.794 L 14.928 10.332 L 12.756 8.922 Z M 2.21 13.976 L 4.511 15.47 L 6.812 13.976 L 4.512 12.485 Z M 1.559 6.193 L 1.559 12.544 L 3.731 11.134 L 3.731 7.066 L 7.464 4.643 L 7.464 2.36 L 1.56 6.193 Z M 5.291 11.132 L 7.463 12.542 L 7.463 10.332 L 5.292 8.921 L 5.292 11.132 Z M 5.94 7.487 L 8.244 8.981 L 10.544 7.488 L 8.244 5.994 Z M 9.024 4.643 L 11.196 6.054 L 11.196 3.774 L 9.024 2.359 Z" fill="#ffffff"/></svg>`
 const SETTINGS_COMMAND = '/plugin configure effortless@effortless'
 // The right of the setup guide, pure decoration (the name is on the left): a purple gradient with a soft glow,
 // faint light streaks and grain, a still star, and small sparkles that twinkle in and out here and there. One constant source, so the app never rebuilds its frame (a changing source flickers); the
@@ -1213,6 +1215,7 @@ Saved to ${out}.md and .json` }
         return band(
           'Who picks the effort?',
           [
+            <Svg key="typesafe-mark" source={TYPESAFE_MARK} alt="TypeSafe" width={12} height={18} />,
             <Button key="setup-jev" variant="primary" label="Jev (API)" onPress={() => pickJudge($, 'jev')} />,
             <Button key="setup-haiku" label="Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />,
             <Button key="setup-later" label="⏎" onPress={() => finishSetup($)} />
