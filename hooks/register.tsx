@@ -1775,6 +1775,26 @@ function bandArt($: EngineInterface, e: RenderInput<'AbovePrompt'>, kind: ArtKin
   )
 }
 
+/** A bar on the terminal (setup, handoff): the title and words on the left with the brand's still art beside them,
+ * the controls on a row of their own that wraps, so nothing is cut at 80 columns. */
+function terminalPanel($: EngineInterface, e: RenderInput<'AbovePrompt'>, key: string, title: string, words: unknown, controls: unknown[]) {
+  const { Box, Text } = $.ui.resolve(e)
+  return (
+    <Box key={key} flexDirection="column" paddingX={1} backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
+      <Box flexDirection="row" gap={1} alignItems="center">
+        <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
+          <Text color={ACCENT} bold wrap="truncate">{title}</Text>
+          {typeof words === 'string' ? <Text key={`${key}-what`} dimColor wrap="truncate">{words}</Text> : words}
+        </Box>
+        {bandArt($, e, 'brand')}
+      </Box>
+      <Box key={`${key}-actions`} flexDirection="row" flexWrap="wrap" gap={1} alignItems="center">
+        {controls}
+      </Box>
+    </Box>
+  )
+}
+
 type TerminalBand = { key: string; kind: ArtKind; color: string; bg: string; edge: string; title: string; detail: string; buttons: unknown[] }
 
 /** An alert band on the terminal: title and buttons, the detail on a line of its own, art on the right, and the effort
@@ -2601,9 +2621,11 @@ Saved to ${out}.md and .json` }
       }
       // Probe 2 keeps only the frame and header; probe 3 keeps the rows of buttons and text, no pickers or fields.
       const frameOnly = probeLevel === 2
+      // The terminal has no art in the header bar and few rows: no gaps, one row under the title.
+      const term = e.surface === 'terminal'
       const bare = probeLevel === 3
       return (
-        <Box key="settings" position="relative" flexDirection="column" gap={roomy ? 1 : 0} paddingX={2} overflow="hidden"
+        <Box key="settings" position="relative" flexDirection="column" gap={roomy && !term ? 1 : 0} paddingX={term ? 1 : 2} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={3} overflow="hidden" backgroundColor={BRAND_HEAD}>
             <Box key="settings-art" position="absolute" top={0} right={0} bottom={0}>
@@ -2617,10 +2639,10 @@ Saved to ${out}.md and .json` }
             {dirty ? <Text dimColor> · unsaved changes</Text> : null}
           </Box>
           <Box key="settings-actions" position="absolute" top={0} right={1} height={2} flexDirection="row" gap={2} alignItems="center">
-            <Button key="settings-save" variant="primary" label="Save" onPress={() => saveDraft($)} />
-            <Button key="settings-close" plain label="✕" onPress={close} />
+            <Button key="settings-save" variant="primary" hotkey="s" label="Save" onPress={() => saveDraft($)} />
+            <Button key="settings-close" plain hotkey="x" label="✕" onPress={close} />
           </Box>
-          <Box key="settings-spacer" height={roomy ? 2 : 1} />
+          <Box key="settings-spacer" height={roomy && !term ? 2 : 1} />
           {frameOnly ? null : row('settings-bias', 'Effort', ICON_EFFORT, [
             <Text key="cheap" dimColor>Cheaper</Text>,
             <Box key="track" flexDirection="row" alignItems="center">
@@ -2676,11 +2698,36 @@ Saved to ${out}.md and .json` }
       const { Select } = $.ui.resolve(e)
       const fullReady = Boolean(config.handoffSkill)
       const what = handoffWhat(choice, config.handoffSkill)
+      // Go is the one lit button: the picked kind is a quiet box, the other plain text.
+      const controls = [
+        choice.kind === 'quick' ? (
+          <Button key="handoff-quick" hotkey="q" variant="secondary" label="Quick" onPress={setBar({ kind: 'quick' })} />
+        ) : (
+          <Button key="handoff-quick" hotkey="q" plain dimColor label="Quick" onPress={setBar({ kind: 'quick' })} />
+        ),
+        choice.kind === 'full' ? (
+          <Button key="handoff-full" hotkey="f" variant="secondary" label="Full" onPress={setBar({ kind: 'full' })} />
+        ) : (
+          <Button key="handoff-full" hotkey="f" plain dimColor label="Full" onPress={setBar({ kind: 'full' })} />
+        ),
+        <Select key="handoff-after" value={choice.after}
+          options={[
+            { value: 'continue', label: 'Clear & carry on' },
+            { value: 'confirm', label: 'Clear & wait' },
+            { value: 'copy', label: 'Keep chat & copy' },
+            { value: 'newchat', label: 'New chat & archive' },
+          ]}
+          onSelect={v => setBar({ after: v as HandoffAfter })()} />,
+        <Button key="handoff-go" variant="primary" autoFocus hotkey="g" label="Go" onPress={() => goHandoff($, choice)} />,
+        <Button key="handoff-close" plain role="dismiss" hotkey="x" label="✕" onPress={() => closeHandoffBar($)} />,
+      ]
+      const line = choice.kind === 'full' && !fullReady ? 'Full needs a skill: pick one in ⚙ under Handoff.' : `${what.by}. ${what.then}`
+      if (e.surface === 'terminal') return terminalPanel($, e, 'handoff-bar', '⇥ Handoff', line, controls)
       return (
         // The art is a still image here: an animated one sits in a frame the app rebuilds on every redraw, and the bar
         // redraws on every choice. The title over the line on what happens, on the left; the controls on the right in
         // their own absolute layer, drawn last: the app draws anything in the flow under the absolute art, where it takes
-        // no clicks. Go is the one lit button: the picked kind is a quiet box, the other plain text.
+        // no clicks.
         <Box key="handoff-bar" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
@@ -2691,31 +2738,12 @@ Saved to ${out}.md and .json` }
               ⇥ Handoff
             </Text>
             <Text key="handoff-what" dimColor wrap="truncate">
-              {choice.kind === 'full' && !fullReady ? 'Full needs a skill: pick one in ⚙ under Handoff.' : `${what.by}. ${what.then}`}
+              {line}
             </Text>
           </Box>
           <Box flexGrow={1} minWidth={48} />
           <Box key="handoff-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
-            {choice.kind === 'quick' ? (
-              <Button key="handoff-quick" hotkey="q" variant="secondary" label="Quick" onPress={setBar({ kind: 'quick' })} />
-            ) : (
-              <Button key="handoff-quick" hotkey="q" plain dimColor label="Quick" onPress={setBar({ kind: 'quick' })} />
-            )}
-            {choice.kind === 'full' ? (
-              <Button key="handoff-full" hotkey="f" variant="secondary" label="Full" onPress={setBar({ kind: 'full' })} />
-            ) : (
-              <Button key="handoff-full" hotkey="f" plain dimColor label="Full" onPress={setBar({ kind: 'full' })} />
-            )}
-            <Select key="handoff-after" value={choice.after}
-              options={[
-                { value: 'continue', label: 'Clear & carry on' },
-                { value: 'confirm', label: 'Clear & wait' },
-                { value: 'copy', label: 'Keep chat & copy' },
-                { value: 'newchat', label: 'New chat & archive' },
-              ]}
-              onSelect={v => setBar({ after: v as HandoffAfter })()} />
-            <Button key="handoff-go" variant="primary" autoFocus label="Go" onPress={() => goHandoff($, choice)} />
-            <Button key="handoff-close" plain role="dismiss" label="✕" onPress={() => closeHandoffBar($)} />
+            {controls}
           </Box>
         </Box>
       )
@@ -2742,7 +2770,9 @@ Saved to ${out}.md and .json` }
       // layer, drawn last: the app draws anything in the flow under the absolute art, where it takes no clicks
       // (position="relative" does not lift it). The spacer keeps the words clear of them; room is their width in
       // columns. The art is still: every click redraws the band.
-      const band = (words: unknown, room: number, controls: unknown[]) => (
+      const band = (words: unknown, room: number, controls: unknown[]) => e.surface === 'terminal' ? (
+        terminalPanel($, e, 'setup', counter ? `✦ effortless setup  ${counter}` : '✦ effortless setup', words, controls)
+      ) : (
         <Box key="setup" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="setup-art" position="absolute" top={-1} right={0} bottom={-1}>
@@ -2889,8 +2919,8 @@ Saved to ${out}.md and .json` }
           key: 'down', kind: 'down', color: SLATE, bg: SLATE_BG, edge: SLATE_EDGE, title: 'Judge down',
           detail: `${downReason}. Haiku stands in.`,
           buttons: [
-            <Button key="down-settings" variant="primary" label="Settings" onPress={() => openPluginSettings($)} />,
-            <Button key="down-close" plain role="dismiss" label="✕" onPress={() => update($, judgeDownHidden, () => downReason)} />,
+            <Button key="down-settings" variant="primary" hotkey="s" label="Settings" onPress={() => openPluginSettings($)} />,
+            <Button key="down-close" plain role="dismiss" hotkey="x" label="✕" onPress={() => update($, judgeDownHidden, () => downReason)} />,
           ],
         })
       return (
@@ -2925,9 +2955,9 @@ Saved to ${out}.md and .json` }
           key: 'hot', kind: 'hot', color: EMBER, bg: EMBER_BG, edge: EMBER_EDGE, title: 'Running hot',
           detail: `${Math.round(heat.percent)}% of your ${window} limit used${resets ? ` · resets ${resets}` : ''}`,
           buttons: [
-            <Button key="hot-save" variant="primary" label={saving ? 'Save mode on' : 'Save mode'}
+            <Button key="hot-save" variant="primary" hotkey="s" label={saving ? 'Save mode on' : 'Save mode'}
               onPress={async () => { $.ui.toast(`effortless: ${await toggleSave($)}`) }} />,
-            <Button key="hot-close" plain role="dismiss" label="✕" onPress={() => update($, hotHidden, () => heat.percent)} />,
+            <Button key="hot-close" plain role="dismiss" hotkey="x" label="✕" onPress={() => update($, hotHidden, () => heat.percent)} />,
           ],
         })
       return (
@@ -2966,8 +2996,8 @@ Saved to ${out}.md and .json` }
           key: 'cold', kind: 'cold', color: ICE, bg: ICE_BG, edge: ICE_EDGE, title: 'Chat went cold',
           detail: 'The next message costs full price. Compact first.',
           buttons: [
-            <Button key="cold-hide" plain label="Not now" onPress={() => update($, isColdHidden, () => true)} />,
-            <Button key="cold-compact" variant="primary" label="Compact" onPress={() => compactCold($)} />,
+            <Button key="cold-hide" plain hotkey="n" label="Not now" onPress={() => update($, isColdHidden, () => true)} />,
+            <Button key="cold-compact" variant="primary" hotkey="c" label="Compact" onPress={() => compactCold($)} />,
           ],
         })
       // The art is a backdrop: an absolutely placed layer behind the right side, so the words and Compact sit on it.
@@ -3015,7 +3045,7 @@ Saved to ${out}.md and .json` }
           buttons: [
             <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => compactCold($)} />,
             <Button key="swamp-handoff" hotkey="h" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />,
-            <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />,
+            <Button key="swamp-close" plain role="dismiss" hotkey="x" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />,
           ],
         })
       return (
