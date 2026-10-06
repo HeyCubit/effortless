@@ -1594,8 +1594,20 @@ Saved to ${out}.md and .json` }
         : effortNow
           ? EFFORT_LABELS[effortNow]
           : 'Auto'
+    // Hover cards: hidden until the pointer rests on the effort or cache text (same hover scope), then shown just
+    // above it. Text has no tooltip of its own. In the footer, not above the prompt: a hidden tree there still drew
+    // the app's empty slot.
+    const tips = hoverTips(v)
+    const card = (key: string, scope: string, text: string) => (
+      <Box key={key} position="absolute" bottom={1} right={0} display="none" hover={{ scope, display: 'flex' }} paddingX={1}
+        backgroundColor={BRAND_HEAD}>
+        <Text>{text}</Text>
+      </Box>
+    )
     return (
-      <Box flexDirection="row" gap={1} alignItems="center">
+      <Box key="footer" position="relative" flexDirection="row" gap={1} alignItems="center">
+        {card('tip-effort', 'effort', tips.effort)}
+        {v.cacheNow === null ? null : card('tip-cache', 'cache', tips.cache)}
         {e.props.modes.length > 0 ? <Text dimColor>{e.props.modes.join(' & ')}</Text> : null}
         {/* Hovering the level puts a box behind it, like the app's own effort pill. The spaces are its padding:
             Text has no padding of its own. */}
@@ -2089,24 +2101,7 @@ Saved to ${out}.md and .json` }
         </Box>
       </Box>
     ) : null
-    if (e.surface !== 'terminal') {
-      if (question) return question
-      // Hover cards: hidden until the pointer rests on the footer's effort or cache text (same hover scope), then
-      // shown here above the prompt. Text has no tooltip of its own; a scope reveals across sites.
-      const tips = hoverTips(v)
-      const card = (key: string, scope: string, text: string) => (
-        <Box key={key} display="none" hover={{ scope, display: 'flex' }} paddingX={1} backgroundColor={BRAND_BG}
-          borderStyle="round" borderColor={BRAND_EDGE}>
-          <Text wrap="truncate">{text}</Text>
-        </Box>
-      )
-      return (
-        <Box key="hover-cards" flexDirection="column">
-          {card('tip-effort', 'effort', tips.effort)}
-          {card('tip-cache', 'cache', tips.cache)}
-        </Box>
-      )
-    }
+    if (e.surface !== 'terminal') return question ?? next(e)
 
     const notAligned = current && inUse !== 'haiku' && shownByApp && shownByApp !== current.effort
     const note = judging
