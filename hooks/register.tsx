@@ -1978,7 +1978,7 @@ Saved to ${out}.md and .json` }
         <Box key="handoff-bar" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH} height={FROST_HEIGHT * 2} isInteractive />
+            <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} isInteractive />
           </Box>
           <Box key="handoff-words" flexDirection="column" flexShrink={1} minWidth={0}>
             <Text color={ACCENT} bold wrap="truncate">
