@@ -1857,6 +1857,35 @@ describe('swamp band and setup entry', () => {
     await again.unmount()
   })
 
+  test('while compacting, the swamp band says so and its buttons step aside', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    let release = () => {}
+    on('command.run', (_$, e) => {
+      if (e.command !== 'compact') return { text: 'ok' }
+      return new Promise(resolve => {
+        release = () => resolve({ text: 'ok' })
+      }) as never
+    })
+    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 300_000, percent: 67 } } }) as never)
+    await start($, on)
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await mocked.advance(16_000)
+    const band = await $.ui.mount(DESK_BAND)
+    const pressed = band.press({ key: 'swamp-compact' })
+    await mocked.advance(100)
+    const during = await $.ui.mount(DESK_BAND)
+    expect(await drawn(during)).toContain('Compacting the chat')
+    expect(await during.find({ key: 'swamp-compact' })).toBeUndefined()
+    expect(await during.find({ key: 'swamp-handoff' })).toBeUndefined()
+    release()
+    await pressed
+    await during.unmount()
+    await band.unmount()
+  })
+
   test('the setup can be closed with the cross; the footer then offers Setup, which opens it again', async ($, on) => {
     engine(on)
     mock.clock(on)
