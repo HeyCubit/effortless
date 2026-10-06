@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter } from '../hooks/register'
-import { afterPrompt, currentStep, isBigPick, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
+import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
 
 const BAND = {
   component: 'AbovePrompt',
@@ -2295,9 +2295,6 @@ describe('progress bar', () => {
     expect(progressShows({ phase: 'working', steps: steps.slice(0, 2) }, null, 'active')).toBe(false)
     expect(progressTitle({ phase: 'asking', steps })).toBe('Waiting for your answer · step 2 of 3')
     expect(progressTitle({ phase: 'done', steps })).toBe('Done · all 3 steps')
-    expect(isBigPick({ model: 'opus', effort: 'high', why: '', by: 'jev' })).toBe(true)
-    expect(isBigPick({ model: 'opus', effort: 'high', why: '', by: 'manual' })).toBe(false)
-    expect(isBigPick({ model: 'opus', effort: 'medium', why: '', by: 'haiku' })).toBe(false)
   })
 
   test('Windows plays the chime with PowerShell; elsewhere the app plays it', () => {
@@ -2392,14 +2389,16 @@ describe('progress bar', () => {
     await back.unmount()
   })
 
-  test('a turn the judge calls big shows Planning until a list comes; with none it goes quietly', async ($, on) => {
+  test('a big turn alone shows no bar; plan mode shows Planning until a list comes, and with none it goes quietly', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
     const played = tools(on)
     judgeSays(on, '{"model":"opus","effort":"high","why":"big job"}')
     await start($, on)
-    await $.prompt.submit({ text: 'go through the whole repo and clean it up', wait: false, origin: { kind: 'composer' } })
-    await $.turn.start({ text: 'go through the whole repo', turnId: 't1' } as never)
+    await $.prompt.submit({ text: '/session-handoff', wait: false, origin: { kind: 'composer' } })
+    await $.turn.start({ text: '/session-handoff', turnId: 't1' } as never)
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    await $.tool.call({ tool: 'EnterPlanMode' } as never)
     const band = await $.ui.mount(DESK_BAND)
     expect(await drawn(band)).toContain('Planning a bigger task')
     expect(await band.find({ key: 'progress-thinking' })).toBeDefined()

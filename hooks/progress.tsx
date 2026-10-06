@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { On } from 'claude-code'
 
-import type { Pick, Progress, ProgressStep } from '../types'
+import type { Progress, ProgressStep } from '../types'
 
 // The progress bar: a band above the prompt that follows a bigger task step by step (docs/specs/2026-10-06-progress-bar.md).
 // Its own file, so the branches that edit register.tsx meet it in a few lines only. The engine follows $ only into
@@ -25,15 +25,8 @@ const LOOKS: Record<Progress['phase'], { color: string; bg: string; edge: string
 const RUN = 160
 
 const progressState = atom({ plugin: 'effortless', key: 'progress' } as const, null)
-// What the next turn runs with, as register.tsx sets it; read here only.
-const pick = atom({ plugin: 'effortless', key: 'pick' } as const, null)
 
 export type Cue = 'question' | 'done'
-
-/** A pick the judge made at high effort or above: the turn is a bigger task. A pick of your own says nothing of size. */
-export function isBigPick(p: Pick | null): boolean {
-  return Boolean(p && p.by !== 'manual' && ['high', 'xhigh', 'max'].includes(p.effort))
-}
 
 type Todo = { content: string; status: ProgressStep['status']; activeForm?: string }
 
@@ -167,7 +160,7 @@ export function demoProgress(arg: string): { progress: Progress | null; cue?: Cu
     }))
   if (arg === 'clear') return { progress: null, text: 'The progress bar is cleared.' }
   if (arg === 'plan')
-    return { progress: { phase: 'planning', steps: [] }, text: 'The progress bar is planning (a test): the judge called a task big and no steps exist yet.' }
+    return { progress: { phase: 'planning', steps: [] }, text: 'The progress bar is planning (a test): Claude is in plan mode and no steps exist yet.' }
   if (arg === 'ask')
     return {
       progress: { phase: 'asking', steps: demo(2, true) },
@@ -187,8 +180,7 @@ export function demoProgress(arg: string): { progress: Progress | null; cue?: Cu
 }
 
 /**
- * The hooks register.tsx does not have yet: the step list from the todo and task tools, Claude asking, and the start
- * of a turn the judge called big. `hidden` gives the parts switched off.
+ * The hooks register.tsx does not have yet: the step list from the todo and task tools, Claude asking, and plan mode. `hidden` gives the parts switched off.
  */
 export function registerProgress(on: On, hidden: () => readonly string[]) {
   const off = () => hidden().includes('progress')
@@ -206,6 +198,13 @@ export function registerProgress(on: On, hidden: () => readonly string[]) {
       if (shown) await update($, progressState, cur => (cur?.phase === 'asking' ? { ...cur, phase: 'working' } : cur))
       return result
     }
+    if (e.tool === 'EnterPlanMode') {
+      // Claude is planning for real: the bar says so until a step list comes. A guess from the effort pick showed it
+      // for turns that never made a list, a handoff among them.
+      const result = await next(e)
+      if (!('deny' in result && result.deny) && !result.isError) await update($, progressState, p => p ?? { phase: 'planning', steps: [] })
+      return result
+    }
     if (e.tool !== 'TodoWrite' && e.tool !== 'TaskCreate' && e.tool !== 'TaskUpdate') return next(e)
     const result = await next(e)
     if (('deny' in result && result.deny) || result.isError) return result
@@ -217,15 +216,6 @@ export function registerProgress(on: On, hidden: () => readonly string[]) {
       if (id) await update($, progressState, p => ({ phase: 'working', steps: withTaskCreated(p && p.phase !== 'done' ? p.steps : [], id, e) }))
     } else {
       await update($, progressState, p => (p ? { phase: p.phase === 'planning' ? 'working' : p.phase, steps: withTaskUpdated(p.steps, e) } : p))
-    }
-    return result
-  })
-
-  // The judge called this turn a bigger one: the bar shows "Planning" until a step list comes.
-  on('turn.start', async ($, e, next) => {
-    const result = await next(e)
-    if (!off() && !(await read($, progressState)) && isBigPick(await read($, pick))) {
-      await update($, progressState, p => p ?? { phase: 'planning', steps: [] })
     }
     return result
   })
