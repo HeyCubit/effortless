@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register } from 'claude-code'
+import type { EngineInterface, ModelForkResult, Register } from 'claude-code'
 
 import type { Effort, ModelKey, Pick, SettingsDraft, Spent } from '../types'
 
@@ -1001,6 +1001,22 @@ async function startHandoff($: EngineInterface) {
   handoffQueued = true
 }
 
+/** What a handoff fork came to, in a few words for /effortless debug: its reason when it wrote nothing. */
+export function forkOutcome(result: unknown, ms: number): string {
+  const took = `${(ms / 1000).toFixed(1)}s`
+  if (result instanceof Error) return `threw: ${result.message.slice(0, 120)} (${took})`
+  const r = result as ModelForkResult | undefined
+  if (!r || typeof r !== 'object' || !('isAnswered' in r)) return `threw: ${String(result).slice(0, 120)} (${took})`
+  if (r.isAnswered) {
+    const u = r.usage
+    const input = u.input_tokens + u.cache_read_input_tokens + u.cache_creation_input_tokens
+    const cached = input ? Math.round((u.cache_read_input_tokens / input) * 100) : 0
+    return r.text.trim() ? `answered, ${u.output_tokens} out, ${cached}% cached (${took})` : `answered with blank text (${took})`
+  }
+  if (r.reason === 'api-error') return `api-error ${r.status ?? 'no response'} ${r.error} (${took})`
+  return `${r.reason} (${took})`
+}
+
 /** Writes the handoff: a fork for the built-in prompt, the person's own skill as a turn. Runs from the timer. */
 async function writeHandoff($: EngineInterface) {
   if (!handoffQueued) return
@@ -1012,12 +1028,18 @@ async function writeHandoff($: EngineInterface) {
     }
     // The built-in handoff is written by a fork: the same model over this chat as it stands, its start read from the
     // prompt cache, no tools and no turn in the chat. Much quicker than a turn that may go exploring first.
-    const forked = await $.model.fork({ prompt: HANDOFF_PROMPT }).catch(() => undefined)
-    if (forked?.isAnswered && forked.text.trim()) {
-      handoffText = forked.text
+    const startedAt = Date.now()
+    const forked = await $.model.fork({ prompt: HANDOFF_PROMPT }).catch((error: unknown) => error)
+    const outcome = forkOutcome(forked, Date.now() - startedAt)
+    // Kept in the store: before a chat's first message the mod's session may start afresh, and its variables with it.
+    await $.store.set('lastFork', { at: Date.now(), outcome }).catch(() => undefined)
+    const answered = forked as ModelForkResult
+    if (answered?.isAnswered && answered.text.trim()) {
+      handoffText = answered.text
       return
     }
-    // Nothing to fork (no reply yet) or the fork failed: write it as a turn, as before.
+    // Nothing to fork (no reply yet) or the fork failed: write it as a turn, as before, and say why.
+    if (!outcome.startsWith('nothing-to-fork')) $.ui.toast(`effortless: the fork wrote no handoff (${outcome}); writing it as a turn`)
     await $.prompt.submit({ text: HANDOFF_PROMPT })
   } catch (error) {
     await update($, handoffStage, () => null)
@@ -1419,6 +1441,7 @@ export const register: Register = (on, options) => {
     }
     if (arg === 'debug') {
       const ago = (t: number) => (t ? `${Math.round((Date.now() - t) / 1000)}s ago` : 'never')
+      const lastFork = (await $.store.get('lastFork').catch(() => null)) as { at: number; outcome: string } | null
       return {
         text: [
           `session.start ${ago(sessionStarted)}`,
@@ -1429,6 +1452,7 @@ export const register: Register = (on, options) => {
           `settings open: ${await read($, settingsOpen)}`,
           `setup step: ${await read($, setupStep)}`,
           `handoff: ${await read($, handoffStage)}`,
+          `last fork: ${lastFork ? `${lastFork.outcome}, ${ago(lastFork.at)}` : 'none'}`,
           `hidden: ${config.hide.join(',') || 'nothing'}`,
         ].join(' | '),
       }
