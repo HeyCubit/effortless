@@ -260,32 +260,24 @@ export function progressShows(p: Progress | null, hiddenKey: string | null, when
   return p.steps.length >= MIN_STEPS && hiddenKey !== stepsKey(p.steps)
 }
 
-/** The thinking pill's size in pixels. */
-export const THINK_W = 150
+/** The thinking dots' size in pixels. */
+export const THINK_W = 34
 
 /**
- * Planning, before any step exists: a pill where a glowing streak sweeps back and forth, and three dots pulsing one
- * after another beside it, like thinking. Fixed size, so its interactive frame fits it.
+ * Planning, before any step exists: three dots pulsing one after another, like thinking. No bar: nothing is measured
+ * yet, so nothing pretends to fill. Fixed size, so its interactive frame fits it.
  */
 export function thinkingSvg(phase: Progress['phase'], w = THINK_W, h = PILL_H): string {
   const look = LOOKS[phase]
-  const pill = w - 30
   const r = h / 2
   const dots = [0, 1, 2]
-    .map(i => `<circle class="dot" style="animation-delay:${(i * 0.18).toFixed(2)}s" cx="${pill + 8 + i * 8}" cy="${r}" r="2.4" fill="${look.color}"/>`)
+    .map(i => `<circle class="dot" style="animation-delay:${(i * 0.18).toFixed(2)}s" cx="${6 + i * 11}" cy="${r}" r="3" fill="${look.color}"/>`)
     .join('')
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
     '<style>:root{color-scheme:light dark}html,body{margin:0;overflow:hidden}svg{background:transparent;display:block}' +
-    `.scan{animation:scan 1.6s ease-in-out infinite alternate}@keyframes scan{from{transform:translateX(-10px)}to{transform:translateX(${pill - 40}px)}}` +
     '.dot{transform-box:fill-box;transform-origin:center;opacity:.3;animation:dot 1.1s ease-in-out infinite}' +
-    '@keyframes dot{30%{opacity:1;transform:translateY(-2px) scale(1.15)}60%{opacity:.3;transform:none}}' +
-    '.br{animation:br 2.4s ease-in-out infinite}@keyframes br{0%,100%{opacity:.6}50%{opacity:1}}</style>' +
-    `<defs><clipPath id="c"><rect width="${pill}" height="${h}" rx="${r}"/></clipPath>` +
-    `<linearGradient id="s" x1="0" x2="1"><stop offset="0" stop-color="${look.color}" stop-opacity="0"/><stop offset=".5" stop-color="${look.color}"/>` +
-    `<stop offset=".62" stop-color="#ffffff" stop-opacity=".9"/><stop offset="1" stop-color="${look.color}" stop-opacity="0"/></linearGradient></defs>` +
-    `<rect x=".75" y=".75" width="${pill - 1.5}" height="${h - 1.5}" rx="${r - 0.75}" fill="${look.color}" fill-opacity=".08" stroke="${look.color}" stroke-opacity=".4" stroke-width="1.2"/>` +
-    `<g clip-path="url(#c)"><rect class="scan br" x="0" y="2" width="50" height="${h - 4}" rx="${r - 2}" fill="url(#s)"/></g>` +
+    '@keyframes dot{30%{opacity:1;transform:translateY(-2.5px) scale(1.15)}60%{opacity:.3;transform:none}}</style>' +
     dots +
     '</svg>'
   )
