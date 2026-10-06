@@ -44,6 +44,9 @@ export type SettingsDraft = {
   /** Comma-separated parts switched off: handoff, cold, swamp, hot, down. */
   hide?: string
   key?: string
+  swampAt?: string
+  /** default (dashboard band) or minimal (footer buttons). */
+  layout?: string
 }
 
 /** One step of the task the progress bar follows: a todo or a task. */
@@ -107,10 +110,12 @@ declare module 'claude-code' {
       handoffPick: HandoffChoice | null
       /** The newest reply's text: the reply card hangs under its last block. */
       lastAnswer: string
+      /** What the newest reply cost: tokens weighted by price over the main thread's requests, and its time. */
+      lastTurn: { cost: number; ms: number } | null
       /** The handoff card under the newest reply, from the start of a handoff until the reply after it lands. */
       handoffCard: { kind: 'writing' | 'done' | 'copied' | 'newchat'; full: boolean; at: number; seen: boolean } | null
       /** The setup guide's step, or null when it is closed. */
-      setupStep: 'pick' | 'jev' | 'custom' | 'lean' | 'handoff' | 'footer' | 'done' | null
+      setupStep: 'pick' | 'jev' | 'custom' | 'lean' | 'handoff' | 'done' | null
       /** Choices made in the setup guide, saved together at Done or the cross. */
       setupDraft: SettingsDraft
       /** Auto on model: the judge may suggest another model (never switched without a yes). Off by default. */

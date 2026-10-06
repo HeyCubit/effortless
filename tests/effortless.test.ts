@@ -1,9 +1,19 @@
-import { describe, expect, mock, test } from 'claude-code/testing'
+import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter } from '../hooks/register'
+import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, weighted } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
+
+
+// Most tests below were written for the footer's buttons: they run in the minimal look unless they name another.
+// The dashboard's own tests pass { layout: 'default' }.
+type Opts = Parameters<typeof baseTest>[1]
+const minimal = (o?: Record<string, unknown>) => ({ ...(o ?? {}), options: { layout: 'minimal', ...((o?.options as object) ?? {}) } })
+const test = ((name: string, a: unknown, b?: unknown) =>
+  b === undefined
+    ? baseTest(name, minimal() as Opts, a as never)
+    : baseTest(name, minimal(a as Record<string, unknown>) as Opts, b as never)) as typeof baseTest
 
 const BAND = {
   component: 'AbovePrompt',
@@ -1018,6 +1028,7 @@ describe('judge choice (plugin settings)', () => {
       ceiling: 'max',
       hide: [],
       swampAt: 50,
+      layout: 'default',
     })
     expect(readConfig({ swampAt: '20' })).toMatchObject({ swampAt: 20 })
     expect(readConfig({ swampAt: '33' }).swampAt).toBe(50)
@@ -2596,4 +2607,84 @@ describe('terminal bands', () => {
       await narrow.unmount()
     })
   }
+})
+
+describe('dashboard', () => {
+  const DASH = { options: { layout: 'default' } } as never
+  const start = async ($: Engine, on: On, surface: 'desktop' | 'terminal' = 'desktop') => {
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    await $.session.start({ cwd: '.', surface, isInteractive: true } as never)
+  }
+  const closeSetup = async ($: Engine, band: unknown) => {
+    const guide = await $.ui.mount(band as never)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+  }
+
+  test("its lines: the effort, cache and context; the judge's reason and the last reply", () => {
+    const base = { auto: true, paused: false, judging: false, effort: 'medium' as const, cacheNow: 42, contextPercent: 18, reason: 'Jev: a small fix', last: null }
+    expect(dashboardLines(base).head).toBe(`✦ Medium · cache ${cacheLabel(42)} · 18% context`)
+    expect(dashboardLines(base).detail).toBe('Jev: a small fix')
+    expect(dashboardLines({ ...base, last: { cost: 42_000, ms: 38_200 } }).detail).toBe('Jev: a small fix · last reply ≈42.0k tokens · 38s')
+    expect(dashboardLines({ ...base, auto: false }).head).toContain('Medium · Auto off')
+    expect(dashboardLines({ ...base, cacheNow: null, contextPercent: null }).head).toBe('✦ Medium')
+    expect(weighted({ input_tokens: 10, output_tokens: 2, cache_read_input_tokens: 1000, cache_creation_input_tokens: 4 })).toBe(10 + 10 + 100 + 5)
+  })
+
+  test("desktop: the band above the prompt at rest, with Auto, Handoff and settings; the footer is the app's own", DASH, async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    await start($, on)
+    await closeSetup($, DESK_BAND)
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await band.find({ key: 'dash-auto' })).toBeDefined()
+    expect(await band.find({ key: 'dash-settings' })).toBeDefined()
+    expect(await drawn(band)).toContain('✦ ')
+    await band.press({ key: 'dash-auto' })
+    expect(await drawn(band)).toContain('Auto off')
+    await band.press({ key: 'dash-handoff' })
+    expect(await drawn(band)).toContain('⇥ Handoff')
+    await band.unmount()
+    await expect($.ui.mount(FOOTER)).rejects.toThrow()
+  })
+
+  test("an alert takes the dashboard's place, and the dashboard comes back after it", DASH, async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    await start($, on)
+    await closeSetup($, DESK_BAND)
+    await $.command.run({ command: 'effortless', args: 'hot' } as never)
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('Running hot')
+    expect(await band.find({ key: 'dash-auto' })).toBeUndefined()
+    await band.press({ key: 'hot-close' })
+    expect(await band.find({ key: 'dash-auto' })).toBeDefined()
+    await band.unmount()
+  })
+
+  test('terminal: the same band with the effort row under it', DASH, async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    await start($, on, 'terminal')
+    const at = { plugin: 'effortless', surface: 'terminal', ...BAND, props: { ...BAND.props, bodyColumns: 120, maxRows: 14 } } as never
+    await closeSetup($, at)
+    const band = await $.ui.mount(at)
+    const text = await drawn(band)
+    expect(await band.find({ key: 'dash-auto' })).toBeDefined()
+    expect(text).toContain('"children":["Effort"]')
+    expect(text).toContain('"type":"Raster"')
+    await band.unmount()
+  })
+
+  test("the minimal look draws no band and keeps the footer's buttons", { options: { layout: 'minimal' } } as never, async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    await start($, on)
+    await closeSetup($, DESK_BAND)
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    const footer = await $.ui.mount(FOOTER)
+    expect(await footer.find({ key: 'auto' })).toBeDefined()
+    await footer.unmount()
+  })
 })
