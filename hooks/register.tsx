@@ -1670,12 +1670,20 @@ export function ringSvg(percent: number, color: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="${color}" stroke-opacity=".25" stroke-width="2.2"/><circle cx="8" cy="8" r="6" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="${((c * p) / 100).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 8 8)"/></svg>`
 }
 
-/** The dashboard's settings icon: three sliders with their knobs set at different places. Drawn, not a glyph: the
- * gear character is a different shape in every font. */
-export function settingsSvg(color: string, bg: string): string {
-  const row = (y: number, x: number) =>
-    `<line x1="2" y1="${y}" x2="16" y2="${y}" stroke="${color}" stroke-width="1.6" stroke-linecap="round"/><circle cx="${x}" cy="${y}" r="2.3" fill="${bg}" stroke="${color}" stroke-width="1.6"/>`
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">${row(4, 11.5)}${row(9, 6)}${row(14, 9.5)}</svg>`
+/** The dashboard's settings icon: a cog of eight teeth with a hole, drawn rather than a glyph, since the gear
+ * character is a different shape in every font. */
+export function settingsSvg(color: string): string {
+  const step = (2 * Math.PI) / 8
+  const pts: string[] = []
+  for (let i = 0; i < 8; i++) {
+    const a = i * step
+    const at = (ang: number, r: number) => `${(9 + r * Math.cos(ang)).toFixed(2)},${(9 + r * Math.sin(ang)).toFixed(2)}`
+    pts.push(
+      at(a - step * 0.42, 6.2), at(a - step * 0.27, 6.2), at(a - step * 0.21, 7.9),
+      at(a + step * 0.21, 7.9), at(a + step * 0.27, 6.2), at(a + step * 0.42, 6.2),
+    )
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18"><path fill="${color}" fill-rule="evenodd" d="M${pts.join('L')}Z M11.6,9 A2.6,2.6 0 1 0 6.4,9 A2.6,2.6 0 1 0 11.6,9 Z"/></svg>`
 }
 
 /** k/M for token counts: 420000 -> "420k", 1000000 -> "1.0M". */
@@ -2025,7 +2033,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
         {Svg ? buttons.slice(0, -1) : buttons}
         {Svg ? (
           <Box key="dash-settings-icon" position="relative" alignItems="center" justifyContent="center">
-            <Svg source={settingsSvg(DASH_TEXT, DASH_BG)} alt="Settings" width={18} height={18} />
+            <Svg source={settingsSvg(DASH_TEXT)} alt="Settings" width={18} height={18} />
             <Box position="absolute" top={0} right={0} bottom={0} left={0} alignItems="center" justifyContent="center">
               {buttons[buttons.length - 1]}
             </Box>
