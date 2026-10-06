@@ -802,8 +802,15 @@ async function compactCold($: EngineInterface) {
       cacheExpires = 0
       await update($, cacheLeft, () => null)
     }
-  } catch {
-    $.ui.toast("Can't compact while Claude is working")
+  } catch (error) {
+    // Say what actually stopped it: a running turn is the usual reason, but not the only one.
+    const why = error instanceof Error ? error.message : String(error)
+    void proof($, `compact failed: ${why}`)
+    $.ui.toast(
+      /turn|running|busy/i.test(why)
+        ? "effortless: can't compact while Claude is working"
+        : `effortless: compact failed: ${why.slice(0, 140)}`,
+    )
   } finally {
     await update($, isCompacting, () => false)
   }
