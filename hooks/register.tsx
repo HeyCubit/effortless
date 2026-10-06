@@ -163,6 +163,10 @@ const DOWN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64
 const BRAND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.sp{fill:#fff;opacity:0;transform:scale(0);animation-name:gl;animation-timing-function:ease-in-out;animation-iteration-count:infinite}@keyframes gl{0%,72%,100%{opacity:0;transform:scale(0) rotate(0deg)}82%{opacity:.9;transform:scale(1) rotate(30deg)}92%{opacity:0;transform:scale(.2) rotate(60deg)}}.br{animation:br 6s ease-in-out infinite}@keyframes br{0%,100%{opacity:.85}50%{opacity:1}}</style><defs><linearGradient id="bg" x1="0" x2="1"><stop offset=".43" stop-color="#7c6cf0" stop-opacity="0"/><stop offset=".62" stop-color="#7c6cf0" stop-opacity=".16"/><stop offset=".85" stop-color="#8f7ff0" stop-opacity=".34"/><stop offset="1" stop-color="#b3a6ff" stop-opacity=".48"/></linearGradient><radialGradient id="glow" cx="320" cy="15" r="70" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#c9bdff" stop-opacity=".28"/><stop offset="1" stop-color="#9a86ff" stop-opacity="0"/></radialGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".07"/></pattern></defs><g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#bg)"/><rect width="360" height="30" fill="url(#glow)"/><rect width="360" height="30" fill="url(#grain)"/><line x1="186" y1="32" x2="198" y2="-2" stroke="#fff" stroke-opacity="0.04" stroke-width="3"/><line x1="204" y1="32" x2="216" y2="-2" stroke="#fff" stroke-opacity="0.05" stroke-width="1.2"/><line x1="226" y1="32" x2="238" y2="-2" stroke="#fff" stroke-opacity="0.05" stroke-width="4"/><line x1="262" y1="32" x2="274" y2="-2" stroke="#fff" stroke-opacity="0.04" stroke-width="1.5"/><line x1="290" y1="32" x2="302" y2="-2" stroke="#fff" stroke-opacity="0.05" stroke-width="3"/><line x1="320" y1="32" x2="332" y2="-2" stroke="#fff" stroke-opacity="0.04" stroke-width="1.2"/><path class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" d="M168 6.4 L168.34 7.66 L169.6 8 L168.34 8.34 L168 9.6 L167.66 8.34 L166.4 8 L167.66 7.66 Z"/><path class="sp" style="transform-origin:182px 22px;animation-duration:5.1s;animation-delay:2.1s" d="M182 20.7 L182.27 21.73 L183.3 22 L182.27 22.27 L182 23.3 L181.73 22.27 L180.7 22 L181.73 21.73 Z"/><path class="sp" style="transform-origin:196px 6px;animation-duration:3.8s;animation-delay:1.2s" d="M196 4.2 L196.38 5.62 L197.8 6 L196.38 6.38 L196 7.8 L195.62 6.38 L194.2 6 L195.62 5.62 Z"/><path class="sp" style="transform-origin:208px 19px;animation-duration:4.6s;animation-delay:3.4s" d="M208 17.8 L208.25 18.75 L209.2 19 L208.25 19.25 L208 20.2 L207.75 19.25 L206.8 19 L207.75 18.75 Z"/><path class="sp" style="transform-origin:221px 9px;animation-duration:5.4s;animation-delay:0.9s" d="M221 7.5 L221.31 8.69 L222.5 9 L221.31 9.31 L221 10.5 L220.69 9.31 L219.5 9 L220.69 8.69 Z"/><path class="sp" style="transform-origin:232px 23px;animation-duration:4.0s;animation-delay:2.7s" d="M232 21.9 L232.23 22.77 L233.1 23 L232.23 23.23 L232 24.1 L231.77 23.23 L230.9 23 L231.77 22.77 Z"/><path class="sp" style="transform-origin:244px 7px;animation-duration:4.8s;animation-delay:1.8s" d="M244 5.7 L244.27 6.73 L245.3 7 L244.27 7.27 L244 8.3 L243.73 7.27 L242.7 7 L243.73 6.73 Z"/><path class="sp" style="transform-origin:176px 15px;animation-duration:5.8s;animation-delay:4.0s" d="M176 14.0 L176.21 14.79 L177.0 15 L176.21 15.21 L176 16.0 L175.79 15.21 L175.0 15 L175.79 14.79 Z"/><path class="sp" style="transform-origin:214px 26px;animation-duration:4.4s;animation-delay:3.0s" d="M214 25.0 L214.21 25.79 L215.0 26 L214.21 26.21 L214 27.0 L213.79 26.21 L213.0 26 L213.79 25.79 Z"/><path class="sp" style="transform-origin:238px 15px;animation-duration:3.6s;animation-delay:0.1s" d="M238 14.0 L238.21 14.79 L239.0 15 L238.21 15.21 L238 16.0 L237.79 15.21 L237.0 15 L237.79 14.79 Z"/></g></svg>`
 
 // The handoff card once it has landed: the brand's art in green, with a big dark checkmark on the right.
+// The dashboard sits there all the time: the brand's art at 40% of its colour, so it stays out of the way.
+const DASH_SVG = BRAND_SVG.replace(/stop-opacity="([0-9.]+)"/g, (_m, v: string) => `stop-opacity="${(Number(v) * 0.4).toFixed(3)}"`)
+const DASH_BG = '#121019'
+const DASH_EDGE = '#2e2848'
 const DONE_SVG = BRAND_SVG
   .replace(/#7c6cf0/g, '#2fae62').replace(/#8f7ff0/g, '#3cc472').replace(/#b3a6ff/g, '#7fe0a4')
   .replace(/#c9bdff/g, '#b4f0c8').replace(/#9a86ff/g, '#4fd486')
@@ -1899,8 +1903,12 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   }
   // The terminal's effort row under the band has its own Auto switch.
   const buttons = [
-    e.surface === 'terminal' ? null : <Button key="dash-auto" plain={v.auto ? undefined : true} variant={v.auto ? 'secondary' : undefined} hotkey="a"
-      label={v.auto ? 'Auto on' : 'Auto off'} onPress={() => toggleAutoEffort($)} />,
+    // Desktop only (the terminal's effort row has its own): a thin outline, no hotkey letter (the app draws it faint).
+    e.surface === 'terminal' ? null : (
+      <Box key="dash-auto-box" borderStyle="round" borderColor={v.auto ? ACCENT : DASH_EDGE}>
+        <Button key="dash-auto" plain dimColor={!v.auto} label={v.auto ? ' Auto on ' : ' Auto off '} onPress={() => toggleAutoEffort($)} />
+      </Box>
+    ),
     ...(config.hide.includes('handoff')
       ? []
       : [<Button key="dash-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />]),
@@ -1911,15 +1919,22 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   const Svg = 'Svg' in els ? els.Svg : undefined
   return (
     <Box key="dash" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
-      backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
+      backgroundColor={DASH_BG} borderStyle="round" borderColor={DASH_EDGE}>
       {Svg ? (
         <Box key="dash-art" position="absolute" top={-1} right={0} bottom={-1}>
-          <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+          <Svg source={DASH_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         </Box>
       ) : null}
-      <Box key="dash-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
-        <Text color={ACCENT} bold wrap="truncate">{head}</Text>
-        <Text dimColor wrap="truncate">{detail}</Text>
+      {/* One row: the figures first; the reason and the last reply after them, dim, cut first when room runs out. */}
+      <Box key="dash-words" position="relative" flexDirection="row" gap={2} flexShrink={1} minWidth={0}>
+        <Box flexShrink={0}>
+          <Text color={ACCENT} bold>{head}</Text>
+        </Box>
+        {detail ? (
+          <Box flexShrink={1} minWidth={0}>
+            <Text dimColor wrap="truncate">{detail}</Text>
+          </Box>
+        ) : null}
       </Box>
       {/* Room for the buttons, which sit in their own layer after the art so they take clicks. */}
       <Box flexGrow={1} minWidth={34} />
@@ -2811,17 +2826,19 @@ Saved to ${out}.md and .json` }
       const { Select } = $.ui.resolve(e)
       const fullReady = Boolean(config.handoffSkill)
       const what = handoffWhat(choice, config.handoffSkill)
-      // Go is the one lit button: the picked kind is a quiet box, the other plain text.
+      // Go is the one lit button: the picked kind is a quiet box, the other plain text. The app draws a hotkey's
+      // letter faint on a grey button, so only the terminal gets letters there.
+      const term = e.surface === 'terminal'
       const controls = [
         choice.kind === 'quick' ? (
-          <Button key="handoff-quick" hotkey="q" variant="secondary" label="Quick" onPress={setBar({ kind: 'quick' })} />
+          <Button key="handoff-quick" hotkey={term ? 'q' : undefined} variant="secondary" label="Quick" onPress={setBar({ kind: 'quick' })} />
         ) : (
-          <Button key="handoff-quick" hotkey="q" plain dimColor label="Quick" onPress={setBar({ kind: 'quick' })} />
+          <Button key="handoff-quick" hotkey={term ? 'q' : undefined} plain dimColor label="Quick" onPress={setBar({ kind: 'quick' })} />
         ),
         choice.kind === 'full' ? (
-          <Button key="handoff-full" hotkey="f" variant="secondary" label="Full" onPress={setBar({ kind: 'full' })} />
+          <Button key="handoff-full" hotkey={term ? 'f' : undefined} variant="secondary" label="Full" onPress={setBar({ kind: 'full' })} />
         ) : (
-          <Button key="handoff-full" hotkey="f" plain dimColor label="Full" onPress={setBar({ kind: 'full' })} />
+          <Button key="handoff-full" hotkey={term ? 'f' : undefined} plain dimColor label="Full" onPress={setBar({ kind: 'full' })} />
         ),
         <Select key="handoff-after" value={choice.after}
           options={[
