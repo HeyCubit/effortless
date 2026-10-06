@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText } from '../hooks/register'
+import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText } from '../hooks/register'
 
 const BAND = {
   component: 'AbovePrompt',
@@ -976,6 +976,9 @@ describe('judge choice (plugin settings)', () => {
       customKey: '',
       handoffSkill: '',
       handoffAfter: 'continue',
+      bias: 0,
+      floor: 'low',
+      ceiling: 'max',
     })
     expect(readConfig({ handoffSkill: '/session-handoff', handoffAfter: 'confirm' })).toMatchObject({
       handoffSkill: 'session-handoff',
@@ -1186,28 +1189,23 @@ describe('setup guide', () => {
     await again.unmount()
   })
 
-  test('Jev without a key asks only for the key, and Open settings types the settings command', async ($, on) => {
+  test('Jev without a key asks only for the key, and Open settings opens the panel with the key field', async ($, on) => {
     engine(on)
     mock.clock(on)
     const set = settings(on)
-    const filled: string[] = []
-    on('prompt.read', () => ({ value: { text: '', cursor: 0 } }) as never)
-    on('prompt.fill', (_$, e) => {
-      filled.push(e.text)
-      return { isFilled: true } as never
-    })
     await start($, on)
     const band = await $.ui.mount(DESK)
     await band.press({ key: 'setup-jev' })
     expect(set).toEqual([{ key: 'effortless.judge', value: 'jev' }])
     expect(await drawn(band)).toContain('TypeSafe key')
-    expect(await drawn(band)).toContain('then restart')
     expect(await drawn(band)).toContain('typesafe.ai')
     expect(await band.find({ key: 'setup-haiku' })).toBeUndefined()
     await band.press({ key: 'setup-open' })
-    expect(filled).toEqual(['/plugin configure effortless@effortless'])
-    await band.press({ key: 'setup-done' })
     await band.unmount()
+    const panel = await $.ui.mount(DESK)
+    expect(await panel.find({ key: 'settings-key' })).toBeDefined()
+    await panel.press({ key: 'settings-close' })
+    await panel.unmount()
     await expect($.ui.mount(DESK)).rejects.toThrow()
   })
 
@@ -1520,6 +1518,72 @@ describe('running hot and judge down', () => {
     await band.unmount()
     status = 200
     await $.prompt.submit({ text: 'now write tests for the queue module', wait: false, origin: { kind: 'composer' } })
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+  })
+})
+
+describe('settings panel', () => {
+  const start = async ($: Engine, on: On) => {
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+  }
+
+  test('the slider tips only close calls; floor and ceiling clamp; the key line is set in place', () => {
+    expect(tipped('medium', 0.6, 1)).toBe('high')
+    expect(tipped('medium', 0.9, 1)).toBe('medium')
+    expect(tipped('medium', 0.8, 1)).toBe('medium')
+    expect(tipped('medium', 0.8, 2)).toBe('high')
+    expect(tipped('medium', 0.6, -1)).toBe('low')
+    expect(tipped('low', 0.3, -2)).toBe('low')
+    expect(tipped('medium', undefined, 2)).toBe('medium')
+    expect(bounded('low', 'medium', 'max')).toBe('medium')
+    expect(bounded('max', 'low', 'high')).toBe('high')
+    expect(withJevKey('A=1\nTYPESAFE_API_KEY=old\n', 'new')).toBe('A=1\nTYPESAFE_API_KEY=new\n')
+    expect(withJevKey('A=1', 'new')).toBe('A=1\nTYPESAFE_API_KEY=new\n')
+    expect(parseVerdict('{"model":"opus","effort":"high","sure":0.7,"why":"x"}')?.sure).toBe(0.7)
+  })
+
+  test('Open settings opens the panel; the slider, range and key are saved from it', async ($, on) => {
+    engine(on, { USERPROFILE: 'C:/Users/x' })
+    mock.clock(on)
+    const set: { key: string; value: unknown }[] = []
+    on('config.set', (_$, e) => {
+      set.push({ key: e.key, value: e.value })
+      return { value: e.value } as never
+    })
+    const files: Record<string, string> = { 'C:/Users/x/.config/jev/.env': 'OTHER=1\n' }
+    const at = (path: string) => path.split('\\').join('/')
+    on('fs.read', (_$, e) => ({ value: files[at(e.path)] ?? '' }) as never)
+    on('fs.write', (_$, e) => {
+      files[at(e.path)] = e.text
+      return { value: undefined } as never
+    })
+    const said: string[] = []
+    on('ui.toast', (_$, e) => {
+      said.push(String((e as { text?: string }).text ?? e))
+      return { value: undefined } as never
+    })
+    await start($, on)
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await $.command.run({ command: 'effortless', args: 'down' } as never)
+    const down = await $.ui.mount(DESK_BAND)
+    await down.press({ key: 'down-settings' })
+    await down.unmount()
+    const panel = await $.ui.mount(DESK_BAND)
+    expect(await drawn(panel)).toContain('effortless settings')
+    await panel.press({ key: 'bias3' })
+    await panel.select({ key: 'settings-floor', value: 'medium' })
+    await panel.input({ key: 'settings-key', text: ' tk-new ' })
+    expect(set).toContainEqual({ key: 'effortless.effortBias', value: '1' })
+    expect(set).toContainEqual({ key: 'effortless.effortFloor', value: 'medium' })
+    expect(set).toContainEqual({ key: 'effortless.judge', value: 'jev' })
+    expect(said.join(' | ')).toContain('key saved')
+    expect(files['C:/Users/x/.config/jev/.env']).toBe('OTHER=1\nTYPESAFE_API_KEY=tk-new\n')
+    await panel.press({ key: 'settings-close' })
+    await panel.unmount()
     await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
   })
 })

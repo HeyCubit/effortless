@@ -52,8 +52,8 @@ const EMBER = '#f08a3c'
 const EMBER_BG = '#1a110c'
 const EMBER_EDGE = '#6a3418'
 const SLATE = '#b4b8c4'
-const SLATE_BG = '#14151a'
-const SLATE_EDGE = '#3a3d48'
+const SLATE_BG = '#12141b'
+const SLATE_EDGE = '#39415a'
 const YELLOW = '#e0a33a'
 const RED = '#e5534b'
 const isAutoModel = atom({ plugin: 'effortless', key: 'isAutoModel' } as const, false)
@@ -82,6 +82,8 @@ const swampHiddenAt = atom({ plugin: 'effortless', key: 'swampHiddenAt' } as con
 // The first-run setup is not done: the footer offers "Setup".
 const setupPending = atom({ plugin: 'effortless', key: 'setupPending' } as const, false)
 // Why the judge the person picked is failing (Haiku stands in), or null when it works.
+// The effortless settings panel is open above the prompt.
+const settingsOpen = atom({ plugin: 'effortless', key: 'settingsOpen' } as const, false)
 const judgeDown = atom({ plugin: 'effortless', key: 'judgeDown' } as const, null)
 // The judge-down band was closed for this reason; a new reason shows it again.
 const judgeDownHidden = atom({ plugin: 'effortless', key: 'judgeDownHidden' } as const, null)
@@ -108,8 +110,7 @@ const SWAMP_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="6
 // The band when a usage limit is close: embers, sparks rising.
 const EMBER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.s{fill:#ffb06a;opacity:0;animation-name:up;animation-timing-function:ease-out;animation-iteration-count:infinite}@keyframes up{0%{opacity:0;transform:translate(0,0)}12%{opacity:.95}70%{opacity:.6}100%{opacity:0;transform:translate(4px,-30px)}}.br{animation:br 3.4s ease-in-out infinite}@keyframes br{0%,100%{opacity:.8}50%{opacity:1}}.br2{animation:br2 2.2s ease-in-out infinite}@keyframes br2{0%,100%{opacity:.7}40%{opacity:1}70%{opacity:.8}}</style><defs><linearGradient id="heat" x1="0" x2="1"><stop offset=".43" stop-color="#b8461b" stop-opacity="0"/><stop offset=".62" stop-color="#b8461b" stop-opacity=".16"/><stop offset=".85" stop-color="#d9622a" stop-opacity=".32"/><stop offset="1" stop-color="#f08a3c" stop-opacity=".42"/></linearGradient><linearGradient id="glow" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset=".55" stop-color="#e2581f" stop-opacity=".08"/><stop offset="1" stop-color="#ff7a2e" stop-opacity=".32"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".06"/></pattern></defs><g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#heat)"/><rect class="br2" width="360" height="30" fill="url(#glow)"/><circle class="s" cx="166" cy="31" r="0.7" style="animation-duration:3.2s;animation-delay:-0s"/><circle class="s" cx="178" cy="31" r="0.5" style="animation-duration:4.1s;animation-delay:-1.2s"/><circle class="s" cx="191" cy="31" r="0.8" style="animation-duration:3.6s;animation-delay:-2.4s"/><circle class="s" cx="203" cy="31" r="0.5" style="animation-duration:4.6s;animation-delay:-0.7s"/><circle class="s" cx="216" cy="31" r="0.7" style="animation-duration:3.9s;animation-delay:-3.0s"/><circle class="s" cx="228" cy="31" r="0.6" style="animation-duration:4.3s;animation-delay:-1.8s"/><circle class="s" cx="241" cy="31" r="0.8" style="animation-duration:3.4s;animation-delay:-0.4s"/><circle class="s" cx="254" cy="31" r="0.5" style="animation-duration:4.8s;animation-delay:-2.9s"/><circle class="s" cx="184" cy="31" r="0.4" style="animation-duration:5.0s;animation-delay:-3.6s"/><circle class="s" cx="236" cy="31" r="0.4" style="animation-duration:4.4s;animation-delay:-2.1s"/><rect width="360" height="30" fill="url(#grain)"/></g></svg>`
 // The band when the judge the person picked is failing: signal lost, a blip sweeping along a flat line.
-const DOWN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.ln{fill:none;stroke:#c3c8d4;stroke-width:.5;stroke-linecap:round;opacity:.5}.bp{fill:none;stroke:#e6e9f0;stroke-width:.7;stroke-linecap:round;stroke-linejoin:round}.mv{animation:mv 5s linear infinite}@keyframes mv{0%{transform:translate(150px,15px);opacity:0}12%{opacity:.9}70%{opacity:.5}100%{transform:translate(372px,15px);opacity:0}}.st{animation:st .9s steps(3) infinite}@keyframes st{0%{transform:translate(0,0)}33%{transform:translate(-1px,.5px)}66%{transform:translate(1px,-.5px)}}.sl{animation:sl 6s steps(1) infinite}@keyframes sl{0%,88%,94%,100%{opacity:.9}90%,92%{opacity:.4}}</style><defs><linearGradient id="slate" x1="0" x2="1"><stop offset=".43" stop-color="#6b6f7a" stop-opacity="0"/><stop offset=".7" stop-color="#6b6f7a" stop-opacity=".14"/><stop offset="1" stop-color="#8a8f9c" stop-opacity=".26"/></linearGradient><pattern id="scan" width="4" height="1.2" patternUnits="userSpaceOnUse"><rect width="4" height=".35" fill="#fff" fill-opacity=".05"/></pattern><pattern id="noise" width="3" height="3" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".09"/><rect x="1.8" y="1.4" width=".5" height=".5" fill="#fff" fill-opacity=".05"/></pattern><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><mask id="gap"><rect width="360" height="30" fill="#fff"/><g class="mv"><rect x="-12" y="-14" width="24" height="28" fill="#000"/></g></mask></defs><g mask="url(#m)" class="sl"><rect width="360" height="30" fill="url(#slate)"/><rect width="360" height="30" fill="url(#scan)"/><rect class="st" x="-2" y="-2" width="364" height="34" fill="url(#noise)"/><path class="ln" d="M150 15 L360 15" mask="url(#gap)"/><g class="mv"><path class="bp" d="M-11 0 L-6 0 L-3 -9 L1 9 L5 -4 L8 2 L11 0"/></g></g></svg>`
-const SETTINGS_COMMAND = '/plugin configure effortless@effortless'
+const DOWN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.ln{fill:none;stroke:#aab3c8;stroke-width:.45;opacity:.35}.hot{fill:none;stroke:#e8edf7;stroke-width:.6}.bp{fill:none;stroke:#f2f5fb;stroke-width:.7;stroke-linecap:round;stroke-linejoin:round}.mv{animation:mv 5s linear infinite}@keyframes mv{0%{transform:translate(150px,15px);opacity:0}10%{opacity:1}75%{opacity:.7}100%{transform:translate(380px,15px);opacity:0}}.gl{animation:gl 5s ease-in-out infinite}@keyframes gl{0%,100%{opacity:.75}50%{opacity:1}}</style><defs><linearGradient id="steel" x1="0" x2="1"><stop offset=".43" stop-color="#5d6a86" stop-opacity="0"/><stop offset=".65" stop-color="#5d6a86" stop-opacity=".16"/><stop offset=".88" stop-color="#7d8aa8" stop-opacity=".32"/><stop offset="1" stop-color="#a3afca" stop-opacity=".42"/></linearGradient><radialGradient id="glow" cx="330" cy="15" r="80" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#c4cee6" stop-opacity=".22"/><stop offset="1" stop-color="#8d9ab8" stop-opacity="0"/></radialGradient><pattern id="grid" width="7.5" height="7.5" patternUnits="userSpaceOnUse" x="0" y="0"><path d="M7.5 0 L0 0 L0 7.5" fill="none" stroke="#fff" stroke-opacity=".06" stroke-width=".25"/></pattern><linearGradient id="trail" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="1"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><mask id="gap"><rect width="360" height="30" fill="#fff"/><g class="mv"><rect x="-12" y="-14" width="24" height="28" fill="#000"/></g></mask><mask id="lit"><g class="mv"><rect x="-70" y="-3" width="58" height="6" fill="url(#trail)"/></g></mask></defs><g mask="url(#m)"><rect class="gl" width="360" height="30" fill="url(#steel)"/><rect width="360" height="30" fill="url(#glow)"/><rect width="360" height="30" fill="url(#grid)"/><path class="ln" d="M150 15 L360 15" mask="url(#gap)"/><path class="hot" d="M150 15 L360 15" mask="url(#lit)"/><g class="mv"><path class="bp" d="M-11 0 L-6 0 L-3 -9 L1 9 L5 -4 L8 2 L11 0"/></g></g></svg>`
 // The right of the setup guide, pure decoration (the name is on the left): a purple gradient with a soft glow,
 // faint light streaks and grain, a still star, and small sparkles that twinkle in and out here and there. One constant source, so the app never rebuilds its frame (a changing source flickers); the
 // motion is CSS inside it.
@@ -137,10 +138,10 @@ If the person asks for deep thought ("think hard", "ultrathink", "be thorough"),
 
 If the message is a short follow-up to ongoing work ("yes", "go", "ok", "continue", or the same in any language), keep the current pair.
 
-Reply with JSON only: {"model":"haiku|sonnet|opus|fable","effort":"low|medium|high|xhigh|max","why":"at most 6 words, in the user's language"}`
+Reply with JSON only: {"model":"haiku|sonnet|opus|fable","effort":"low|medium|high|xhigh|max","sure":0.0-1.0 how sure you are of the effort,"why":"at most 6 words, in the user's language"}`
 
 /** Reads `{ model, effort, why }` out of a reply, or nothing when it doesn't hold one. */
-export function parseVerdict(text: string): { model: ModelKey; effort: Effort; why: string } | undefined {
+export function parseVerdict(text: string): { model: ModelKey; effort: Effort; why: string; sure?: number } | undefined {
   const match = text.match(/\{[\s\S]*\}/)
   if (!match) return undefined
   let raw: unknown
@@ -150,11 +151,12 @@ export function parseVerdict(text: string): { model: ModelKey; effort: Effort; w
     return undefined
   }
   if (typeof raw !== 'object' || raw === null) return undefined
-  const { model, effort, why } = raw as Record<string, unknown>
+  const { model, effort, why, sure } = raw as Record<string, unknown>
   const key = typeof model === 'string' ? model.toLowerCase() : ''
   const found = MODELS.find(m => key === m.key || key === m.id || key.includes(m.key))
   if (!found || !EFFORTS.includes(effort as Effort)) return undefined
-  return { model: found.key, effort: effort as Effort, why: typeof why === 'string' ? why.slice(0, 60) : '' }
+  const how = typeof sure === 'number' && sure >= 0 && sure <= 1 ? { sure } : {}
+  return { model: found.key, effort: effort as Effort, why: typeof why === 'string' ? why.slice(0, 60) : '', ...how }
 }
 
 /**
@@ -251,7 +253,7 @@ export function parseJevKey(text: string): string | undefined {
  * current effort: that is what a "go" between two steps of work should do.
  */
 const UNSURE = 'unsure, keeping'
-export function parseJevAnswer(text: string, current: Pick | null): { model: ModelKey; effort: Effort; why: string } | undefined {
+export function parseJevAnswer(text: string, current: Pick | null): { model: ModelKey; effort: Effort; why: string; sure?: number } | undefined {
   let json: Record<string, unknown>
   try {
     json = JSON.parse(text)
@@ -265,20 +267,23 @@ export function parseJevAnswer(text: string, current: Pick | null): { model: Mod
   if (!effort || !EFFORTS.includes(effort)) return undefined
   const model = MODELS.find(m => m.key === answers?.model?.choice)?.key ?? current?.model ?? 'sonnet'
   const sure = answers?.effort?.confidence ?? answers?.effort?.probabilities?.[effort]
-  if (current && typeof sure === 'number' && sure < 0.5) return { model, effort: current.effort, why: UNSURE }
-  return { model, effort, why: typeof sure === 'number' ? `${Math.round(sure * 100)}% sure` : '' }
+  if (current && typeof sure === 'number' && sure < 0.5) return { model, effort: current.effort, why: UNSURE, sure }
+  if (typeof sure !== 'number') return { model, effort, why: '' }
+  return { model, effort, why: `${Math.round(sure * 100)}% sure`, sure }
 }
 
-let askJevFile: EnvAsk
+let askJevFile: EnvAsk | undefined
+// A key was saved from the settings panel into ~/.config/jev/.env: that file wins over an older key in the settings.
+let keyFromFile = false
 /**
  * The TypeSafe key: from the settings, else TYPESAFE_API_KEY. Only when the person picked the jev judge outright is
  * ~/.config/jev/.env read as well: a mod should not open a file holding a secret it was not asked to use.
  */
 async function jevKey($: EngineInterface): Promise<string | undefined> {
-  if (config.typesafeKey) return config.typesafeKey
+  if (config.typesafeKey && !keyFromFile) return config.typesafeKey
   const fromEnv = await envJevKey($)
   if (fromEnv) return fromEnv
-  if (config.judge !== 'jev') return undefined
+  if (config.judge !== 'jev' && !keyFromFile) return undefined
   askJevFile =
     askJevFile ??
     (async () => {
@@ -321,6 +326,12 @@ export type JudgeConfig = {
   handoffSkill: string
   /** After the handoff lands in the fresh chat: carry on with the next step, or only confirm and wait. */
   handoffAfter: 'continue' | 'confirm'
+  /** The effort slider, -2 (cheaper) to 2 (smarter): tips the judge's close calls that way. */
+  bias: number
+  /** Auto never goes below this effort. */
+  floor: Effort
+  /** Auto never goes above this effort. */
+  ceiling: Effort
 }
 let config: JudgeConfig = {
   judge: 'auto',
@@ -330,6 +341,9 @@ let config: JudgeConfig = {
   customKey: '',
   handoffSkill: '',
   handoffAfter: 'continue',
+  bias: 0,
+  floor: 'low',
+  ceiling: 'max',
 }
 
 /** The settings as the engine hands them over (defaults filled in), cleaned to the shape the judge reads. */
@@ -345,6 +359,9 @@ export function readConfig(options: unknown): JudgeConfig {
     customKey: str(o.customKey),
     handoffSkill: str(o.handoffSkill).replace(/^\//, ''),
     handoffAfter: str(o.handoffAfter) === 'confirm' ? 'confirm' : 'continue',
+    bias: Math.max(-2, Math.min(2, Math.round(Number(str(o.effortBias)) || 0))),
+    floor: EFFORTS.includes(str(o.effortFloor) as Effort) ? (str(o.effortFloor) as Effort) : 'low',
+    ceiling: EFFORTS.includes(str(o.effortCeiling) as Effort) ? (str(o.effortCeiling) as Effort) : 'max',
   }
 }
 
@@ -841,6 +858,23 @@ export function resetLabel(iso: string | null, now: number): string {
   return at.getTime() - now < 20 * 3600_000 ? hm : `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][at.getDay()]} ${hm}`
 }
 
+/**
+ * The effort slider tips close calls only: a verdict the judge was unsure of moves one step toward cheaper or smarter.
+ * The outer stops count more calls as close. A sure verdict, or one without a confidence, stays as it is.
+ */
+export function tipped(effort: Effort, sure: number | undefined, bias: number): Effort {
+  if (!bias || sure === undefined || sure >= (Math.abs(bias) === 1 ? 0.65 : 0.85)) return effort
+  const i = Math.max(0, Math.min(EFFORTS.length - 1, EFFORTS.indexOf(effort) + Math.sign(bias)))
+  return EFFORTS[i]
+}
+
+/** Floor and ceiling from the settings: what Auto picks stays between them. */
+export function bounded(effort: Effort, floor: Effort, ceiling: Effort): Effort {
+  const lo = EFFORTS.indexOf(floor)
+  const hi = Math.max(lo, EFFORTS.indexOf(ceiling))
+  return EFFORTS[Math.max(lo, Math.min(hi, EFFORTS.indexOf(effort)))]
+}
+
 /** Save mode caps what Auto picks at medium; a higher pick comes down to it. */
 export function capped(effort: Effort, saving: boolean): Effort {
   return saving && EFFORTS.indexOf(effort) > EFFORTS.indexOf('medium') ? 'medium' : effort
@@ -967,13 +1001,79 @@ export async function finishHandoff($: EngineInterface) {
   }
 }
 
-/** Opens the plugin's settings: runs /plugin configure as if typed; where the app refuses, it is typed into the prompt. */
+/** Opens the effortless settings panel above the prompt: the app does not let a plugin open its /plugin dialog. */
 async function openPluginSettings($: EngineInterface) {
-  try {
-    await $.command.run({ command: 'plugin', args: 'configure effortless@effortless' })
-  } catch {
-    await typeCommand($, SETTINGS_COMMAND)
+  await update($, settingsOpen, () => true)
+  $.ui.invalidate('ui.render')
+}
+
+/** The settings rows the panel changes, by field: saved as the plugin's own setting and used at once. */
+const SETTING_FIELDS = {
+  judge: 'judge',
+  bias: 'effortBias',
+  floor: 'effortFloor',
+  ceiling: 'effortCeiling',
+  handoffAfter: 'handoffAfter',
+  handoffSkill: 'handoffSkill',
+  customUrl: 'customUrl',
+  customModel: 'customModel',
+} as const
+
+async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELDS, value: string) {
+  const { deny } = await $.config
+    .set({ key: `effortless.${SETTING_FIELDS[field]}`, value })
+    .catch((error: unknown) => ({ deny: error instanceof Error ? error.message : String(error) }))
+  if (deny) $.ui.toast(`effortless: could not save ${field}: ${String(deny).slice(0, 120)}`)
+  const raw: Record<string, unknown> = {
+    judge: config.judge,
+    effortBias: String(config.bias),
+    effortFloor: config.floor,
+    effortCeiling: config.ceiling,
+    handoffAfter: config.handoffAfter,
+    handoffSkill: config.handoffSkill,
+    customUrl: config.customUrl,
+    customModel: config.customModel,
+    [SETTING_FIELDS[field]]: value,
   }
+  config = { ...readConfig(raw), typesafeKey: config.typesafeKey, customKey: config.customKey }
+  $.ui.invalidate('ui.render')
+}
+
+/** A TYPESAFE_API_KEY line set in an .env file's text: replaced where it is, added where it is not. */
+export function withJevKey(text: string, key: string): string {
+  const line = `TYPESAFE_API_KEY=${key}`
+  if (/^\s*TYPESAFE_API_KEY\s*=.*$/m.test(text)) return text.replace(/^\s*TYPESAFE_API_KEY\s*=.*$/m, line)
+  return `${text}${text && !text.endsWith('\n') ? '\n' : ''}${line}\n`
+}
+
+/**
+ * A key pasted in the panel goes to ~/.config/jev/.env, the file the jev skills read: a plugin cannot write the
+ * app's secret settings. From then on that file wins over an older key in the settings.
+ */
+async function saveJevKey($: EngineInterface, key: string) {
+  const clean = key.trim()
+  if (!clean) return
+  const home = (await envUserProfile($)) ?? (await envHome($))
+  if (!home) {
+    $.ui.toast('effortless: no home folder found to save the key in.')
+    return
+  }
+  const path = `${home}/.config/jev/.env`
+  const before = await $.fs.read(path).catch(() => '')
+  try {
+    await $.fs.write(path, withJevKey(typeof before === 'string' ? before : '', clean))
+  } catch (error) {
+    $.ui.toast(`effortless: could not save the key: ${(error instanceof Error ? error.message : String(error)).slice(0, 120)}`)
+    return
+  }
+  await $.store.set('keyFromFile', true)
+  keyFromFile = true
+  askJevFile = undefined
+  if (config.judge !== 'jev') await saveSetting($, 'judge', 'jev')
+  await update($, judgeDown, () => null)
+  warned.clear()
+  $.ui.toast('effortless: key saved. Jev judges from the next message.')
+  $.ui.invalidate('ui.render')
 }
 
 /** A TypeSafe key the jev judge would use: the settings, TYPESAFE_API_KEY, or ~/.config/jev/.env (Jev was picked). */
@@ -1109,6 +1209,7 @@ const HANDOFF_POLL_MS = 1000
 export const register: Register = (on, options) => {
   config = readConfig(options)
   on('session.start', async ($, e, next) => {
+    keyFromFile = (await $.store.get('keyFromFile')) === true
     const storedAuto = await $.store.get('isAuto')
     if (typeof storedAuto === 'boolean') await update($, isAuto, () => storedAuto)
     const storedAutoModel = await $.store.get('isAutoModel')
@@ -1134,7 +1235,7 @@ export const register: Register = (on, options) => {
     await modelIs($, await $.session.model()).catch(() => undefined)
     await $.command.register({
       name: 'effortless',
-      description: 'Handoff to a fresh chat: /effortless handoff. Try the bands: /effortless swamp, hot, down, cold. Setup: /effortless setup. Judge test: /effortless bench. Auto on/off: /effortless auto. What Auto cost: /effortless stats. Try Compact: /effortless cold.',
+      description: 'Handoff to a fresh chat: /effortless handoff. Try the bands: /effortless swamp, hot, down, cold. Settings: /effortless settings. Setup: /effortless setup. Judge test: /effortless bench. Auto on/off: /effortless auto. What Auto cost: /effortless stats. Try Compact: /effortless cold.',
     })
     return next(e)
   })
@@ -1183,6 +1284,10 @@ export const register: Register = (on, options) => {
     if (arg === 'handoff') {
       await startHandoff($)
       return { text: 'Writing the handoff. The chat is cleared and continues from it when it is done.' }
+    }
+    if (arg === 'settings') {
+      await openPluginSettings($)
+      return { text: 'The effortless settings are open above the prompt.' }
     }
     if (arg === 'setup') {
       await update($, setupStep, () => 'pick')
@@ -1260,8 +1365,10 @@ Saved to ${out}.md and .json` }
         // reloads the context, so with Auto on for model it is only suggested.
         if (wantsEffort) {
           const saving = (await read($, saveUntil)) !== null
-          const effort = capped(verdict.effort, saving)
-          const applied: Pick = { ...verdict, model: inUse, effort, why: effort !== verdict.effort ? 'save mode' : verdict.why }
+          const leaned = bounded(tipped(verdict.effort, verdict.sure, config.bias), config.floor, config.ceiling)
+          const effort = capped(leaned, saving)
+          const why = effort !== leaned ? 'save mode' : leaned !== verdict.effort ? 'your settings' : verdict.why
+          const applied: Pick = { ...verdict, model: inUse, effort, why }
           await choose($, applied)
         }
         if (wantsModel && verdict.model !== inUse && verdict.model !== declined) {
@@ -1413,6 +1520,80 @@ Saved to ${out}.md and .json` }
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
     const { Box, Text, Button, Svg } = $.ui.resolve(e)
+    // The settings panel: the same branded surface as the bands, taller, every setting in one place.
+    if (await read($, settingsOpen)) {
+      const { Input, Select } = $.ui.resolve(e)
+      const opts = (values: readonly string[]) => values.map(value => ({ value, label: value }))
+      const hasKey = Boolean(await jevKey($).catch(() => undefined)) || Boolean(await typesafeKeyAnywhere($).catch(() => undefined))
+      const close = () => update($, settingsOpen, () => false)
+      // The slider: five stops, the marker on the one in force. No animation, a click moves it.
+      const stops = [-2, -1, 0, 1, 2].map(n => (
+        <Button key={`bias${n + 2}`} plain label={n === config.bias ? '●' : '○'} onPress={() => saveSetting($, 'bias', String(n))} />
+      ))
+      const track: unknown[] = []
+      stops.forEach((stop, i) => {
+        if (i) track.push(<Text key={`t${i}`} dimColor>───</Text>)
+        track.push(stop)
+      })
+      const biasWords = ['Tips many close calls cheaper.', 'Tips close calls cheaper.', 'The judge decides as is.',
+        'Tips close calls smarter.', 'Tips many close calls smarter.'][config.bias + 2]
+      const row = (key: string, label: string, children: unknown) => (
+        <Box key={key} flexDirection="row" gap={1} alignItems="center">
+          <Box width={10} flexShrink={0}>
+            <Text dimColor>{label}</Text>
+          </Box>
+          {children}
+        </Box>
+      )
+      return (
+        <Box key="settings" position="relative" flexDirection="column" gap={1} paddingX={1} paddingY={0} overflow="hidden"
+          backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
+          <Box key="settings-art" position="absolute" top={-1} right={0} bottom={-1}>
+            <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH} height={FROST_HEIGHT * 4} isInteractive />
+          </Box>
+          <Box key="settings-head" flexDirection="row" alignItems="center">
+            <Text color={ACCENT} bold>✦ effortless settings</Text>
+            <Box flexGrow={1} />
+            <Button key="settings-close" plain role="dismiss" label="✕" onPress={close} />
+          </Box>
+          {row('settings-bias', 'Effort', [
+            <Text key="cheap">Cheaper</Text>,
+            <Box key="track" flexDirection="row" alignItems="center">{track}</Box>,
+            <Text key="smart">Smarter</Text>,
+            <Text key="bias-words" dimColor wrap="truncate">{biasWords}</Text>,
+          ])}
+          {row('settings-range', 'Range', [
+            <Select key="settings-floor" label="Never below" value={config.floor} options={opts(EFFORTS)}
+              onSelect={v => saveSetting($, 'floor', v)} />,
+            <Select key="settings-ceiling" label="Never above" value={config.ceiling} options={opts(EFFORTS)}
+              onSelect={v => saveSetting($, 'ceiling', v)} />,
+          ])}
+          {row('settings-judge', 'Judge', [
+            <Select key="settings-judge-pick" value={config.judge} options={opts(['auto', 'haiku', 'jev', 'custom'])}
+              onSelect={v => saveSetting($, 'judge', v)} />,
+            config.judge === 'jev' || config.judge === 'auto' ? (
+              <Input key="settings-key" placeholder={hasKey ? 'TypeSafe key saved. Paste a new one to replace it' : 'Paste your TypeSafe key (typesafe.ai)'}
+                submitLabel="save" onSubmit={v => saveJevKey($, v)} />
+            ) : null,
+            config.judge === 'custom' ? (
+              <Input key="settings-url" placeholder="Chat completions URL" value={config.customUrl} submitLabel="save"
+                onSubmit={v => saveSetting($, 'customUrl', v.trim())} />
+            ) : null,
+            config.judge === 'custom' ? (
+              <Input key="settings-model" placeholder="Model name" value={config.customModel} submitLabel="save"
+                onSubmit={v => saveSetting($, 'customModel', v.trim())} />
+            ) : null,
+          ].filter(Boolean))}
+          {row('settings-handoff', 'Handoff', [
+            <Select key="settings-after" label="Then" value={config.handoffAfter}
+              options={[{ value: 'continue', label: 'carry on' }, { value: 'confirm', label: 'wait for me' }]}
+              onSelect={v => saveSetting($, 'handoffAfter', v)} />,
+            <Input key="settings-skill" placeholder="Own skill, e.g. session-handoff (empty: built-in)" value={config.handoffSkill}
+              submitLabel="save" onSubmit={v => saveSetting($, 'handoffSkill', v.trim().replace(/^\//, ''))} />,
+          ])}
+        </Box>
+      )
+    }
     // The setup guide, one step at a time: pick a judge, then only what that judge needs.
     const step = await read($, setupStep)
     if (step) {
@@ -1466,9 +1647,17 @@ Saved to ${out}.md and .json` }
           ],
         )
       return band(
-        step === 'jev' ? 'Paste a TypeSafe key (typesafe.ai) in settings, then restart.' : 'Fill in URL, model and key in settings, then restart.',
+        step === 'jev' ? 'Paste a TypeSafe key (typesafe.ai) in the settings.' : 'Fill in the URL and model in the settings.',
         [
-          <Button key="setup-open" variant="primary" label="Open settings" onPress={openSettings} />,
+          <Button
+            key="setup-open"
+            variant="primary"
+            label="Open settings"
+            onPress={async () => {
+              await finishSetup($)
+              await openSettings()
+            }}
+          />,
           <Button
             key="setup-done"
             label="Done"
