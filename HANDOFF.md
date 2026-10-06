@@ -1,7 +1,8 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.31.1 (progress bar: scaling track with a live current step, layered animated background per state, thinking pill, stereo bell chimes; setup step 4 offers it), pushed and installed. Direct pushes, no open PRs.
+- `main` on HeyCubit/effortless, version 1.32.0 (swamp band and card wait for the turn to end; green done card; progress bar from
+  1.31.1), pushed and installed. Direct pushes, no open PRs. Several chats push to main: fetch and rebase before every push.
 - Release: bump `version` in `.claude-plugin/plugin.json`, `<cli> plugin validate .`, `<cli> plugin test .`
   (0 fail), push, `<cli> plugin marketplace update effortless`, `<cli> plugin update effortless@effortless`, restart.
 - CLI on this PC: `$APPDATA/Claude/claude-code/<version>/<hash>/claude.exe` (newest folder). `claude` on PATH is
@@ -11,6 +12,10 @@
   another chat. Not pushed by the setup release.
 
 ## Half done
+- 1.31.0 handoff card (AssistantMessage wrap): "Handing off…" with moving sparkles from Go, then complete / copied /
+  sent on; gone after the next reply or 2 min. Tested in the kit; not yet seen in the app (check flicker).
+- Reply warning card (1.29.2): under the newest reply when cold, swamped or hot, names `/compact`,
+  `/effortless handoff`, `/effortless save`. Seen working by Isac in the right pane.
 - 1.29.0 progress bar: tested in the plugin test kit (desktop and terminal); PowerShell plays the chime on this PC.
   Not yet seen or heard in the app: `/effortless progress`, `progress ask`, `progress done`, then a real task.
   No chime: `/effortless debug` ends with `last chime:` and the reason.
@@ -22,8 +27,8 @@
   Swamped at (1.23.0).
 
 ## Next
-0. Split view: the app draws plugin UI only in the left pane (proven: right pane asked 8x then never). Separate
-   windows both work (README says so). Bug report written; Isac sends it via /feedback.
+0. Needs Isac: restart, run a handoff (⇥ Go, or `/effortless handoff` in the right pane); check the handoff card
+   and whether its animation flickers.
 1. Setup at narrow widths (under ~80 columns) not yet seen.
 2. Needs Isac: restart, ⇥ then Quick + Go in a chat with replies, then `/effortless debug`. Expect
    `last fork: answered`; else fix by reason (`nothing-to-fork`, `aborted`, `api-error`, `threw`).
@@ -50,6 +55,9 @@
 - Auto pauses on Fable 5.1 and older Opus: an effort change rewrote 56 to 100% of the cache (measured).
 - Status line removed (1.23.1). Swamp band = one percent setting `swampAt` (default 50), no token rule.
 - `/split` dropped: no `start_session` tool for mods. Footer hover cards impossible.
+- Split view (tested 2026-10-06, Isac stopped the hunt): bands, footer, bars draw only in the LEFT pane. Right pane:
+  chat-card buttons take no clicks, TurnDuration is terminal-only, widgets need the model each reply. A Pane draws
+  there but was removed (Isac). Commands work in both panes; separate windows show everything. Bug: Isac's /feedback.
 
 ## Only Isac
 - Visual checks in the desktop app and the handoff run above.
