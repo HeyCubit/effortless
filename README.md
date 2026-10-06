@@ -12,12 +12,16 @@ A Claude Code mod that picks the reasoning effort for every prompt, so easy ques
 
 ## Install
 
-```bash
-claude plugin marketplace add HeyCubit/effortless
-claude plugin install effortless@effortless
+Type these two lines in Claude Code's chat box, no terminal needed:
+
+```
+/plugin marketplace add HeyCubit/effortless
+/plugin install effortless@effortless
 ```
 
 Restart Claude Code. A short setup opens above the prompt the first time: pick **Haiku** (one click, no key, runs on your own Claude login), **Jev** or **your own AI**, and it asks only for what that choice needs. Run `/effortless setup` to change it later.
+
+From a terminal it is the same without the slashes: `claude plugin marketplace add HeyCubit/effortless`, then `claude plugin install effortless@effortless`.
 
 ## Pick your judge
 
