@@ -1670,20 +1670,17 @@ export function ringSvg(percent: number, color: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="${color}" stroke-opacity=".25" stroke-width="2.2"/><circle cx="8" cy="8" r="6" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="${((c * p) / 100).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 8 8)"/></svg>`
 }
 
-/** The dashboard's settings icon: a cog of eight teeth with a hole, drawn rather than a glyph, since the gear
- * character is a different shape in every font. */
+/** The dashboard's settings icon: an outlined cog of eight teeth, drawn rather than a glyph, since the gear character
+ * is a different shape in every font. */
 export function settingsSvg(color: string): string {
   const step = (2 * Math.PI) / 8
   const pts: string[] = []
   for (let i = 0; i < 8; i++) {
     const a = i * step
-    const at = (ang: number, r: number) => `${(9 + r * Math.cos(ang)).toFixed(2)},${(9 + r * Math.sin(ang)).toFixed(2)}`
-    pts.push(
-      at(a - step * 0.42, 6.2), at(a - step * 0.27, 6.2), at(a - step * 0.21, 7.9),
-      at(a + step * 0.21, 7.9), at(a + step * 0.27, 6.2), at(a + step * 0.42, 6.2),
-    )
+    const at = (f: number, r: number) => `${(7 + r * Math.cos(a + f * step)).toFixed(2)},${(7 + r * Math.sin(a + f * step)).toFixed(2)}`
+    pts.push(at(-0.42, 4.6), at(-0.27, 4.6), at(-0.2, 6.1), at(0.2, 6.1), at(0.27, 4.6), at(0.42, 4.6))
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18"><path fill="${color}" fill-rule="evenodd" d="M${pts.join('L')}Z M11.6,9 A2.6,2.6 0 1 0 6.4,9 A2.6,2.6 0 1 0 11.6,9 Z"/></svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.3" stroke-linejoin="round"><path d="M${pts.join('L')}Z"/><circle cx="7" cy="7" r="2"/></g></svg>`
 }
 
 /** k/M for token counts: 420000 -> "420k", 1000000 -> "1.0M". */
@@ -1988,7 +1985,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
       ? []
       : [<Button key="dash-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />]),
     // The terminal says it in a word; the desktop draws an icon, with this button laid blank over it to take the click.
-    <Button key="dash-settings" plain label={'Svg' in els && e.surface !== 'terminal' ? '⠀⠀' : 'Settings'} onPress={toggleSettings} />,
+    <Button key="dash-settings" plain label={'Svg' in els && e.surface !== 'terminal' ? '⠀⠀⠀' : 'Settings'} onPress={toggleSettings} />,
   ].filter(Boolean)
   if (e.surface === 'terminal')
     return terminalBand($, e, { key: 'dash', kind: 'calm', color: DASH_TEXT, bg: DASH_BG, edge: DASH_EDGE, title: head.replace(/^✦ /, ''), detail, buttons })
@@ -2033,7 +2030,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
         {Svg ? buttons.slice(0, -1) : buttons}
         {Svg ? (
           <Box key="dash-settings-icon" position="relative" alignItems="center" justifyContent="center">
-            <Svg source={settingsSvg(DASH_TEXT)} alt="Settings" width={18} height={18} />
+            <Svg source={settingsSvg(DASH_TEXT)} alt="Settings" width={14} height={14} />
             <Box position="absolute" top={0} right={0} bottom={0} left={0} alignItems="center" justifyContent="center">
               {buttons[buttons.length - 1]}
             </Box>
