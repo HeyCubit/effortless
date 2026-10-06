@@ -16,11 +16,14 @@
   Swamped at (1.23.0).
 
 ## Next
+0. Split view: the mod shows only in the left pane. Unknown if the app or the mod. Needs `/effortless debug` from the
+   right pane: `band asked for 0 times` = app limit (report it), more = mod bug.
 1. Needs Isac: restart, ⇥ then Quick + Go in a chat with replies, then `/effortless debug`. Expect `last fork: answered`.
    Else fix by reason: `nothing-to-fork`, `aborted` (timer dispatch cut), `api-error`, `threw`.
 2. On Isac's OK: banner at top of README, document Swamped at, commit `docs/brand/`.
 
 ## Decided, do not redo
+- Handoff bar stays brand purple (Isac 2026-10-06); other colours mean alerts. Variants in docs/brand/previews/.
 - Status line removed (1.23.1): when it fits, the app shows it whole, so no hover; it duplicated the footer.
 - Band art always animates (1.23.2); the flicker on resize/scroll is accepted. No still-image option.
 - Swamp band = one percent setting `swampAt` (default 50), no token rule.
