@@ -179,11 +179,15 @@ export function parseJevAnswer(text: string, current: Pick | null): { model: Mod
 }
 
 let askJevFile: EnvAsk
-/** TYPESAFE_API_KEY from the environment, else from ~/.config/jev/.env. Nothing when neither has one. */
+/**
+ * The TypeSafe key: from the settings, else TYPESAFE_API_KEY. Only when the person picked the jev judge outright is
+ * ~/.config/jev/.env read as well: a mod should not open a file holding a secret it was not asked to use.
+ */
 async function jevKey($: EngineInterface): Promise<string | undefined> {
   if (config.typesafeKey) return config.typesafeKey
   const fromEnv = await envJevKey($)
   if (fromEnv) return fromEnv
+  if (config.judge !== 'jev') return undefined
   askJevFile =
     askJevFile ??
     (async () => {

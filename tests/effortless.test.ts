@@ -136,7 +136,7 @@ describe('auto', () => {
     expect(sent[0]).toEqual({ model: 'claude-opus-5-5', effort: 'max' })
   })
 
-  test('the TypeSafe key is read from ~/.config/jev/.env when the environment has none', async ($, on) => {
+  test('with the jev judge picked, the TypeSafe key is read from ~/.config/jev/.env when the environment has none', { options: { judge: 'jev' } } as never, async ($, on) => {
     engine(on, { USERPROFILE: 'C:/Users/x' })
     mock.clock(on)
     const asked = judgeSays(on, '{"model":"haiku","effort":"low","why":"x"}')
@@ -1085,5 +1085,21 @@ describe('model-aware effort', () => {
     await $.prompt.submit({ text: 'refactor the parser', wait: false, origin: { kind: 'composer' } })
     expect(bodies[0].state.current_model).toBe('opus')
     expect(bodies[0].state.task).toContain('Opus at medium does about what')
+  })
+})
+
+describe('keys', () => {
+  test('auto never opens ~/.config/jev/.env: it judges with Haiku', async ($, on) => {
+    engine(on, { USERPROFILE: 'C:/Users/x' })
+    mock.clock(on)
+    const asked = judgeSays(on, '{"model":"sonnet","effort":"low","why":"x"}')
+    const read: string[] = []
+    on('fs.read', (_$, e) => {
+      read.push(e.path)
+      return { value: 'TYPESAFE_API_KEY=secret' } as never
+    })
+    await $.prompt.submit({ text: 'hello there', wait: false, origin: { kind: 'composer' } })
+    expect(read.filter(path => path.includes('.env'))).toEqual([])
+    expect(asked.length).toBe(1)
   })
 })
