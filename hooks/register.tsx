@@ -2557,36 +2557,19 @@ Saved to ${out}.md and .json` }
       }
       const dirty = Object.keys(draft).length > 0
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
-      // One checkbox per part that can be switched off, the setup's tick: white when shown, dimmed when hidden. One
-      // short word each so the row fits the panel.
+      // Only the progress bar and its sounds can be switched off here: the alerts each have their own ✕, and the
+      // rest is the mod itself. A ticked box in plain text, dim when off: lighter than a row of white buttons.
       const toggles = (
         [
-          ['handoff', '⇥ Handoff'],
-          ['timer', 'Timer'],
-          ['cold', 'Cold'],
-          ['swamp', 'Swamp'],
-          ['hot', 'Hot'],
-          ['down', 'Judge'],
-          ['line', 'Line'],
           ['progress', 'Progress'],
           ['sounds', 'Sounds'],
         ] as const
       ).map(([part, label]) => {
         const off = hidden.includes(part)
         const after = off ? hidden.filter(h => h !== part) : [...hidden, part]
-        const toggle = () => set('hide')(after.join(','))
-        // The terminal draws a boxed tick as a broken bracket: a dot there, filled when shown.
-        if (e.surface === 'terminal')
-          return <Button key={`show-box-${part}`} plain dimColor={off} label={`${off ? '○' : '●'} ${label}`} onPress={toggle} />
         return (
-          <Box key={`show-${part}`} flexDirection="row" alignItems="center">
-            {off ? (
-              <Button key={`show-box-${part}`} variant="secondary" dimColor label={'✔︎'} onPress={toggle} />
-            ) : (
-              <Button key={`show-box-${part}`} variant="primary" label={'✔︎'} onPress={toggle} />
-            )}
-            <Button key={`show-name-${part}`} plain dimColor={off} label={label} onPress={toggle} />
-          </Box>
+          <Button key={`show-box-${part}`} plain dimColor={off} label={`${off ? '☐' : '☑'}︎ ${label}`}
+            onPress={() => set('hide')(after.join(','))} />
         )
       })
       // The slider: five stops, the marker on the one in force. No animation, a click moves it.
@@ -2644,7 +2627,7 @@ Saved to ${out}.md and .json` }
           </Box>
           <Box key="settings-actions" position="absolute" top={0} right={1} height={2} flexDirection="row" gap={2} alignItems="center">
             <Button key="settings-save" variant="primary" hotkey="s" label="Save" onPress={() => saveDraft($)} />
-            <Button key="settings-close" plain hotkey="x" label="✕" onPress={close} />
+            <Button key="settings-close" plain label="✕" onPress={close} />
           </Box>
           <Box key="settings-spacer" height={roomy && !term ? 2 : 1} />
           {frameOnly ? null : row('settings-bias', 'Effort', ICON_EFFORT, [
@@ -2723,7 +2706,7 @@ Saved to ${out}.md and .json` }
           ]}
           onSelect={v => setBar({ after: v as HandoffAfter })()} />,
         <Button key="handoff-go" variant="primary" autoFocus hotkey="g" label="Go" onPress={() => goHandoff($, choice)} />,
-        <Button key="handoff-close" plain role="dismiss" hotkey="x" label="✕" onPress={() => closeHandoffBar($)} />,
+        <Button key="handoff-close" plain role="dismiss" label="✕" onPress={() => closeHandoffBar($)} />,
       ]
       const line = choice.kind === 'full' && !fullReady ? 'Full needs a skill: pick one in ⚙ under Handoff.' : `${what.by}. ${what.then}`
       if (e.surface === 'terminal') return terminalPanel($, e, 'handoff-bar', '⇥ Handoff', line, controls)
@@ -2924,7 +2907,7 @@ Saved to ${out}.md and .json` }
           detail: `${downReason}. Haiku stands in.`,
           buttons: [
             <Button key="down-settings" variant="primary" hotkey="s" label="Settings" onPress={() => openPluginSettings($)} />,
-            <Button key="down-close" plain role="dismiss" hotkey="x" label="✕" onPress={() => update($, judgeDownHidden, () => downReason)} />,
+            <Button key="down-close" plain role="dismiss" label="✕" onPress={() => update($, judgeDownHidden, () => downReason)} />,
           ],
         })
       return (
@@ -2961,7 +2944,7 @@ Saved to ${out}.md and .json` }
           buttons: [
             <Button key="hot-save" variant="primary" hotkey="s" label={saving ? 'Save mode on' : 'Save mode'}
               onPress={async () => { $.ui.toast(`effortless: ${await toggleSave($)}`) }} />,
-            <Button key="hot-close" plain role="dismiss" hotkey="x" label="✕" onPress={() => update($, hotHidden, () => heat.percent)} />,
+            <Button key="hot-close" plain role="dismiss" label="✕" onPress={() => update($, hotHidden, () => heat.percent)} />,
           ],
         })
       return (
@@ -3049,7 +3032,7 @@ Saved to ${out}.md and .json` }
           buttons: [
             <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => compactCold($)} />,
             <Button key="swamp-handoff" hotkey="h" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />,
-            <Button key="swamp-close" plain role="dismiss" hotkey="x" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />,
+            <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />,
           ],
         })
       return (
