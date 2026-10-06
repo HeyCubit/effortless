@@ -1914,7 +1914,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     ...(config.hide.includes('handoff')
       ? []
       : [<Button key="dash-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />]),
-    <Button key="dash-settings" plain label={'⚙︎'} onPress={toggleSettings} />,
+    // A word, not ⚙: the gear glyph reads as a different shape in every font.
+    <Button key="dash-settings" plain label="Settings" onPress={toggleSettings} />,
   ].filter(Boolean)
   if (e.surface === 'terminal')
     return terminalBand($, e, { key: 'dash', kind: 'calm', color: DASH_TEXT, bg: DASH_BG, edge: DASH_EDGE, title: head.replace(/^✦ /, ''), detail, buttons })
