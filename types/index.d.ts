@@ -91,6 +91,8 @@ declare module 'claude-code' {
       handoffPick: HandoffChoice | null
       /** The setup guide's step, or null when it is closed. */
       setupStep: 'pick' | 'jev' | 'custom' | 'lean' | 'handoff' | 'alerts' | 'done' | null
+      /** Choices made in the setup guide, saved together at Done or the cross. */
+      setupDraft: SettingsDraft
       /** Auto on model: the judge may suggest another model (never switched without a yes). Off by default. */
       isAutoModel: boolean
       pick: Pick | null
