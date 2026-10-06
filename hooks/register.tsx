@@ -967,6 +967,15 @@ export async function finishHandoff($: EngineInterface) {
   }
 }
 
+/** Opens the plugin's settings: runs /plugin configure as if typed; where the app refuses, it is typed into the prompt. */
+async function openPluginSettings($: EngineInterface) {
+  try {
+    await $.command.run({ command: 'plugin', args: 'configure effortless@effortless' })
+  } catch {
+    await typeCommand($, SETTINGS_COMMAND)
+  }
+}
+
 /** A TypeSafe key the jev judge would use: the settings, TYPESAFE_API_KEY, or ~/.config/jev/.env (Jev was picked). */
 async function findTypesafeKey($: EngineInterface): Promise<boolean> {
   return Boolean(await typesafeKeyAnywhere($))
@@ -1407,7 +1416,7 @@ Saved to ${out}.md and .json` }
     // The setup guide, one step at a time: pick a judge, then only what that judge needs.
     const step = await read($, setupStep)
     if (step) {
-      const openSettings = () => typeCommand($, SETTINGS_COMMAND)
+      const openSettings = () => openPluginSettings($)
       // The same build as the cold band: one styled surface, the art a backdrop layer behind the right side, and the
       // buttons in a later layer so they are drawn on top of it. The text keeps clear of them with a spacer.
       // The ✕ closes the guide without picking: the footer keeps offering "Setup" until a judge is picked.
@@ -1486,7 +1495,7 @@ Saved to ${out}.md and .json` }
           <Text wrap="truncate">{`${downReason}. Haiku stands in.`}</Text>
           <Box flexGrow={1} minWidth={30} />
           <Box key="down-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
-            <Button key="down-settings" variant="primary" label="Open settings" onPress={() => typeCommand($, SETTINGS_COMMAND)} />
+            <Button key="down-settings" variant="primary" label="Open settings" onPress={() => openPluginSettings($)} />
             <Button key="down-close" plain role="dismiss" label="✕" onPress={() => update($, judgeDownHidden, () => downReason)} />
           </Box>
         </Box>
