@@ -1363,7 +1363,7 @@ Saved to ${out}.md and .json` }
           </Box>
           <Text wrap="truncate">{words}</Text>
           <Box flexGrow={1} minWidth={38} />
-          <Box key="setup-actions" position="absolute" top={0} right={0} bottom={0} flexDirection="row" gap={2} alignItems="center">
+          <Box key="setup-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={2} alignItems="center">
             {buttons}
             {close}
           </Box>
