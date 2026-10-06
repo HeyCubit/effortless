@@ -1,27 +1,26 @@
-# effortless: handoff
+# effortless handoff
 
 ## Branch and PRs
-
-- `main` is the release. Users install with `claude plugin marketplace add HeyCubit/effortless`.
-- A release = bump `version` in `.claude-plugin/plugin.json`, push; users run `claude plugin update effortless@effortless`.
+- `main` on HeyCubit/effortless, version 1.6.3. Direct pushes, no open PRs.
+- Release: bump `version` in `.claude-plugin/plugin.json`, push, then
+  `claude plugin marketplace update effortless` and `claude plugin update effortless@effortless`, restart.
 
 ## Half done
-
-- The footer's look (hover box, ⏻ without a frame, Compact) is checked by tests on the drawn tree, not on the app's pixels.
-- A/B mode (Auto on/off at random per prompt, cost logged) is not built; it is the only way to prove a saving.
+- Setup band still uses the old in-flow layout (fixed 360px decoration). The cold band's
+  backdrop recipe (absolute Svg layer sliced larger than the band, buttons in a later
+  absolute layer) has not been applied to it yet.
+- Model Auto stays paused (EFFORTLESS_MODEL_UI=1 brings the row back).
 
 ## Next
+- Apply the cold-band layout to the setup band.
+- Rerun `/effortless bench` after any judge-prompt change; report the held-out line.
+- Free savings estimate: compare logged per-prompt cost against an always-high baseline after a week of use.
 
-1. A/B mode.
-2. Effort mid-task: raise after a tool error, lower for simple steps (`turn.step` fires per request).
-
-## Only the owner
-
-- Publishing releases, answering issues.
+## Only Isac
+- Visual sign-off in the desktop app (tests cannot see what it draws).
+- A separate GitHub account if full anonymity is wanted (pusher shows in the repo events API).
 
 ## Pointers
-
-- Code: `hooks/register.tsx`. State contract: `types/index.d.ts`. Tests: `tests/effortless.test.ts` (`claude plugin test .`).
-- Platform limits found: a mod cannot move the app's own Model/Effort buttons; the footer draws no Svg and no box
-  border or background; a Button has no size, shape or colour prop; a timer must start in `session.start` (one started
-  inside a request ends with it); the engine's "reloaded (N hooks)" line in hot-reload folders cannot be hidden.
+- Judge benchmark: `bench/judge-cases.json` (73 cases, 20 held out), README "How often the judge is right".
+- Band styling recipe and gotchas: memory `mod_band_styling.md`.
+- Mod state: memory `modellval_mod.md`.
