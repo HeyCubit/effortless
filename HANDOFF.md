@@ -30,8 +30,6 @@
 - Desktop not seen: Compact complete card, progress sounds in a real task.
 
 ## Next
-0. Narrow band confirmed by Isac (1.35.13). Still unseen: an effort
-   change glows purple and fades to white (1.35.14: 1 s hold, 2.5 s fade, #9b7bff).
 1. Isac opens an old chat: cold band should show. If not, `/effortless debug` and look for classic.SessionStart.
 2. Isac opens plain `claude` in a terminal and looks at the bands (2.1.285 now loads the mod).
 
