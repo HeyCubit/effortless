@@ -1908,6 +1908,8 @@ describe('swamp band and setup entry', () => {
     const first = await $.ui.mount(reply('First answer.'))
     expect(await drawn(first)).toContain('Chat is getting swamped')
     expect(await drawn(first)).toContain('/compact or /effortless handoff')
+    expect(await first.find({ key: 'reply-compact' })).toBeDefined()
+    expect(await first.find({ key: 'reply-handoff' })).toBeDefined()
     await first.unmount()
     await $.turn.complete({ turnId: 't2', answer: 'Second answer.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
     const old = await $.ui.mount(reply('First answer.'))
