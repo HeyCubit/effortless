@@ -2410,15 +2410,15 @@ Saved to ${out}.md and .json` }
         const toggles = SETUP_FOOTER.map(([part, label]) => {
           const off = shown.hide.includes(part)
           const after = off ? shown.hide.filter(h => h !== part) : [...shown.hide, part]
-          // A checkbox of its own beside the name: on is a primary button (white, a black tick), off a default button
-          // with a blank label, which draws as an outline. The box and the name both toggle it.
+          // A checkbox of its own beside the name: on is a primary button (white, a heavy black tick), off a secondary
+          // one with a blank label, the same size: a default button lost its square shape. The name toggles it too.
           const toggle = () => pick('hide', after.join(','))
           return (
             <Box key={`setup-show-${part}`} flexDirection="row" alignItems="center">
               {off ? (
-                <Button key={`setup-box-${part}`} label={'\u00a0'} onPress={toggle} />
+                <Button key={`setup-box-${part}`} variant="secondary" label={'\u00a0'} onPress={toggle} />
               ) : (
-                <Button key={`setup-box-${part}`} variant="primary" label="✓" onPress={toggle} />
+                <Button key={`setup-box-${part}`} variant="primary" label={'\u2714\ufe0e'} onPress={toggle} />
               )}
               <Button key={`setup-name-${part}`} plain dimColor={off} label={label} onPress={toggle} />
             </Box>

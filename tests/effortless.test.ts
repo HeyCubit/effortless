@@ -1252,10 +1252,10 @@ describe('setup guide', () => {
 
     // 4/4 the footer: the cache timer and the handoff button, both ticked; a click unticks one.
     expect(await drawn(band)).toContain('4/4')
-    expect(await drawn(band)).toContain('{"key":"setup-box-handoff","label":"✓","variant":"primary"}')
+    expect(await drawn(band)).toContain('{"key":"setup-box-handoff","label":"✔︎","variant":"primary"}')
     expect(await band.find({ key: 'setup-show-cold' })).toBeUndefined()
     await band.press({ key: 'setup-box-timer' })
-    expect(await drawn(band)).toContain('{"key":"setup-box-timer","label":" "}')
+    expect(await drawn(band)).toContain('{"key":"setup-box-timer","label":" ","variant":"secondary"}')
     await band.press({ key: 'setup-next' })
 
     // The last word: the footer's buttons and Fable. Back goes to the footer step.
