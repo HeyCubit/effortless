@@ -10,11 +10,11 @@ one row per step, so nobody has to open ⚙ to get effortless set the way they l
 | 1/4 custom | Your judge: a chat completions URL and a model. | URL field, model field, Next |
 | 2/4 lean | On close calls, lean cheaper or smarter? | five-stop slider, Next |
 | 3/4 handoff | ⇥ at the bottom moves the chat to a fresh one. Full handoff by: | skill picker, Next |
-| 4/4 alerts | Which alerts show? The minutes at the bottom are the cache timer. | Timer, Cold, Swamped, Hot, Judge down toggles, Next |
+| 4/4 footer | What shows at the bottom? Both are recommended. | ☑ Cache timer, ☑ ⇥ Handoff, Next |
 | done | ⏻ at the bottom turns Auto on or off, ⚙ changes all this. Auto pauses on Fable. | Done |
 
 - Back on every step but the first; ✕ closes the guide.
-- Every choice is saved the moment it is made (`saveSetting`), so closing midway keeps what was picked.
+- Choices are held in a draft and saved together at Done or ✕ (each saved setting reloads the plugin and the app posts a notice in the chat). Alert bands are not in the setup; ⚙ switches them.
 - Picking or skipping the judge marks the setup done: the guide does not open by itself again and the footer shows ⚙.
   Closing before that keeps the footer's Setup button.
 - Left out on purpose: range (floor/ceiling), Swamped at %, handoffAfter (the handoff bar asks every time and

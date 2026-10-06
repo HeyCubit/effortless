@@ -19,7 +19,7 @@ Type these two lines in Claude Code's chat box, no terminal needed:
 /plugin install effortless@effortless
 ```
 
-Restart Claude Code. A short setup opens above the prompt the first time: pick **Jev** (API key needed, about 4x faster than Haiku), **Haiku** (one click, no key, runs on your own Claude login) or **your own AI**, and it asks only for what that choice needs. Then three short steps: lean cheaper or smarter, which skill writes a full handoff, and which alerts show. Back and Skip on every step; everything is saved as you click. Run `/effortless setup` to go through it again, or change any of it in ⚙.
+Restart Claude Code. A short setup opens above the prompt the first time: pick **Jev** (API key needed, about 4x faster than Haiku), **Haiku** (one click, no key, runs on your own Claude login) or **your own AI**, and it asks only for what that choice needs. Then three short steps: lean cheaper or smarter, which skill writes a full handoff, and what shows at the bottom (cache timer, ⇥ handoff). Back on every step; your choices are saved when you press Done or close it. Run `/effortless setup` to go through it again, or change any of it in ⚙.
 
 From a terminal it is the same without the slashes: `claude plugin marketplace add HeyCubit/effortless`, then `claude plugin install effortless@effortless`.
 

@@ -1194,20 +1194,20 @@ describe('setup guide', () => {
     return said
   }
 
-  test('the steps run judge, lean, handoff, alerts, done; Back goes one step back', () => {
+  test('the steps run judge, lean, handoff, footer, done; Back goes one step back', () => {
     expect(setupNext('pick')).toBe('lean')
     expect(setupNext('jev')).toBe('lean')
     expect(setupNext('custom')).toBe('lean')
     expect(setupNext('lean')).toBe('handoff')
-    expect(setupNext('handoff')).toBe('alerts')
-    expect(setupNext('alerts')).toBe('done')
+    expect(setupNext('handoff')).toBe('footer')
+    expect(setupNext('footer')).toBe('done')
     expect(setupNext('done')).toBeNull()
     expect(setupBack('pick')).toBeNull()
     expect(setupBack('jev')).toBe('pick')
     expect(setupBack('lean')).toBe('pick')
-    expect(setupBack('done')).toBe('alerts')
+    expect(setupBack('done')).toBe('footer')
     expect(setupCounter('jev')).toBe('1/4')
-    expect(setupCounter('alerts')).toBe('4/4')
+    expect(setupCounter('footer')).toBe('4/4')
     expect(setupCounter('done')).toBe('')
   })
 
@@ -1250,13 +1250,15 @@ describe('setup guide', () => {
     await band.select({ key: 'setup-skill', value: 'session-handoff' })
     await band.press({ key: 'setup-next' })
 
-    // 4/4 the alerts: a click hides one.
+    // 4/4 the footer: the cache timer and the handoff button, both ticked; a click unticks one.
     expect(await drawn(band)).toContain('4/4')
+    expect(await drawn(band)).toContain('☑ ⇥ Handoff')
+    expect(await band.find({ key: 'setup-show-cold' })).toBeUndefined()
     await band.press({ key: 'setup-show-timer' })
-    expect(await drawn(band)).toContain('○ Timer')
+    expect(await drawn(band)).toContain('☐ Cache timer')
     await band.press({ key: 'setup-next' })
 
-    // The last word: the footer's buttons and Fable. Back goes to the alerts.
+    // The last word: the footer's buttons and Fable. Back goes to the footer step.
     expect(await drawn(band)).toContain('Auto pauses on Fable')
     await band.press({ key: 'setup-back' })
     expect(await drawn(band)).toContain('4/4')
