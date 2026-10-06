@@ -1908,7 +1908,7 @@ describe('swamp band and setup entry', () => {
     await $.turn.complete({ turnId: 't1', answer: 'First answer.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
     const first = await $.ui.mount(reply('First answer.'))
     expect(await drawn(first)).toContain('Chat is getting swamped')
-    expect(await drawn(first)).toContain('/effortless panel')
+    expect(await drawn(first)).toContain('/compact or /effortless handoff')
     await first.unmount()
     await $.turn.complete({ turnId: 't2', answer: 'Second answer.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
     const old = await $.ui.mount(reply('First answer.'))
@@ -1917,23 +1917,6 @@ describe('swamp band and setup entry', () => {
     const newest = await $.ui.mount(reply('Second answer.'))
     expect(await newest.find({ key: 'reply-warn' })).toBeDefined()
     await newest.unmount()
-  })
-
-  test('/effortless panel opens a side panel with the warning and its buttons', async ($, on) => {
-    engine(on)
-    const mocked = mock.clock(on)
-    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 300_000, percent: 67 } } }) as never)
-    on('ui.open', () => ({ value: { isPlaced: true } }) as never)
-    on('ui.close', () => ({ value: undefined }) as never)
-    await start($, on)
-    await mocked.advance(16_000)
-    expect(String((await $.command.run({ command: 'effortless', args: 'panel' })).text)).toContain('panel open')
-    const panel = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', component: 'Pane', requestId: 'effortless-panel', props: {} } as never)
-    expect(await drawn(panel)).toContain('Chat is getting swamped')
-    expect(await panel.find({ key: 'panel-compact' })).toBeDefined()
-    expect(await panel.find({ key: 'panel-handoff' })).toBeDefined()
-    await panel.unmount()
-    expect(String((await $.command.run({ command: 'effortless', args: 'panel' })).text)).toContain('panel closed')
   })
 
   test('/effortless save switches save mode on and off', async ($, on) => {

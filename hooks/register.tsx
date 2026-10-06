@@ -78,10 +78,6 @@ const isCompacting = atom({ plugin: 'effortless', key: 'isCompacting' } as const
 // The person closed the cold band; it comes back the next time the cache goes cold.
 // The test pane of /effortless try pane.
 const TRY_PANE = 'effortless-try'
-// The side panel: the bands' facts and buttons where the app draws no bands (split view's right pane).
-const PANEL = 'effortless-panel'
-// The side panel's backdrop: the brand's glow from the top right, light streaks and sparkles fading downwards, grain.
-const PANEL_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="1800" viewBox="0 0 320 960" preserveAspectRatio="xMidYMin slice"><defs><radialGradient id="g" cx="230" cy="0" r="420" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#b3a6ff" stop-opacity=".42"/><stop offset=".45" stop-color="#7c6cf0" stop-opacity=".16"/><stop offset="1" stop-color="#7c6cf0" stop-opacity="0"/></radialGradient><radialGradient id="g2" cx="20" cy="900" r="320" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#7c6cf0" stop-opacity=".14"/><stop offset="1" stop-color="#7c6cf0" stop-opacity="0"/></radialGradient><linearGradient id="f" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset=".55" stop-color="#fff" stop-opacity=".25"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="m"><rect width="320" height="960" fill="url(#f)"/></mask><pattern id="n" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".06"/></pattern></defs><rect width="320" height="960" fill="url(#g)"/><rect width="320" height="960" fill="url(#g2)"/><g mask="url(#m)"><line x1="40" y1="-20" x2="180" y2="420" stroke="#fff" stroke-opacity="0.035" stroke-width="10"/><line x1="90" y1="-20" x2="230" y2="420" stroke="#fff" stroke-opacity="0.05" stroke-width="3"/><line x1="150" y1="-20" x2="290" y2="420" stroke="#fff" stroke-opacity="0.04" stroke-width="16"/><line x1="210" y1="-20" x2="350" y2="420" stroke="#fff" stroke-opacity="0.05" stroke-width="4"/><line x1="260" y1="-20" x2="400" y2="420" stroke="#fff" stroke-opacity="0.03" stroke-width="9"/><path fill="#fff" fill-opacity="0.20" d="M114.2 92.6 L114.8 94.8 L117.0 95.4 L114.8 96.0 L114.2 98.3 L113.6 96.0 L111.3 95.4 L113.6 94.8 Z"/><path fill="#fff" fill-opacity="0.34" d="M169.3 201.1 L169.7 202.5 L171.0 202.8 L169.7 203.2 L169.3 204.6 L169.0 203.2 L167.6 202.8 L169.0 202.5 Z"/><path fill="#fff" fill-opacity="0.21" d="M39.7 235.1 L40.1 236.4 L41.5 236.8 L40.1 237.2 L39.7 238.6 L39.4 237.2 L38.0 236.8 L39.4 236.4 Z"/><path fill="#fff" fill-opacity="0.25" d="M140.4 431.6 L140.8 433.0 L142.2 433.4 L140.8 433.8 L140.4 435.3 L140.0 433.8 L138.5 433.4 L140.0 433.0 Z"/><path fill="#fff" fill-opacity="0.31" d="M193.1 491.1 L193.7 493.3 L195.8 493.9 L193.7 494.4 L193.1 496.6 L192.5 494.4 L190.4 493.9 L192.5 493.3 Z"/><path fill="#fff" fill-opacity="0.27" d="M283.8 40.0 L284.5 42.6 L287.1 43.3 L284.5 44.0 L283.8 46.5 L283.1 44.0 L280.6 43.3 L283.1 42.6 Z"/><path fill="#fff" fill-opacity="0.44" d="M67.5 76.7 L68.0 78.4 L69.7 78.9 L68.0 79.4 L67.5 81.1 L67.0 79.4 L65.3 78.9 L67.0 78.4 Z"/><path fill="#fff" fill-opacity="0.30" d="M77.0 308.0 L77.6 310.2 L79.8 310.8 L77.6 311.4 L77.0 313.6 L76.4 311.4 L74.2 310.8 L76.4 310.2 Z"/><path fill="#fff" fill-opacity="0.25" d="M172.4 49.7 L172.8 51.0 L174.1 51.4 L172.8 51.8 L172.4 53.1 L172.0 51.8 L170.7 51.4 L172.0 51.0 Z"/><path fill="#fff" fill-opacity="0.37" d="M206.9 231.6 L207.4 233.3 L209.1 233.8 L207.4 234.3 L206.9 236.0 L206.4 234.3 L204.7 233.8 L206.4 233.3 Z"/><path fill="#fff" fill-opacity="0.40" d="M147.8 166.8 L148.5 169.2 L151.0 169.9 L148.5 170.6 L147.8 173.0 L147.1 170.6 L144.7 169.9 L147.1 169.2 Z"/><path fill="#fff" fill-opacity="0.46" d="M93.5 304.6 L94.0 306.6 L96.1 307.2 L94.0 307.8 L93.5 309.8 L92.9 307.8 L90.9 307.2 L92.9 306.6 Z"/><path fill="#fff" fill-opacity="0.22" d="M219.7 160.5 L220.4 163.2 L223.1 164.0 L220.4 164.7 L219.7 167.5 L218.9 164.7 L216.2 164.0 L218.9 163.2 Z"/><path fill="#fff" fill-opacity="0.34" d="M138.7 396.7 L139.1 398.2 L140.6 398.6 L139.1 399.0 L138.7 400.5 L138.3 399.0 L136.8 398.6 L138.3 398.2 Z"/><path fill="#fff" fill-opacity="0.36" d="M40.2 351.0 L40.9 353.4 L43.3 354.1 L40.9 354.8 L40.2 357.2 L39.5 354.8 L37.1 354.1 L39.5 353.4 Z"/><path fill="#fff" fill-opacity="0.37" d="M257.6 173.9 L258.3 176.2 L260.6 176.9 L258.3 177.5 L257.6 179.8 L257.0 177.5 L254.7 176.9 L257.0 176.2 Z"/><path fill="#fff" fill-opacity="0.48" d="M180.8 244.9 L181.5 247.4 L184.0 248.1 L181.5 248.8 L180.8 251.3 L180.1 248.8 L177.6 248.1 L180.1 247.4 Z"/><path fill="#fff" fill-opacity="0.40" d="M153.3 350.4 L153.6 351.7 L155.0 352.1 L153.6 352.5 L153.3 353.8 L152.9 352.5 L151.5 352.1 L152.9 351.7 Z"/></g><rect width="320" height="960" fill="url(#n)"/></svg>`
 // Where a handoff is: null idle, writing (the handoff turn runs), clearing (clear and resend).
 const handoffStage = atom({ plugin: 'effortless', key: 'handoffStage' } as const, null)
 // The handoff bar above the prompt, open with the choice shown in it, or null.
@@ -89,8 +85,6 @@ const handoffPick = atom({ plugin: 'effortless', key: 'handoffPick' } as const, 
 // The context is swamped: tokens read per request, or null below the line. Drives the swamp band.
 const swamped = atom({ plugin: 'effortless', key: 'swamped' } as const, null)
 // The swamp band was closed at this many tokens; it comes back once the context has grown well past it.
-// Whether this plugin's side panel is open (/effortless panel toggles it).
-let panelOpen = false
 // The newest reply's text, so the warning card goes under its last block and nowhere else.
 const lastAnswer = atom({ plugin: 'effortless', key: 'lastAnswer' } as const, '')
 const swampHiddenAt = atom({ plugin: 'effortless', key: 'swampHiddenAt' } as const, null)
@@ -866,7 +860,7 @@ type TurnWarning = { kind: 'cold' | 'hot' | 'swamp'; title: string; line: string
  *  hiding (a part switched off, a band closed with ✕), with a command in place of the band's buttons. */
 async function turnWarning($: EngineInterface): Promise<TurnWarning | null> {
   if ((await read($, cacheLeft)) === 0 && !config.hide.includes('cold') && !(await read($, isColdHidden))) {
-    return { kind: 'cold', title: 'Chat went cold', line: 'Next message costs full price. Type /compact first, or open /effortless panel.', color: ICE, bg: ICE_BG, edge: ICE_EDGE, art: FROST_SVG }
+    return { kind: 'cold', title: 'Chat went cold', line: 'Next message costs full price. Type /compact first.', color: ICE, bg: ICE_BG, edge: ICE_EDGE, art: FROST_SVG }
   }
   const heat = await read($, hot)
   const heatHidden = await read($, hotHidden)
@@ -875,7 +869,7 @@ async function turnWarning($: EngineInterface): Promise<TurnWarning | null> {
     return {
       kind: 'hot',
       title: `Running hot · ${Math.round(heat.percent)}% of your ${window} limit`,
-      line: 'Save mode keeps Auto at medium or below: /effortless save, or open /effortless panel.',
+      line: 'Save mode keeps Auto at medium or below: /effortless save.',
       color: EMBER, bg: EMBER_BG, edge: EMBER_EDGE, art: EMBER_SVG,
     }
   }
@@ -885,7 +879,7 @@ async function turnWarning($: EngineInterface): Promise<TurnWarning | null> {
     return {
       kind: 'swamp',
       title: `Chat is getting swamped · ${Math.round(swampTokens / 1000)}k tokens`,
-      line: 'Every message re-reads all of it. /compact, /effortless handoff, or open /effortless panel.',
+      line: 'Every message re-reads all of it. Type /compact or /effortless handoff.',
       color: BOG, bg: BOG_BG, edge: BOG_EDGE, art: SWAMP_SVG,
     }
   }
@@ -1832,16 +1826,6 @@ export const register: Register = (on, options) => {
       return { text: 'The swamp band is showing now (a test). It goes away at the next check unless the chat really is swamped.' }
     }
     if (arg === 'save') return { text: await toggleSave($) }
-    if (arg === 'panel') {
-      if (panelOpen) {
-        await $.ui.close({ id: PANEL }).catch(() => undefined)
-        panelOpen = false
-        return { text: 'panel closed' }
-      }
-      const opened = await $.ui.open({ id: PANEL, title: 'effortless' })
-      panelOpen = opened.isPlaced
-      return { text: opened.isPlaced ? 'panel open' : `the app did not place the panel: ${'reason' in opened ? opened.reason : 'no reason given'}` }
-    }
     if (arg === 'handoff' || arg === 'handoff full') {
       const full = arg === 'handoff full'
       if (full && !config.handoffSkill) return { text: 'No skill is set for the full handoff. Pick one in /effortless settings, under Handoff.' }
@@ -2199,77 +2183,6 @@ Saved to ${out}.md and .json` }
             <Text color={warn.color} bold wrap="truncate">{`✦ ${warn.title}`}</Text>
             <Text wrap="truncate">{warn.line}</Text>
           </Box>
-        </Box>
-      </Box>
-    )
-  })
-
-  // The side panel (/effortless panel): what the footer and the bands say, with their buttons, for split view's right
-  // pane, where the app draws neither. Each press says so in a toast for now: a test of whether a pane takes clicks.
-  on('ui.render', { component: 'Pane', requestId: PANEL }, async ($, e) => {
-    const { Box, Text, Button, Svg } = $.ui.resolve(e)
-    const v = await snap($)
-    const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
-    const warn = await turnWarning($)
-    const compacting = await read($, isCompacting)
-    const saving = (await read($, saveUntil)) !== null
-    const handing = (await read($, handoffStage)) !== null
-    const press = (what: string, act: () => Promise<unknown>) => async () => {
-      $.ui.toast(`panel button pressed: ${what}`)
-      await act()
-    }
-    const tint = warn ?? { color: ACCENT, bg: BRAND_HEAD, edge: BRAND_EDGE, art: BRAND_SVG, title: 'All good', line: 'Nothing needs you right now.' }
-    const cacheText = v.cacheNow === null ? 'not started' : v.cacheNow <= 0 ? 'cold' : `${cacheLabel(v.cacheNow)} warm`
-    // One fact per row: a dim label on the left, the value in its colour on the right.
-    const fact = (key: string, label: string, value: string, color?: string, extra?: unknown) => (
-      <Box key={key} flexDirection="row" alignItems="center" gap={1}>
-        <Box width={9} flexShrink={0}>
-          <Text dimColor>{label}</Text>
-        </Box>
-        {extra as never}
-        <Text color={color} bold={Boolean(color)} wrap="truncate">{value}</Text>
-      </Box>
-    )
-    return (
-      // The whole body in the brand: its background, and a tall backdrop clipped to the panel.
-      <Box key="panel" position="relative" flexDirection="column" gap={1} paddingX={1} paddingY={1} overflow="hidden"
-        backgroundColor={BRAND_BG} minHeight={e.props.scroll?.bodyRows ?? 0}>
-        <Box key="panel-backdrop" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={PANEL_SVG} alt="" width={600} height={1800} />
-        </Box>
-        <Box key="panel-title" position="relative" flexDirection="column">
-          <Text color={ACCENT} bold>✦ effortless</Text>
-          <Text dimColor wrap="truncate">This chat, at a glance.</Text>
-        </Box>
-        <Box key="panel-status" position="relative" flexDirection="column" paddingX={1} overflow="hidden"
-          backgroundColor={tint.bg} borderStyle="round" borderColor={tint.edge}>
-          <Box key="panel-status-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={tint.art} alt="" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
-          </Box>
-          <Box key="panel-status-words" position="relative" flexDirection="column" minWidth={0}>
-            <Text color={tint.color} bold wrap="truncate">{`✦ ${tint.title}`}</Text>
-            <Text wrap="wrap">{tint.line.replace(/,? or open \/effortless panel\.?$/, '.')}</Text>
-          </Box>
-        </Box>
-        <Box key="panel-facts" position="relative" flexDirection="column" paddingX={1}>
-          {fact('panel-effort', 'Effort', `✦ ${effortNow ? EFFORT_LABELS[effortNow] : 'Auto'}`, ACCENT)}
-          {fact('panel-cache', 'Cache', cacheText, v.cacheNow === null ? undefined : (cacheColor(v.cacheNow) ?? '#d6d1f5'))}
-          {lastContext && lastContext.window
-            ? fact('panel-context', 'Context', `${lastContext.percent}% full`, lastContext.percent >= config.swampAt ? BOG : '#d6d1f5',
-                <Svg key="panel-ring" source={ringSvg(lastContext.percent, lastContext.percent >= config.swampAt ? BOG : ACCENT)} alt="" width={14} height={14} />)
-            : null}
-          {saving ? fact('panel-saving', 'Save mode', 'on', EMBER) : null}
-        </Box>
-        <Box key="panel-actions" position="relative" flexDirection="column" gap={1}>
-          <Button key="panel-compact" variant="primary" label={compacting ? 'Compacting…' : 'Compact'} onPress={press('Compact', () => compactCold($))} />
-          <Button key="panel-handoff" variant="secondary" label={handing ? 'Handing off…' : 'Handoff'} onPress={press('Handoff', async () => {
-            const choice = await lastHandoffChoice($)
-            await startHandoff($, choice.kind === 'full', choice.after)
-          })} />
-          <Button key="panel-save" variant="secondary" label={saving ? 'Save mode on' : 'Save mode'} onPress={press('Save mode', async () => $.ui.toast(`effortless: ${await toggleSave($)}`))} />
-        </Box>
-        <Box key="panel-foot" position="relative" paddingX={1}>
-          <Text dimColor wrap="wrap">/effortless settings for all of it. /effortless panel closes this.</Text>
         </Box>
       </Box>
     )
