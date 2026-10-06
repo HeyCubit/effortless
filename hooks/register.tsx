@@ -1618,8 +1618,6 @@ Saved to ${out}.md and .json` }
         if (n > -2) track.push(<Text key={`t${n}`} dimColor>──</Text>)
         track.push(<Button key={`bias${n + 2}`} plain label={n === shown.bias ? '◉' : '○'} onPress={() => set('bias')(String(n))} />)
       }
-      const biasWords = ['Many close calls go a step down.', 'Close calls go a step down.', 'As the judge says.',
-        'Close calls go a step up.', 'Many close calls go a step up.'][shown.bias + 2]
       const judgeWords = {
         auto: 'Jev with a key, else Haiku.',
         haiku: 'Your Claude login, no key.',
@@ -1675,7 +1673,7 @@ Saved to ${out}.md and .json` }
             <Box key="gap" width={2} />,
             <Select key="settings-floor" label="Min" value={shown.floor} options={opts(EFFORTS)} onSelect={set('floor')} />,
             <Select key="settings-ceiling" label="Max" value={shown.ceiling} options={opts(EFFORTS)} onSelect={set('ceiling')} />,
-          ], biasWords)}
+          ])}
           {row('settings-judge', 'Judge', [
             <Select key="settings-judge-pick" value={shown.judge} options={opts(['auto', 'haiku', 'jev', 'custom'])}
               onSelect={set('judge')} />,
