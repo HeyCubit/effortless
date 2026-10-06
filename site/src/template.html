@@ -76,7 +76,7 @@ a{color:inherit}
 @keyframes up{from{opacity:0;transform:translateY(22px)}}
 
 h1{margin:0;display:flex;align-items:center;gap:.2em;font:500 clamp(52px,6.6vw,100px)/1 var(--display);letter-spacing:-.025em;color:#f4f2ff}
-h1 .spark{width:.62em;height:.62em;flex-shrink:0;}
+h1 .spark{width:.78em;height:.78em;flex-shrink:0;}
 /* The word goes soft at its bottom right: a crisp copy fades out there and a grainy blurred copy takes over. */
 .word{position:relative;display:inline-block;padding:0 .08em .12em 0}
 .word .crisp{-webkit-mask-image:radial-gradient(46% 80% at 100% 100%,transparent 15%,#000 85%);mask-image:radial-gradient(46% 80% at 100% 100%,transparent 15%,#000 85%)}
@@ -163,7 +163,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .topbar{position:fixed;top:0;left:0;right:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px max(24px,calc((100vw - 1180px)/2));background:#121214e0;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transform:translateY(-110%);transition:transform .4s var(--ease)}
 .topbar.on{transform:none}
 .topbar .name{display:inline-flex;align-items:center;gap:8px;color:var(--text);font:500 17px var(--display);text-decoration:none}
-.topbar .name svg{width:16px;height:16px}
+.topbar .name svg{width:24px;height:24px}
 .inst{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:9px;border:0;background:#f4f3f8;color:#141218;font:600 14px var(--sans);cursor:pointer}
 .inst:hover{background:#fff}
 .inst:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
@@ -286,7 +286,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .site-foot:before{content:"";position:absolute;left:50%;bottom:-30%;width:120%;height:110%;transform:translateX(-50%);z-index:-1;pointer-events:none;background:radial-gradient(50% 55% at 50% 100%,#6d5fd666,#3a2f7a33 45%,transparent 75%)}
 .foot-row{max-width:1180px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .foot-row .name{display:inline-flex;align-items:center;gap:8px;color:var(--text);font:500 17px var(--display)}
-.foot-row .name svg{width:16px;height:16px}
+.foot-row .name svg{width:24px;height:24px}
 .foot-row .name small{margin-left:6px;color:var(--dim);font:400 14px var(--sans)}
 .foot-row nav{display:flex;align-items:center;gap:24px}
 .foot-row nav a{display:inline-flex;align-items:center;gap:7px;color:var(--muted);text-decoration:none;font-size:14.5px;transition:color .2s}
