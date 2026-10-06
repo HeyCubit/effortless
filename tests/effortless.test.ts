@@ -2425,6 +2425,14 @@ describe('progress bar', () => {
     expect(played).toEqual([])
   })
 
+  test('the system prompt asks Claude to keep a step list for multi-step work, so the bar has steps', async ($, on) => {
+    engine(on)
+    on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'You are Claude.', scope: 'shared' }] }))
+    await start($, on)
+    const { sections } = await $.prompt.compose({ model: 'claude-opus-5-5', promptModel: 'claude-opus-5-5', surfaces: [], tools: [], outputStyle: null, traits: [] })
+    expect(sections.find(s => s.id === 'effortless-progress')?.text).toContain('three or more distinct steps')
+  })
+
   test('/effortless progress shows the bar working, asking and done, then clears it', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)

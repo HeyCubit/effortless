@@ -7,6 +7,8 @@ when every step is done. Isac left the design to the builder (2026-10-06); each 
 ## When it appears
 - **Planning**: Claude enters plan mode (`EnterPlanMode`, main loop). One row, "Planning a bigger task" with thinking
   dots. (A high effort pick alone used to show it, on a guess: a handoff at high showed Planning, then nothing.) If the turn ends without a step list, it goes away without a sound.
+- **Asking for a list**: a `prompt.compose` section asks Claude to write a task list for work of 3+ steps; without it
+  Claude often skipped the list and no bar came.
 - **Working**: Claude writes a step list with 3 or more steps: `TodoWrite` (the whole list each time) or
   `TaskCreate` / `TaskUpdate` (one task at a time). Fewer than 3 steps draws nothing.
 - Subagents' lists are ignored (`agentId` set): only the main conversation's task counts.
