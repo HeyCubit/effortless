@@ -1211,7 +1211,7 @@ describe('setup guide', () => {
     expect(setupCounter('done')).toBe('')
   })
 
-  test('opens by itself the first time; each step saves its choice at once; Done closes it for good', async ($, on) => {
+  test('opens by itself the first time; the choices are saved together at Done, which closes it for good', async ($, on) => {
     engine(on)
     mock.clock(on)
     const set = settings(on)
@@ -1232,26 +1232,27 @@ describe('setup guide', () => {
     expect(first).not.toContain('"isInteractive":true')
     expect(first).toContain('linearGradient')
     await band.press({ key: 'setup-haiku' })
-    expect(set).toEqual([{ key: 'effortless.judge', value: 'haiku' }])
+    // Nothing is saved yet: each saved setting reloads the plugin and puts a notice in the chat.
+    expect(set).toEqual([])
     expect(said.join(' ')).toContain('Haiku judges')
 
-    // 2/4 the lean: a click on the slider saves it.
+    // 2/4 the lean: each stop is named and says what it does; the track lights toward the marker.
     expect(await drawn(band)).toContain('2/4')
+    expect(await drawn(band)).toContain('Balanced: ')
     await band.press({ key: 'setup-bias4' })
-    expect(set).toContainEqual({ key: 'effortless.effortBias', value: '2' })
+    expect(await drawn(band)).toContain('Smartest: ')
+    expect(await drawn(band)).toContain('{"color":"#a79cf7"},"children":["──"]')
     await band.press({ key: 'setup-next' })
 
     // 3/4 the handoff: the installed skills to pick from.
     expect(await drawn(band)).toContain('3/4')
     expect(await drawn(band)).toContain('/session-handoff')
     await band.select({ key: 'setup-skill', value: 'session-handoff' })
-    expect(set).toContainEqual({ key: 'effortless.handoffSkill', value: 'session-handoff' })
     await band.press({ key: 'setup-next' })
 
     // 4/4 the alerts: a click hides one.
     expect(await drawn(band)).toContain('4/4')
     await band.press({ key: 'setup-show-timer' })
-    expect(set).toContainEqual({ key: 'effortless.hide', value: 'timer' })
     expect(await drawn(band)).toContain('○ Timer')
     await band.press({ key: 'setup-next' })
 
@@ -1260,7 +1261,14 @@ describe('setup guide', () => {
     await band.press({ key: 'setup-back' })
     expect(await drawn(band)).toContain('4/4')
     await band.press({ key: 'setup-next' })
+    expect(set).toEqual([])
     await band.press({ key: 'setup-done' })
+    expect(set).toEqual([
+      { key: 'effortless.judge', value: 'haiku' },
+      { key: 'effortless.effortBias', value: '2' },
+      { key: 'effortless.handoffSkill', value: 'session-handoff' },
+      { key: 'effortless.hide', value: 'timer' },
+    ])
     await band.unmount()
     await expect($.ui.mount(DESK)).rejects.toThrow()
 
@@ -1280,7 +1288,7 @@ describe('setup guide', () => {
     await start($, on)
     const band = await $.ui.mount(DESK)
     await band.press({ key: 'setup-jev' })
-    expect(set).toEqual([{ key: 'effortless.judge', value: 'jev' }])
+    expect(set).toEqual([])
     expect(await drawn(band)).toContain('TypeSafe key')
     expect(await drawn(band)).toContain('typesafe.ai')
     expect(await band.find({ key: 'setup-key' })).toBeDefined()
@@ -1289,6 +1297,9 @@ describe('setup guide', () => {
     expect(await band.find({ key: 'setup-bias2' })).toBeDefined()
     await band.press({ key: 'setup-back' })
     expect(await band.find({ key: 'setup-jev' })).toBeDefined()
+    // The cross keeps what was picked so far.
+    await band.press({ key: 'setup-close' })
+    expect(set).toEqual([{ key: 'effortless.judge', value: 'jev' }])
     await band.unmount()
   })
 
@@ -1299,7 +1310,7 @@ describe('setup guide', () => {
     await start($, on)
     const band = await $.ui.mount(DESK)
     await band.press({ key: 'setup-custom' })
-    expect(set).toEqual([{ key: 'effortless.judge', value: 'custom' }])
+    expect(set).toEqual([])
     expect(await band.find({ key: 'setup-url' })).toBeDefined()
     expect(await band.find({ key: 'setup-model' })).toBeDefined()
     await band.press({ key: 'setup-next' })
