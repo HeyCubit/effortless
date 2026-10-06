@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText } from '../hooks/register'
+import { capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText } from '../hooks/register'
 
 const BAND = {
   component: 'AbovePrompt',
@@ -1456,5 +1456,70 @@ describe('swamp band and setup entry', () => {
     await reopened.unmount()
     expect(await footer.find({ key: 'setup' })).toBeUndefined()
     await footer.unmount()
+  })
+})
+
+describe('running hot and judge down', () => {
+  const start = async ($: Engine, on: On) => {
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+  }
+
+  test('save mode caps at medium, and reset times read short', () => {
+    expect(capped('xhigh', true)).toBe('medium')
+    expect(capped('low', true)).toBe('low')
+    expect(capped('xhigh', false)).toBe('xhigh')
+    const now = new Date('2026-10-06T10:00:00').getTime()
+    expect(resetLabel('2026-10-06T14:20:00', now)).toBe('14:20')
+    expect(resetLabel(null, now)).toBe('')
+  })
+
+  test('a limit past 80% shows the running-hot band; save mode can be switched on', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    on('session.usage', () => ({ value: { context: { tokens: 1000, window: 200_000, percent: 1 }, rateLimits: [
+      { kind: 'five_hour', percentUsed: 84, resetsAt: '2026-10-06T14:20:00Z' },
+      { kind: 'seven_day', percentUsed: 40 },
+    ] } }) as never)
+    const said: string[] = []
+    on('ui.toast', (_$, e) => {
+      said.push(String((e as { text?: string }).text ?? e))
+      return { value: undefined } as never
+    })
+    await start($, on)
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await mocked.advance(16_000)
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('Running hot')
+    expect(await drawn(band)).toContain('84% of your 5h limit used')
+    await band.press({ key: 'hot-save' })
+    expect(said.join(' ')).toContain('save mode on')
+    await band.unmount()
+  })
+
+  test('a failing judge shows the judge-down band until it answers again', async ($, on) => {
+    engine(on, { TYPESAFE_API_KEY: 'k' })
+    mock.clock(on)
+    judgeSays(on, '{"model":"sonnet","effort":"low","why":"x"}')
+    let status = 402
+    on('http.fetch', () => ({ value: status === 200
+      ? { status: 200, ok: true, headers: {}, text: jevReply('high', 0.9, 'sonnet') }
+      : { status, ok: false, headers: {}, text: 'payment required' } }))
+    on('ui.toast', () => ({ value: undefined }) as never)
+    await start($, on)
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await $.prompt.submit({ text: 'refactor the sync engine end to end', wait: false, origin: { kind: 'composer' } })
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('Judge down')
+    expect(await drawn(band)).toContain('out of credits')
+    await band.unmount()
+    status = 200
+    await $.prompt.submit({ text: 'now write tests for the queue module', wait: false, origin: { kind: 'composer' } })
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
   })
 })
