@@ -2331,6 +2331,7 @@ describe('progress bar', () => {
     await $.turn.start({ text: 'go through the whole repo', turnId: 't1' } as never)
     const band = await $.ui.mount(DESK_BAND)
     expect(await drawn(band)).toContain('Planning a bigger task')
+    expect(await band.find({ key: 'progress-thinking' })).toBeDefined()
     await band.unmount()
     await endTurn($, 'Nothing needed cleaning.')
     await mocked.advance(1000)
