@@ -1127,11 +1127,18 @@ export const HANDOFF_PROMPT = [
 ].join('\n')
 
 /** The first message of the fresh chat: the handoff, then what to do with it. */
-export function handoffMessage(handoff: string, after: HandoffAfter): string {
+export function handoffMessage(handoff: string, after: HandoffAfter, skill?: string): string {
   const ask =
     after === 'confirm'
       ? 'Read this, say in two lines where things stand and what is next, then wait for me.'
       : 'Continue with the next step. If it is marked "needs user", say what you need and wait.'
+  // A full handoff is the person's own skill: it saves the handoff (a file, memories), and its last words in the chat
+  // are often only a note that it did. The new chat is told to read what the skill saved before anything else.
+  if (skill)
+    return (
+      `Handoff from the previous chat: it ran /${skill}, which saved the handoff. Its last words there:\n\n${handoff.trim()}\n\n` +
+      `First read the handoff /${skill} saved: the files named above, or HANDOFF.md in the project if none is named. ${ask}`
+    )
   return `Handoff from the previous chat:\n\n${handoff.trim()}\n\n${ask}`
 }
 
@@ -1272,7 +1279,7 @@ export async function finishHandoff($: EngineInterface) {
   try {
     if (handoffThen === 'newchat') {
       // The model here starts the new chat and archives this one; the clipboard keeps the handoff should it fail.
-      const message = handoffMessage(text, 'continue')
+      const message = handoffMessage(text, 'continue', handoffFull ? config.handoffSkill : undefined)
       await $.ui.copy({ text: message }).catch(() => undefined)
       await setHandoffCard($, 'newchat', handoffFull)
       await $.prompt.submit({ text: newChatPrompt(message) })
@@ -1281,7 +1288,7 @@ export async function finishHandoff($: EngineInterface) {
     if (handoffThen === 'copy') {
       // The chat stays: the handoff goes to the clipboard, ready to paste into another chat. Should the clipboard
       // refuse, it goes in the prompt box instead, to cut from there.
-      const message = handoffMessage(text, 'continue')
+      const message = handoffMessage(text, 'continue', handoffFull ? config.handoffSkill : undefined)
       const copied = await $.ui.copy({ text: message }).catch(() => ({ isCopied: false as const }))
       // Under the reply already there, so the next reply takes it away.
       await setHandoffCard($, 'copied', handoffFull, true)
@@ -1296,7 +1303,7 @@ export async function finishHandoff($: EngineInterface) {
     await $.command.run({ command: 'clear', args: '' })
     // Under the first reply of the cleared chat, gone with the one after it.
     await setHandoffCard($, 'done', handoffFull)
-    await $.prompt.submit({ text: handoffMessage(text, handoffThen) })
+    await $.prompt.submit({ text: handoffMessage(text, handoffThen, handoffFull ? config.handoffSkill : undefined) })
   } catch (error) {
     await update($, handoffCard, () => null)
     $.ui.toast(`effortless: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`)
