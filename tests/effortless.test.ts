@@ -691,7 +691,7 @@ describe('cache countdown', () => {
   /** The band above the prompt, with the first-run setup guide closed so the cold band can show. */
   const coldBand = async ($: Engine) => {
     const band = await $.ui.mount(DESK_BAND)
-    if (await band.find({ key: 'setup-later' })) await band.press({ key: 'setup-later' })
+    if (await band.find({ key: 'setup-haiku' })) await band.press({ key: 'setup-haiku' })
     return band
   }
 
@@ -709,7 +709,7 @@ describe('cache countdown', () => {
     await mocked.advance(59 * 60_000)
     // Still warm: no band (only the first-run guide, closed here), so nothing to compact yet.
     const guide = await $.ui.mount(DESK_BAND)
-    await guide.press({ key: 'setup-later' })
+    await guide.press({ key: 'setup-haiku' })
     await guide.unmount()
     await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
     await mocked.advance(2 * 60_000)
@@ -1347,7 +1347,7 @@ describe('cold band', () => {
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
     const DESK = { plugin: 'effortless', surface: 'desktop', ...BAND } as never
     const guide = await $.ui.mount(DESK)
-    await guide.press({ key: 'setup-later' })
+    await guide.press({ key: 'setup-haiku' })
     await guide.unmount()
     await $.command.run({ command: 'effortless', args: 'cold' })
     const band = await $.ui.mount(DESK)
