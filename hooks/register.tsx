@@ -1625,8 +1625,9 @@ Saved to ${out}.md and .json` }
     const { Box, Text, Button, Svg } = $.ui.resolve(e)
     // The settings panel: a branded header bar, then one compact row per setting, a dim hint at the end of each row.
     if (await read($, settingsOpen)) {
-      // The app gives this slot maxRows rows and drops a taller tree whole, without a word. Gaps only when they fit.
-      const roomy = (typeof e.props.maxRows === 'number' ? e.props.maxRows : 12) >= 13
+      // The app gives this slot maxRows rows and drops a taller tree whole, without a word. With gaps the panel is 11
+      // rows (2 border, 1 header spacer, 4 settings, 4 gaps); without, 7.
+      const roomy = (typeof e.props.maxRows === 'number' ? e.props.maxRows : 12) >= 11
       const { Input, Select } = $.ui.resolve(e)
       const opts = (values: readonly string[]) => values.map(value => ({ value, label: value }))
       // The skills and commands installed here, to pick the handoff writer from: no typing, no file paths. A plugin
@@ -1728,7 +1729,7 @@ Saved to ${out}.md and .json` }
             <Button key="settings-save" variant="primary" label="Save" onPress={() => saveDraft($)} />
             <Button key="settings-close" plain label="✕" onPress={close} />
           </Box>
-          <Box key="settings-spacer" height={2} />
+          <Box key="settings-spacer" height={1} />
           {frameOnly ? null : row('settings-bias', 'Effort', [
             <Text key="cheap" dimColor>Cheaper</Text>,
             <Box key="track" flexDirection="row" alignItems="center">
