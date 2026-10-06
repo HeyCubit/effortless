@@ -343,7 +343,7 @@ export type JudgeConfig = {
 }
 
 /** The parts of effortless a person can switch off in the settings. */
-export const HIDEABLE = ['handoff', 'cold', 'swamp', 'hot', 'down'] as const
+export const HIDEABLE = ['handoff', 'timer', 'cold', 'swamp', 'hot', 'down'] as const
 export type Hideable = (typeof HIDEABLE)[number]
 let config: JudgeConfig = {
   judge: 'auto',
@@ -1658,7 +1658,7 @@ Saved to ${out}.md and .json` }
             writes the whole context again). Nothing before the first response. */}
         {/* Cold: the band above the prompt says it and holds Compact; the footer only shows the state, in ice blue. */}
         {/* Hovering it reveals a card above the prompt (the cache scope); see the hover cards in AbovePrompt. */}
-        {v.cacheNow === 0 ? (
+        {config.hide.includes('timer') ? null : v.cacheNow === 0 ? (
           <Text color={ICE} hover={{ scope: 'cache', backgroundColor: HOVER_BOX }}>{cacheLabel(0)}</Text>
         ) : v.cacheNow === null ? null : cacheColor(v.cacheNow) ? (
           <Text color={cacheColor(v.cacheNow)} hover={{ scope: 'cache', backgroundColor: HOVER_BOX }}>{cacheLabel(v.cacheNow)}</Text>
@@ -1728,6 +1728,7 @@ Saved to ${out}.md and .json` }
       const toggles = (
         [
           ['handoff', '⇥ Handoff button'],
+          ['timer', 'Cache timer'],
           ['cold', 'Cold'],
           ['swamp', 'Swamped'],
           ['hot', 'Running hot'],
