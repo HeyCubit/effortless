@@ -1033,6 +1033,11 @@ async function openPluginSettings($: EngineInterface) {
 }
 
 /** The settings rows the panel changes, by field: saved as the plugin's own setting and used at once. */
+// Small purple marks beside the settings rows' titles.
+const ICON_EFFORT = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#a79cf7" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 11.5a5.5 5.5 0 0 1 11 0"/><path d="M8 11.5l3-4"/><circle cx="8" cy="11.5" r=".9" fill="#a79cf7"/></svg>`
+const ICON_JUDGE = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#a79cf7" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v11M4.5 13.5h7M3 5h10"/><path d="M3 5l-1.8 4h3.6zM13 5l-1.8 4h3.6z"/></svg>`
+const ICON_HANDOFF = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#a79cf7" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h9M8 4.5L11.5 8 8 11.5M13.5 3.5v9"/></svg>`
+const ICON_SHOW = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#a79cf7" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg>`
 const SETTING_FIELDS = {
   judge: 'judge',
   bias: 'effortBias',
@@ -1678,19 +1683,15 @@ Saved to ${out}.md and .json` }
         if (n > -2) track.push(<Text key={`t${n}`} dimColor>──</Text>)
         track.push(<Button key={`bias${n + 2}`} plain label={n === shown.bias ? '◉' : '○'} onPress={() => set('bias')(String(n))} />)
       }
-      const row = (key: string, label: string, children: unknown[], words?: string) => (
+      const row = (key: string, label: string, icon: string, children: unknown[]) => (
         <Box key={key} flexDirection="row" gap={1} alignItems="center">
-          <Box width={8} flexShrink={0}>
+          <Box width={11} flexShrink={0} flexDirection="row" gap={1} alignItems="center">
+            <Svg source={icon} alt="" width={14} height={14} />
             <Text dimColor>{label}</Text>
           </Box>
           <Box flexDirection="row" gap={1} alignItems="center" flexShrink={1}>
             {children}
           </Box>
-          {words ? (
-            <Text key="hint" dimColor wrap="truncate">
-              {words}
-            </Text>
-          ) : null}
         </Box>
       )
       const field = (key: string, input: unknown, width: number) => (
@@ -1730,7 +1731,7 @@ Saved to ${out}.md and .json` }
             <Button key="settings-close" plain label="✕" onPress={close} />
           </Box>
           <Box key="settings-spacer" height={roomy ? 2 : 1} />
-          {frameOnly ? null : row('settings-bias', 'Effort', [
+          {frameOnly ? null : row('settings-bias', 'Effort', ICON_EFFORT, [
             <Text key="cheap" dimColor>Cheaper</Text>,
             <Box key="track" flexDirection="row" alignItems="center">
               {track}
@@ -1744,7 +1745,7 @@ Saved to ${out}.md and .json` }
                   <Select key="settings-ceiling" label="Max" value={shown.ceiling} options={opts(EFFORTS)} onSelect={set('ceiling')} />,
                 ]),
           ])}
-          {frameOnly || bare ? null : row('settings-judge', 'Judge', [
+          {frameOnly || bare ? null : row('settings-judge', 'Judge', ICON_JUDGE, [
             <Select key="settings-judge-pick" value={shown.judge} options={opts(['auto', 'haiku', 'jev', 'custom'])}
               onSelect={set('judge')} />,
             ...(shown.judge === 'jev' || shown.judge === 'auto'
@@ -1760,7 +1761,7 @@ Saved to ${out}.md and .json` }
                 ]
               : []),
           ])}
-          {frameOnly || bare ? null : row('settings-handoff', 'Handoff', [
+          {frameOnly || bare ? null : row('settings-handoff', 'Handoff', ICON_HANDOFF, [
             <Select key="settings-after-pick" value={shown.handoffAfter}
               options={[{ value: 'continue', label: 'then carry on' }, { value: 'confirm', label: 'then wait' }]}
               onSelect={set('handoffAfter')} />,
@@ -1771,7 +1772,7 @@ Saved to ${out}.md and .json` }
               ]}
               onSelect={v => set('handoffSkill')(v === '-' ? '' : v)} />,
           ])}
-          {frameOnly ? null : row('settings-show', 'Show', toggles)}
+          {frameOnly ? null : row('settings-show', 'Show', ICON_SHOW, toggles)}
         </Box>
       )
     }
