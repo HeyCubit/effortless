@@ -1196,6 +1196,27 @@ describe('setup guide', () => {
     return said
   }
 
+  test('an app with no /config row for the plugin: the choices are kept in the store and come back next session', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    on('config.set', () => ({ deny: 'no /config row with key effortless.judge ($.config.list names them)' }) as never)
+    const said = toasts(on)
+    await start($, on)
+    const band = await $.ui.mount(DESK)
+    await band.press({ key: 'setup-haiku' })
+    await band.press({ key: 'setup-next' })
+    await band.press({ key: 'setup-next' })
+    await band.press({ key: 'setup-done' })
+    await band.unmount()
+    await mocked.advance(16_000)
+    expect(said.join(' ')).not.toContain('could not save')
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    await $.command.run({ command: 'effortless', args: 'settings' })
+    const panel = await $.ui.mount(DESK)
+    expect(await drawn(panel)).toContain('{"value":"custom","label":"custom"}],"value":"haiku"}')
+    await panel.unmount()
+  })
+
   test('the steps run judge, lean, handoff, done; Back goes one step back', () => {
     expect(setupNext('pick')).toBe('lean')
     expect(setupNext('jev')).toBe('lean')
