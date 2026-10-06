@@ -78,22 +78,22 @@ Measured over 80k requests of real Claude Code use, about 76% of the cost is the
 through, and scores them against a fixed effort. Each case lists the efforts a careful person would accept for that
 message on that model. The cases are in [`bench/judge-cases.json`](bench/judge-cases.json); run it yourself.
 
-Two runs on version 1.4.1, 52 cases, Sonnet and Opus 5.5:
+Two runs on version 1.5.1, 73 cases, Sonnet and Opus 5.5:
 
-| Judge | Right | Too low | Too high | Median time |
-| --- | --- | --- | --- | --- |
-| Always medium | 44% | 12 | 17 | - |
-| Always high | 50% | 0 | 26 | - |
-| Haiku | 85-88% | 1 | 5-7 | 0.73 s |
-| Jev | 92-94% | 1 | 2 | 0.25 s |
+| Judge | Right, all 73 | Right, 20 held out | Too low | Too high | Median time |
+| --- | --- | --- | --- | --- | --- |
+| Always medium | 44% | 40% | 17 | 24 | - |
+| Always high | 51% | 50% | 0 | 36 | - |
+| Haiku | 92-93% | 95% | 1 | 4-5 | 0.75 s |
+| Jev | 99% | 100% | 0 | 1 | 0.24 s |
 
 What this does and does not show:
 
 - It measures whether the judge picks a sensible effort, not how much a session costs or how good the answers are.
-- 52 cases is a small set, and the judges are not fully deterministic: runs differ by a few points.
-- The judge prompts were then tuned on these cases (1.4.2). 20 held-out cases, written before that tuning and never
-  tuned against, are reported on their own line by the bench. Quote that line, not the tuned one.
-- Weakest kind: short answers to a question ("yes", "the second one"), right 57-71% of the time.
+- 73 cases is a small set, and the judges are not fully deterministic: runs differ by a few points.
+- The judge prompts were tuned on 53 of the cases. The 20 held-out cases were never tuned against, so that column is
+  the honest one. They were written after the first run showed which kinds of message miss, so they are not blind.
+- Haiku's remaining misses are mostly "yes" or "thanks" after hard work, where it keeps the effort high.
 
 ## Models
 
