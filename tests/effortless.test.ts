@@ -1643,6 +1643,38 @@ describe('handoff', () => {
     await footer.unmount()
   })
 
+  test('a handoff card hangs under the newest reply: handing off, then landed, gone after the next reply', async ($, on) => {
+    handoffEngine(on)
+    on('ui.copy', () => ({ value: { isCopied: true } }) as never)
+    on('ui.render', { component: 'AssistantMessage' }, (h, e) => {
+      const { Text } = h.ui.resolve(e)
+      return Text({ children: e.props.text } as never) as never
+    })
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const reply = (text: string) =>
+      ({ plugin: 'effortless', surface: 'desktop', component: 'AssistantMessage', props: { text, isFirstOfReply: true } }) as never
+    await $.turn.complete({ turnId: 't1', answer: 'Last reply.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    const footer = await $.ui.mount(FOOTER)
+    await footer.press({ key: 'handoff' })
+    const bar = await $.ui.mount(DESK_BAND)
+    await bar.select({ key: 'handoff-after', value: 'copy' })
+    await bar.press({ key: 'handoff-go' })
+    await bar.unmount()
+    const during = await $.ui.mount(reply('Last reply.'))
+    expect(await drawn(during)).toContain('Handing off')
+    await during.unmount()
+    await mocked.advance(2500)
+    const landed = await $.ui.mount(reply('Last reply.'))
+    expect(await drawn(landed)).toContain('Handoff copied')
+    await landed.unmount()
+    await $.turn.complete({ turnId: 't2', answer: 'Next reply.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    const after = await $.ui.mount(reply('Next reply.'))
+    expect(await after.find({ key: 'reply-handoff' })).toBeUndefined()
+    await after.unmount()
+    await footer.unmount()
+  })
+
   test('New chat & archive asks the model here to start the chat and archive this one', async ($, on) => {
     const { ran, submitted } = handoffEngine(on)
     const copied: string[] = []
