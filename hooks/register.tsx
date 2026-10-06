@@ -973,7 +973,9 @@ async function compactCold($: EngineInterface) {
 export const HANDOFF_PROMPT =
   'Write a handoff so this work can continue in a fresh chat that has no other context. Cover: the goal; what is ' +
   'done, with file paths; what is half done; the exact next steps; decisions made and why; and anything that must ' +
-  'not be redone or broken. Be concrete and complete. Reply with the handoff only, no preamble.'
+  'not be redone or broken. Leave out what the code, git history or files already record and what is finished and ' +
+  'no longer matters: point to them instead. Short bullets, concrete, at most about 40 lines. Do not use tools. ' +
+  'Reply with the handoff only, no preamble.'
 
 /** The first message of the fresh chat: the handoff, then what to do with it. */
 export function handoffMessage(handoff: string, after: 'continue' | 'confirm'): string {
@@ -993,8 +995,19 @@ async function startHandoff($: EngineInterface) {
   if ((await read($, handoffStage)) !== null) return
   await update($, handoffStage, () => 'writing')
   try {
-    if (config.handoffSkill) await $.command.run({ command: config.handoffSkill, args: '' })
-    else await $.prompt.submit({ text: HANDOFF_PROMPT })
+    if (config.handoffSkill) {
+      await $.command.run({ command: config.handoffSkill, args: '' })
+      return
+    }
+    // The built-in handoff is written by a fork: the same model over this chat as it stands, its start read from the
+    // prompt cache, no tools and no turn in the chat. Much quicker than a turn that may go exploring first.
+    const forked = await $.model.fork({ prompt: HANDOFF_PROMPT }).catch(() => undefined)
+    if (forked?.isAnswered && forked.text.trim()) {
+      handoffText = forked.text
+      return
+    }
+    // Nothing to fork (no reply yet) or the fork failed: write it as a turn, as before.
+    await $.prompt.submit({ text: HANDOFF_PROMPT })
   } catch (error) {
     await update($, handoffStage, () => null)
     $.ui.toast(`effortless: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`)
