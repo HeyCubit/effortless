@@ -48,6 +48,12 @@ const ICE_EDGE = '#2f5c80'
 const BOG = '#a7c98f'
 const BOG_BG = '#111710'
 const BOG_EDGE = '#3e5a33'
+const EMBER = '#f08a3c'
+const EMBER_BG = '#1a110c'
+const EMBER_EDGE = '#6a3418'
+const SLATE = '#b4b8c4'
+const SLATE_BG = '#14151a'
+const SLATE_EDGE = '#3a3d48'
 const YELLOW = '#e0a33a'
 const RED = '#e5534b'
 const isAutoModel = atom({ plugin: 'effortless', key: 'isAutoModel' } as const, false)
@@ -75,6 +81,16 @@ const swamped = atom({ plugin: 'effortless', key: 'swamped' } as const, null)
 const swampHiddenAt = atom({ plugin: 'effortless', key: 'swampHiddenAt' } as const, null)
 // The first-run setup is not done: the footer offers "Setup".
 const setupPending = atom({ plugin: 'effortless', key: 'setupPending' } as const, false)
+// Why the judge the person picked is failing (Haiku stands in), or null when it works.
+const judgeDown = atom({ plugin: 'effortless', key: 'judgeDown' } as const, null)
+// The judge-down band was closed for this reason; a new reason shows it again.
+const judgeDownHidden = atom({ plugin: 'effortless', key: 'judgeDownHidden' } as const, null)
+// A usage limit is close: which window, how much is used, when it resets. Null below the line.
+const hot = atom({ plugin: 'effortless', key: 'hot' } as const, null)
+// The running-hot band was closed at this many percent; it returns ten points later or in a new window.
+const hotHidden = atom({ plugin: 'effortless', key: 'hotHidden' } as const, null)
+// Save mode: Auto picks at most medium until this time (ms), when the limit resets.
+const saveUntil = atom({ plugin: 'effortless', key: 'saveUntil' } as const, null)
 const isColdHidden = atom({ plugin: 'effortless', key: 'isColdHidden' } as const, false)
 // The setup guide above the prompt: which step it shows, or null when it is closed.
 const setupStep = atom({ plugin: 'effortless', key: 'setupStep' } as const, null)
@@ -89,6 +105,10 @@ const TYPESAFE_MARK = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height
 const CLAUDE_MARK = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 248 248"><style>svg{background:transparent;display:block}</style><path d="M52.4285 162.873L98.7844 136.879L99.5485 134.602L98.7844 133.334H96.4921L88.7237 132.862L62.2346 132.153L39.3113 131.207L17.0249 130.026L11.4214 128.844L6.2 121.873L6.7094 118.447L11.4214 115.257L18.171 115.847L33.0711 116.911L55.485 118.447L71.6586 119.392L95.728 121.873H99.5485L100.058 120.337L98.7844 119.392L97.7656 118.447L74.5877 102.732L49.4995 86.1905L36.3823 76.62L29.3779 71.7757L25.8121 67.2858L24.2839 57.3608L30.6515 50.2716L39.3113 50.8623L41.4763 51.4531L50.2636 58.1879L68.9842 72.7209L93.4357 90.6804L97.0015 93.6343L98.4374 92.6652L98.6571 91.9801L97.0015 89.2625L83.757 65.2772L69.621 40.8192L63.2534 30.6579L61.5978 24.632C60.9565 22.1032 60.579 20.0111 60.579 17.4246L67.8381 7.49965L71.9133 6.19995L81.7193 7.49965L85.7946 11.0443L91.9074 24.9865L101.714 46.8451L116.996 76.62L121.453 85.4816L123.873 93.6343L124.764 96.1155H126.292V94.6976L127.566 77.9197L129.858 57.3608L132.15 30.8942L132.915 23.4505L136.608 14.4708L143.994 9.62643L149.725 12.344L154.437 19.0788L153.8 23.4505L150.998 41.6463L145.522 70.1215L141.957 89.2625H143.994L146.414 86.7813L156.093 74.0206L172.266 53.698L179.398 45.6635L187.803 36.802L193.152 32.5484H203.34L210.726 43.6549L207.415 55.1159L196.972 68.3492L188.312 79.5739L175.896 96.2095L168.191 109.585L168.882 110.689L170.738 110.53L198.755 104.504L213.91 101.787L231.994 98.7149L240.144 102.496L241.036 106.395L237.852 114.311L218.495 119.037L195.826 123.645L162.07 131.592L161.696 131.893L162.137 132.547L177.36 133.925L183.855 134.279H199.774L229.447 136.524L237.215 141.605L241.8 147.867L241.036 152.711L229.065 158.737L213.019 154.956L175.45 145.977L162.587 142.787H160.805V143.85L171.502 154.366L191.242 172.089L215.82 195.011L217.094 200.682L213.91 205.172L210.599 204.699L188.949 188.394L180.544 181.069L161.696 165.118H160.422V166.772L164.752 173.152L187.803 207.771L188.949 218.405L187.294 221.832L181.308 223.959L174.813 222.777L161.187 203.754L147.305 182.486L136.098 163.345L134.745 164.2L128.075 235.42L125.019 239.082L117.887 241.8L111.902 237.31L108.718 229.984L111.902 215.452L115.722 196.547L118.779 181.541L121.58 162.873L123.291 156.636L123.14 156.219L121.773 156.449L107.699 175.752L86.304 204.699L69.3663 222.777L65.291 224.431L58.2867 220.768L58.9235 214.27L62.8713 208.48L86.304 178.705L100.44 160.155L109.551 149.507L109.462 147.967L108.959 147.924L46.6977 188.512L35.6182 189.93L30.7788 185.44L31.4156 178.115L33.7079 175.752L52.4285 162.873Z" fill="#ffffff"/></svg>`
 // The band when the context is swamped: murky green, bubbles rising, slow ripples.
 const SWAMP_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.b{fill:none;stroke:#cfe8b8;stroke-width:.5;opacity:0;animation-name:rise;animation-timing-function:ease-in;animation-iteration-count:infinite}@keyframes rise{0%{opacity:0;transform:translate(0,0)}15%{opacity:.7}80%{opacity:.5}100%{opacity:0;transform:translate(3px,-30px)}}.rp{fill:none;stroke:#a7c98f;stroke-width:.4;stroke-linecap:round;opacity:.25;animation:drift 7s ease-in-out infinite}@keyframes drift{0%,100%{transform:translate(0,0);opacity:.15}50%{transform:translate(4px,0);opacity:.4}}.mk{animation:mk 8s ease-in-out infinite}@keyframes mk{0%,100%{opacity:.85}50%{opacity:1}}</style><defs><linearGradient id="bog" x1="0" x2="1"><stop offset=".43" stop-color="#4f7a3a" stop-opacity="0"/><stop offset=".62" stop-color="#4f7a3a" stop-opacity=".16"/><stop offset=".85" stop-color="#6f9a4f" stop-opacity=".32"/><stop offset="1" stop-color="#9cc27a" stop-opacity=".42"/></linearGradient><linearGradient id="silt" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset=".6" stop-color="#2b3a1f" stop-opacity=".18"/><stop offset="1" stop-color="#1c2614" stop-opacity=".45"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".06"/></pattern></defs><g mask="url(#m)"><rect class="mk" width="360" height="30" fill="url(#bog)"/><rect width="360" height="30" fill="url(#silt)"/><rect width="360" height="30" fill="url(#grain)"/><path class="rp" style="animation-delay:-0s" d="M190 22 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-2.5s" d="M226 9 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-5s" d="M250 18 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-1.5s" d="M300 24 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-3.8s" d="M322 7 q6 -2 12 0 t12 0"/><circle class="b" cx="168" cy="32" r="1.6" style="animation-duration:6.5s;animation-delay:-0s"/><circle class="b" cx="182" cy="32" r="1.1" style="animation-duration:8s;animation-delay:-2.1s"/><circle class="b" cx="197" cy="32" r="2.0" style="animation-duration:7s;animation-delay:-4.2s"/><circle class="b" cx="210" cy="32" r="1.3" style="animation-duration:9s;animation-delay:-1.0s"/><circle class="b" cx="224" cy="32" r="1.7" style="animation-duration:7.5s;animation-delay:-3.3s"/><circle class="b" cx="238" cy="32" r="1.0" style="animation-duration:8.5s;animation-delay:-5.1s"/><circle class="b" cx="252" cy="32" r="1.4" style="animation-duration:6.8s;animation-delay:-2.6s"/><circle class="b" cx="176" cy="32" r="0.9" style="animation-duration:9.5s;animation-delay:-6.0s"/><circle class="b" cx="232" cy="32" r="0.8" style="animation-duration:10s;animation-delay:-0.5s"/></g></svg>`
+// The band when a usage limit is close: embers, sparks rising.
+const EMBER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.s{fill:#ffb06a;opacity:0;animation-name:up;animation-timing-function:ease-out;animation-iteration-count:infinite}@keyframes up{0%{opacity:0;transform:translate(0,0)}12%{opacity:.95}70%{opacity:.6}100%{opacity:0;transform:translate(4px,-30px)}}.br{animation:br 3.4s ease-in-out infinite}@keyframes br{0%,100%{opacity:.8}50%{opacity:1}}.br2{animation:br2 2.2s ease-in-out infinite}@keyframes br2{0%,100%{opacity:.7}40%{opacity:1}70%{opacity:.8}}</style><defs><linearGradient id="heat" x1="0" x2="1"><stop offset=".43" stop-color="#b8461b" stop-opacity="0"/><stop offset=".62" stop-color="#b8461b" stop-opacity=".16"/><stop offset=".85" stop-color="#d9622a" stop-opacity=".32"/><stop offset="1" stop-color="#f08a3c" stop-opacity=".42"/></linearGradient><linearGradient id="glow" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset=".55" stop-color="#e2581f" stop-opacity=".08"/><stop offset="1" stop-color="#ff7a2e" stop-opacity=".32"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".06"/></pattern></defs><g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#heat)"/><rect class="br2" width="360" height="30" fill="url(#glow)"/><circle class="s" cx="166" cy="31" r="0.7" style="animation-duration:3.2s;animation-delay:-0s"/><circle class="s" cx="178" cy="31" r="0.5" style="animation-duration:4.1s;animation-delay:-1.2s"/><circle class="s" cx="191" cy="31" r="0.8" style="animation-duration:3.6s;animation-delay:-2.4s"/><circle class="s" cx="203" cy="31" r="0.5" style="animation-duration:4.6s;animation-delay:-0.7s"/><circle class="s" cx="216" cy="31" r="0.7" style="animation-duration:3.9s;animation-delay:-3.0s"/><circle class="s" cx="228" cy="31" r="0.6" style="animation-duration:4.3s;animation-delay:-1.8s"/><circle class="s" cx="241" cy="31" r="0.8" style="animation-duration:3.4s;animation-delay:-0.4s"/><circle class="s" cx="254" cy="31" r="0.5" style="animation-duration:4.8s;animation-delay:-2.9s"/><circle class="s" cx="184" cy="31" r="0.4" style="animation-duration:5.0s;animation-delay:-3.6s"/><circle class="s" cx="236" cy="31" r="0.4" style="animation-duration:4.4s;animation-delay:-2.1s"/><rect width="360" height="30" fill="url(#grain)"/></g></svg>`
+// The band when the judge the person picked is failing: dim slate, a cracked star flickering.
+const DOWN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.fl{animation:fl 5s steps(1) infinite}@keyframes fl{0%,62%,66%,70%,100%{opacity:.75}64%,68%{opacity:.15}}</style><defs><linearGradient id="slate" x1="0" x2="1"><stop offset=".43" stop-color="#6b6f7a" stop-opacity="0"/><stop offset=".7" stop-color="#6b6f7a" stop-opacity=".14"/><stop offset="1" stop-color="#8a8f9c" stop-opacity=".28"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".06"/></pattern></defs><g mask="url(#m)"><rect width="360" height="30" fill="url(#slate)"/><g class="fl"><path d="M236 6 L237.89 13.11 L245 15 L237.89 16.89 L236 24 L234.11 16.89 L227 15 L234.11 13.11 Z" fill="none" stroke="#c9ccd6" stroke-width=".6"/><path d="M232 7 L237 13 L234 16 L239 23" fill="none" stroke="#111" stroke-width="1.1"/></g><line x1="190" y1="32" x2="200" y2="-2" stroke="#fff" stroke-opacity=".035" stroke-width="3"/><line x1="262" y1="32" x2="272" y2="-2" stroke="#fff" stroke-opacity=".035" stroke-width="5"/><line x1="300" y1="32" x2="310" y2="-2" stroke="#fff" stroke-opacity=".035" stroke-width="2"/><line x1="330" y1="32" x2="340" y2="-2" stroke="#fff" stroke-opacity=".035" stroke-width="4"/><rect width="360" height="30" fill="url(#grain)"/></g></svg>`
 const SETTINGS_COMMAND = '/plugin configure effortless@effortless'
 // The right of the setup guide, pure decoration (the name is on the left): a purple gradient with a soft glow,
 // faint light streaks and grain, a still star, and small sparkles that twinkle in and out here and there. One constant source, so the app never rebuilds its frame (a changing source flickers); the
@@ -109,7 +129,7 @@ Effort is relative to the model in use ("Current" names it): a stronger model ne
 
 Judge the SCOPE and the amount of work, not whether it is code. A short message can ask for a lot: "go through my whole drive and clean it up", "review the entire repo", "migrate everything" are big, multi-step, tool-heavy jobs where mistakes are costly: never low, usually high. Low is only for answers that need no tools and no planning.
 
-If the message answers a question in the assistant's last reply (picks an option, says which one, confirms a plan), judge only the work that answer starts, as the reply describes it, not the length of the answer and not the work done before the question: "B" can mean "build the complicated section B" (high), while "yes" or "no" to one small action ("should I archive this?", "delete the old ones too?") is low, and picking a value for one setting (a log level, a colour, a font) is low. But picking which way to build something ("option 1", "the same shapes", "B") starts that build: judge the build. Approving a whole plan or several steps takes the effort of that plan.
+If the message answers a question in the assistant's last reply (picks an option, says which one, confirms a plan), judge only the work that answer starts, as the reply describes it, not the length of the answer and not the work done before the question: "B" can mean "build the complicated section B" (high), while "yes" or "no" to one small action ("should I archive this?", "delete the old ones too?") is low, and picking a value for one setting (a log level, a colour, a font) is low. But picking which way to build something ("option 1", "the same shapes", "B") starts that build: judge the build. Approving a whole plan or several steps takes the effort of that plan. A plain "yes", "ok" or "do it" after "Is that OK? Then I'll build X" or "Should I build X?" approves building X: judge X, not the word.
 
 A message that pushes back on, corrects or adds to a plan or claim under discussion continues that work: keep at least the effort that work had, never drop to low for it. Thanks, praise or a closing remark with no new request is low. A question about how to do something, or about effort itself, that needs no tools is low.
 
@@ -184,7 +204,7 @@ const JEV_TASK =
   'A short follow-up ("yes", "go", "ok", in any language) keeps the current effort. When the message answers a ' +
   "question in the assistant's last reply (picks an option), judge only the work that answer starts, not its length and " +
   'not the work before the question: yes/no to one small action, or picking a value for one setting (a log level, a colour), is low; picking which way to build something starts that build, so judge the build; ' +
-  'approving a whole plan takes the effort of that plan. Pushing back on or adding to a plan under discussion continues that work: keep its effort, never low. Thanks or a closing remark with no new request is low. A ' +
+  'approving a whole plan takes the effort of that plan; a plain yes to "Then I will build X" means judge X. Pushing back on or adding to a plan under discussion continues that work: keep its effort, never low. Thanks or a closing remark with no new request is low. A ' +
   'question about how to do something that needs no tools is low. "think hard", "ultrathink" or "be thorough" means ' +
   'at least high; "quick question" means low.'
 
@@ -283,6 +303,7 @@ const warned = new Set<string>()
 /** Tells the person once per session and reason that their judge failed and Haiku stands in. */
 function warnJudge($: EngineInterface, reason: string) {
   void proof($, `judge fallback: ${reason}`)
+  void update($, judgeDown, () => reason).then(() => $.ui.invalidate('ui.render'))
   if (warned.has(reason)) return
   warned.add(reason)
   $.ui.toast(`effortless: ${reason}. Haiku judges for now.`)
@@ -383,6 +404,7 @@ async function askCustom($: EngineInterface, prompt: string, current: Pick | nul
     } catch {
       // No usage in the reply: counted as 0.
     }
+    if (await read($, judgeDown)) await update($, judgeDown, () => null)
     return { verdict: { ...verdict, by: 'custom' }, tokens: used }
   } catch (error) {
     warnJudge($, String(error).includes('timeout') ? judgeFailure('Your judge', 'timeout') : 'Your judge could not be reached')
@@ -452,6 +474,7 @@ async function askJev($: EngineInterface, key: string, prompt: string, current: 
       } catch {
         // No usage in the reply: counted as 0.
       }
+      if (await read($, judgeDown)) await update($, judgeDown, () => null)
       return { verdict: { ...verdict, by: 'jev' }, tokens: used }
     }
   } catch (error) {
@@ -790,8 +813,41 @@ const SWAMP_PERCENT = 50
 const SWAMP_REGROW = 50_000
 
 /** Whether the context is swamped, from the status line's figures. Cheap: no counting, no model call. */
+// A usage window this full shows the running-hot band.
+const HOT_PERCENT = 80
+// Closed, the running-hot band returns this many points later.
+const HOT_REGROW = 10
+
+/** The fullest of the 5-hour and weekly windows, once one passes HOT_PERCENT. Save mode ends with its window. */
+async function checkHot($: EngineInterface, limits: readonly { kind: string; percentUsed: number; resetsAt?: string }[]) {
+  const windows = limits.filter(l => l.kind === 'five_hour' || l.kind === 'seven_day')
+  const top = windows.sort((a, b) => b.percentUsed - a.percentUsed)[0]
+  const next = top && top.percentUsed >= HOT_PERCENT ? { kind: top.kind, percent: top.percentUsed, resetsAt: top.resetsAt ?? null } : null
+  const was = await read($, hot)
+  if (JSON.stringify(next) !== JSON.stringify(was)) {
+    await update($, hot, () => next)
+    $.ui.invalidate('ui.render')
+  }
+  const until = await read($, saveUntil)
+  if (until !== null && (await $.clock.now()) >= until) await update($, saveUntil, () => null)
+}
+
+/** "14:20" for a reset time today, "Mon 14:20" further out. */
+export function resetLabel(iso: string | null, now: number): string {
+  if (!iso) return ''
+  const at = new Date(iso)
+  const hm = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
+  return at.getTime() - now < 20 * 3600_000 ? hm : `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][at.getDay()]} ${hm}`
+}
+
+/** Save mode caps what Auto picks at medium; a higher pick comes down to it. */
+export function capped(effort: Effort, saving: boolean): Effort {
+  return saving && EFFORTS.indexOf(effort) > EFFORTS.indexOf('medium') ? 'medium' : effort
+}
+
 async function checkSwamp($: EngineInterface) {
-  const { context } = await $.session.usage()
+  const { context, rateLimits } = await $.session.usage()
+  await checkHot($, rateLimits ?? [])
   const tokens = context.tokens ?? 0
   const over = tokens >= SWAMP_TOKENS || (context.percent ?? 0) >= SWAMP_PERCENT
   const next = over ? tokens : null
@@ -1068,7 +1124,7 @@ export const register: Register = (on, options) => {
     await modelIs($, await $.session.model()).catch(() => undefined)
     await $.command.register({
       name: 'effortless',
-      description: 'Handoff to a fresh chat: /effortless handoff. Try the swamp band: /effortless swamp. Setup: /effortless setup. Judge test: /effortless bench. Auto on/off: /effortless auto. What Auto cost: /effortless stats. Try Compact: /effortless cold.',
+      description: 'Handoff to a fresh chat: /effortless handoff. Try the bands: /effortless swamp, hot, down, cold. Setup: /effortless setup. Judge test: /effortless bench. Auto on/off: /effortless auto. What Auto cost: /effortless stats. Try Compact: /effortless cold.',
     })
     return next(e)
   })
@@ -1094,6 +1150,19 @@ export const register: Register = (on, options) => {
       return { text: (await read($, isAuto)) ? 'Auto on: effort is picked for every prompt.' : 'Auto off: the effort is yours.' }
     }
     // A test aid: marks the cache cold now, so the Compact button can be tried without waiting out the hour.
+    if (arg === 'hot') {
+      // Shows the running-hot band now, to try it: the next check puts back the real figures.
+      await update($, hotHidden, () => null)
+      await update($, hot, () => ({ kind: 'five_hour', percent: 82, resetsAt: new Date(Date.now() + 2 * 3600_000).toISOString() }))
+      $.ui.invalidate('ui.render')
+      return { text: 'The running-hot band is showing now (a test). It goes away at the next check unless a limit really is close.' }
+    }
+    if (arg === 'down') {
+      await update($, judgeDownHidden, () => null)
+      await update($, judgeDown, () => 'Jev is out of credits or rate limited (HTTP 402)')
+      $.ui.invalidate('ui.render')
+      return { text: 'The judge-down band is showing now (a test). It goes away once the judge answers again.' }
+    }
     if (arg === 'swamp') {
       // Shows the swamp band now, to try it: the next check puts back the real figure.
       await update($, swampHiddenAt, () => null)
@@ -1180,7 +1249,9 @@ Saved to ${out}.md and .json` }
         // Effort follows the verdict at once, when Auto is on for effort. The model stays: switching it
         // reloads the context, so with Auto on for model it is only suggested.
         if (wantsEffort) {
-          const applied: Pick = { ...verdict, model: inUse }
+          const saving = (await read($, saveUntil)) !== null
+          const effort = capped(verdict.effort, saving)
+          const applied: Pick = { ...verdict, model: inUse, effort, why: effort !== verdict.effort ? 'save mode' : verdict.why }
           await choose($, applied)
         }
         if (wantsModel && verdict.model !== inUse && verdict.model !== declined) {
@@ -1395,6 +1466,65 @@ Saved to ${out}.md and .json` }
           />,
           <Button key="setup-back" plain label="Back" onPress={() => update($, setupStep, () => 'pick')} />
         ],
+      )
+    }
+    // The judge the person picked is failing: Haiku stands in until it works again.
+    const downReason = await read($, judgeDown)
+    if (downReason && downReason !== (await read($, judgeDownHidden))) {
+      return (
+        <Box key="down" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
+          backgroundColor={SLATE_BG} borderStyle="round" borderColor={SLATE_EDGE}>
+          <Box key="down-art" position="absolute" top={-1} right={0} bottom={-1}>
+            <Svg source={DOWN_SVG} alt="judge down" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
+          </Box>
+          <Box flexShrink={0}>
+            <Text color={SLATE} bold wrap="truncate">
+              ✦ Judge down
+            </Text>
+          </Box>
+          <Text wrap="truncate">{`${downReason}. Haiku judges meanwhile.`}</Text>
+          <Box flexGrow={1} minWidth={30} />
+          <Box key="down-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
+            <Button key="down-settings" variant="primary" label="Open settings" onPress={() => typeCommand($, SETTINGS_COMMAND)} />
+            <Button key="down-close" plain role="dismiss" label="✕" onPress={() => update($, judgeDownHidden, () => downReason)} />
+          </Box>
+        </Box>
+      )
+    }
+    // A usage limit is close: Save mode keeps Auto at medium or below until it resets.
+    const heat = await read($, hot)
+    const heatHidden = await read($, hotHidden)
+    if (heat && (heatHidden === null || heat.percent >= heatHidden + HOT_REGROW)) {
+      const saving = (await read($, saveUntil)) !== null
+      const window = heat.kind === 'five_hour' ? '5h' : 'weekly'
+      const resets = resetLabel(heat.resetsAt, await $.clock.now())
+      return (
+        <Box key="hot" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
+          backgroundColor={EMBER_BG} borderStyle="round" borderColor={EMBER_EDGE}>
+          <Box key="ember" position="absolute" top={-1} right={0} bottom={-1}>
+            <Svg source={EMBER_SVG} alt="embers" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
+          </Box>
+          <Box flexShrink={0}>
+            <Text color={EMBER} bold wrap="truncate">
+              ✦ Running hot
+            </Text>
+          </Box>
+          <Text wrap="truncate">{`${Math.round(heat.percent)}% of your ${window} limit used${resets ? ` · resets ${resets}` : ''}`}</Text>
+          <Box flexGrow={1} minWidth={30} />
+          <Box key="hot-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
+            <Button
+              key="hot-save"
+              variant="primary"
+              label={saving ? 'Save mode on' : 'Save mode'}
+              onPress={async () => {
+                const until = heat.resetsAt ? new Date(heat.resetsAt).getTime() : (await $.clock.now()) + 5 * 3600_000
+                await update($, saveUntil, () => (saving ? null : until))
+                $.ui.toast(saving ? 'effortless: save mode off' : 'effortless: save mode on, Auto stays at medium or below until the limit resets')
+              }}
+            />
+            <Button key="hot-close" plain role="dismiss" label="✕" onPress={() => update($, hotHidden, () => heat.percent)} />
+          </Box>
+        </Box>
       )
     }
     // The cache went cold: the next message writes the whole chat again at full price. Said where it cannot be missed.

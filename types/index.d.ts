@@ -40,6 +40,16 @@ declare module 'claude-code' {
       isCompacting: boolean
       /** The cold band was closed until the cache goes cold again. */
       isColdHidden: boolean
+      /** Why the picked judge is failing, or null. */
+      judgeDown: string | null
+      /** The reason the judge-down band was closed for. */
+      judgeDownHidden: string | null
+      /** The fullest usage window once past 80%, or null. */
+      hot: { kind: string; percent: number; resetsAt: string | null } | null
+      /** Percent at which the running-hot band was closed. */
+      hotHidden: number | null
+      /** Save mode until this time (ms), or null. */
+      saveUntil: number | null
       /** Context tokens read per request once the chat is swamped, else null. */
       swamped: number | null
       /** Tokens at which the swamp band was closed; it returns once the context grows well past it. */

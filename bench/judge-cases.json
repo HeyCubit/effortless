@@ -969,6 +969,20 @@
     "medium",
     "high"
    ]
+  },
+  {
+   "id": "a10",
+   "kind": "answer",
+   "current": {
+    "model": "opus",
+    "effort": "high"
+   },
+   "context": "user: anything more before you build the rate-limit band?\nassistant: Two things to settle first. 1. Which band wins when several apply: setup, judge down, running hot, cold, swamped. 2. What Running hot does: shows at 80% of the 5h or weekly limit, text with reset time, a Save mode button that caps Auto at medium until the reset, embers theme with rising sparks. Is that OK? Then I'll build Judge down and Running hot.",
+   "message": "yes",
+   "ok": [
+    "medium",
+    "high"
+   ]
   }
  ]
 }
