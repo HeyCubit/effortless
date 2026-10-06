@@ -1688,7 +1688,10 @@ async function progressBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, w
   if (config.hide.includes('progress')) return null
   const p = await read($, progressState)
   if (!progressShows(p, await read($, progressHiddenState), when)) return null
-  const { Box, Text, Button } = $.ui.resolve(e)
+  const els = $.ui.resolve(e)
+  const { Box, Text, Button } = els
+  // The desktop draws the track as a still image; the terminal has no Svg.
+  const Svg = 'Svg' in els ? els.Svg : undefined
   // ✕ ends a finished or planning bar; a running one hides until Claude writes another list.
   const onClose = async () => {
     const cur = await read($, progressState)
@@ -1696,7 +1699,7 @@ async function progressBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, w
     if (cur.phase === 'done' || cur.phase === 'planning') await update($, progressState, () => null)
     else await update($, progressHiddenState, () => stepsKey(cur.steps))
   }
-  return drawProgress(p, { Box, Text, Button, maxRows: typeof e.props.maxRows === 'number' ? e.props.maxRows : 4, onClose })
+  return drawProgress(p, { Box, Text, Button, Svg, maxRows: typeof e.props.maxRows === 'number' ? e.props.maxRows : 4, onClose })
 }
 
 export const register: Register = (on, options) => {
