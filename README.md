@@ -61,7 +61,8 @@ Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and 
 | `/effortless setup` | pick the judge again |
 | `/effortless auto` | Auto on or off |
 | `/effortless stats` | what the prompts Auto steered cost this session, per effort, and what the judge took |
-| `/effortless handoff` | writes a handoff, clears the chat and continues from it in one go (also the `⇥` in the footer); settings `handoffSkill` and `handoffAfter` |
+| `/effortless handoff` | quick handoff: a fork writes it in seconds, then the chat is cleared and continues from it (also `⇥` in the footer) |
+| `/effortless handoff full` | full handoff by your own skill (setting `handoffSkill`), which can check git and save files; slower (also `⇥⇥` in the footer, shown only when a skill is set). Setting `handoffAfter` picks carry on or wait |
 | `/effortless hot`, `/effortless down` | show the running-hot band (a 5h or weekly limit past 80%, with Save mode) or the judge-down band now, to try them |
 | `/effortless swamp` | shows the swamp band now, to try it (it appears by itself once each message re-reads 150k+ tokens) |
 | `/effortless cold` | shows the cache as cold now, to try the Compact button |

@@ -1379,8 +1379,70 @@ describe('cold band', () => {
 
 describe('handoff', () => {
   test('the first message carries the handoff and what to do next', () => {
-    expect(handoffMessage(' the plan ', 'continue')).toBe('Handoff from the previous chat:\n\nthe plan\n\nContinue with the next step.')
+    expect(handoffMessage(' the plan ', 'continue')).toBe(
+      'Handoff from the previous chat:\n\nthe plan\n\nContinue with the next step. If it is marked "needs user", say what you need and wait.',
+    )
     expect(handoffMessage('x', 'confirm')).toContain('then wait for me')
+  })
+
+  test('the prompt asks for checked work, marked user steps and git as of last check', () => {
+    expect(HANDOFF_PROMPT).toContain('needs user')
+    expect(HANDOFF_PROMPT).toContain('as of last check')
+    expect(HANDOFF_PROMPT).toContain('Never present something planned, skipped or untested as done')
+    expect(HANDOFF_PROMPT).toContain('Do not use tools')
+  })
+
+  test('with a skill set, ⇥ is the quick fork and ⇥⇥ runs the skill', { options: { handoffSkill: 'session-handoff' } } as never, async ($, on) => {
+    mock.store(on)
+    mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
+    on('ui.status', () => ({ value: undefined }))
+    on('session.messages', () => ({ value: [] }) as never)
+    on('session.model', () => ({ value: 'claude-opus-5-5' }))
+    on('command.list', () => ({ value: [{ name: 'model' }, { name: 'effort' }] as never }))
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    const forked: string[] = []
+    on('model.fork', (_$, e) => {
+      forked.push(e.prompt)
+      return { value: { isAnswered: true, text: 'Goal: quick.', usage: USAGE } } as never
+    })
+    const ran: string[] = []
+    on('command.run', (_$, e) => {
+      ran.push(e.command)
+      return { text: 'ok' }
+    })
+    on('prompt.submit', (_$, e) => ({ text: e.text }))
+    on('turn.complete', (_$, e) => ({ text: e.answer }))
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const footer = await $.ui.mount(FOOTER)
+    expect(await footer.find({ key: 'handoff-full' })).toBeDefined()
+    await footer.press({ key: 'handoff' })
+    await mocked.advance(2500)
+    expect(forked).toEqual([HANDOFF_PROMPT])
+    expect(ran).not.toContain('session-handoff')
+    expect(ran).toContain('clear')
+    await footer.press({ key: 'handoff-full' })
+    await mocked.advance(1000)
+    expect(ran).toContain('session-handoff')
+    expect(forked).toHaveLength(1)
+    await footer.unmount()
+  })
+
+  test('without a skill there is no ⇥⇥', async ($, on) => {
+    mock.store(on)
+    mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
+    on('ui.status', () => ({ value: undefined }))
+    on('session.messages', () => ({ value: [] }) as never)
+    on('session.model', () => ({ value: 'claude-opus-5-5' }))
+    on('command.list', () => ({ value: [{ name: 'model' }, { name: 'effort' }] as never }))
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const footer = await $.ui.mount(FOOTER)
+    expect(await footer.find({ key: 'handoff' })).toBeDefined()
+    expect(await footer.find({ key: 'handoff-full' })).toBeUndefined()
+    await footer.unmount()
   })
 
   test('the handoff is written by a fork: no turn in the chat, then cleared and sent', async ($, on) => {

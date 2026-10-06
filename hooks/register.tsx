@@ -977,18 +977,31 @@ async function compactCold($: EngineInterface) {
 }
 
 // The handoff: one click writes a handoff, clears the chat and sends the handoff into it as the first message.
-export const HANDOFF_PROMPT =
-  'Write a handoff so this work can continue in a fresh chat that has no other context. Cover: the goal; what is ' +
-  'done, with file paths; what is half done; the exact next steps; decisions made and why; and anything that must ' +
-  'not be redone or broken. Leave out what the code, git history or files already record and what is finished and ' +
-  'no longer matters: point to them instead. Short bullets, concrete, at most about 40 lines. Do not use tools. ' +
-  'Reply with the handoff only, no preamble.'
+// The quick handoff is written by a fork, which has no tools: it says what the chat last saw and marks what it cannot
+// check. The full handoff (the person's own skill) is the one that inspects git and saves files.
+export const HANDOFF_PROMPT = [
+  'Write a handoff so this work can continue in a fresh chat that has no other context.',
+  '',
+  'Start with the project, its folder and the branch. Then:',
+  '- Goal: one or two lines.',
+  '- Done: what changed, with file paths, and how each change was checked. Never present something planned, skipped or untested as done.',
+  '- Not done: what is half done, and the concrete blocker (a failed check, a missing approval, an open question).',
+  '- Git: local changes, local commits, pushed commits and open PRs, as last seen in this chat. You cannot check now, so say "as of last check".',
+  '- Next steps in priority order. Make the first one runnable: a file path, a command or a specific decision. Mark every step that needs the user with "needs user".',
+  '- To resume: the start command, the preview URL, and the limits on what is allowed (what needs the user\'s approval, test vs production).',
+  '- Do not redo: decisions made and why, approaches that failed.',
+  '',
+  'Give only the final state of anything that changed during the chat. Point to specs, plans and files instead of ' +
+    'copying them. Leave out what is finished and no longer matters. Never include secrets, environment values or raw ' +
+    'logs. Write in the language the user writes in. Short bullets, at most about 40 lines. Do not use tools. Reply ' +
+    'with the handoff only, no preamble or farewell.',
+].join('\n')
 
 /** The first message of the fresh chat: the handoff, then what to do with it. */
 export function handoffMessage(handoff: string, after: 'continue' | 'confirm'): string {
   const ask =
     after === 'continue'
-      ? 'Continue with the next step.'
+      ? 'Continue with the next step. If it is marked "needs user", say what you need and wait.'
       : 'Read this, say in two lines where things stand and what is next, then wait for me.'
   return `Handoff from the previous chat:\n\n${handoff.trim()}\n\n${ask}`
 }
@@ -1001,10 +1014,13 @@ let handoffDriving = false
 // A handoff asked for and not begun: begun from the session's timer, where a prompt may be sent (a command or a press
 // may hold the turn, and the app refuses a prompt sent from there).
 let handoffQueued = false
+// Quick: a fork with the built-in prompt, seconds. Full: the person's own skill as a turn, which may check and save.
+let handoffFull = false
 
-async function startHandoff($: EngineInterface) {
+async function startHandoff($: EngineInterface, full = false) {
   if ((await read($, handoffStage)) !== null) return
   await update($, handoffStage, () => 'writing')
+  handoffFull = full && Boolean(config.handoffSkill)
   handoffQueued = true
 }
 
@@ -1024,12 +1040,12 @@ export function forkOutcome(result: unknown, ms: number): string {
   return `${r.reason} (${took})`
 }
 
-/** Writes the handoff: a fork for the built-in prompt, the person's own skill as a turn. Runs from the timer. */
+/** Writes the handoff: quick by a fork with the built-in prompt, full by the person's own skill as a turn. Runs from the timer. */
 async function writeHandoff($: EngineInterface) {
   if (!handoffQueued) return
   handoffQueued = false
   try {
-    if (config.handoffSkill) {
+    if (handoffFull) {
       await $.command.run({ command: config.handoffSkill, args: '' })
       return
     }
@@ -1438,9 +1454,11 @@ export const register: Register = (on, options) => {
       $.ui.invalidate('ui.render')
       return { text: 'The swamp band is showing now (a test). It goes away at the next check unless the chat really is swamped.' }
     }
-    if (arg === 'handoff') {
-      await startHandoff($)
-      return { text: 'Writing the handoff. The chat is cleared and continues from it when it is done.' }
+    if (arg === 'handoff' || arg === 'handoff full') {
+      const full = arg === 'handoff full'
+      if (full && !config.handoffSkill) return { text: 'No skill is set for the full handoff. Pick one in /effortless settings, under Handoff.' }
+      await startHandoff($, full)
+      return { text: `Writing the ${full ? `full handoff with /${config.handoffSkill}` : 'quick handoff'}. The chat is cleared and continues from it when it is done.` }
     }
     if (arg.startsWith('probe')) {
       probeLevel = Number(arg.slice(5).trim()) || 0
@@ -1688,7 +1706,8 @@ Saved to ${out}.md and .json` }
             }}
           />
         )}
-        {/* Hand off: write a handoff, clear the chat, continue from it. One symbol, so it takes little room. */}
+        {/* Hand off: write a handoff, clear the chat, continue from it. One symbol, so it takes little room. ⇥ is the
+            quick one (a fork, seconds); ⇥⇥ the full one by the person's own skill, there only when a skill is set. */}
         {config.hide.includes('handoff') ? null : (
           <Button
             key="handoff"
@@ -1697,6 +1716,16 @@ Saved to ${out}.md and .json` }
             label={handoffNow ? ' … ' : ' ⇥ '}
             hover={{ scope: 'handoff', backgroundColor: HOVER_BOX }}
             onPress={() => startHandoff($)}
+          />
+        )}
+        {config.hide.includes('handoff') || !config.handoffSkill || handoffNow ? null : (
+          <Button
+            key="handoff-full"
+            plain
+            dimColor
+            label=" ⇥⇥ "
+            hover={{ scope: 'handoff-full', backgroundColor: HOVER_BOX }}
+            onPress={() => startHandoff($, true)}
           />
         )}
         {/* How long the prompt cache stays warm: grey, yellow from 20 minutes, red from 5, then "cold" (the next message
@@ -1875,9 +1904,9 @@ Saved to ${out}.md and .json` }
             <Select key="settings-after-pick" value={shown.handoffAfter}
               options={[{ value: 'continue', label: 'then carry on' }, { value: 'confirm', label: 'then wait' }]}
               onSelect={set('handoffAfter')} />,
-            <Select key="settings-skill" label="Written by" value={shown.handoffSkill || '-'}
+            <Select key="settings-skill" label="Full ⇥⇥ by" value={shown.handoffSkill || '-'}
               options={[
-                { value: '-', label: 'built-in prompt' },
+                { value: '-', label: 'none, ⇥ only' },
                 ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
               ]}
               onSelect={v => set('handoffSkill')(v === '-' ? '' : v)} />,
@@ -2091,10 +2120,13 @@ Saved to ${out}.md and .json` }
             </Box>
           ) : null}
           <Text wrap="truncate">{`${Math.round(swampTokens / 1000)}k tokens re-read every message.`}</Text>
-          <Box flexGrow={1} minWidth={34} />
+          <Box flexGrow={1} minWidth={config.handoffSkill ? 50 : 34} />
           <Box key="swamp-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
             <Button key="swamp-compact" variant="primary" hotkey="c" label={compacting ? 'Compacting…' : 'Compact'} onPress={() => compactCold($)} />
             <Button key="swamp-handoff" hotkey="h" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => startHandoff($)} />
+            {config.handoffSkill && !handing ? (
+              <Button key="swamp-handoff-full" hotkey="f" label="Full handoff" onPress={() => startHandoff($, true)} />
+            ) : null}
             <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />
           </Box>
         </Box>
