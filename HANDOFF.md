@@ -25,12 +25,12 @@
 2. Needs Isac: restart, ⇥ then Quick + Go in a chat with replies, then `/effortless debug`. Expect
    `last fork: answered`; else fix by reason (`nothing-to-fork`, `aborted`, `api-error`, `threw`).
 3. On Isac's OK: banner at top of README, document Swamped at, commit `docs/brand/`.
-4. Idea, not started: allow one effort change on Fable while the cache is still small (new chat, right after a
+4. Ideas, not started: progress bars and sound, each a footer checkbox in setup step 4 (`SETUP_FOOTER`); one effort change on Fable while the cache is still small (new chat, right after a
    compact), where a rewrite costs almost nothing.
 
 ## Decided, do not redo
-- Setup steps (2026-10-06): judge, lean, handoff skill, alerts, done line on ⏻, ⚙ and Fable. Range, Swamped at,
-  handoffAfter stay in ⚙ only. Choices save on click. Picking or skipping the judge ends "Setup" in the footer.
+- Setup steps (2026-10-06): judge, lean, handoff skill, footer (cache timer + ⇥, recommended on), done line on ⏻, ⚙ and Fable. Range, Swamped at,
+  handoffAfter, alert bands stay in ⚙ only. Choices save together at Done or ✕. Picking or skipping the judge ends "Setup" in the footer.
 - Setup and handoff bars use still art (each click redraws them); the alert bands keep animated art.
 - Handoff bar stays brand purple; other colours mean alerts. Variants in docs/brand/previews/.
 - Auto pauses on Fable 5.1 and older Opus: an effort change rewrote 56 to 100% of the cache (measured).

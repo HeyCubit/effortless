@@ -1307,7 +1307,13 @@ async function typesafeKeyAnywhere($: EngineInterface): Promise<string | undefin
   return parseJevKey(typeof text === 'string' ? text : '')
 }
 
-export type SetupStep = 'pick' | 'jev' | 'custom' | 'lean' | 'handoff' | 'alerts' | 'done'
+export type SetupStep = 'pick' | 'jev' | 'custom' | 'lean' | 'handoff' | 'footer' | 'done'
+
+/** The footer parts the setup offers, as the part's hide key and its label. Progress bars or sound join here. */
+export const SETUP_FOOTER = [
+  ['timer', 'Cache timer'],
+  ['handoff', '⇥ Handoff'],
+] as const
 
 /** The lean's five stops, cheaper to smarter: a name, and what it does to the judge's pick (see tipped). */
 export const LEAN_STOPS = [
@@ -1318,12 +1324,12 @@ export const LEAN_STOPS = [
   ['Smartest', 'most unsure picks go one step higher.'],
 ] as const
 
-/** The guide's step after this one: the judge (with its key or URL), the lean, the handoff, the alerts, then done. */
+/** The guide's step after this one: the judge (with its key or URL), the lean, the handoff, the footer, then done. */
 export function setupNext(step: SetupStep): SetupStep | null {
   if (step === 'pick' || step === 'jev' || step === 'custom') return 'lean'
   if (step === 'lean') return 'handoff'
-  if (step === 'handoff') return 'alerts'
-  if (step === 'alerts') return 'done'
+  if (step === 'handoff') return 'footer'
+  if (step === 'footer') return 'done'
   return null
 }
 
@@ -1331,14 +1337,14 @@ export function setupNext(step: SetupStep): SetupStep | null {
 export function setupBack(step: SetupStep): SetupStep | null {
   if (step === 'jev' || step === 'custom' || step === 'lean') return 'pick'
   if (step === 'handoff') return 'lean'
-  if (step === 'alerts') return 'handoff'
-  if (step === 'done') return 'alerts'
+  if (step === 'footer') return 'handoff'
+  if (step === 'done') return 'footer'
   return null
 }
 
 /** "2/4" for the step shown; the closing step has no number. */
 export function setupCounter(step: SetupStep): string {
-  const n = { pick: 1, jev: 1, custom: 1, lean: 2, handoff: 3, alerts: 4, done: 0 }[step]
+  const n = { pick: 1, jev: 1, custom: 1, lean: 2, handoff: 3, footer: 4, done: 0 }[step]
   return n ? `${n}/4` : ''
 }
 
@@ -2149,7 +2155,7 @@ Saved to ${out}.md and .json` }
       )
     }
     // The setup guide, one step at a time: the judge (and only what that judge needs), the lean, the handoff, the
-    // alerts, then a word on the footer. The choices are saved together at Done or ✕ (see setupDraft).
+    // footer, then a word on what else is there. The choices are saved together at Done or ✕ (see setupDraft).
     const step = await read($, setupStep)
     if (step) {
       const { Input, Select } = $.ui.resolve(e)
@@ -2280,22 +2286,14 @@ Saved to ${out}.md and .json` }
           ...nav(nextButton),
         ])
       }
-      if (step === 'alerts') {
-        // Filled dot shown, hollow dot hidden.
-        const toggles = (
-          [
-            ['timer', 'Timer'],
-            ['cold', 'Cold'],
-            ['swamp', 'Swamped'],
-            ['hot', 'Hot'],
-            ['down', 'Judge down'],
-          ] as const
-        ).map(([part, label]) => {
+      if (step === 'footer') {
+        // What sits in the footer, a box ticked when it shows. The alert bands are left on; ⚙ switches them off.
+        const toggles = SETUP_FOOTER.map(([part, label]) => {
           const off = shown.hide.includes(part)
           const after = off ? shown.hide.filter(h => h !== part) : [...shown.hide, part]
-          return <Button key={`setup-show-${part}`} plain label={`${off ? '○' : '●'} ${label}`} onPress={() => pick('hide', after.join(','))} />
+          return <Button key={`setup-show-${part}`} plain label={`${off ? '☐' : '☑'} ${label}`} onPress={() => pick('hide', after.join(','))} />
         })
-        return band('Which alerts show? The minutes at the bottom are the cache timer.', 60, [...toggles, ...nav(nextButton)])
+        return band('What shows at the bottom? Both are recommended.', 40, [...toggles, ...nav(nextButton)])
       }
       return band('⏻ at the bottom turns Auto on or off, ⚙ changes all this. Auto pauses on Fable.', 18, [
         ...nav(<Button key="setup-done" variant="primary" autoFocus label="Done" onPress={() => finishSetup($)} />),
