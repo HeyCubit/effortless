@@ -35,6 +35,8 @@ export type SettingsDraft = {
   handoffSkill?: string
   customUrl?: string
   customModel?: string
+  /** Comma-separated parts switched off: handoff, cold, swamp, hot, down. */
+  hide?: string
   key?: string
 }
 

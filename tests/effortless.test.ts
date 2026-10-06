@@ -979,6 +979,7 @@ describe('judge choice (plugin settings)', () => {
       bias: 0,
       floor: 'low',
       ceiling: 'max',
+      hide: [],
     })
     expect(readConfig({ handoffSkill: '/session-handoff', handoffAfter: 'confirm' })).toMatchObject({
       handoffSkill: 'session-handoff',
@@ -1577,8 +1578,11 @@ describe('settings panel', () => {
     await panel.press({ key: 'bias3' })
     await panel.select({ key: 'settings-floor', value: 'medium' })
     await panel.input({ key: 'settings-key', text: ' tk-new ' })
+    await panel.press({ key: 'show-swamp' })
+    await panel.press({ key: 'show-handoff' })
     expect(set).toEqual([])
     await panel.press({ key: 'settings-save' })
+    expect(set).toContainEqual({ key: 'effortless.hide', value: 'swamp,handoff' })
     expect(set).toContainEqual({ key: 'effortless.effortBias', value: '1' })
     expect(set).toContainEqual({ key: 'effortless.effortFloor', value: 'medium' })
     expect(set).toContainEqual({ key: 'effortless.judge', value: 'jev' })
@@ -1586,5 +1590,28 @@ describe('settings panel', () => {
     expect(files['C:/Users/x/.config/jev/.env']).toBe('OTHER=1\nTYPESAFE_API_KEY=tk-new\n')
     await panel.unmount()
     await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+  })
+})
+
+describe('switching parts off', () => {
+  test('readConfig keeps only known parts', () => {
+    expect(readConfig({ hide: 'swamp, handoff,bogus' }).hide).toEqual(['swamp', 'handoff'])
+  })
+
+  test('a hidden handoff button is not in the footer; a hidden swamp band does not show', { options: { hide: 'handoff,swamp' } } as never, async ($, on) => {
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    engine(on)
+    const mocked = mock.clock(on)
+    on('session.usage', () => ({ value: { context: { tokens: 180_000, window: 1_000_000, percent: 18 } } }) as never)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await mocked.advance(16_000)
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    const footer = await $.ui.mount(FOOTER)
+    expect(await footer.find({ key: 'handoff' })).toBeUndefined()
+    await footer.unmount()
   })
 })

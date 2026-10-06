@@ -336,7 +336,13 @@ export type JudgeConfig = {
   floor: Effort
   /** Auto never goes above this effort. */
   ceiling: Effort
+  /** What the person switched off: the footer's handoff button and any of the alert bands. */
+  hide: Hideable[]
 }
+
+/** The parts of effortless a person can switch off in the settings. */
+export const HIDEABLE = ['handoff', 'cold', 'swamp', 'hot', 'down'] as const
+export type Hideable = (typeof HIDEABLE)[number]
 let config: JudgeConfig = {
   judge: 'auto',
   typesafeKey: '',
@@ -348,6 +354,7 @@ let config: JudgeConfig = {
   bias: 0,
   floor: 'low',
   ceiling: 'max',
+  hide: [],
 }
 
 /** The settings as the engine hands them over (defaults filled in), cleaned to the shape the judge reads. */
@@ -366,6 +373,10 @@ export function readConfig(options: unknown): JudgeConfig {
     bias: Math.max(-2, Math.min(2, Math.round(Number(str(o.effortBias)) || 0))),
     floor: EFFORTS.includes(str(o.effortFloor) as Effort) ? (str(o.effortFloor) as Effort) : 'low',
     ceiling: EFFORTS.includes(str(o.effortCeiling) as Effort) ? (str(o.effortCeiling) as Effort) : 'max',
+    hide: str(o.hide)
+      .split(',')
+      .map(part => part.trim())
+      .filter((part): part is Hideable => (HIDEABLE as readonly string[]).includes(part)),
   }
 }
 
@@ -1021,6 +1032,7 @@ const SETTING_FIELDS = {
   handoffSkill: 'handoffSkill',
   customUrl: 'customUrl',
   customModel: 'customModel',
+  hide: 'hide',
 } as const
 
 async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELDS, value: string) {
@@ -1037,6 +1049,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     handoffSkill: config.handoffSkill,
     customUrl: config.customUrl,
     customModel: config.customModel,
+    hide: config.hide.join(','),
     [SETTING_FIELDS[field]]: value,
   }
   config = { ...readConfig(raw), typesafeKey: config.typesafeKey, customKey: config.customKey }
@@ -1512,14 +1525,16 @@ Saved to ${out}.md and .json` }
           />
         ) : null}
         {/* Hand off: write a handoff, clear the chat, continue from it. One symbol, so it takes little room. */}
-        <Button
-          key="handoff"
-          plain
-          dimColor
-          label={handoffNow ? ' … ' : ' ⇥ '}
-          hover={{ scope: 'handoff', backgroundColor: HOVER_BOX }}
-          onPress={() => startHandoff($)}
-        />
+        {config.hide.includes('handoff') ? null : (
+          <Button
+            key="handoff"
+            plain
+            dimColor
+            label={handoffNow ? ' … ' : ' ⇥ '}
+            hover={{ scope: 'handoff', backgroundColor: HOVER_BOX }}
+            onPress={() => startHandoff($)}
+          />
+        )}
         {/* How long the prompt cache stays warm: grey, yellow from 20 minutes, red from 5, then "cold" (the next message
             writes the whole context again). Nothing before the first response. */}
         {/* Cold: the band above the prompt says it and holds Compact; the footer only shows the state, in ice blue. */}
@@ -1567,6 +1582,21 @@ Saved to ${out}.md and .json` }
         customModel: draft.customModel ?? config.customModel,
       }
       const dirty = Object.keys(draft).length > 0
+      const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
+      // One toggle per part that can be switched off: filled dot shown, hollow dot hidden.
+      const toggles = (
+        [
+          ['handoff', '⇥ Handoff button'],
+          ['cold', 'Cold'],
+          ['swamp', 'Swamped'],
+          ['hot', 'Running hot'],
+          ['down', 'Judge down'],
+        ] as const
+      ).map(([part, label]) => {
+        const off = hidden.includes(part)
+        const after = off ? hidden.filter(h => h !== part) : [...hidden, part]
+        return <Button key={`show-${part}`} plain label={`${off ? '○' : '●'} ${label}`} onPress={() => set('hide')(after.join(','))} />
+      })
       // The slider: five stops, the marker on the one in force. No animation, a click moves it.
       const track: unknown[] = []
       for (const n of [-2, -1, 0, 1, 2]) {
@@ -1605,33 +1635,32 @@ Saved to ${out}.md and .json` }
       return (
         <Box key="settings" position="relative" flexDirection="column" gap={1} paddingX={2} paddingBottom={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
-          <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={2} overflow="hidden" backgroundColor={BRAND_HEAD}>
+          <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={3} overflow="hidden" backgroundColor={BRAND_HEAD}>
             <Box key="settings-art" position="absolute" top={0} right={0} bottom={0}>
               <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
             </Box>
           </Box>
-          <Box key="settings-title" position="absolute" top={0} left={1} flexDirection="row" alignItems="center">
+          <Box key="settings-title" position="absolute" top={0} left={1} height={2} flexDirection="row" alignItems="center">
             <Text color={ACCENT} bold>
               ✦ effortless settings
             </Text>
             {dirty ? <Text dimColor> · unsaved changes</Text> : null}
           </Box>
-          <Box key="settings-actions" position="absolute" top={0} right={1} flexDirection="row" gap={2} alignItems="center">
+          <Box key="settings-actions" position="absolute" top={0} right={1} height={2} flexDirection="row" gap={2} alignItems="center">
             <Button key="settings-save" variant="primary" label="Save" onPress={() => saveDraft($)} />
             <Button key="settings-close" plain label="✕" onPress={close} />
           </Box>
-          <Box key="settings-spacer" height={1} />
+          <Box key="settings-spacer" height={2} />
           {row('settings-bias', 'Effort', [
             <Text key="cheap" dimColor>Cheaper</Text>,
             <Box key="track" flexDirection="row" alignItems="center">
               {track}
             </Box>,
             <Text key="smart" dimColor>Smarter</Text>,
-          ], biasWords)}
-          {row('settings-range', 'Limits', [
+            <Box key="gap" width={2} />,
             <Select key="settings-floor" label="Min" value={shown.floor} options={opts(EFFORTS)} onSelect={set('floor')} />,
             <Select key="settings-ceiling" label="Max" value={shown.ceiling} options={opts(EFFORTS)} onSelect={set('ceiling')} />,
-          ], 'Auto stays between these.')}
+          ], biasWords)}
           {row('settings-judge', 'Judge', [
             <Select key="settings-judge-pick" value={shown.judge} options={opts(['auto', 'haiku', 'jev', 'custom'])}
               onSelect={set('judge')} />,
@@ -1655,6 +1684,7 @@ Saved to ${out}.md and .json` }
             field('skill-field', <Input key="settings-skill" placeholder="Built-in, or a skill name" value={shown.handoffSkill}
               submitLabel="ok" onInput={set('handoffSkill')} onSubmit={set('handoffSkill')} />, 30),
           ], 'The ⇥ button.')}
+          {row('settings-show', 'Show', toggles)}
         </Box>
       )
     }
@@ -1733,7 +1763,7 @@ Saved to ${out}.md and .json` }
     }
     // The judge the person picked is failing: Haiku stands in until it works again.
     const downReason = await read($, judgeDown)
-    if (downReason && downReason !== (await read($, judgeDownHidden))) {
+    if (downReason && !config.hide.includes('down') && downReason !== (await read($, judgeDownHidden))) {
       return (
         <Box key="down" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={SLATE_BG} borderStyle="round" borderColor={SLATE_EDGE}>
@@ -1757,7 +1787,7 @@ Saved to ${out}.md and .json` }
     // A usage limit is close: Save mode keeps Auto at medium or below until it resets.
     const heat = await read($, hot)
     const heatHidden = await read($, hotHidden)
-    if (heat && (heatHidden === null || heat.percent >= heatHidden + HOT_REGROW)) {
+    if (heat && !config.hide.includes('hot') && (heatHidden === null || heat.percent >= heatHidden + HOT_REGROW)) {
       const saving = (await read($, saveUntil)) !== null
       const window = heat.kind === 'five_hour' ? '5h' : 'weekly'
       const resets = resetLabel(heat.resetsAt, await $.clock.now())
@@ -1791,7 +1821,7 @@ Saved to ${out}.md and .json` }
       )
     }
     // The cache went cold: the next message writes the whole chat again at full price. Said where it cannot be missed.
-    if ((await read($, cacheLeft)) === 0 && !(await read($, isColdHidden))) {
+    if ((await read($, cacheLeft)) === 0 && !config.hide.includes('cold') && !(await read($, isColdHidden))) {
       const compacting = await read($, isCompacting)
       // The art is a backdrop: an absolutely placed layer behind the right side, so the words and Compact sit on it.
       return (
@@ -1829,7 +1859,7 @@ Saved to ${out}.md and .json` }
     // The context is swamped: every message re-reads all of it. Compact or hand off, right here.
     const swampTokens = await read($, swamped)
     const hiddenAt = await read($, swampHiddenAt)
-    if (swampTokens !== null && (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW)) {
+    if (swampTokens !== null && !config.hide.includes('swamp') && (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW)) {
       const compacting = await read($, isCompacting)
       const handing = (await read($, handoffStage)) !== null
       return (
