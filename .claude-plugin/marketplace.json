@@ -3,8 +3,8 @@
   "name": "modellval",
   "description": "Automatic reasoning effort and a prompt-cache countdown for Claude Code.",
   "owner": {
-    "name": "Segueapp",
-    "url": "https://github.com/Segueapp"
+    "name": "HeyCubit",
+    "url": "https://github.com/HeyCubit"
   },
   "plugins": [
     {

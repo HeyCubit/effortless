@@ -13,7 +13,7 @@ A Claude Code mod that picks the reasoning effort for every prompt, so easy ques
 ## Install
 
 ```bash
-claude plugin marketplace add Segueapp/modellval
+claude plugin marketplace add HeyCubit/modellval
 claude plugin install modellval@modellval
 ```
 
