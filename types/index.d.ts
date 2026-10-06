@@ -25,7 +25,7 @@ export type Pick = {
 
 declare module 'claude-code' {
   interface PluginState {
-    modellval: {
+    effortless: {
       /** Auto on effort: every prompt is judged and its effort applied. */
       isAuto: boolean
       /** The last change Auto made to the effort, shown for a moment as "Low → High". */

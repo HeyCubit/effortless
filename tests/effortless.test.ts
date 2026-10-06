@@ -37,7 +37,7 @@ function judgeSays(on: On, text: string) {
 /** What sits beneath the plugins in a session: the prompt goes through, the status line takes text. */
 function engine(on: On, env: Record<string, string> = {}, sessionModel = 'claude-opus-5-5') {
   mock.store(on)
-  mock.env(on, { MODELLVAL_MODEL_UI: '1', ...env })
+  mock.env(on, { EFFORTLESS_MODEL_UI: '1', ...env })
   on('prompt.submit', (_$, e) => ({ text: e.text }))
   on('ui.status', () => ({ value: undefined }))
   on('session.messages', () => ({ value: [] }))
@@ -74,10 +74,10 @@ async function step($: Engine, effort: 'low' | 'medium' | 'high' | 'xhigh' | 'ma
 }
 
 /** The desktop footer: one Auto button, and the effort in use beside it. */
-const FOOTER = { plugin: 'modellval', surface: 'desktop', component: 'SessionMode', props: { modes: [] } } as never
+const FOOTER = { plugin: 'effortless', surface: 'desktop', component: 'SessionMode', props: { modes: [] } } as never
 
 /** The band above the prompt on desktop: it draws nothing (only the terminal has rows there). */
-const DESK_BAND = { plugin: 'modellval', surface: 'desktop', ...BAND } as never
+const DESK_BAND = { plugin: 'effortless', surface: 'desktop', ...BAND } as never
 
 /** What a mounted tree draws, as text: its elements, props and strings. */
 async function drawn(ui: { drawn: () => Promise<unknown> }): Promise<string> {
@@ -184,7 +184,7 @@ describe('manual effort', () => {
     // The person picks Low in the app between two requests.
     await drain(1, 'low')
     expect(sent[1].effort).toBe('low')
-    const ui = await $.ui.mount({ plugin: 'modellval', surface: 'terminal', ...BAND })
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
     expect((await ui.find({ key: 'auto' }))?.text).toContain('Auto off')
     await ui.unmount()
 
@@ -205,7 +205,7 @@ describe('model in use', () => {
 
     await switchTo('claude-opus-5-5', 'claude-haiku-4-5-20251001')
     await $.prompt.submit({ text: 'ok', wait: false, origin: { kind: 'composer' } })
-    const ui = await $.ui.mount({ plugin: 'modellval', surface: 'terminal', ...BAND })
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
     await ui.redraw()
     expect((await ui.find({ key: 'm-haiku' }))?.text).toContain('Haiku')
 
@@ -226,7 +226,7 @@ describe('two autos', () => {
     judgeSays(on, '{"model":"sonnet","effort":"low","why":"simple"}')
     const ran = recordCommands(on)
     const sent = recordSteps(on)
-    const ui = await $.ui.mount({ plugin: 'modellval', surface: 'terminal', ...BAND })
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
     expect((await ui.find({ key: 'auto' }))?.text).toContain('Auto on')
     expect((await ui.find({ key: 'auto-model' }))?.text).toContain('Auto off')
 
@@ -246,7 +246,7 @@ describe('two autos', () => {
     const ran = recordCommands(on)
     const mocked = mock.clock(on)
     on('turn.complete', () => ({ text: '' }))
-    const ui = await $.ui.mount({ plugin: 'modellval', surface: 'terminal', ...BAND })
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
     await ui.press({ key: 'auto' })
     await ui.press({ key: 'auto-model' })
 
@@ -276,7 +276,7 @@ describe('typed commands', () => {
     engine(on)
     const filled = box(on, '')
     const ran = recordCommands(on)
-    const ui = await $.ui.mount({ plugin: 'modellval', surface: 'terminal', ...BAND })
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
 
     await ui.press({ key: 'm-haiku' })
 
@@ -289,7 +289,7 @@ describe('typed commands', () => {
     engine(on)
     const filled = box(on, 'ett halvskrivet meddelande')
     const ran = recordCommands(on)
-    const ui = await $.ui.mount({ plugin: 'modellval', surface: 'terminal', ...BAND })
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
 
     await ui.press({ key: 'm-haiku' })
 
@@ -302,7 +302,7 @@ describe('typed commands', () => {
     engine(on)
     const filled = box(on, '')
     const sent = recordSteps(on)
-    const ui = await $.ui.mount({ plugin: 'modellval', surface: 'terminal', ...BAND })
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
 
     await ui.press({ key: 'e-high' })
     await step($, 'medium')
@@ -315,7 +315,7 @@ describe('typed commands', () => {
 
 describe('footer text', () => {
   const PURPLE = '#a79cf7'
-  const auto = async ($: Engine) => String((await $.command.run({ command: 'modellval', args: 'auto' })).text)
+  const auto = async ($: Engine) => String((await $.command.run({ command: 'effortless', args: 'auto' })).text)
   const saving = (on: On, outputTokens: number) =>
     on('turn.step', async function* (_$, e) {
       return {
@@ -327,7 +327,7 @@ describe('footer text', () => {
         usage: { ...USAGE, output_tokens: outputTokens, model: 'claude-opus-5-5' },
       } as never
     })
-  const asked = async ($: Engine) => String((await $.command.run({ command: 'modellval', args: 'stats' })).text)
+  const asked = async ($: Engine) => String((await $.command.run({ command: 'effortless', args: 'stats' })).text)
 
   test('the footer is purple text and one small button; no box, nothing lit', async ($, on) => {
     engine(on)
@@ -474,7 +474,7 @@ describe('footer text', () => {
     await footer.unmount()
   })
 
-  test('/modellval stats reports the measured cost of every token kind, per effort, and the judge', async ($, on) => {
+  test('/effortless stats reports the measured cost of every token kind, per effort, and the judge', async ($, on) => {
     engine(on)
     mock.clock(on)
     judgeSays(on, '{"model":"sonnet","effort":"low","why":"simple"}')
@@ -505,7 +505,7 @@ describe('footer text', () => {
   test('requests you steered yourself are not counted', async ($, on) => {
     engine(on)
     saving(on, 600)
-    const rows = await $.ui.mount({ plugin: 'modellval', surface: 'terminal', ...BAND })
+    const rows = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
     await rows.press({ key: 'e-low' })
     await step($, 'high')
     expect(await asked($)).toContain('nothing measured yet')
@@ -521,7 +521,7 @@ describe('footer text', () => {
     engine(on)
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple"}')
     mock.clock(on)
-    const rows = await $.ui.mount({ plugin: 'modellval', surface: 'terminal', ...BAND })
+    const rows = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
     await rows.press({ key: 'auto-model' })
 
     await $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
@@ -531,9 +531,9 @@ describe('footer text', () => {
     await rows.unmount()
   })
 
-  test('the model row is paused: effort only, unless MODELLVAL_MODEL_UI=1', async ($, on) => {
-    engine(on, { MODELLVAL_MODEL_UI: '0' })
-    const ui = await $.ui.mount({ plugin: 'modellval', surface: 'terminal', ...BAND })
+  test('the model row is paused: effort only, unless EFFORTLESS_MODEL_UI=1', async ($, on) => {
+    engine(on, { EFFORTLESS_MODEL_UI: '0' })
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
     expect(await ui.find({ key: 'e-high' })).toBeDefined()
     expect(await ui.find({ key: 'm-opus' })).toBeUndefined()
     expect(await ui.find({ key: 'auto-model' })).toBeUndefined()
@@ -710,7 +710,7 @@ describe('cache countdown', () => {
     await footer.unmount()
   })
 
-  test('/modellval cold shows Cold and the Compact button at once, for testing', async ($, on) => {
+  test('/effortless cold shows Cold and the Compact button at once, for testing', async ($, on) => {
     engine(on)
     mock.clock(on)
     answer(on, { ephemeral_1h_input_tokens: 500 })
@@ -718,7 +718,7 @@ describe('cache countdown', () => {
     const footer = await $.ui.mount(FOOTER)
     await step($)
     expect(await footer.find({ key: 'compact' })).toBeUndefined()
-    const reply = await $.command.run({ command: 'modellval', args: 'cold' })
+    const reply = await $.command.run({ command: 'effortless', args: 'cold' })
     expect(String(reply.text)).toContain('cold')
     expect(await drawn(footer)).toContain(shows('Cold'))
     expect(await footer.find({ key: 'compact' })).toBeDefined()
@@ -802,12 +802,12 @@ describe('footer', () => {
     expect(ran).toEqual([])
   })
 
-  test('a different model is only suggested, and /modellval switch switches it', async ($, on) => {
+  test('a different model is only suggested, and /effortless switch switches it', async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple"}')
     const ran = recordCommands(on)
     const mocked = mock.clock(on)
-    const ui = await $.ui.mount({ plugin: 'modellval', surface: 'terminal', ...BAND })
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
     await ui.press({ key: 'auto-model' })
 
     await $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
@@ -826,7 +826,7 @@ describe('footer', () => {
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple"}')
     recordCommands(on)
     const mocked = mock.clock(on)
-    const ui = await $.ui.mount({ plugin: 'modellval', surface: 'terminal', ...BAND })
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
     await ui.press({ key: 'auto-model' })
 
     await $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
@@ -850,7 +850,7 @@ describe('band', () => {
       const sent = recordSteps(on)
       const ran = recordCommands(on)
 
-      const ui = await $.ui.mount({ plugin: 'modellval', surface, ...BAND })
+      const ui = await $.ui.mount({ plugin: 'effortless', surface, ...BAND })
       expect((await ui.find({ key: 'auto' }))?.text).toContain('Auto on')
 
       await ui.press({ key: 'e-xhigh' })
@@ -922,22 +922,22 @@ describe('review fixes', () => {
     expect(sent[1].effort).toBe('low')
   })
 
-  test('/modellval switch switches to the suggested model and /modellval keep turns it down', async ($, on) => {
+  test('/effortless switch switches to the suggested model and /effortless keep turns it down', async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple"}')
     const ran = recordCommands(on)
     const mocked = mock.clock(on)
-    const ui = await $.ui.mount({ plugin: 'modellval', surface: 'terminal', ...BAND })
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
     await ui.press({ key: 'auto-model' })
 
     await $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
-    const result = await $.command.run({ command: 'modellval', args: 'switch' })
+    const result = await $.command.run({ command: 'effortless', args: 'switch' })
     await mocked.advance(10)
     expect(String(result.text)).toContain('haiku')
     expect(ran).toContain('/model haiku')
 
     await $.prompt.submit({ text: 'a new question about something else', wait: false, origin: { kind: 'composer' } })
-    const kept = await $.command.run({ command: 'modellval', args: 'keep' })
+    const kept = await $.command.run({ command: 'effortless', args: 'keep' })
     expect(String(kept.text)).toContain('Keeping')
     await ui.unmount()
   })

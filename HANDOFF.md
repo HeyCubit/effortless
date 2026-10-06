@@ -1,9 +1,9 @@
-# modellval: handoff
+# effortless: handoff
 
 ## Branch and PRs
 
-- `main` is the release. Users install with `claude plugin marketplace add HeyCubit/modellval`.
-- A release = bump `version` in `.claude-plugin/plugin.json`, push; users run `claude plugin update modellval@modellval`.
+- `main` is the release. Users install with `claude plugin marketplace add HeyCubit/effortless`.
+- A release = bump `version` in `.claude-plugin/plugin.json`, push; users run `claude plugin update effortless@effortless`.
 
 ## Half done
 
@@ -21,7 +21,7 @@
 
 ## Pointers
 
-- Code: `hooks/register.tsx`. State contract: `types/index.d.ts`. Tests: `tests/modellval.test.ts` (`claude plugin test .`).
+- Code: `hooks/register.tsx`. State contract: `types/index.d.ts`. Tests: `tests/effortless.test.ts` (`claude plugin test .`).
 - Platform limits found: a mod cannot move the app's own Model/Effort buttons; the footer draws no Svg and no box
   border or background; a Button has no size, shape or colour prop; a timer must start in `session.start` (one started
   inside a request ends with it); the engine's "reloaded (N hooks)" line in hot-reload folders cannot be hidden.
