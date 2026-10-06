@@ -2653,12 +2653,13 @@ describe('dashboard', () => {
     expect(dashboardLines({ ...base, cacheNow: null }).rest).toBe('')
   })
 
-  test('a new effort glows in the accent and fades to the band white', () => {
-    expect(flashColor(0)).toBe('#a79cf7')
+  test('a new effort glows violet for a second, then fades to the band white', () => {
+    expect(flashColor(0)).toBe('#9b7bff')
+    expect(flashColor(1000)).toBe('#9b7bff')
     expect(flashColor(null)).toBe('#d4d4d8')
-    expect(flashColor(1400)).toBe('#d4d4d8')
-    const mid = flashColor(700)
-    expect(mid).not.toBe('#a79cf7')
+    expect(flashColor(3500)).toBe('#d4d4d8')
+    const mid = flashColor(2200)
+    expect(mid).not.toBe('#9b7bff')
     expect(mid).not.toBe('#d4d4d8')
   })
 
@@ -2674,7 +2675,7 @@ describe('dashboard', () => {
       const text = await drawn(band)
       await band.unmount()
       // Picking an effort by hand turns Auto off, so the word becomes Off.
-      return text.includes('"color":"#a79cf7","bold":true},"children":["Off"]') ? 'accent' : text.includes('"color":"#d4d4d8","bold":true},"children":["Off"]') ? 'white' : text
+      return text.includes('"color":"#9b7bff","bold":true},"children":["Off"]') ? 'accent' : text.includes('"color":"#d4d4d8","bold":true},"children":["Off"]') ? 'white' : text
     }
     const first = await $.ui.mount(DESK_BAND)
     await first.unmount()
@@ -2682,7 +2683,9 @@ describe('dashboard', () => {
     await rows.press({ key: 'e-low' })
     await rows.unmount()
     expect(await color()).toBe('accent')
-    await mocked.advance(2000)
+    await mocked.advance(1500)
+    expect(await color()).not.toBe('white')
+    await mocked.advance(2500)
     expect(await color()).toBe('white')
   })
 
