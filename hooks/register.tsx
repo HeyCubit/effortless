@@ -40,6 +40,7 @@ const CACHE_TICK_MS = 15_000
 // Shown minutes at or under these turn the countdown yellow, then red: grey while there is time, yellow at 20, red at 5.
 const CACHE_YELLOW_MIN = 20
 const CACHE_RED_MIN = 5
+const ICE = '#7cc4ff'
 const YELLOW = '#e0a33a'
 const RED = '#e5534b'
 const isAutoModel = atom({ plugin: 'effortless', key: 'isAutoModel' } as const, false)
@@ -714,13 +715,14 @@ export function mostlyCached(usage: unknown): boolean {
 /** The countdown's colour for whole minutes left (rounded up, as cacheMinutes gives): none (grey), yellow or red. */
 export function cacheColor(minutesLeft: number): string | undefined {
   const shown = minutesLeft - 1
-  if (minutesLeft <= 0 || shown > CACHE_YELLOW_MIN) return undefined
+  if (minutesLeft <= 0) return ICE
+  if (shown > CACHE_YELLOW_MIN) return undefined
   return shown <= CACHE_RED_MIN ? RED : YELLOW
 }
 
 /** The footer's words for the time left: "58m", "<1m", or "Cold". */
 export function cacheLabel(minutesLeft: number): string {
-  if (minutesLeft <= 0) return 'Cold'
+  if (minutesLeft <= 0) return '❄ Cold'
   if (minutesLeft === 1) return '<1m'
   return `${minutesLeft - 1}m`
 }
