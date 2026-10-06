@@ -1245,6 +1245,8 @@ function effortOf(v: Snap, inUse: ModelKey): Effort | undefined {
 
 // For /effortless debug: how often the app asked for the band, when, and the last error drawing it.
 let renderCalls = 0
+let lastRenderProps = ''
+let lastRenderBranch = ''
 let lastRenderAt = 0
 let lastRenderError = ''
 let sessionStarted = 0
@@ -1337,6 +1339,8 @@ export const register: Register = (on, options) => {
           `session.start ${ago(sessionStarted)}`,
           `band asked for ${renderCalls} times, last ${ago(lastRenderAt)}`,
           `band error: ${lastRenderError || 'none'}`,
+          `last draw: ${lastRenderBranch || 'none'}`,
+          `app sent: ${lastRenderProps || 'nothing'}`,
           `settings open: ${await read($, settingsOpen)}`,
           `setup step: ${await read($, setupStep)}`,
           `handoff: ${await read($, handoffStage)}`,
@@ -1598,8 +1602,13 @@ Saved to ${out}.md and .json` }
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     renderCalls++
     lastRenderAt = Date.now()
+    lastRenderProps = JSON.stringify(e.props).slice(0, 200)
     try {
-    if (e.props.hasSurvey) return next(e)
+    if (e.props.hasSurvey) {
+      lastRenderBranch = 'stepped aside: the app has a survey in this spot'
+      return next(e)
+    }
+    lastRenderBranch = (await read($, settingsOpen)) ? 'drew the settings panel' : 'drew a band or nothing'
     const { Box, Text, Button, Svg } = $.ui.resolve(e)
     // The settings panel: a branded header bar, then one compact row per setting, a dim hint at the end of each row.
     if (await read($, settingsOpen)) {
