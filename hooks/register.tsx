@@ -340,7 +340,14 @@ export type JudgeConfig = {
   ceiling: Effort
   /** What the person switched off: the footer's handoff button and any of the alert bands. */
   hide: Hideable[]
+  /** The swamp band shows once the context fills this share of the window, in percent. */
+  swampAt: number
+  /** The bands' art moves (a live frame) or stands still (an image). A live frame flickers as the app redraws. */
+  animate: boolean
 }
+
+/** The swamp thresholds the settings offer, in percent of the context window. */
+export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
 
 /** The parts of effortless a person can switch off in the settings. */
 export const HIDEABLE = ['handoff', 'timer', 'status', 'cold', 'swamp', 'hot', 'down'] as const
@@ -357,6 +364,8 @@ let config: JudgeConfig = {
   floor: 'low',
   ceiling: 'max',
   hide: [],
+  swampAt: 50,
+  animate: false,
 }
 
 /** The settings as the engine hands them over (defaults filled in), cleaned to the shape the judge reads. */
@@ -375,6 +384,8 @@ export function readConfig(options: unknown): JudgeConfig {
     bias: Math.max(-2, Math.min(2, Math.round(Number(str(o.effortBias)) || 0))),
     floor: EFFORTS.includes(str(o.effortFloor) as Effort) ? (str(o.effortFloor) as Effort) : 'low',
     ceiling: EFFORTS.includes(str(o.effortCeiling) as Effort) ? (str(o.effortCeiling) as Effort) : 'max',
+    swampAt: SWAMP_STEPS.includes(Number(str(o.swampAt)) as (typeof SWAMP_STEPS)[number]) ? Number(str(o.swampAt)) : 50,
+    animate: str(o.animate) === 'on',
     hide: str(o.hide)
       .split(',')
       .map(part => part.trim())
@@ -841,9 +852,8 @@ export function cacheLabel(minutesLeft: number): string {
 let cacheTtl: keyof typeof CACHE_TTL = '1h'
 let cacheExpires = 0
 /** Writes the minutes left when they changed; the session's one timer (started in session.start) calls it. */
-// A chat is swamped once each request reads this much context (or half the window): every message re-reads it all.
+// What /effortless swamp shows as a test: a swamped chat's context.
 const SWAMP_TOKENS = 150_000
-const SWAMP_PERCENT = 50
 // Closed, the band stays away until the context has grown this much more.
 const SWAMP_REGROW = 50_000
 
@@ -902,7 +912,8 @@ async function checkSwamp($: EngineInterface) {
   lastContext = { tokens: context.tokens ?? 0, window: context.window ?? 0, percent: context.percent ?? 0 }
   await checkHot($, rateLimits ?? [])
   const tokens = context.tokens ?? 0
-  const over = tokens >= SWAMP_TOKENS || (context.percent ?? 0) >= SWAMP_PERCENT
+  const percent = context.percent ?? (context.window ? (tokens / context.window) * 100 : 0)
+  const over = percent >= config.swampAt
   const next = over ? tokens : null
   if (next !== (await read($, swamped))) {
     await update($, swamped, () => next)
@@ -1134,6 +1145,8 @@ const SETTING_FIELDS = {
   customUrl: 'customUrl',
   customModel: 'customModel',
   hide: 'hide',
+  swampAt: 'swampAt',
+  animate: 'animate',
 } as const
 
 async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELDS, value: string) {
@@ -1151,6 +1164,8 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     customUrl: config.customUrl,
     customModel: config.customModel,
     hide: config.hide.join(','),
+    swampAt: String(config.swampAt),
+    animate: config.animate ? 'on' : 'off',
     [SETTING_FIELDS[field]]: value,
   }
   config = { ...readConfig(raw), typesafeKey: config.typesafeKey, customKey: config.customKey }
@@ -1793,6 +1808,8 @@ Saved to ${out}.md and .json` }
         handoffSkill: draft.handoffSkill ?? config.handoffSkill,
         customUrl: draft.customUrl ?? config.customUrl,
         customModel: draft.customModel ?? config.customModel,
+        swampAt: draft.swampAt ?? String(config.swampAt),
+        animate: (draft.animate ?? (config.animate ? 'on' : 'off')) === 'on',
       }
       const dirty = Object.keys(draft).length > 0
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
@@ -1812,6 +1829,10 @@ Saved to ${out}.md and .json` }
         const after = off ? hidden.filter(h => h !== part) : [...hidden, part]
         return <Button key={`show-${part}`} plain label={`${off ? '○' : '●'} ${label}`} onPress={() => set('hide')(after.join(','))} />
       })
+      // Moving art is a live frame, which flickers when the app redraws (a resize, a scroll, a new message).
+      toggles.push(
+        <Button key="show-animate" plain label={`${shown.animate ? '●' : '○'} Animation`} onPress={() => set('animate')(shown.animate ? 'off' : 'on')} />,
+      )
       // The slider: five stops, the marker on the one in force. No animation, a click moves it.
       const track: unknown[] = []
       for (const n of [-2, -1, 0, 1, 2]) {
@@ -1854,7 +1875,7 @@ Saved to ${out}.md and .json` }
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={3} overflow="hidden" backgroundColor={BRAND_HEAD}>
             <Box key="settings-art" position="absolute" top={0} right={0} bottom={0}>
-              <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
+              <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive={config.animate} />
             </Box>
           </Box>
           <Box key="settings-title" position="absolute" top={0} left={1} height={2} flexDirection="row" alignItems="center">
@@ -1908,6 +1929,8 @@ Saved to ${out}.md and .json` }
                 ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
               ]}
               onSelect={v => set('handoffSkill')(v === '-' ? '' : v)} />,
+            <Select key="settings-swamp" label="Swamped at" value={shown.swampAt}
+              options={SWAMP_STEPS.map(n => ({ value: String(n), label: `${n}%` }))} onSelect={set('swampAt')} />,
           ])}
           {frameOnly ? null : row('settings-show', 'Show', ICON_SHOW, toggles)}
         </Box>
@@ -1935,7 +1958,7 @@ Saved to ${out}.md and .json` }
           borderColor={BRAND_EDGE}
         >
           <Box key="brand" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
+            <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive={config.animate} />
           </Box>
           <Box flexShrink={0}>
             <Text color={ACCENT} bold wrap="truncate">
@@ -1993,7 +2016,7 @@ Saved to ${out}.md and .json` }
         <Box key="down" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={SLATE_BG} borderStyle="round" borderColor={SLATE_EDGE}>
           <Box key="down-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={DOWN_SVG} alt="judge down" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
+            <Svg source={DOWN_SVG} alt="judge down" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive={config.animate} />
           </Box>
           <Box flexShrink={0}>
             <Text color={SLATE} bold wrap="truncate">
@@ -2020,7 +2043,7 @@ Saved to ${out}.md and .json` }
         <Box key="hot" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={EMBER_BG} borderStyle="round" borderColor={EMBER_EDGE}>
           <Box key="ember" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={EMBER_SVG} alt="embers" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
+            <Svg source={EMBER_SVG} alt="embers" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive={config.animate} />
           </Box>
           <Box flexShrink={0}>
             <Text color={EMBER} bold wrap="truncate">
@@ -2064,7 +2087,7 @@ Saved to ${out}.md and .json` }
         >
           {/* Taller than the band and clipped by it, so the frost reaches every edge on the right. */}
           <Box key="frost" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={FROST_SVG} alt="frost" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
+            <Svg source={FROST_SVG} alt="frost" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive={config.animate} />
           </Box>
           <Box flexShrink={0}>
             <Text color={ICE} bold wrap="truncate">
@@ -2101,7 +2124,7 @@ Saved to ${out}.md and .json` }
           borderColor={BOG_EDGE}
         >
           <Box key="bog" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={SWAMP_SVG} alt="swamp" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
+            <Svg source={SWAMP_SVG} alt="swamp" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive={config.animate} />
           </Box>
           <Box flexShrink={0}>
             <Text color={BOG} bold wrap="truncate">
