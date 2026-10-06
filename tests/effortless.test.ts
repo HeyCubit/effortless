@@ -1256,7 +1256,7 @@ describe('setup guide', () => {
     expect(await drawn(band)).toContain('{"key":"setup-box-handoff","label":"✔︎","variant":"primary"}')
     expect(await band.find({ key: 'setup-show-cold' })).toBeUndefined()
     await band.press({ key: 'setup-box-timer' })
-    expect(await drawn(band)).toContain('{"key":"setup-box-timer","label":" ","variant":"secondary"}')
+    expect(await drawn(band)).toContain('{"key":"setup-box-timer","label":"✔︎","dimColor":true,"variant":"secondary"}')
     await band.press({ key: 'setup-next' })
 
     // The last word: the footer's buttons and Fable. Back goes to the footer step.
