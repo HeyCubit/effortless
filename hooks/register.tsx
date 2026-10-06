@@ -2131,6 +2131,22 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  // A chat opened again later (resume, fork): the mod starts afresh and has seen no response, so the countdown would
+  // stay blank on a cache long cold. The app says how long ago the last response was, and whether the cache has
+  // likely lapsed: the countdown starts from there.
+  on('classic.SessionStart', async ($, e, next) => {
+    const result = await next(e)
+    const r = e as { source?: string; seconds_since_last_response?: number; prompt_cache_likely_expired?: boolean }
+    if ((r.source === 'resume' || r.source === 'fork') && typeof r.seconds_since_last_response === 'number' && cacheExpires === 0) {
+      const now = await $.clock.now()
+      lastResponseAt = now - r.seconds_since_last_response * 1000
+      const left = lastResponseAt + CACHE_TTL[cacheTtl]
+      cacheExpires = r.prompt_cache_likely_expired || left <= now ? now - 1 : left
+      await showCache($).catch(() => undefined)
+    }
+    return result
+  })
+
   // The handoff turn ended: keep its text; the session's timer clears the chat and sends it.
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)

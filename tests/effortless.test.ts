@@ -2698,3 +2698,40 @@ describe('dashboard', () => {
     await footer.unmount()
   })
 })
+
+describe('a chat opened again', () => {
+  const start = async ($: Engine, on: On) => {
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    on('classic.SessionStart', () => ({}) as never)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+  }
+  const closeSetup = async ($: Engine) => {
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+  }
+
+  test('two hours after its last response: the cache shows cold at once', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    await start($, on)
+    await closeSetup($)
+    await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: 7200, prompt_cache_likely_expired: true } as never)
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('Chat went cold')
+    await band.unmount()
+  })
+
+  test('ten minutes after: the countdown goes on from where it was, no cold band', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    await start($, on)
+    await closeSetup($)
+    await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: 600, prompt_cache_likely_expired: false } as never)
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    const footer = await $.ui.mount(FOOTER)
+    expect(await drawn(footer)).toMatch(/"(49|50)m"/)
+    await footer.unmount()
+  })
+})
