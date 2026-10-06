@@ -700,9 +700,9 @@ describe('cache countdown', () => {
     const mocked = mock.clock(on)
     answer(on, { ephemeral_1h_input_tokens: 500, ephemeral_5m_input_tokens: 0 })
     let compacted = 0
-    on('session.compact', () => {
-      compacted++
-      return { messages: [] } as never
+    on('command.run', (_$, e) => {
+      if (e.command === 'compact') compacted++
+      return { text: 'ok' }
     })
     await start($, on)
     await step($)
@@ -739,12 +739,13 @@ describe('cache countdown', () => {
     await footer.unmount()
   })
 
-  test('Compact while a turn runs is refused with a toast, nothing breaks', async ($, on) => {
+  test('a compact that fails says why in a toast, nothing breaks', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
     answer(on, { ephemeral_5m_input_tokens: 500 })
-    on('session.compact', () => {
-      throw new Error('a turn is running')
+    on('command.run', (_$, e) => {
+      if (e.command === 'compact') throw new Error('compact is not available here')
+      return { text: 'ok' }
     })
     const toasts: string[] = []
     on('ui.toast', (_$, e) => {
@@ -757,7 +758,7 @@ describe('cache countdown', () => {
     await step($)
     await mocked.advance(6 * 60_000)
     await band.press({ key: 'cold-compact' })
-    expect(toasts.join(' ')).toMatch(/compact/i)
+    expect(toasts.join(' ')).toContain('compact failed')
     expect(await drawn(footer)).toContain(shows('❄ Cold'))
     await band.unmount()
     await footer.unmount()
