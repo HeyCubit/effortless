@@ -1246,15 +1246,20 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
 async function saveDraft($: EngineInterface) {
   const draft = await read($, settingsDraft)
   const { key, ...rest } = draft
+  // The key goes to its file first; the settings then go through the store queue, since each one reloads the plugin.
+  if (key?.trim()) await saveJevKey($, key, false)
+  const changes: Record<string, string> = {}
   for (const field of Object.keys(SETTING_FIELDS) as (keyof typeof SETTING_FIELDS)[]) {
     const value = rest[field]
-    if (value !== undefined) await saveSetting($, field, value)
+    if (value !== undefined) changes[field] = value
   }
-  if (key?.trim()) await saveJevKey($, key)
+  if (key?.trim() && (changes.judge ?? config.judge) !== 'jev') changes.judge = 'jev'
   await update($, settingsDraft, () => ({}))
   await update($, settingsOpen, () => false)
   $.ui.toast('effortless: settings saved.')
   $.ui.invalidate('ui.render')
+  await $.store.set('setupSave', changes)
+  await drainSetupSave($)
 }
 
 /** A TYPESAFE_API_KEY line set in an .env file's text: replaced where it is, added where it is not. */
@@ -1380,9 +1385,35 @@ async function flushSetup($: EngineInterface) {
     customUrl: config.customUrl,
     customModel: config.customModel,
   }
-  for (const field of ['judge', 'bias', 'handoffSkill', 'hide', 'customUrl', 'customModel'] as const) {
+  const changes: Record<string, string> = {}
+  for (const field of ['hide', 'judge', 'bias', 'handoffSkill', 'customUrl', 'customModel'] as const) {
     const value = draft[field]
-    if (value !== undefined && value.trim() !== saved[field]) await saveSetting($, field, value.trim())
+    if (value !== undefined && value.trim() !== saved[field]) changes[field] = value.trim()
+  }
+  await $.store.set('setupSave', changes)
+  await drainSetupSave($)
+}
+
+let drainingSetup = false
+
+/**
+ * Saves the setup's changes one at a time from the store. Each saved setting reloads the plugin, which cuts off a loop
+ * here, so a field leaves the store before it is saved and the reloaded plugin carries on with the rest.
+ */
+async function drainSetupSave($: EngineInterface) {
+  if (drainingSetup) return
+  drainingSetup = true
+  try {
+    for (;;) {
+      const queue = ((await $.store.get('setupSave').catch(() => null)) ?? {}) as Record<string, string>
+      const [field] = Object.keys(queue)
+      if (!field) return
+      const { [field]: value, ...rest } = queue
+      await $.store.set('setupSave', Object.keys(rest).length ? rest : null)
+      if (field in SETTING_FIELDS) await saveSetting($, field as keyof typeof SETTING_FIELDS, value)
+    }
+  } finally {
+    drainingSetup = false
   }
 }
 
@@ -1575,6 +1606,7 @@ export const register: Register = (on, options) => {
     // mod's own command afterwards, instead of the file run as a skill.
     await $.command.register({ name: 'effortless', description: 'effortless: settings, debug, handoff, setup, bench, auto, stats.' }).catch(() => undefined)
     keyFromFile = (await $.store.get('keyFromFile')) === true
+    void drainSetupSave($).catch(() => undefined)
     const storedAuto = await $.store.get('isAuto')
     if (typeof storedAuto === 'boolean') await update($, isAuto, () => storedAuto)
     const storedAutoModel = await $.store.get('isAutoModel')
@@ -2014,6 +2046,8 @@ Saved to ${out}.md and .json` }
   // Draws the bands and the settings panel. Counted and guarded so /effortless debug can say whether the app asks
   // for it at all and whether drawing failed: an error here otherwise only leaves the slot empty.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    // Setup changes a reload cut off are saved from here: the reloaded plugin draws before anything else runs.
+    void drainSetupSave($).catch(() => undefined)
     renderCalls++
     lastRenderAt = Date.now()
     lastRenderProps = JSON.stringify(e.props).slice(0, 200)
