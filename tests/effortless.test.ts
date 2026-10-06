@@ -2628,7 +2628,7 @@ describe('dashboard', () => {
     expect(dashboardLines(base).head).toBe(`✦ Medium · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines(base).detail).toBe('Jev: a small fix')
     expect(dashboardLines({ ...base, last: { cost: 42_000, ms: 38_200 } }).detail).toBe('Jev: a small fix · last reply ≈42.0k tokens · 38s')
-    expect(dashboardLines({ ...base, auto: false }).head).toContain('Medium · Auto off')
+    expect(dashboardLines({ ...base, auto: false }).head).not.toContain('Auto')
     expect(dashboardLines({ ...base, cacheNow: null, contextPercent: null }).head).toBe('✦ Medium')
     expect(weighted({ input_tokens: 10, output_tokens: 2, cache_read_input_tokens: 1000, cache_creation_input_tokens: 4 })).toBe(10 + 10 + 100 + 5)
   })
