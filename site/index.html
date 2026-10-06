@@ -221,12 +221,11 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .win .demo-foot .lvl{margin-left:8px}
 .win .demo-foot .m{margin-left:10px}
 .win .demo-foot .ring{width:19px;height:19px;margin-left:10px}
-/* The lens: a copy of the footer, enlarged and centred on whatever the scene changes. */
-.lens{--l:250px;position:absolute;left:0;top:2%;z-index:2;width:var(--l);height:var(--l);border-radius:50%;overflow:hidden;background:#141318;box-shadow:0 0 0 2px color-mix(in srgb,var(--sc) 75%,transparent),0 0 60px -10px color-mix(in srgb,var(--sc) 45%,transparent),0 40px 80px -30px #000;opacity:0;transform:scale(.8);transition:opacity .4s var(--ease),transform .6s var(--ease),box-shadow .6s;pointer-events:none}
-.lens.on{opacity:1;transform:none}
-.lens .zoom{position:absolute;left:0;top:0;transform-origin:0 0;transition:transform .5s var(--ease)}
-.lens .zoom .demo-foot{margin:0}
-.lens:after{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(55% 45% at 30% 18%,#ffffff17,transparent 65%),radial-gradient(closest-side,transparent 78%,#0008);pointer-events:none}
+/* What a scene is about: that footer item stays lit while the rest of the bar dims, and it swells when it changes. */
+.win .demo-foot .fl,.win .demo-foot .fr>*{transition:opacity .4s,transform .45s var(--ease),text-shadow .4s,box-shadow .2s}
+.win .demo-foot.aim .fl,.win .demo-foot.aim .fr>:not(.lit){opacity:.42}
+.win .demo-foot .lit{position:relative;z-index:1;transform-origin:50% 100%;text-shadow:0 0 18px color-mix(in srgb,var(--sc) 70%,transparent)}
+.win .demo-foot .lit.swell{transform:scale(1.7) translateY(-3px)}
 .demo-foot .warn{color:var(--yellow)}
 .demo-foot .bad{color:var(--red);font-weight:600}
 .press{animation:press .55s var(--ease)}
@@ -271,7 +270,6 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   .win .demo-foot{font-size:13.5px;gap:8px;margin:10px 2px 0}
   .win .demo-foot .fl{gap:12px;font-size:15px}
   .win .demo-foot .k{width:22px;height:20px;font-size:11px}
-  .lens{--l:150px;left:auto;right:0;top:0}
 }
 @media (max-width:560px){
   .demo-foot .opt{display:none}
@@ -476,7 +474,7 @@ document.addEventListener('click',function(e){
   function wipe(){Array.prototype.forEach.call(chat.children,function(m){m.classList.add('gone')});later(380,function(){chat.innerHTML=''});}
   function band(html){slot.innerHTML=html;return slot.firstChild;}
   function unband(){var b=slot.firstChild;if(!b)return;b.classList.add('gone');later(330,function(){slot.innerHTML=''});}
-  function foot(level,mins,cls){lvl.textContent=level;eff.textContent=level==='Off'?'High':level;cache.textContent=mins;cache.className=cls||'';}
+  function foot(level,mins,cls){lvl.textContent=level;eff.textContent=level==='Off'?'High':level;cache.textContent=mins;cache.classList.remove('warn','bad');if(cls)cache.classList.add(cls);}
   function input(s){text.textContent=s;ph.hidden=!!s;send.classList.toggle('on',!!s);}
   function type(s,done){if(still){input(s);return later(0,done);}var k=0;(function step(){input(s.slice(0,++k));if(k<s.length)later(28+Math.random()*30,step);else later(380,done);})();}
   function press(el,done){if(!el)return done&&done();el.classList.remove('press');void el.offsetWidth;el.classList.add('press');later(420,done||function(){});}
@@ -485,19 +483,11 @@ document.addEventListener('click',function(e){
   function base(){chat.innerHTML='';slot.innerHTML='';input('');ho.classList.remove('hl');lvl.classList.remove('hl');foot('Medium','42m');}
   function again(f,ms){if(!still)later(ms||2600,f);}
 
-  // The lens follows one element of the footer; any change there is redrawn, enlarged.
-  var bar=story.querySelector('.win .demo-foot'),lens=document.createElement('div'),zoom=document.createElement('div'),aimed=null,K=2;
-  lens.className='lens';zoom.className='zoom';lens.appendChild(zoom);story.querySelector('.win').appendChild(lens);
-  function draw(){
-    if(!aimed){lens.classList.remove('on');return;}
-    var c=bar.cloneNode(true);c.querySelectorAll('[id]').forEach(function(n){n.removeAttribute('id')});c.style.width=bar.offsetWidth+'px';
-    zoom.innerHTML='';zoom.appendChild(c);
-    var b=bar.getBoundingClientRect(),r=aimed.getBoundingClientRect(),half=lens.offsetWidth/2;
-    zoom.style.transform='translate('+(half-(r.left-b.left+r.width/2)*K)+'px,'+(half-(r.top-b.top+r.height/2)*K)+'px) scale('+K+')';
-    lens.classList.add('on');}
-  function aim(el){aimed=el;draw();}
-  new MutationObserver(draw).observe(bar,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class']});
-  addEventListener('resize',draw);
+  // A scene names the footer item it is about; that item stays lit and swells for a moment each time it changes.
+  var bar=story.querySelector('.win .demo-foot'),aimed=null,swellT=0;
+  function aim(el){if(aimed)aimed.classList.remove('lit','swell');aimed=el;bar.classList.toggle('aim',!!el);if(el){el.classList.add('lit','swell');clearTimeout(swellT);swellT=setTimeout(function(){aimed&&aimed.classList.remove('swell')},1400);}}
+  new MutationObserver(function(){if(!aimed)return;aimed.classList.add('swell');clearTimeout(swellT);swellT=setTimeout(function(){aimed&&aimed.classList.remove('swell')},1400);})
+    .observe(bar,{subtree:true,childList:true,characterData:true});
 
   var COLD='<div class="band ice"><span class="t">✦ Chat went cold</span><span class="d">Next message costs full price. Compact first.</span><span class="acts"><span class="btn">Not now</span><span class="btn primary">Compact</span></span></div>';
   var SWAMP='<div class="band bog"><span class="t">✦ Chat is getting swamped</span><span class="ring"><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%3E%3Ccircle%20cx%3D%228%22%20cy%3D%228%22%20r%3D%226%22%20fill%3D%22none%22%20stroke%3D%22%23a7c98f%22%20stroke-opacity%3D%22.25%22%20stroke-width%3D%222.2%22%2F%3E%3Ccircle%20cx%3D%228%22%20cy%3D%228%22%20r%3D%226%22%20fill%3D%22none%22%20stroke%3D%22%23a7c98f%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-dasharray%3D%2227.14%2037.70%22%20transform%3D%22rotate%28-90%208%208%29%22%2F%3E%3C%2Fsvg%3E" alt="">72%</span><span class="d">180k tokens re-read every message.</span><span class="acts"><span class="btn primary">Compact <span class="k">C</span></span><span class="btn">Handoff <span class="k">H</span></span></span></div>';
