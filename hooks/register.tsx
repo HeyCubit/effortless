@@ -854,19 +854,20 @@ async function toggleSave($: EngineInterface): Promise<string> {
   return saving ? 'save mode off' : 'save mode on, Auto stays at medium or below until the limit resets'
 }
 
-type TurnWarning = { title: string; line: string; color: string; bg: string; edge: string; art: string }
+type TurnWarning = { kind: 'cold' | 'hot' | 'swamp'; title: string; line: string; color: string; bg: string; edge: string; art: string }
 
 /** What the bands would warn about now, as the card under the newest reply says it: the same order and the same
  *  hiding (a part switched off, a band closed with ✕), with a command in place of the band's buttons. */
 async function turnWarning($: EngineInterface): Promise<TurnWarning | null> {
   if ((await read($, cacheLeft)) === 0 && !config.hide.includes('cold') && !(await read($, isColdHidden))) {
-    return { title: 'Chat went cold', line: 'Next message costs full price. Type /compact first.', color: ICE, bg: ICE_BG, edge: ICE_EDGE, art: FROST_SVG }
+    return { kind: 'cold', title: 'Chat went cold', line: 'Next message costs full price. Type /compact first.', color: ICE, bg: ICE_BG, edge: ICE_EDGE, art: FROST_SVG }
   }
   const heat = await read($, hot)
   const heatHidden = await read($, hotHidden)
   if (heat && !config.hide.includes('hot') && (heatHidden === null || heat.percent >= heatHidden + HOT_REGROW)) {
     const window = heat.kind === 'five_hour' ? '5h' : 'weekly'
     return {
+      kind: 'hot',
       title: `Running hot · ${Math.round(heat.percent)}% of your ${window} limit`,
       line: 'Save mode keeps Auto at medium or below: /effortless save.',
       color: EMBER, bg: EMBER_BG, edge: EMBER_EDGE, art: EMBER_SVG,
@@ -876,6 +877,7 @@ async function turnWarning($: EngineInterface): Promise<TurnWarning | null> {
   const hiddenAt = await read($, swampHiddenAt)
   if (swampTokens !== null && !config.hide.includes('swamp') && (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW)) {
     return {
+      kind: 'swamp',
       title: `Chat is getting swamped · ${Math.round(swampTokens / 1000)}k tokens`,
       line: 'Every message re-reads all of it. Type /compact or /effortless handoff.',
       color: BOG, bg: BOG_BG, edge: BOG_EDGE, art: SWAMP_SVG,
@@ -2165,8 +2167,15 @@ Saved to ${out}.md and .json` }
     if (!answer || !text || !answer.endsWith(text)) return next(e)
     const warn = await turnWarning($)
     if (!warn) return next(e)
-    const { Box, Text, Svg } = $.ui.resolve(e)
+    const { Box, Text, Svg, Button } = $.ui.resolve(e)
     const drawn = await next(e)
+    // A test of whether buttons in a reply's card take a press (the try card's, in a command's output, did not):
+    // each press says so in a toast before it acts. Handoff starts at once with the last choice, since the bar it
+    // would open is not drawn where this card is needed.
+    const press = (what: string, act: () => Promise<unknown>) => async () => {
+      $.ui.toast(`card button pressed: ${what}`)
+      await act()
+    }
     return (
       <Box key="reply" flexDirection="column" gap={1}>
         {drawn}
@@ -2179,6 +2188,20 @@ Saved to ${out}.md and .json` }
           <Box key="reply-warn-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
             <Text color={warn.color} bold wrap="truncate">{`✦ ${warn.title}`}</Text>
             <Text wrap="truncate">{warn.line}</Text>
+          </Box>
+          <Box flexGrow={1} minWidth={2} />
+          <Box key="reply-warn-actions" position="relative" flexShrink={0} flexDirection="row" gap={1} alignItems="center">
+            {warn.kind === 'hot' ? (
+              <Button key="reply-save" variant="primary" label="Save mode" onPress={press('Save mode', async () => $.ui.toast(`effortless: ${await toggleSave($)}`))} />
+            ) : (
+              <Button key="reply-compact" variant="primary" label="Compact" onPress={press('Compact', () => compactCold($))} />
+            )}
+            {warn.kind === 'swamp' ? (
+              <Button key="reply-handoff" label="Handoff" onPress={press('Handoff', async () => {
+                const choice = await lastHandoffChoice($)
+                await startHandoff($, choice.kind === 'full', choice.after)
+              })} />
+            ) : null}
           </Box>
         </Box>
       </Box>
