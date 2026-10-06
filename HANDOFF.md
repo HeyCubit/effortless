@@ -1,65 +1,55 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.34.5, pushed and installed. Direct pushes, no open PRs. Several chats push
-  to main: fetch and rebase before every push.
+- `main` on HeyCubit/effortless, version 1.34.7, pushed and installed. Direct pushes, no open PRs. Several chats push
+  to main: fetch and rebase before every push, and read the version after the pull (others bump it too).
 - Release: bump `version` in `.claude-plugin/plugin.json`, `<cli> plugin validate .`, `<cli> plugin test .`
   (0 fail), push, `<cli> plugin marketplace update effortless`, `<cli> plugin update effortless@effortless`, restart.
-- CLI on this PC: `$APPDATA/Claude/claude-code/<version>/<hash>/claude.exe` (newest folder). `claude` on PATH is
-  2.1.220: fails validate, has no `plugin test`.
-- Another chat builds a showcase site in `site/` in its own worktree. Leave `site/` alone.
-- Untracked `docs/brand/` (branding images): waits for Isac's OK on the README banner.
+- CLI on this PC: `$APPDATA/Claude/claude-code/<version>/<hash>/claude.exe` (newest folder). The agent sandbox sees a
+  virtualised AppData, so Isac uses plain `claude`. `claude` on PATH is old: no `plugin test`.
+- Another chat builds a showcase site in `site/`. Leave it alone. Untracked `docs/brand/` waits for Isac.
 
-## Next phase: the terminal (CLI) release
-Isac wants effortless released for the terminal too. Nothing built yet; findings so far (code read + a throwaway
-probe that mounted every band on `surface: 'terminal'` in the test kit, test file restored):
-- Already terminal-aware: effort row above the prompt (`SessionMode`, `e.surface !== 'terminal'`), the line under
-  each reply (`TurnDuration`), progress bar text track (`hooks/progress.tsx`, `Svg?` optional).
-- Cold, swamp, hot, judge-down bands, settings, setup and handoff bar all draw on terminal (text + buttons), but
-  their art Box is empty there (no Svg) and the layout (absolute boxes, fills, fixed widths) is desktop-tuned.
-- A band replaces the effort row, so the effort is hidden while a band shows (desktop keeps it in the footer).
-- Cards under replies (`AssistantMessage`: handoff, compact, cold/hot warning) unverified on terminal.
-- Unknown: the lowest CLI version that runs these mods; README must say it.
+## Where things stand
+- Terminal release is live (1.34.x): alert bands draw two lines with moving half-block pixel art on the right
+  (`hooks/art.ts`; `bandArt`, `terminalBand`, `terminalPanel` in `hooks/register.tsx`), no art under 90 columns,
+  effort row stays under a band, setup and handoff bars stack, progress track draws as characters.
+- Settings: Show offers only Progress and Sounds (plain ☑/☐). Alerts and the line under replies always show;
+  `HIDEABLE` is handoff, timer, progress, sounds. Setup is 3 steps: judge, lean, handoff.
+- Save mode paints the footer's effort level ember (desktop, Isac saw it).
 
-Open decisions for Isac (suggestion in brackets):
-1. Band art on terminal: [a few still coloured characters on the right, e.g. ❄ ∘ ✦] or plain text.
-2. Keep the effort row as one line under a band? [yes]
-3. Release scope: [effort row + bands + progress bar first; reply cards later] or full parity.
+## Not done / unverified
+- Terminal band hotkeys (c Compact, h Handoff, s Save/Settings, n Not now): ctrl+x tab did not focus the band from
+  the pty harness. Needs a real terminal.
+- Terminal settings panel: no art, no Esc (a band cannot take Esc; only a Pane can).
+- Compact card after a band's Compact button: not seen on the terminal.
+- Minimum CLI version for mods: unknown; README needs a terminal section.
+- Desktop, not yet seen by Isac: slimmer settings panel, 3-step setup, green done card, "Compact complete", bands
+  hidden while compacting, swamp band waiting for the turn to end, progress sounds in a real task.
 
 ## Next
-1. See the real terminal: run the newest `claude.exe` (path above) in a tab via the Terminal panel tools
-   (`run_in_terminal` / `read_terminal`), at 80 and 120 columns. Trigger `/effortless swamp`, `cold`, `hot`,
-   `down`, `progress`, `settings`, `setup`, `handoff`. Record what breaks. Do not drive Isac's desktop.
-2. Ask Isac decisions 1-3 above (one round), then plan the terminal pass (likely a `terminal` branch per band in
-   `hooks/register.tsx` AbovePrompt, plus tests on `surface: 'terminal'`).
-3. Find the minimum CLI version for mods; add a terminal section to README.
-
-## Seen in the app vs not
-- Seen working by Isac: handoff card (purple, "Handoff complete" before it turned green), compact card
-  ("Compacting…"), warning card, setup steps, compacting state.
-- Not yet seen: green done card (1.31.1), "Compact complete" green card, bands hidden while compacting (1.33.1),
-  swamp band waiting for the turn to end (1.32.0), progress bar sounds in a real task, handoff bar at narrow widths.
+1. Isac checks the settings panel and `/effortless setup` in the app.
+2. Isac tries a terminal band's hotkeys (`/effortless swamp`, ctrl+x tab, c).
+3. README terminal section with the minimum CLI version.
 
 ## Decided, do not redo
-- Swamp shows only as the band above the prompt, never as a card in the chat (Isac). Band and cards wait while a turn
-  runs (`turnBusy`, cleared on turn.complete incl. aborted; 10 min stale guard).
-- Compact (swamp or cold band) uses the handoff card: purple "Compacting…" with sparkles, green "Compact complete"
-  with a checkmark (`DONE_SVG`); bands step aside while compacting. No progress wheel: compact reports no progress.
-- Landed handoff/compact cards are green (`cardLanded`); copied / sent on stay purple. No "split view" tag: the
-  plugin cannot tell which pane draws.
-- Progress bar design and rules: spec `docs/specs/2026-10-06-progress-bar.md`. Done shows before alert bands.
-  "Planning" only in plan mode (a high effort pick alone is no signal).
-- Setup steps: spec `docs/superpowers/specs/2026-10-06-setup-steps-design.md`. Setup/handoff bars use still art;
-  alert bands animate. Handoff bar stays brand purple.
-- Auto pauses on Fable 5.1 and older Opus: an effort change rewrote 56 to 100% of the cache (measured).
-- Status line removed (1.23.1). Swamp band = one percent setting `swampAt` (default 50).
-- Split view: bands, footer, bars draw only in the LEFT pane; right pane draws replies only. Isac stopped the hunt.
+- Terminal art is a `Raster` of `▀` cells (`Image` shows only alt text in Windows Terminal). Alert bands move, bars
+  are still. Isac wants visual elements in the CLI; that is the point of the terminal release.
+- Fewer choices (Isac): judge stays a choice; alerts are not options; Progress and Sounds stay switchable. No x
+  hotkey on close buttons; s for Save is fine.
+- Swamp shows only as the band, never a card. Band and cards wait while a turn runs (`turnBusy`).
+- Compact uses the handoff card: purple "Compacting…", green "Compact complete"; bands step aside while compacting.
+- Progress bar spec `docs/specs/2026-10-06-progress-bar.md`. Setup spec
+  `docs/superpowers/specs/2026-10-06-setup-steps-design.md` (its step 4 is gone).
+- Auto pauses on Fable 5.1 and older Opus (an effort change rewrote 56 to 100% of the cache).
+- Split view: bands draw only in the LEFT pane. Isac stopped the hunt.
 
 ## Only Isac
-- Visual checks in the desktop app; the decisions above.
-- Send the split-view bug via `/feedback`. README banner + Swamped at docs: waiting for his OK.
+- Visual checks in the app and his real terminal; taste on the terminal art.
+- Send the split-view bug via `/feedback`. README banner and Swamped-at docs wait for his OK.
 
 ## Pointers
-- Code `hooks/register.tsx`, `hooks/progress.tsx`; tests `tests/effortless.test.ts`; command `commands/effortless.md`.
-- Band styling limits: memory `mod_band_styling.md`. Engine rules: `mod_engine_module_rules.md`. Mod state:
-  `modellval_mod.md`. Judge benchmark: `bench/judge-cases.json`.
+- Terminal spec `docs/superpowers/specs/2026-10-06-terminal-art-design.md`, audit `docs/terminal-audit-2026-10-06.md`,
+  screenshot `docs/terminal-bands-1.34.0.png`.
+- Terminal checks: a pywinpty + pyte harness drives `claude.exe` at a fixed size and dumps the screen (not in the
+  repo). In Git Bash set `MSYS_NO_PATHCONV=1` or `/effortless` turns into a path. `--plugin-dir` starts a fresh store.
+- Tests `tests/effortless.test.ts`. Memories `mod_band_styling.md`, `mod_engine_module_rules.md`, `modellval_mod.md`.
