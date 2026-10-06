@@ -1745,7 +1745,7 @@ let artFrameCount = 0
 function bandArt($: EngineInterface, e: RenderInput<'AbovePrompt'>, kind: ArtKind) {
   const els = $.ui.resolve(e)
   const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 0
-  if (!('Raster' in els) || columns < ART_MIN_WIDTH) return null
+  if (e.surface !== 'terminal' || !('Raster' in els) || columns < ART_MIN_WIDTH) return null
   const { Box, Raster } = els
   artShown = { requestId: e.requestId, kind }
   if (MOVING.has(kind) && !artTimer) {
@@ -1939,8 +1939,9 @@ async function progressBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, w
   if (!progressShows(p, await read($, progressHiddenState), when)) return null
   const els = $.ui.resolve(e)
   const { Box, Text, Button } = els
-  // The desktop draws the track as a still image; the terminal has no Svg.
-  const Svg = 'Svg' in els ? els.Svg : undefined
+  // The desktop draws the track as a still image. The terminal's table has an Svg that draws nothing, so the surface
+  // decides, not the table: there the track is a row of characters.
+  const Svg = e.surface !== 'terminal' && 'Svg' in els ? els.Svg : undefined
   // ✕ ends a finished or planning bar; a running one hides until Claude writes another list.
   const onClose = async () => {
     const cur = await read($, progressState)
