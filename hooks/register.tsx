@@ -2859,10 +2859,18 @@ Saved to ${out}.md and .json` }
             { value: 'newchat', label: 'New chat & archive' },
           ]}
           onSelect={v => setBar({ after: v as HandoffAfter })()} />,
-        <Button key="handoff-go" variant="primary" autoFocus hotkey="g" label="Go" onPress={() => goHandoff($, choice)} />,
+        // Full with no skill to run: the lit button takes you to the place to pick one, instead of a Go that does nothing.
+        choice.kind === 'full' && !fullReady ? (
+          <Button key="handoff-pick" variant="primary" autoFocus label="Pick a skill" onPress={async () => {
+            await closeHandoffBar($)
+            await openPluginSettings($)
+          }} />
+        ) : (
+          <Button key="handoff-go" variant="primary" autoFocus hotkey="g" label="Go" onPress={() => goHandoff($, choice)} />
+        ),
         <Button key="handoff-close" plain role="dismiss" label="✕" onPress={() => closeHandoffBar($)} />,
       ]
-      const line = choice.kind === 'full' && !fullReady ? 'Full needs a skill: pick one in ⚙ under Handoff.' : `${what.by}. ${what.then}`
+      const line = choice.kind === 'full' && !fullReady ? 'Full runs your own handoff skill, and none is set yet.' : `${what.by}. ${what.then}`
       if (e.surface === 'terminal') return terminalPanel($, e, 'handoff-bar', '⇥ Handoff', line, controls)
       return (
         // The art is a still image here: an animated one sits in a frame the app rebuilds on every redraw, and the bar
