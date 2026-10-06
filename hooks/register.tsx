@@ -85,7 +85,7 @@ Effort is relative to the model in use ("Current" names it): a stronger model ne
 
 Judge the SCOPE and the amount of work, not whether it is code. A short message can ask for a lot: "go through my whole drive and clean it up", "review the entire repo", "migrate everything" are big, multi-step, tool-heavy jobs where mistakes are costly: never low, usually high. Low is only for answers that need no tools and no planning.
 
-If the message answers a question in the assistant's last reply (picks an option, says which one, confirms a plan), judge only the work that answer starts, as the reply describes it, not the length of the answer and not the work done before the question: "B" can mean "build the complicated section B" (high), while "yes" or "no" to one small action ("should I archive this?", "delete the old ones too?") is low, and picking a value (a level, a colour, a name, a font) is low. Approving a whole plan or several steps takes the effort of that plan.
+If the message answers a question in the assistant's last reply (picks an option, says which one, confirms a plan), judge only the work that answer starts, as the reply describes it, not the length of the answer and not the work done before the question: "B" can mean "build the complicated section B" (high), while "yes" or "no" to one small action ("should I archive this?", "delete the old ones too?") is low, and picking a value for one setting (a log level, a colour, a font) is low. But picking which way to build something ("option 1", "the same shapes", "B") starts that build: judge the build. Approving a whole plan or several steps takes the effort of that plan.
 
 Thanks, praise or a closing remark with no new request is low. A question about how to do something, or about effort itself, that needs no tools is low.
 
@@ -159,7 +159,7 @@ const JEV_TASK =
   'Sonnet does at high, so for one task pick one step lower on Opus than on Sonnet. ' +
   'A short follow-up ("yes", "go", "ok", in any language) keeps the current effort. When the message answers a ' +
   "question in the assistant's last reply (picks an option), judge only the work that answer starts, not its length and " +
-  'not the work before the question: yes/no to one small action, or picking a value (a level, a colour, a name), is low; ' +
+  'not the work before the question: yes/no to one small action, or picking a value for one setting (a log level, a colour), is low; picking which way to build something starts that build, so judge the build; ' +
   'approving a whole plan takes the effort of that plan. Thanks or a closing remark with no new request is low. A ' +
   'question about how to do something that needs no tools is low. "think hard", "ultrathink" or "be thorough" means ' +
   'at least high; "quick question" means low.'
