@@ -27,9 +27,16 @@ so the panel never reports a prompt.
    (seen twice). Suspect `turnBusy` is not cleared when a turn ends in an API error; the 10 min stale guard would
    hide bands that long. Needs a test.
 
+## Second pass, after Isac's /login (80 and 120 columns)
+- Line under the reply works: `Cooked 3s ✦ Low · cache 59m`.
+- Cold warning card under the reply works, with terminal wording ("Type /compact first").
+- `/effortless handoff` works end to end: fork, clear, new chat, green "Handoff complete" card.
+- Typed `/compact` shows the host's own "Compacting conversation…" line, no effortless card. The compact card
+  only follows the band's Compact button, which could not be pressed from the harness.
+- Bug: at 80 columns with Medium picked, the effort row breaks the word "Effort" over two lines (`Effor` … `t`).
+  The row needs to give way before the label does.
+
 ## Not checked
 - Keyboard reach of band buttons: Up recalls prompt history, Tab does nothing visible. Mouse clicks not tried.
-- Cards under replies (handoff, compact, warnings) and the handoff bar: every model turn failed with
-  `401 OAuth access token has expired`, both with the app's env and a clean env. The standalone CLI login on this
-  PC has expired; Isac has to run `/login` in a terminal `claude` once.
+- The compact card after the band's Compact button.
 - Minimum CLI version for mods.
