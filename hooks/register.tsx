@@ -1186,7 +1186,8 @@ async function openPluginSettings($: EngineInterface) {
   await update($, settingsOpen, () => true)
   // Before a chat's first message the app may start the mod's session afresh for each command, and the state with
   // it: the request also goes to the store, which outlives that, and the next drawing picks it up.
-  await $.store.set('openSettingsAt', Date.now())
+  // The store is shared by every chat, so the request names this one: another chat must not open its panel too.
+  await $.store.set('openSettingsAt', { at: Date.now(), session: await $.session.id().catch(() => '') })
   $.ui.invalidate('ui.render')
 }
 
@@ -1833,9 +1834,13 @@ Saved to ${out}.md and .json` }
       return next(e)
     }
     const asked = await $.store.get('openSettingsAt')
-    if (typeof asked === 'number') {
+    const askedHere =
+      asked && typeof asked === 'object' && (asked as { session?: string }).session === (await $.session.id().catch(() => ''))
+        ? (asked as { at: number }).at
+        : null
+    if (typeof askedHere === 'number') {
       await $.store.set('openSettingsAt', null)
-      if (Date.now() - asked < 60_000 && !(await read($, settingsOpen))) await update($, settingsOpen, () => true)
+      if (Date.now() - askedHere < 60_000 && !(await read($, settingsOpen))) await update($, settingsOpen, () => true)
     }
     lastRenderBranch = (await read($, settingsOpen)) ? 'drew the settings panel' : 'drew a band or nothing'
     const { Box, Text, Button, Svg } = $.ui.resolve(e)

@@ -103,6 +103,10 @@ What this does and does not show:
 
 Effort only changes on Opus 5.5 and Sonnet 5.5. On Fable 5.1 and older models a change of effort between requests rewrote most of the prompt cache, which costs more than it saves, so Auto pauses there and the footer says `Paused`. Haiku takes no effort setting.
 
+## Split view
+
+In the desktop app's split view, Claude Code draws plugin bars and the footer only in the left pane, so effortless shows there and not on the right. Every chat still runs it. To see it in two chats at once, open them in separate windows instead.
+
 ## Develop
 
 ```bash
