@@ -1890,7 +1890,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     judging: Boolean(v.judging),
     effort: effortNow,
     cacheNow: config.hide.includes('timer') ? null : v.cacheNow,
-    contextPercent: lastContext && lastContext.window ? lastContext.percent : null,
+    // Desktop draws the context as a ring and a figure (as the swamp band does); the terminal says it in words.
+    contextPercent: e.surface === 'terminal' && lastContext && lastContext.window ? lastContext.percent : null,
     reason,
     last: await read($, lastTurn),
   })
@@ -1930,6 +1931,12 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
         <Box flexShrink={0}>
           <Text color={ACCENT} bold>{head}</Text>
         </Box>
+        {Svg && lastContext && lastContext.window ? (
+          <Box key="dash-ring" flexShrink={0} flexDirection="row" gap={1} alignItems="center">
+            <Svg source={ringSvg(lastContext.percent, ACCENT)} alt={`${Math.round(lastContext.percent)}% of context`} width={16} height={16} />
+            <Text color={ACCENT}>{`${Math.round(lastContext.percent)}%`}</Text>
+          </Box>
+        ) : null}
         {detail ? (
           <Box flexShrink={1} minWidth={0}>
             <Text dimColor wrap="truncate">{detail}</Text>
