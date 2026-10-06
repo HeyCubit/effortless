@@ -116,7 +116,7 @@ Effort only changes on Opus 5.5 and Sonnet 5.5. On Fable 5.1 and older models a 
 
 ## Split view
 
-In the desktop app's split view, Claude Code draws plugin bars and the footer only in the left pane. The right pane still gets effortless through the line under each reply: `Baked 3s · ✦ High · cache 42m`, and under the newest reply a small card in the band's colours when the chat went cold, is getting swamped or runs hot. The card names the command that does what the band's button would: `/compact`, `/effortless handoff` or `/effortless save`. Chat cards cannot hold buttons, so it is a command there. Switch the line off in ⚙ under what shows.
+In the desktop app's split view, Claude Code draws plugin bars and the footer only in the left pane. The right pane still draws replies, so when the chat went cold, is getting swamped or runs hot, a small card in the band's colours hangs under the newest reply, naming the command that does what the band's button would: `/compact`, `/effortless handoff` or `/effortless save`. Chat cards cannot hold buttons, so it is a command there. In the terminal the line under each reply also shows the effort and the cache. Switch both off in ⚙ under what shows.
 
 ## Develop
 

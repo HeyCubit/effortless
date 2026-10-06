@@ -85,6 +85,8 @@ const handoffPick = atom({ plugin: 'effortless', key: 'handoffPick' } as const, 
 // The context is swamped: tokens read per request, or null below the line. Drives the swamp band.
 const swamped = atom({ plugin: 'effortless', key: 'swamped' } as const, null)
 // The swamp band was closed at this many tokens; it comes back once the context has grown well past it.
+// The newest reply's text, so the warning card goes under its last block and nowhere else.
+const lastAnswer = atom({ plugin: 'effortless', key: 'lastAnswer' } as const, '')
 const swampHiddenAt = atom({ plugin: 'effortless', key: 'swampHiddenAt' } as const, null)
 // The first-run setup is not done: the footer offers "Setup".
 const setupPending = atom({ plugin: 'effortless', key: 'setupPending' } as const, false)
@@ -851,10 +853,6 @@ async function toggleSave($: EngineInterface): Promise<string> {
   await update($, saveUntil, () => (saving ? null : until))
   return saving ? 'save mode off' : 'save mode on, Auto stays at medium or below until the limit resets'
 }
-
-// The lines under replies as first drawn (session|word|duration), and the newest one, which alone carries a warning.
-const turnLines = new Map<string, { effort: string; cache: number | null; warn: TurnWarning | null }>()
-let newestTurn = ''
 
 type TurnWarning = { title: string; line: string; color: string; bg: string; edge: string; art: string }
 
@@ -1747,6 +1745,8 @@ export const register: Register = (on, options) => {
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
     await progressAtTurnEnd($, e).catch(() => undefined)
+    // The newest reply's text: its last block carries the warning card (see AssistantMessage).
+    if (!e.agentId && e.reason === 'answer') await update($, lastAnswer, () => e.answer.trim())
     if (!e.agentId && (await read($, handoffStage)) === 'writing') {
       if (e.reason === 'answer' && e.answer.trim()) handoffText = e.answer
       else {
@@ -2136,51 +2136,51 @@ Saved to ${out}.md and .json` }
     )
   })
 
-  // The line under each reply ("Baked 3s") in the brand's colours, with the effort and the cache. Split view's right
-  // pane draws no bands, but it draws this line, so under the newest reply a warning comes as a small branded card:
-  // the band's colours and art, and the command that does what the band's button would. Older lines keep what they
-  // showed when they were drawn, without the card.
+  // The terminal's line under each reply ("Baked 3s") in the brand's colours, with the effort and the cache. The
+  // desktop draws no such line; there the warning card hangs under the reply instead (AssistantMessage, below).
   on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
     if (config.hide.includes('line')) return next(e)
-    const { Box, Text, Svg } = $.ui.resolve(e)
-    const key = `${await $.session.id().catch(() => '')}|${e.props.word}|${e.props.durationMs}`
-    if (!turnLines.has(key)) newestTurn = key
-    const newest = key === newestTurn
-    let shown = turnLines.get(key)
-    if (!shown || newest) {
-      const v = await snap($)
-      const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
-      shown = {
-        effort: effortNow ? EFFORT_LABELS[effortNow] : 'Auto',
-        cache: v.cacheNow,
-        warn: newest ? await turnWarning($) : null,
-      }
-      turnLines.set(key, shown)
-    }
+    const { Box, Text } = $.ui.resolve(e)
+    const v = await snap($)
+    const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
     const took = Math.max(1, Math.round(e.props.durationMs / 1000))
-    const warn = newest ? shown.warn : null
     return (
-      <Box key="turn" flexDirection="column" gap={0}>
-        <Box key="turn-line" flexDirection="row" gap={1}>
-          <Text dimColor>{`${e.props.word} ${took < 60 ? `${took}s` : `${Math.floor(took / 60)}m ${took % 60}s`}`}</Text>
-          <Text color={ACCENT}>{`✦ ${shown.effort}`}</Text>
-          {shown.cache === null ? null : (
-            <Text dimColor={cacheColor(shown.cache) === undefined} color={cacheColor(shown.cache)}>{`· ${shown.cache <= 0 ? 'cache cold' : `cache ${cacheLabel(shown.cache)}`}`}</Text>
-          )}
-        </Box>
-        {warn ? (
-          <Box key="turn-warn" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
-            backgroundColor={warn.bg} borderStyle="round" borderColor={warn.edge}>
-            {/* A still image: an animated one sits in a frame the app rebuilds on every redraw. */}
-            <Box key="turn-warn-art" position="absolute" top={-1} right={0} bottom={-1}>
-              <Svg source={warn.art} alt={warn.title} width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
-            </Box>
-            <Box key="turn-warn-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
-              <Text color={warn.color} bold wrap="truncate">{`✦ ${warn.title}`}</Text>
-              <Text wrap="truncate">{warn.line}</Text>
-            </Box>
+      <Box key="turn-line" flexDirection="row" gap={1}>
+        <Text dimColor>{`${e.props.word} ${took < 60 ? `${took}s` : `${Math.floor(took / 60)}m ${took % 60}s`}`}</Text>
+        <Text color={ACCENT}>{`✦ ${effortNow ? EFFORT_LABELS[effortNow] : 'Auto'}`}</Text>
+        {v.cacheNow === null ? null : (
+          <Text dimColor={cacheColor(v.cacheNow) === undefined} color={cacheColor(v.cacheNow)}>{`· ${v.cacheNow <= 0 ? 'cache cold' : `cache ${cacheLabel(v.cacheNow)}`}`}</Text>
+        )}
+      </Box>
+    )
+  })
+
+  // Under the newest reply's last block, when a band would warn: a small card in the band's colours and art, naming
+  // the command that does what the band's button would. Split view's right pane draws no bands but draws replies.
+  // Older replies stop matching the newest answer, so their card goes when a new one lands.
+  on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) => {
+    if (config.hide.includes('line')) return next(e)
+    const answer = await read($, lastAnswer)
+    const text = e.props.text.trim()
+    if (!answer || !text || !answer.endsWith(text)) return next(e)
+    const warn = await turnWarning($)
+    if (!warn) return next(e)
+    const { Box, Text, Svg } = $.ui.resolve(e)
+    const drawn = await next(e)
+    return (
+      <Box key="reply" flexDirection="column" gap={1}>
+        {drawn}
+        <Box key="reply-warn" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
+          backgroundColor={warn.bg} borderStyle="round" borderColor={warn.edge}>
+          {/* A still image: an animated one sits in a frame the app rebuilds on every redraw. */}
+          <Box key="reply-warn-art" position="absolute" top={-1} right={0} bottom={-1}>
+            <Svg source={warn.art} alt={warn.title} width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
           </Box>
-        ) : null}
+          <Box key="reply-warn-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
+            <Text color={warn.color} bold wrap="truncate">{`✦ ${warn.title}`}</Text>
+            <Text wrap="truncate">{warn.line}</Text>
+          </Box>
+        </Box>
       </Box>
     )
   })
