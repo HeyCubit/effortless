@@ -1594,20 +1594,8 @@ Saved to ${out}.md and .json` }
         : effortNow
           ? EFFORT_LABELS[effortNow]
           : 'Auto'
-    // Hover cards: hidden until the pointer rests on the effort or cache text (same hover scope), then shown just
-    // above it. Text has no tooltip of its own. In the footer, not above the prompt: a hidden tree there still drew
-    // the app's empty slot.
-    const tips = hoverTips(v)
-    const card = (key: string, scope: string, text: string) => (
-      <Box key={key} position="absolute" bottom={1} right={0} display="none" hover={{ scope, display: 'flex' }} paddingX={1}
-        backgroundColor={BRAND_HEAD}>
-        <Text>{text}</Text>
-      </Box>
-    )
     return (
-      <Box key="footer" position="relative" flexDirection="row" gap={1} alignItems="center">
-        {card('tip-effort', 'effort', tips.effort)}
-        {v.cacheNow === null ? null : card('tip-cache', 'cache', tips.cache)}
+      <Box flexDirection="row" gap={1} alignItems="center">
         {e.props.modes.length > 0 ? <Text dimColor>{e.props.modes.join(' & ')}</Text> : null}
         {/* Hovering the level puts a box behind it, like the app's own effort pill. The spaces are its padding:
             Text has no padding of its own. */}
