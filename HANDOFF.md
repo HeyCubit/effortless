@@ -1,7 +1,7 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.33.6, pushed and installed. Direct pushes, no open PRs. Several chats push
+- `main` on HeyCubit/effortless, version 1.34.5, pushed and installed. Direct pushes, no open PRs. Several chats push
   to main: fetch and rebase before every push.
 - Release: bump `version` in `.claude-plugin/plugin.json`, `<cli> plugin validate .`, `<cli> plugin test .`
   (0 fail), push, `<cli> plugin marketplace update effortless`, `<cli> plugin update effortless@effortless`, restart.

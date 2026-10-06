@@ -2407,6 +2407,21 @@ describe('progress bar', () => {
     await back.unmount()
   })
 
+  test('a closed bar stays quiet: finishing its list plays no chime', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    const played = tools(on)
+    await start($, on)
+    await $.tool.call({ tool: 'TodoWrite', todos: todos(['in_progress', 'pending', 'pending']) } as never)
+    const band = await $.ui.mount(DESK_BAND)
+    await band.press({ key: 'progress-close' })
+    await band.unmount()
+    await $.tool.call({ tool: 'TodoWrite', todos: todos(['completed', 'completed', 'completed']) } as never)
+    await endTurn($, 'Done.')
+    await mocked.advance(1000)
+    expect(played).toEqual([])
+  })
+
   test('a big turn alone shows no bar; plan mode shows Planning until a list comes, and with none it goes quietly', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
