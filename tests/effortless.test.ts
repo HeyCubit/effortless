@@ -1406,3 +1406,55 @@ describe('handoff', () => {
     await footer.unmount()
   })
 })
+
+describe('swamp band and setup entry', () => {
+  const start = async ($: Engine, on: On) => {
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+  }
+
+  test('a swamped context shows Compact and Handoff above the prompt; closing hides it until the context grows', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    let tokens = 180_000
+    on('session.usage', () => ({ value: { context: { tokens, window: 1_000_000, percent: Math.round(tokens / 10_000) } } }) as never)
+    await start($, on)
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await mocked.advance(16_000)
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('Chat is getting swamped')
+    expect(await drawn(band)).toContain('180k tokens')
+    expect(await band.find({ key: 'swamp-compact' })).toBeDefined()
+    expect(await band.find({ key: 'swamp-handoff' })).toBeDefined()
+    await band.press({ key: 'swamp-close' })
+    await band.unmount()
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    tokens = 240_000
+    await mocked.advance(16_000)
+    const again = await $.ui.mount(DESK_BAND)
+    expect(await drawn(again)).toContain('240k tokens')
+    await again.unmount()
+  })
+
+  test('the setup can be closed with the cross; the footer then offers Setup, which opens it again', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    await start($, on)
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    const footer = await $.ui.mount(FOOTER)
+    expect(await footer.find({ key: 'setup' })).toBeDefined()
+    await footer.press({ key: 'setup' })
+    const reopened = await $.ui.mount(DESK_BAND)
+    expect(await reopened.find({ key: 'setup-jev' })).toBeDefined()
+    await reopened.press({ key: 'setup-haiku' })
+    await reopened.unmount()
+    expect(await footer.find({ key: 'setup' })).toBeUndefined()
+    await footer.unmount()
+  })
+})

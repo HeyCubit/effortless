@@ -45,6 +45,9 @@ const CACHE_RED_MIN = 5
 const ICE = '#7cc4ff'
 const ICE_BG = '#0e1820'
 const ICE_EDGE = '#2f5c80'
+const BOG = '#a7c98f'
+const BOG_BG = '#111710'
+const BOG_EDGE = '#3e5a33'
 const YELLOW = '#e0a33a'
 const RED = '#e5534b'
 const isAutoModel = atom({ plugin: 'effortless', key: 'isAutoModel' } as const, false)
@@ -66,6 +69,12 @@ const isCompacting = atom({ plugin: 'effortless', key: 'isCompacting' } as const
 // The person closed the cold band; it comes back the next time the cache goes cold.
 // Where a handoff is: null idle, writing (the handoff turn runs), clearing (clear and resend).
 const handoffStage = atom({ plugin: 'effortless', key: 'handoffStage' } as const, null)
+// The context is swamped: tokens read per request, or null below the line. Drives the swamp band.
+const swamped = atom({ plugin: 'effortless', key: 'swamped' } as const, null)
+// The swamp band was closed at this many tokens; it comes back once the context has grown well past it.
+const swampHiddenAt = atom({ plugin: 'effortless', key: 'swampHiddenAt' } as const, null)
+// The first-run setup is not done: the footer offers "Setup".
+const setupPending = atom({ plugin: 'effortless', key: 'setupPending' } as const, false)
 const isColdHidden = atom({ plugin: 'effortless', key: 'isColdHidden' } as const, false)
 // The setup guide above the prompt: which step it shows, or null when it is closed.
 const setupStep = atom({ plugin: 'effortless', key: 'setupStep' } as const, null)
@@ -78,6 +87,8 @@ const FROST_HEIGHT = 64
 const TYPESAFE_MARK = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="18" viewBox="0 0 16.487 24"><style>svg{background:transparent;display:block}</style><path d="M 12.756 2.928 L 12.756 7.067 L 16.486 9.487 L 16.487 18.652 L 8.244 24 L 3.732 21.073 L 3.732 16.82 L 0 14.399 L 0 5.35 L 0.355 5.118 L 8.244 0 Z M 5.94 20.65 L 8.242 22.144 L 14.275 18.227 L 11.975 16.735 Z M 9.022 10.332 L 9.022 14.4 L 5.29 16.822 L 5.29 19.216 L 11.197 15.383 L 11.197 8.921 Z M 12.756 15.384 L 14.928 16.794 L 14.928 10.332 L 12.756 8.922 Z M 2.21 13.976 L 4.511 15.47 L 6.812 13.976 L 4.512 12.485 Z M 1.559 6.193 L 1.559 12.544 L 3.731 11.134 L 3.731 7.066 L 7.464 4.643 L 7.464 2.36 L 1.56 6.193 Z M 5.291 11.132 L 7.463 12.542 L 7.463 10.332 L 5.292 8.921 L 5.292 11.132 Z M 5.94 7.487 L 8.244 8.981 L 10.544 7.488 L 8.244 5.994 Z M 9.024 4.643 L 11.196 6.054 L 11.196 3.774 L 9.024 2.359 Z" fill="#ffffff"/></svg>`
 // Claude's mark (from claude.ai) in white, drawn beside the Haiku button.
 const CLAUDE_MARK = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 248 248"><style>svg{background:transparent;display:block}</style><path d="M52.4285 162.873L98.7844 136.879L99.5485 134.602L98.7844 133.334H96.4921L88.7237 132.862L62.2346 132.153L39.3113 131.207L17.0249 130.026L11.4214 128.844L6.2 121.873L6.7094 118.447L11.4214 115.257L18.171 115.847L33.0711 116.911L55.485 118.447L71.6586 119.392L95.728 121.873H99.5485L100.058 120.337L98.7844 119.392L97.7656 118.447L74.5877 102.732L49.4995 86.1905L36.3823 76.62L29.3779 71.7757L25.8121 67.2858L24.2839 57.3608L30.6515 50.2716L39.3113 50.8623L41.4763 51.4531L50.2636 58.1879L68.9842 72.7209L93.4357 90.6804L97.0015 93.6343L98.4374 92.6652L98.6571 91.9801L97.0015 89.2625L83.757 65.2772L69.621 40.8192L63.2534 30.6579L61.5978 24.632C60.9565 22.1032 60.579 20.0111 60.579 17.4246L67.8381 7.49965L71.9133 6.19995L81.7193 7.49965L85.7946 11.0443L91.9074 24.9865L101.714 46.8451L116.996 76.62L121.453 85.4816L123.873 93.6343L124.764 96.1155H126.292V94.6976L127.566 77.9197L129.858 57.3608L132.15 30.8942L132.915 23.4505L136.608 14.4708L143.994 9.62643L149.725 12.344L154.437 19.0788L153.8 23.4505L150.998 41.6463L145.522 70.1215L141.957 89.2625H143.994L146.414 86.7813L156.093 74.0206L172.266 53.698L179.398 45.6635L187.803 36.802L193.152 32.5484H203.34L210.726 43.6549L207.415 55.1159L196.972 68.3492L188.312 79.5739L175.896 96.2095L168.191 109.585L168.882 110.689L170.738 110.53L198.755 104.504L213.91 101.787L231.994 98.7149L240.144 102.496L241.036 106.395L237.852 114.311L218.495 119.037L195.826 123.645L162.07 131.592L161.696 131.893L162.137 132.547L177.36 133.925L183.855 134.279H199.774L229.447 136.524L237.215 141.605L241.8 147.867L241.036 152.711L229.065 158.737L213.019 154.956L175.45 145.977L162.587 142.787H160.805V143.85L171.502 154.366L191.242 172.089L215.82 195.011L217.094 200.682L213.91 205.172L210.599 204.699L188.949 188.394L180.544 181.069L161.696 165.118H160.422V166.772L164.752 173.152L187.803 207.771L188.949 218.405L187.294 221.832L181.308 223.959L174.813 222.777L161.187 203.754L147.305 182.486L136.098 163.345L134.745 164.2L128.075 235.42L125.019 239.082L117.887 241.8L111.902 237.31L108.718 229.984L111.902 215.452L115.722 196.547L118.779 181.541L121.58 162.873L123.291 156.636L123.14 156.219L121.773 156.449L107.699 175.752L86.304 204.699L69.3663 222.777L65.291 224.431L58.2867 220.768L58.9235 214.27L62.8713 208.48L86.304 178.705L100.44 160.155L109.551 149.507L109.462 147.967L108.959 147.924L46.6977 188.512L35.6182 189.93L30.7788 185.44L31.4156 178.115L33.7079 175.752L52.4285 162.873Z" fill="#ffffff"/></svg>`
+// The band when the context is swamped: murky green, bubbles rising, slow ripples.
+const SWAMP_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.b{fill:none;stroke:#cfe8b8;stroke-width:.5;opacity:0;animation-name:rise;animation-timing-function:ease-in;animation-iteration-count:infinite}@keyframes rise{0%{opacity:0;transform:translate(0,0)}15%{opacity:.7}80%{opacity:.5}100%{opacity:0;transform:translate(3px,-30px)}}.rp{fill:none;stroke:#a7c98f;stroke-width:.4;stroke-linecap:round;opacity:.25;animation:drift 7s ease-in-out infinite}@keyframes drift{0%,100%{transform:translate(0,0);opacity:.15}50%{transform:translate(4px,0);opacity:.4}}.mk{animation:mk 8s ease-in-out infinite}@keyframes mk{0%,100%{opacity:.85}50%{opacity:1}}</style><defs><linearGradient id="bog" x1="0" x2="1"><stop offset=".43" stop-color="#4f7a3a" stop-opacity="0"/><stop offset=".62" stop-color="#4f7a3a" stop-opacity=".16"/><stop offset=".85" stop-color="#6f9a4f" stop-opacity=".32"/><stop offset="1" stop-color="#9cc27a" stop-opacity=".42"/></linearGradient><linearGradient id="silt" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset=".6" stop-color="#2b3a1f" stop-opacity=".18"/><stop offset="1" stop-color="#1c2614" stop-opacity=".45"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".06"/></pattern></defs><g mask="url(#m)"><rect class="mk" width="360" height="30" fill="url(#bog)"/><rect width="360" height="30" fill="url(#silt)"/><rect width="360" height="30" fill="url(#grain)"/><path class="rp" style="animation-delay:-0s" d="M190 22 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-2.5s" d="M226 9 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-5s" d="M250 18 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-1.5s" d="M300 24 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-3.8s" d="M322 7 q6 -2 12 0 t12 0"/><circle class="b" cx="168" cy="32" r="1.6" style="animation-duration:6.5s;animation-delay:-0s"/><circle class="b" cx="182" cy="32" r="1.1" style="animation-duration:8s;animation-delay:-2.1s"/><circle class="b" cx="197" cy="32" r="2.0" style="animation-duration:7s;animation-delay:-4.2s"/><circle class="b" cx="210" cy="32" r="1.3" style="animation-duration:9s;animation-delay:-1.0s"/><circle class="b" cx="224" cy="32" r="1.7" style="animation-duration:7.5s;animation-delay:-3.3s"/><circle class="b" cx="238" cy="32" r="1.0" style="animation-duration:8.5s;animation-delay:-5.1s"/><circle class="b" cx="252" cy="32" r="1.4" style="animation-duration:6.8s;animation-delay:-2.6s"/><circle class="b" cx="176" cy="32" r="0.9" style="animation-duration:9.5s;animation-delay:-6.0s"/><circle class="b" cx="232" cy="32" r="0.8" style="animation-duration:10s;animation-delay:-0.5s"/></g></svg>`
 const SETTINGS_COMMAND = '/plugin configure effortless@effortless'
 // The right of the setup guide, pure decoration (the name is on the left): a purple gradient with a soft glow,
 // faint light streaks and grain, a still star, and small sparkles that twinkle in and out here and there. One constant source, so the app never rebuilds its frame (a changing source flickers); the
@@ -772,6 +783,24 @@ export function cacheLabel(minutesLeft: number): string {
 let cacheTtl: keyof typeof CACHE_TTL = '1h'
 let cacheExpires = 0
 /** Writes the minutes left when they changed; the session's one timer (started in session.start) calls it. */
+// A chat is swamped once each request reads this much context (or half the window): every message re-reads it all.
+const SWAMP_TOKENS = 150_000
+const SWAMP_PERCENT = 50
+// Closed, the band stays away until the context has grown this much more.
+const SWAMP_REGROW = 50_000
+
+/** Whether the context is swamped, from the status line's figures. Cheap: no counting, no model call. */
+async function checkSwamp($: EngineInterface) {
+  const { context } = await $.session.usage()
+  const tokens = context.tokens ?? 0
+  const over = tokens >= SWAMP_TOKENS || (context.percent ?? 0) >= SWAMP_PERCENT
+  const next = over ? tokens : null
+  if (next !== (await read($, swamped))) {
+    await update($, swamped, () => next)
+    $.ui.invalidate('ui.render')
+  }
+}
+
 async function showCache($: EngineInterface) {
   if (cacheExpires === 0) return
   const minutes = await cacheMinutes($)
@@ -898,7 +927,7 @@ async function typesafeKeyAnywhere($: EngineInterface): Promise<string | undefin
 
 /** Closes the guide for good: it does not open by itself again. */
 async function finishSetup($: EngineInterface, said?: string) {
-  await Promise.all([update($, setupStep, () => null), $.store.set('setupDone', true)])
+  await Promise.all([update($, setupStep, () => null), update($, setupPending, () => false), $.store.set('setupDone', true)])
   if (said) $.ui.toast(said)
 }
 
@@ -1025,17 +1054,21 @@ export const register: Register = (on, options) => {
     }
     // The cache countdown's clock. A timer started inside a request ends with that request, so it lives here.
     $.clock.every(CACHE_TICK_MS, () => void showCache($).catch(() => undefined))
+    $.clock.every(CACHE_TICK_MS, () => void checkSwamp($).catch(() => undefined))
     // A written handoff is cleared and resent from here: a hook the turn waits on may not run commands.
     handoffTimer?.cancel()
     handoffTimer = $.clock.every(HANDOFF_POLL_MS, () => void finishHandoff($).catch(() => undefined))
     // The first time the mod runs, the setup guide opens above the prompt.
-    if ((await $.store.get('setupDone')) !== true) await update($, setupStep, () => 'pick')
+    if ((await $.store.get('setupDone')) !== true) {
+      await update($, setupStep, () => 'pick')
+      await update($, setupPending, () => true)
+    }
     // Clear the status entry older versions set.
     $.ui.status(undefined)
     await modelIs($, await $.session.model()).catch(() => undefined)
     await $.command.register({
       name: 'effortless',
-      description: 'Handoff to a fresh chat: /effortless handoff. Setup: /effortless setup. Judge test: /effortless bench. Auto on/off: /effortless auto. What Auto cost: /effortless stats. Try Compact: /effortless cold.',
+      description: 'Handoff to a fresh chat: /effortless handoff. Try the swamp band: /effortless swamp. Setup: /effortless setup. Judge test: /effortless bench. Auto on/off: /effortless auto. What Auto cost: /effortless stats. Try Compact: /effortless cold.',
     })
     return next(e)
   })
@@ -1061,6 +1094,13 @@ export const register: Register = (on, options) => {
       return { text: (await read($, isAuto)) ? 'Auto on: effort is picked for every prompt.' : 'Auto off: the effort is yours.' }
     }
     // A test aid: marks the cache cold now, so the Compact button can be tried without waiting out the hour.
+    if (arg === 'swamp') {
+      // Shows the swamp band now, to try it: the next check puts back the real figure.
+      await update($, swampHiddenAt, () => null)
+      await update($, swamped, () => SWAMP_TOKENS)
+      $.ui.invalidate('ui.render')
+      return { text: 'The swamp band is showing now (a test). It goes away at the next check unless the chat really is swamped.' }
+    }
     if (arg === 'handoff') {
       await startHandoff($)
       return { text: 'Writing the handoff. The chat is cleared and continues from it when it is done.' }
@@ -1221,6 +1261,7 @@ Saved to ${out}.md and .json` }
     const { Box, Text, Button } = $.ui.resolve(e)
     const v = await snap($)
     const handoffNow = (await read($, handoffStage)) !== null
+    const needsSetup = await read($, setupPending)
     const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
     const label = v.judging
       ? 'Deciding…'
@@ -1250,6 +1291,19 @@ Saved to ${out}.md and .json` }
         )}
         {/* The one thing to click: it switches Auto off and on. Text cannot be clicked, so it is a small button. */}
         <Button key="auto" plain dimColor label=" ⏻ " hover={{ scope: 'power', backgroundColor: HOVER_BOX }} onPress={() => toggleAutoEffort($)} />
+        {/* Until a judge is picked the footer offers the setup; one click opens it above the prompt. */}
+        {needsSetup ? (
+          <Button
+            key="setup"
+            plain
+            label=" Setup "
+            hover={{ scope: 'setup', backgroundColor: HOVER_BOX }}
+            onPress={async () => {
+              await update($, setupStep, () => 'pick')
+              $.ui.invalidate('ui.render')
+            }}
+          />
+        ) : null}
         {/* Hand off: write a handoff, clear the chat, continue from it. One symbol, so it takes little room. */}
         <Button
           key="handoff"
@@ -1284,6 +1338,8 @@ Saved to ${out}.md and .json` }
       const openSettings = () => typeCommand($, SETTINGS_COMMAND)
       // The same build as the cold band: one styled surface, the art a backdrop layer behind the right side, and the
       // buttons in a later layer so they are drawn on top of it. The text keeps clear of them with a spacer.
+      // The ✕ closes the guide without picking: the footer keeps offering "Setup" until a judge is picked.
+      const close = <Button key="setup-close" plain role="dismiss" label="✕" onPress={() => update($, setupStep, () => null)} />
       const band = (words: string, buttons: unknown[]) => (
         <Box
           key="setup"
@@ -1306,9 +1362,10 @@ Saved to ${out}.md and .json` }
             </Text>
           </Box>
           <Text wrap="truncate">{words}</Text>
-          <Box flexGrow={1} minWidth={34} />
+          <Box flexGrow={1} minWidth={38} />
           <Box key="setup-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={3} alignItems="center">
             {buttons}
+            {close}
           </Box>
         </Box>
       )
@@ -1372,6 +1429,43 @@ Saved to ${out}.md and .json` }
           <Box key="cold-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
             <Button key="cold-hide" plain label="Not now" onPress={() => update($, isColdHidden, () => true)} />
             <Button key="cold-compact" variant="primary" label={compacting ? 'Compacting…' : 'Compact'} onPress={() => compactCold($)} />
+          </Box>
+        </Box>
+      )
+    }
+    // The context is swamped: every message re-reads all of it. Compact or hand off, right here.
+    const swampTokens = await read($, swamped)
+    const hiddenAt = await read($, swampHiddenAt)
+    if (swampTokens !== null && (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW)) {
+      const compacting = await read($, isCompacting)
+      const handing = (await read($, handoffStage)) !== null
+      return (
+        <Box
+          key="swamp"
+          position="relative"
+          flexDirection="row"
+          gap={1}
+          alignItems="center"
+          paddingX={1}
+          overflow="hidden"
+          backgroundColor={BOG_BG}
+          borderStyle="round"
+          borderColor={BOG_EDGE}
+        >
+          <Box key="bog" position="absolute" top={-1} right={0} bottom={-1}>
+            <Svg source={SWAMP_SVG} alt="swamp" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
+          </Box>
+          <Box flexShrink={0}>
+            <Text color={BOG} bold wrap="truncate">
+              ≋ Chat is getting swamped
+            </Text>
+          </Box>
+          <Text wrap="truncate">{`${Math.round(swampTokens / 1000)}k tokens re-read every message.`}</Text>
+          <Box flexGrow={1} minWidth={34} />
+          <Box key="swamp-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
+            <Button key="swamp-compact" variant="primary" hotkey="c" label={compacting ? 'Compacting…' : 'Compact'} onPress={() => compactCold($)} />
+            <Button key="swamp-handoff" hotkey="h" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => startHandoff($)} />
+            <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />
           </Box>
         </Box>
       )

@@ -62,6 +62,7 @@ Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and 
 | `/effortless auto` | Auto on or off |
 | `/effortless stats` | what the prompts Auto steered cost this session, per effort, and what the judge took |
 | `/effortless handoff` | writes a handoff, clears the chat and continues from it in one go (also the `⇥` in the footer); settings `handoffSkill` and `handoffAfter` |
+| `/effortless swamp` | shows the swamp band now, to try it (it appears by itself once each message re-reads 150k+ tokens) |
 | `/effortless cold` | shows the cache as cold now, to try the Compact button |
 | `/effortless bench` | runs the 74 labelled prompts (20 held out) in `bench/judge-cases.json` through each judge you have (Haiku, plus Jev and your own if set up) and saves a score table next to fixed medium/high |
 
