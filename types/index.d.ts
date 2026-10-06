@@ -40,6 +40,8 @@ declare module 'claude-code' {
       isCompacting: boolean
       /** The cold band was closed until the cache goes cold again. */
       isColdHidden: boolean
+      /** Where a handoff is: null idle, writing, or clearing and resending. */
+      handoffStage: 'writing' | 'clearing' | null
       /** The setup guide's step, or null when it is closed. */
       setupStep: 'pick' | 'jev' | 'custom' | null
       /** Auto on model: the judge may suggest another model (never switched without a yes). Off by default. */
