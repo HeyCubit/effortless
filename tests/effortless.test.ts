@@ -2495,6 +2495,9 @@ describe('progress bar', () => {
       expect(await drawn(band)).toContain('Waiting for your answer')
       expect(Boolean(await band.find({ key: 'progress-track' }))).toBe(maxRows >= 4)
       expect(Boolean(await band.find({ key: 'progress-blocks' }))).toBe(maxRows < 4)
+      // The terminal's track is characters: its Svg draws nothing there.
+      if (maxRows >= 4) expect(await drawn(band)).toContain('⚑')
+      expect(await drawn(band)).not.toContain('"type":"Svg"')
       await band.unmount()
     }
   })
