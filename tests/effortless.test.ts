@@ -1266,10 +1266,10 @@ describe('setup guide', () => {
     expect(set).toEqual([])
     await band.press({ key: 'setup-done' })
     expect(set).toEqual([
+      { key: 'effortless.hide', value: 'timer' },
       { key: 'effortless.judge', value: 'haiku' },
       { key: 'effortless.effortBias', value: '2' },
       { key: 'effortless.handoffSkill', value: 'session-handoff' },
-      { key: 'effortless.hide', value: 'timer' },
     ])
     await band.unmount()
     await expect($.ui.mount(DESK)).rejects.toThrow()
