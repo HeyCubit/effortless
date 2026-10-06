@@ -757,7 +757,7 @@ describe('cache countdown', () => {
     await step($)
     await mocked.advance(6 * 60_000)
     await band.press({ key: 'cold-compact' })
-    expect(toasts.join(' ')).toContain("Can't compact")
+    expect(toasts.join(' ')).toContain("can't compact")
     expect(await drawn(footer)).toContain(shows('❄ Cold'))
     await band.unmount()
     await footer.unmount()
