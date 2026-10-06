@@ -2748,8 +2748,9 @@ Saved to ${out}.md and .json` }
       )
     }
     // The cache went cold: the next message writes the whole chat again at full price. Said where it cannot be missed.
-    if ((await read($, cacheLeft)) === 0 && !config.hide.includes('cold') && !(await read($, isColdHidden))) {
-      const compacting = await read($, isCompacting)
+    // While compacting, the card under the newest reply says so and the bands step aside.
+    const compacting = await read($, isCompacting)
+    if ((await read($, cacheLeft)) === 0 && !config.hide.includes('cold') && !(await read($, isColdHidden)) && !compacting) {
       // The art is a backdrop: an absolutely placed layer behind the right side, so the words and Compact sit on it.
       return (
         <Box
@@ -2770,15 +2771,15 @@ Saved to ${out}.md and .json` }
           </Box>
           <Box flexShrink={0}>
             <Text color={ICE} bold wrap="truncate">
-              {compacting ? '✦ Compacting the chat…' : '✦ Chat went cold'}
+              ✦ Chat went cold
             </Text>
           </Box>
-          <Text wrap="truncate">{compacting ? 'Summing it up. The band goes when it is done.' : 'Next message costs full price. Compact first.'}</Text>
+          <Text wrap="truncate">Next message costs full price. Compact first.</Text>
           {/* Room for the buttons, which sit in their own layer after the frost so they are drawn on top of it. */}
           <Box flexGrow={1} minWidth={22} />
           <Box key="cold-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
-            {compacting ? null : <Button key="cold-hide" plain label="Not now" onPress={() => update($, isColdHidden, () => true)} />}
-            {compacting ? null : <Button key="cold-compact" variant="primary" label="Compact" onPress={() => compactCold($)} />}
+            <Button key="cold-hide" plain label="Not now" onPress={() => update($, isColdHidden, () => true)} />
+            <Button key="cold-compact" variant="primary" label="Compact" onPress={() => compactCold($)} />
           </Box>
         </Box>
       )
@@ -2786,8 +2787,7 @@ Saved to ${out}.md and .json` }
     // The context is swamped: every message re-reads all of it. Compact or hand off, right here.
     const swampTokens = await read($, swamped)
     const hiddenAt = await read($, swampHiddenAt)
-    if (swampTokens !== null && !config.hide.includes('swamp') && !turnBusy() && (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW)) {
-      const compacting = await read($, isCompacting)
+    if (swampTokens !== null && !config.hide.includes('swamp') && !turnBusy() && !compacting && (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW)) {
       const handing = (await read($, handoffStage)) !== null
       return (
         <Box
@@ -2807,7 +2807,7 @@ Saved to ${out}.md and .json` }
           </Box>
           <Box flexShrink={0}>
             <Text color={BOG} bold wrap="truncate">
-              {compacting ? '✦ Compacting the chat…' : '✦ Chat is getting swamped'}
+              ✦ Chat is getting swamped
             </Text>
           </Box>
           {/* How full the context is, as a ring and a figure: the tokens alone do not say how close the limit is. */}
@@ -2818,19 +2818,12 @@ Saved to ${out}.md and .json` }
             </Box>
           ) : null}
           <Text wrap="truncate">
-            {compacting
-              ? `Summing up ${Math.round(swampTokens / 1000)}k tokens. The band goes when it is done.`
-              : `${Math.round(swampTokens / 1000)}k tokens re-read every message.`}
+            {`${Math.round(swampTokens / 1000)}k tokens re-read every message.`}
           </Text>
           <Box flexGrow={1} minWidth={34} />
           <Box key="swamp-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
-            {/* While compacting, the title and line say so and the buttons step aside: nothing to press until it ends. */}
-            {compacting ? null : (
-              <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => compactCold($)} />
-            )}
-            {compacting ? null : (
-              <Button key="swamp-handoff" hotkey="h" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />
-            )}
+            <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => compactCold($)} />
+            <Button key="swamp-handoff" hotkey="h" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />
             <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />
           </Box>
         </Box>

@@ -1,7 +1,7 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.33.0 (Compact gets the handoff-style card; no swamp card in the chat; swamp band waits for the turn to end; green done card; progress bar from
+- `main` on HeyCubit/effortless, version 1.33.1 (Compact gets the handoff-style card, bands step aside while compacting; no swamp card in the chat; swamp band waits for the turn to end; green done card; progress bar from
   1.31.1), pushed and installed. Direct pushes, no open PRs. Several chats push to main: fetch and rebase before every push.
 - Release: bump `version` in `.claude-plugin/plugin.json`, `<cli> plugin validate .`, `<cli> plugin test .`
   (0 fail), push, `<cli> plugin marketplace update effortless`, `<cli> plugin update effortless@effortless`, restart.
