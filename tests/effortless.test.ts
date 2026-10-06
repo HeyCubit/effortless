@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText } from '../hooks/register'
+import { withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText } from '../hooks/register'
 
 const BAND = {
   component: 'AbovePrompt',
@@ -1300,5 +1300,22 @@ describe('short answers to a question', () => {
     on('http.fetch', () => ({ value: { status: 200, ok: true, headers: {}, text: jevReply('high', 0.3, 'sonnet') } }))
     await $.prompt.submit({ text: 'show me the last five commits please', wait: false, origin: { kind: 'composer' } })
     expect(asked.length).toBe(1)
+  })
+})
+
+describe('images', () => {
+  test('the judge is told what the message carries', () => {
+    expect(withAttachments('fix this', [{ type: 'image' }, { type: 'image' }])).toContain('[The message comes with 2 images to look at.]')
+    expect(withAttachments('fix this')).toBe('fix this')
+  })
+
+  test('"fix this" with a screenshot is judged, not kept as a follow-up', async ($, on) => {
+    engine(on, {}, 'claude-sonnet-5-5')
+    mock.clock(on)
+    const asked = judgeSays(on, '{"model":"sonnet","effort":"medium","why":"x"}')
+    await $.prompt.submit({ text: 'refactor the sync engine end to end', wait: false, origin: { kind: 'composer' } })
+    await $.prompt.submit({ text: 'fix this', wait: false, origin: { kind: 'composer' }, attachments: [{ type: 'image', mediaType: 'image/png' }] } as never)
+    expect(asked.length).toBe(2)
+    expect(asked[1]).toContain('1 image')
   })
 })

@@ -176,6 +176,17 @@ export function endsOnQuestion(context: string): boolean {
   return context.includes('assistant: ') && reply.slice(-400).includes('?')
 }
 
+/** The message as the judge reads it: images and files it carries are named, since the judge sees only text. */
+export function withAttachments(text: string, attachments?: readonly { type: string }[]): string {
+  if (!attachments?.length) return text
+  const counts = new Map<string, number>()
+  for (const a of attachments) counts.set(a.type, (counts.get(a.type) ?? 0) + 1)
+  const said = [...counts].map(([type, n]) => `${n} ${type}${n > 1 ? 's' : ''}`).join(', ')
+  return `${text}
+
+[The message comes with ${said} to look at.]`
+}
+
 /** A short follow-up that keeps the current effort: "go" between two steps, not an answer to a question. */
 export function keepsEffort(message: string, context: string): boolean {
   return isFollowUp(message) && !endsOnQuestion(context)
@@ -986,7 +997,9 @@ Saved to ${out}.md and .json` }
     if (!cacheSafe(modelId) && keyOf(modelId) !== 'haiku') return next(e)
     // "go", "ok", "yes" between two steps of work keep the effort Auto already chose; no judge is asked.
     const before = await read($, pick)
-    if (wantsEffort && before && before.by !== 'manual' && isFollowUp(e.text) && keepsEffort(e.text, await recentContext($).catch(() => ''))) {
+    // A message with an image is never a bare follow-up: "fix this" plus a screenshot is new work.
+    const shown = withAttachments(e.text, e.attachments)
+    if (wantsEffort && before && before.by !== 'manual' && !e.attachments?.length && isFollowUp(e.text) && keepsEffort(e.text, await recentContext($).catch(() => ''))) {
       await countPrompt($, before.effort, undefined, 0, 0)
       void proof($, `follow-up "${e.text.trim()}": keeping ${before.effort}`)
       return next(e)
@@ -996,7 +1009,7 @@ Saved to ${out}.md and .json` }
     try {
       const inUse = await sessionModel($)
       const startedAt = Date.now()
-      const { verdict, tokens: judgeTokens } = await judge($, e.text, {
+      const { verdict, tokens: judgeTokens } = await judge($, shown, {
         model: inUse,
         effort: (await read($, pick))?.effort ?? 'medium',
         why: '',
