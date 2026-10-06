@@ -111,6 +111,9 @@ async function setHandoffCard($: EngineInterface, kind: HandoffCard['kind'], ful
 
 // The newest reply's text, so the warning card goes under its last block and nowhere else.
 const lastAnswer = atom({ plugin: 'effortless', key: 'lastAnswer' } as const, '')
+const lastTurn = atom({ plugin: 'effortless', key: 'lastTurn' } as const, null)
+// The weighted tokens of the main thread's requests since the prompt; kept in lastTurn when the turn ends.
+let turnCost = 0
 const swampHiddenAt = atom({ plugin: 'effortless', key: 'swampHiddenAt' } as const, null)
 // The first-run setup is not done: the footer offers "Setup".
 const setupPending = atom({ plugin: 'effortless', key: 'setupPending' } as const, false)
@@ -389,6 +392,8 @@ export type JudgeConfig = {
   hide: Hideable[]
   /** The swamp band shows once the context fills this share of the window, in percent. */
   swampAt: number
+  /** default: the dashboard band above the prompt; minimal: the footer's small buttons and no band. */
+  layout: 'default' | 'minimal'
 }
 
 /** The swamp thresholds the settings offer, in percent of the context window. */
@@ -414,6 +419,7 @@ let config: JudgeConfig = {
   ceiling: 'max',
   hide: [],
   swampAt: 50,
+  layout: 'default',
 }
 
 /** The settings as the engine hands them over (defaults filled in), cleaned to the shape the judge reads. */
@@ -433,6 +439,7 @@ export function readConfig(options: unknown): JudgeConfig {
     floor: EFFORTS.includes(str(o.effortFloor) as Effort) ? (str(o.effortFloor) as Effort) : 'low',
     ceiling: EFFORTS.includes(str(o.effortCeiling) as Effort) ? (str(o.effortCeiling) as Effort) : 'max',
     swampAt: SWAMP_STEPS.includes(Number(str(o.swampAt)) as (typeof SWAMP_STEPS)[number]) ? Number(str(o.swampAt)) : 50,
+    layout: str(o.layout) === 'minimal' ? 'minimal' : 'default',
     hide: str(o.hide)
       .split(',')
       .map(part => part.trim())
@@ -821,6 +828,16 @@ export function asSpent(t: unknown): Spent {
     byEffort: v.byEffort && typeof v.byEffort === 'object' ? v.byEffort : {},
     judge: { jev: num(judged.jev), haiku: num(judged.haiku), custom: num(judged.custom), ms: num(judged.ms), tokens: num(judged.tokens) },
   }
+}
+
+/** A request's tokens weighted by price, in input-token terms (see WEIGHT). */
+export function weighted(usage: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null }): number {
+  return (
+    (usage.input_tokens ?? 0) * WEIGHT.input +
+    (usage.cache_creation_input_tokens ?? 0) * WEIGHT.write +
+    (usage.cache_read_input_tokens ?? 0) * WEIGHT.read +
+    (usage.output_tokens ?? 0) * WEIGHT.out
+  )
 }
 
 /** Adds one request Auto steered: every kind of token it used, under the effort it ran at. */
@@ -1321,6 +1338,7 @@ const SETTING_FIELDS = {
   customModel: 'customModel',
   hide: 'hide',
   swampAt: 'swampAt',
+  layout: 'layout',
 } as const
 
 async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELDS, value: string) {
@@ -1347,6 +1365,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     customModel: config.customModel,
     hide: config.hide.join(','),
     swampAt: String(config.swampAt),
+    layout: config.layout,
     [SETTING_FIELDS[field]]: value,
   }
   config = { ...readConfig(raw), typesafeKey: config.typesafeKey, customKey: config.customKey }
@@ -1826,6 +1845,89 @@ async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b
   )
 }
 
+/** The dashboard's two lines: the effort with the cache and the context, then the judge's reason and the last reply. */
+export function dashboardLines(d: {
+  auto: boolean
+  paused: boolean
+  judging: boolean
+  effort: Effort | undefined
+  cacheNow: number | null
+  contextPercent: number | null
+  reason: string
+  last: { cost: number; ms: number } | null
+}): { head: string; detail: string } {
+  const level = d.effort ? EFFORT_LABELS[d.effort] : 'Auto'
+  const what = d.judging ? 'Deciding…' : d.auto && d.paused ? `${level} · Auto paused` : d.auto ? level : `${level} · Auto off`
+  const head = [
+    `✦ ${what}`,
+    d.cacheNow === null ? null : `cache ${cacheLabel(d.cacheNow)}`,
+    d.contextPercent === null ? null : `${Math.round(d.contextPercent)}% context`,
+  ]
+  const last = d.last ? `last reply ≈${tokens(Math.round(d.last.cost))} tokens · ${Math.max(1, Math.round(d.last.ms / 1000))}s` : null
+  return { head: head.filter(Boolean).join(' · '), detail: [d.reason, last].filter(Boolean).join(' · ') }
+}
+
+/** The dashboard: what effortless is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
+async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
+  const els = $.ui.resolve(e)
+  const { Box, Text, Button } = els
+  const v = await snap($)
+  const effortNow = effortOf(v, v.modelNow ?? (await sessionModel($)))
+  const by = v.current?.by
+  const reason = v.current
+    ? `${by === 'manual' ? 'You' : by === 'jev' ? 'Jev' : by === 'custom' ? 'Judge' : 'Haiku'}: ${v.current.why}`
+    : v.auto
+      ? 'Auto picks the effort at the next prompt'
+      : 'You pick the effort'
+  const { head, detail } = dashboardLines({
+    auto: v.auto,
+    paused: Boolean(v.pausedNow),
+    judging: Boolean(v.judging),
+    effort: effortNow,
+    cacheNow: config.hide.includes('timer') ? null : v.cacheNow,
+    contextPercent: lastContext && lastContext.window ? lastContext.percent : null,
+    reason,
+    last: await read($, lastTurn),
+  })
+  const toggleSettings = async () => {
+    if (await read($, settingsOpen)) {
+      await update($, settingsDraft, () => ({}))
+      await update($, settingsOpen, () => false)
+      $.ui.invalidate('ui.render')
+    } else await openPluginSettings($)
+  }
+  const buttons = [
+    <Button key="dash-auto" plain={v.auto ? undefined : true} variant={v.auto ? 'secondary' : undefined} hotkey="a"
+      label={v.auto ? 'Auto on' : 'Auto off'} onPress={() => toggleAutoEffort($)} />,
+    ...(config.hide.includes('handoff')
+      ? []
+      : [<Button key="dash-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />]),
+    <Button key="dash-settings" plain label={'⚙︎'} onPress={toggleSettings} />,
+  ]
+  if (e.surface === 'terminal')
+    return terminalBand($, e, { key: 'dash', kind: 'brand', color: ACCENT, bg: BRAND_BG, edge: BRAND_EDGE, title: head.replace(/^✦ /, ''), detail, buttons })
+  const Svg = 'Svg' in els ? els.Svg : undefined
+  return (
+    <Box key="dash" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
+      backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
+      {Svg ? (
+        <Box key="dash-art" position="absolute" top={-1} right={0} bottom={-1}>
+          <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+        </Box>
+      ) : null}
+      <Box key="dash-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
+        <Text color={ACCENT} bold wrap="truncate">{head}</Text>
+        <Text dimColor wrap="truncate">{detail}</Text>
+      </Box>
+      {/* Room for the buttons, which sit in their own layer after the art so they take clicks. */}
+      <Box flexGrow={1} minWidth={34} />
+      <Box key="dash-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
+        {buttons}
+      </Box>
+    </Box>
+  )
+}
+
 /** The terminal's rows above the prompt (Effort steps, Auto, the model row when switched on) and, on any surface, the
  * judge's question when it suggests another model. The rows also sit under an alert band, so effort never goes away. */
 async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
@@ -2008,6 +2110,7 @@ export const register: Register = (on, options) => {
     await progressAtTurnEnd($, e).catch(() => undefined)
     // The newest reply's text: its last block carries the warning card (see AssistantMessage).
     if (!e.agentId && e.reason === 'answer') await update($, lastAnswer, () => e.answer.trim())
+    if (!e.agentId && turnCost > 0) await update($, lastTurn, () => ({ cost: turnCost, ms: e.durationMs ?? 0 }))
     // A landed handoff card stays under the first reply after it, and goes with the next.
     if (!e.agentId) {
       await update($, handoffCard, card => (!card || cardRunning(card.kind) ? card : card.seen ? null : { ...card, seen: true }))
@@ -2161,6 +2264,7 @@ Saved to ${out}.md and .json` }
 
   on('prompt.submit', async ($, e, next) => {
     await setTurnBusy($, true)
+    turnCost = 0
     if (!config.hide.includes('progress')) {
       const was = await read($, progressState)
       if (afterPrompt(was, e) !== was) await update($, progressState, p => afterPrompt(p, e))
@@ -2247,6 +2351,7 @@ Saved to ${out}.md and .json` }
       const answer = yield* next(request)
       // Inside the hook ($ calls after it returns are refused), and never allowed to break the request.
       if (e.agentId === undefined && answer?.usage) await cacheTouched($, answer.usage).catch(() => undefined)
+      if (e.agentId === undefined && answer?.usage) turnCost += weighted(answer.usage)
       return answer
     }
     if (e.agentId === undefined) await setTurnBusy($, true)
@@ -2287,7 +2392,8 @@ Saved to ${out}.md and .json` }
   // plain Text is what is purple. While the judge decides it says "Deciding…", for a moment after Auto switches the level it says
   // "Low → High", and while Auto is off it says "Off" in the dim colour. Auto is switched with /effortless auto.
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
-    if (e.surface !== 'desktop') return next(e)
+    // The dashboard look keeps all of this in the band above the prompt; the app's own footer shows.
+    if (e.surface !== 'desktop' || config.layout === 'default') return next(e)
     const { Box, Text, Button } = $.ui.resolve(e)
     const v = await snap($)
     const handoffNow = (await read($, handoffStage)) !== null
@@ -2562,6 +2668,7 @@ Saved to ${out}.md and .json` }
         customUrl: draft.customUrl ?? config.customUrl,
         customModel: draft.customModel ?? config.customModel,
         swampAt: draft.swampAt ?? String(config.swampAt),
+        layout: draft.layout ?? config.layout,
       }
       const dirty = Object.keys(draft).length > 0
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
@@ -2678,7 +2785,16 @@ Saved to ${out}.md and .json` }
             <Select key="settings-swamp" label="Swamped at" value={shown.swampAt}
               options={SWAMP_STEPS.map(n => ({ value: String(n), label: `${n}%` }))} onSelect={set('swampAt')} />,
           ])}
-          {frameOnly ? null : row('settings-show', 'Show', ICON_SHOW, toggles)}
+          {frameOnly ? null : row('settings-show', 'Show', ICON_SHOW, [
+            ...(bare
+              ? []
+              : [
+                  <Select key="settings-layout" label="Look" value={shown.layout}
+                    options={[{ value: 'default', label: 'Dashboard' }, { value: 'minimal', label: 'Minimal' }]}
+                    onSelect={set('layout')} />,
+                ]),
+            ...toggles,
+          ])}
         </Box>
       )
     }
@@ -3064,6 +3180,18 @@ Saved to ${out}.md and .json` }
     // A finished or paused task: its bar after the alerts.
     const restingProgress = await progressBand($, e, 'resting')
     if (restingProgress) return restingProgress
+    // At rest: the dashboard, unless the person picked the minimal look (the footer's buttons, no band).
+    if (config.layout === 'default') {
+      if (e.surface === 'terminal') return dashboardBand($, e)
+      const { question } = await effortRows($, e)
+      const dash = await dashboardBand($, e)
+      return question ? (
+        <Box key="dash-col" flexDirection="column">
+          {question}
+          {dash}
+        </Box>
+      ) : dash
+    }
     const { question, rows } = await effortRows($, e)
     if (e.surface !== 'terminal') return question ?? next(e)
     return rows
