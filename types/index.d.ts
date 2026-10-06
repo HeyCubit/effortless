@@ -21,6 +21,8 @@ export type Pick = {
   /** A few words on why, shown dim in the band. */
   why: string
   by: 'jev' | 'haiku' | 'custom' | 'manual'
+  /** How sure the judge was of the effort, 0-1, when it said. */
+  sure?: number
 }
 
 declare module 'claude-code' {
@@ -44,6 +46,8 @@ declare module 'claude-code' {
       judgeDown: string | null
       /** The reason the judge-down band was closed for. */
       judgeDownHidden: string | null
+      /** The effortless settings panel is open above the prompt. */
+      settingsOpen: boolean
       /** The fullest usage window once past 80%, or null. */
       hot: { kind: string; percent: number; resetsAt: string | null } | null
       /** Percent at which the running-hot band was closed. */
