@@ -2,7 +2,7 @@
 
 ## Branch and PRs
 
-- `main` is the release. Users install with `claude plugin marketplace add Segueapp/modellval`.
+- `main` is the release. Users install with `claude plugin marketplace add HeyCubit/modellval`.
 - A release = bump `version` in `.claude-plugin/plugin.json`, push; users run `claude plugin update modellval@modellval`.
 
 ## Half done
