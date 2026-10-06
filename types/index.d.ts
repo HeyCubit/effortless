@@ -25,6 +25,12 @@ export type Pick = {
   sure?: number
 }
 
+/** What follows a handoff: clear and carry on, clear and wait, or keep the chat and copy the handoff. */
+export type HandoffAfter = 'continue' | 'confirm' | 'copy'
+
+/** A choice in the handoff bar: quick (a fork) or full (the person's skill), then what follows. */
+export type HandoffChoice = { kind: 'quick' | 'full'; after: HandoffAfter }
+
 /** The settings panel's unsaved changes, by field, as the settings store them (strings). */
 export type SettingsDraft = {
   bias?: string
@@ -81,6 +87,8 @@ declare module 'claude-code' {
       setupPending: boolean
       /** Where a handoff is: null idle, writing, or clearing and resending. */
       handoffStage: 'writing' | 'clearing' | null
+      /** The handoff bar above the prompt, open with the choice shown in it, or null. */
+      handoffPick: HandoffChoice | null
       /** The setup guide's step, or null when it is closed. */
       setupStep: 'pick' | 'jev' | 'custom' | null
       /** Auto on model: the judge may suggest another model (never switched without a yes). Off by default. */
