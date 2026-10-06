@@ -166,6 +166,8 @@ export function demoProgress(arg: string): { progress: Progress | null; cue?: Cu
       status: i < completed ? 'completed' : i === completed && doing ? 'in_progress' : 'pending',
     }))
   if (arg === 'clear') return { progress: null, text: 'The progress bar is cleared.' }
+  if (arg === 'plan')
+    return { progress: { phase: 'planning', steps: [] }, text: 'The progress bar is planning (a test): the judge called a task big and no steps exist yet.' }
   if (arg === 'ask')
     return {
       progress: { phase: 'asking', steps: demo(2, true) },
@@ -180,7 +182,7 @@ export function demoProgress(arg: string): { progress: Progress | null; cue?: Cu
     }
   return {
     progress: { phase: 'working', steps: demo(2, true) },
-    text: 'A demo progress bar is showing, step 3 of 5 (a test). Try /effortless progress ask, progress done, progress clear.',
+    text: 'A demo progress bar is showing, step 3 of 5 (a test). Try /effortless progress plan, progress ask, progress done, progress clear.',
   }
 }
 
@@ -258,55 +260,6 @@ export function progressShows(p: Progress | null, hiddenKey: string | null, when
   return p.steps.length >= MIN_STEPS && hiddenKey !== stepsKey(p.steps)
 }
 
-/** A pill's height in pixels, and the room the row of pills takes at most. */
-export const PILL_H = 16
-const PILLS_ROOM = 700
-
-/**
- * How wide each step's pill is, in pixels: the row fits PILLS_ROOM, each pill between 36 and 150. A fixed size, since
- * an interactive Svg only gets the right frame when it is given both its width and its height.
- */
-export function pillWidth(total: number): number {
-  return Math.max(36, Math.min(150, Math.floor(PILLS_ROOM / Math.max(1, total)) - 8))
-}
-
-/**
- * One step as a pill: 'done' filled in the band's colour with a small tick, 'pending' an outline, 'current' a speed
- * fill (diagonal stripes in the brand gradient streaming through it and a glowing head) that moves while the step
- * runs. Only the current pill is drawn interactive, so only it animates.
- */
-export function pillSvg(phase: Progress['phase'], state: 'done' | 'current' | 'pending', w: number, h = PILL_H): string {
-  const look = LOOKS[phase]
-  const r = h / 2
-  const head = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">'
-  const base = '<style>:root{color-scheme:light dark}html,body{margin:0;overflow:hidden}svg{background:transparent;display:block}'
-  if (state === 'pending') {
-    return head + base + '</style>' +
-      `<rect x=".75" y=".75" width="${w - 1.5}" height="${h - 1.5}" rx="${r - 0.75}" fill="#ffffff" fill-opacity=".04" stroke="${look.color}" stroke-opacity=".35" stroke-width="1.2"/></svg>`
-  }
-  if (state === 'done') {
-    const cx = w - r
-    return head + base + '</style>' +
-      `<defs><linearGradient id="d" x1="0" x2="1"><stop offset="0" stop-color="${look.color}" stop-opacity=".7"/><stop offset="1" stop-color="${look.color}"/></linearGradient></defs>` +
-      `<rect width="${w}" height="${h}" rx="${r}" fill="url(#d)"/>` +
-      `<path d="M${cx - 3.6} ${h / 2}L${cx - 1.2} ${h / 2 + 2.4}L${cx + 3.4} ${h / 2 - 2.6}" fill="none" stroke="${look.bg}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-  }
-  // The current step: stripes stream through a soft fill, a glowing head sweeps along, the whole pill breathes.
-  const stripes: string[] = []
-  for (let x = -2 * h; x < w + 2 * h; x += 10) stripes.push(`<path d="M${x} ${h}L${x + h} 0H${x + h + 5}L${x + 5} ${h}Z"/>`)
-  return head + base +
-    '.flow{animation:flow .9s linear infinite}@keyframes flow{to{transform:translateX(10px)}}' +
-    `.head{animation:head 2.2s ease-in-out infinite}@keyframes head{0%{transform:translateX(-30px);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translateX(${w + 10}px);opacity:0}}` +
-    '.br{animation:br 1.8s ease-in-out infinite}@keyframes br{0%,100%{opacity:.75}50%{opacity:1}}</style>' +
-    `<defs><clipPath id="c"><rect width="${w}" height="${h}" rx="${r}"/></clipPath>` +
-    `<linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="${look.color}" stop-opacity=".55"/><stop offset="1" stop-color="${look.color}" stop-opacity=".95"/></linearGradient>` +
-    '<radialGradient id="h"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset=".4" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>' +
-    `<g clip-path="url(#c)"><rect class="br" width="${w}" height="${h}" fill="url(#g)"/>` +
-    `<g class="flow" fill="#ffffff" fill-opacity=".18">${stripes.join('')}</g>` +
-    `<ellipse class="head" cx="0" cy="${h / 2}" rx="18" ry="${h}" fill="url(#h)"/></g>` +
-    `<rect x=".5" y=".5" width="${w - 1}" height="${h - 1}" rx="${r - 0.5}" fill="none" stroke="#ffffff" stroke-opacity=".25"/></svg>`
-}
-
 /** The thinking pill's size in pixels. */
 export const THINK_W = 150
 
@@ -338,56 +291,117 @@ export function thinkingSvg(phase: Progress['phase'], w = THINK_W, h = PILL_H): 
   )
 }
 
-/** The finish line after the pills: a small flag, a ticked circle once the task is done. */
-export function finishSvg(phase: Progress['phase'], h = PILL_H): string {
-  const look = LOOKS[phase]
-  const head = '<svg xmlns="http://www.w3.org/2000/svg" width="' + h + '" height="' + h + '" viewBox="0 0 16 16"><style>svg{background:transparent;display:block}</style>'
-  return phase === 'done'
-    ? head + `<circle cx="8" cy="8" r="7.5" fill="${look.color}"/><path d="M4.6 8.2L7 10.6L11.4 5.6" fill="none" stroke="${look.bg}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-    : head + `<path d="M3.5 15V1.5" stroke="${look.color}" stroke-opacity=".75" stroke-width="1.4" stroke-linecap="round"/><path d="M4.2 2L14 5L4.2 8.4Z" fill="${look.color}" fill-opacity=".75"/></svg>`
-}
+/** The thinking pill's height in pixels. */
+export const PILL_H = 16
 
 /**
- * The art behind the right side of the band, in the band's colour, fading in from the left like the other bands:
- * sparkles twinkling while it works, question marks rising while it waits for an answer, checkmarks rising when it is
- * done. One source per state, so the frame is rebuilt only when the state changes.
+ * The track as one still image that scales to the band's width, so it fits any window: a pill per step. Done steps
+ * are filled, the step in progress is half filled with a lit edge, pending steps are a faint outline, and a small flag
+ * at the end turns into a ticked circle when the task is done. Past SEGMENTS_MAX one continuous pill. The motion
+ * lives in the band's background, not here: a plain image scales, an interactive one needs a fixed size.
+ */
+export function progressTrackSvg(p: Progress): string {
+  const look = LOOKS[p.phase]
+  const id = p.phase
+  const W = 1000
+  const H = 24
+  const end = 30
+  const y = 4
+  const h = 16
+  const r = h / 2
+  const n = (v: number) => v.toFixed(1)
+  const finished = p.phase === 'done'
+  const pending = (x: number, w: number) =>
+    `<rect x="${n(x + 0.6)}" y="${y + 0.6}" width="${n(Math.max(0, w - 1.2))}" height="${h - 1.2}" rx="${r - 0.6}" fill="#ffffff" fill-opacity=".04" stroke="${look.color}" stroke-opacity=".3" stroke-width="1.2"/>`
+  const filled = (x: number, w: number) => `<rect x="${n(x)}" y="${y}" width="${n(Math.max(0, w))}" height="${h}" rx="${r}" fill="url(#fill-${id})"/>`
+  const current = (x: number, w: number, share: number) =>
+    `<rect x="${n(x)}" y="${y}" width="${n(w)}" height="${h}" rx="${r}" fill="${look.color}" fill-opacity=".14"/>` +
+    `<clipPath id="cut-${id}"><rect x="${n(x)}" y="${y}" width="${n(w)}" height="${h}" rx="${r}"/></clipPath>` +
+    `<rect clip-path="url(#cut-${id})" x="${n(x)}" y="${y}" width="${n(w * share)}" height="${h}" fill="url(#fill-${id})"/>` +
+    `<rect clip-path="url(#cut-${id})" x="${n(x + w * share - 14)}" y="${y}" width="14" height="${h}" fill="url(#edge-${id})"/>` +
+    `<rect x="${n(x + 0.75)}" y="${y + 0.75}" width="${n(w - 1.5)}" height="${h - 1.5}" rx="${r - 0.75}" fill="none" stroke="${look.color}" stroke-opacity=".9" stroke-width="1.5" filter="url(#glow-${id})"/>`
+  const total = p.steps.length
+  const room = W - end
+  const parts: string[] = []
+  if (total > 0 && total <= SEGMENTS_MAX) {
+    const gap = 10
+    const seg = (room - gap * (total - 1)) / total
+    p.steps.forEach((step, i) => {
+      const x = i * (seg + gap)
+      if (finished || step.status === 'completed') parts.push(filled(x, seg))
+      else if (step.status === 'in_progress' && p.phase !== 'paused') parts.push(current(x, seg, 0.5))
+      else parts.push(pending(x, seg))
+    })
+  } else {
+    parts.push(finished ? filled(0, room) : current(0, room, progressShare(p.steps)))
+  }
+  const fx = W - 12
+  const flag = finished
+    ? `<circle cx="${fx}" cy="12" r="9" fill="${look.color}"/><path d="M${fx - 4.4} 12.2L${fx - 1.4} 15.2L${fx + 4.2} 8.8" fill="none" stroke="${look.bg}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`
+    : `<path d="M${fx - 6} 21V3.5" stroke="${look.color}" stroke-opacity=".75" stroke-width="1.6" stroke-linecap="round"/><path d="M${fx - 5.2} 4L${fx + 7} 7.8L${fx - 5.2} 11.6Z" fill="${look.color}" fill-opacity=".75"/>`
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
+    '<style>svg{background:transparent;display:block}</style>' +
+    `<defs><linearGradient id="fill-${id}" x1="0" x2="1"><stop offset="0" stop-color="${look.color}" stop-opacity=".62"/><stop offset="1" stop-color="${look.color}"/></linearGradient>` +
+    `<linearGradient id="edge-${id}" x1="0" x2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0"/><stop offset="1" stop-color="#ffffff" stop-opacity=".55"/></linearGradient>` +
+    `<filter id="glow-${id}" x="-5%" y="-60%" width="110%" height="220%"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>` +
+    parts.join('') + flag + '</svg>'
+  )
+}
+
+/** The background art's size in pixels: wider than any band, cut by it on the right. */
+export const ART_W = 1600
+export const ART_H = 64
+
+/**
+ * The band's whole background, in its colour: a soft wash that deepens to the right, a slow streak of light passing
+ * across, sparkles twinkling, and by state speed lines (working), question marks rising (asking) or checkmarks rising
+ * (done). Fixed size, anchored left and cut by the band, so its interactive frame always fits; one source per state.
  */
 export function progressArtSvg(phase: Progress['phase']): string {
   const c = LOOKS[phase].color
-  const spark = (x: number, y: number, s: number, delay: number) =>
-    `<path class="sp" style="transform-origin:${x}px ${y}px;animation-delay:${delay}s" d="M${x} ${y - s}L${x + s * 0.28} ${y - s * 0.28}L${x + s} ${y}` +
-    `L${x + s * 0.28} ${y + s * 0.28}L${x} ${y + s}L${x - s * 0.28} ${y + s * 0.28}L${x - s} ${y}L${x - s * 0.28} ${y - s * 0.28}Z" fill="#fff"/>`
-  const check = (x: number, delay: number, dur: number) =>
-    `<path class="up" style="animation-delay:${delay}s;animation-duration:${dur}s" d="M${x - 3} 31L${x - 1} 33.2L${x + 3.2} 28.6" ` +
-    `fill="none" stroke="${c}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>`
-  const ask = (x: number, delay: number, dur: number) =>
-    `<text class="up" style="animation-delay:${delay}s;animation-duration:${dur}s" x="${x}" y="34" font-size="7" font-family="sans-serif" ` +
-    `font-weight="700" fill="${c}">?</text>`
-  const sparks = [
-    [190, 8, 1.4, 0.3], [214, 22, 1.1, 2.1], [238, 6, 1.6, 1.2], [262, 19, 1, 3.4], [286, 9, 1.3, 0.9], [310, 24, 1.1, 2.7],
-    [334, 7, 1.5, 1.8], [350, 17, 1, 0.1],
-  ]
-    .map(([x, y, s, d]) => spark(x!, y!, s!, d!))
+  // A fixed pseudo-random spread, so the same state always draws the same art.
+  const spread = (count: number, salt: number) =>
+    Array.from({ length: count }, (_, i) => {
+      const a = Math.sin((i + 1) * 12.9898 + salt * 78.233) * 43758.5453
+      const b = Math.sin((i + 1) * 39.3467 + salt * 11.135) * 24634.6345
+      return [(i + (a - Math.floor(a))) * (ART_W / count), 8 + (b - Math.floor(b)) * (ART_H - 16), a - Math.floor(a)] as const
+    })
+  const sparks = spread(22, 1)
+    .map(([x, y, k]) => {
+      const s = 2 + k * 2.6
+      return (
+        `<path class="sp" style="transform-origin:${x.toFixed(0)}px ${y.toFixed(0)}px;animation-delay:${(k * 4.2).toFixed(2)}s" ` +
+        `d="M${x} ${y - s}L${x + s * 0.28} ${y - s * 0.28}L${x + s} ${y}L${x + s * 0.28} ${y + s * 0.28}L${x} ${y + s}L${x - s * 0.28} ${y + s * 0.28}L${x - s} ${y}L${x - s * 0.28} ${y - s * 0.28}Z" fill="#fff"/>`
+      )
+    })
     .join('')
-  const rising =
+  const rising = (count: number, glyph: (x: number) => string) =>
+    spread(count, 7)
+      .map(([x, , k]) => `<g class="up" style="animation-delay:${(k * 3).toFixed(2)}s;animation-duration:${(3 + k * 1.5).toFixed(2)}s">${glyph(x)}</g>`)
+      .join('')
+  const extra =
     phase === 'done'
-      ? [[200, 0, 3.2], [228, 1.1, 3.6], [256, 0.5, 3], [284, 1.8, 3.4], [312, 0.9, 3.1], [340, 2.3, 3.5]].map(([x, d, t]) => check(x!, d!, t!)).join('')
+      ? rising(16, x => `<path d="M${x - 5} 56L${x - 1.5} 59.5L${x + 5.5} 52" fill="none" stroke="${c}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`)
       : phase === 'asking'
-        ? [[214, 0, 3.6], [262, 1.4, 4], [310, 0.7, 3.4], [346, 2.2, 3.8]].map(([x, d, t]) => ask(x!, d!, t!)).join('')
-        : ''
+        ? rising(10, x => `<text x="${x}" y="60" font-size="13" font-family="sans-serif" font-weight="700" fill="${c}">?</text>`)
+        : spread(9, 3)
+            .map(([x, y, k]) => `<rect class="ln" style="animation-delay:${(k * 2.4).toFixed(2)}s" x="${x}" y="${y}" width="${40 + k * 50}" height="1.4" rx=".7" fill="${c}"/>`)
+            .join('')
   return (
-    '<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice">' +
-    '<style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}' +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${ART_W}" height="${ART_H}" viewBox="0 0 ${ART_W} ${ART_H}">` +
+    '<style>:root{color-scheme:light dark}html,body{margin:0;overflow:hidden}svg{background:transparent;display:block}' +
     '.sp{opacity:0;transform:scale(0);animation:tw 4.2s ease-in-out infinite}' +
-    '@keyframes tw{0%,70%,100%{opacity:0;transform:scale(0) rotate(0)}82%{opacity:.85;transform:scale(1) rotate(30deg)}92%{opacity:0;transform:scale(.2) rotate(60deg)}}' +
+    '@keyframes tw{0%,70%,100%{opacity:0;transform:scale(0) rotate(0)}82%{opacity:.8;transform:scale(1) rotate(30deg)}92%{opacity:0;transform:scale(.2) rotate(60deg)}}' +
     '.up{opacity:0;animation-name:up;animation-timing-function:ease-out;animation-iteration-count:infinite}' +
-    '@keyframes up{0%{opacity:0;transform:translateY(0)}20%{opacity:.9}100%{opacity:0;transform:translateY(-30px)}}' +
-    '.br{animation:br 6s ease-in-out infinite}@keyframes br{0%,100%{opacity:.8}50%{opacity:1}}</style>' +
-    `<defs><linearGradient id="wash" x1="0" x2="1"><stop offset=".45" stop-color="${c}" stop-opacity="0"/>` +
-    `<stop offset=".75" stop-color="${c}" stop-opacity=".12"/><stop offset="1" stop-color="${c}" stop-opacity=".3"/></linearGradient>` +
-    '<linearGradient id="fade" x1="0" x2="1"><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient>' +
-    '<mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask></defs>' +
-    `<g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#wash)"/>${sparks}${rising}</g></svg>`
+    '@keyframes up{0%{opacity:0;transform:translateY(0)}20%{opacity:.55}100%{opacity:0;transform:translateY(-52px)}}' +
+    '.ln{opacity:0;animation:ln 2.4s ease-in infinite}@keyframes ln{0%{opacity:0;transform:translateX(-60px)}30%{opacity:.35}100%{opacity:0;transform:translateX(220px)}}' +
+    `.sweep{animation:sweep 6s linear infinite}@keyframes sweep{from{transform:translateX(-400px)}to{transform:translateX(${ART_W + 100}px)}}</style>` +
+    `<defs><linearGradient id="wash" x1="0" x2="1"><stop offset="0" stop-color="${c}" stop-opacity=".05"/><stop offset=".6" stop-color="${c}" stop-opacity=".1"/><stop offset="1" stop-color="${c}" stop-opacity=".2"/></linearGradient>` +
+    '<linearGradient id="beam" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".07"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>' +
+    `<rect width="${ART_W}" height="${ART_H}" fill="url(#wash)"/>` +
+    `<g class="sweep"><rect x="0" y="-20" width="300" height="${ART_H + 40}" transform="skewX(-20)" fill="url(#beam)"/></g>` +
+    sparks + extra + '</svg>'
   )
 }
 
@@ -422,7 +436,6 @@ export function drawProgress(p: Progress, d: ProgressDraw) {
       </Text>
     </Box>
   )
-  const pill = pillWidth(total)
   const closeButton = <Button key="progress-close" plain role="dismiss" label="✕" onPress={d.onClose} />
   // Short of room, or nothing to count yet: one row, the bar as ten blocks.
   if (d.maxRows < 4 || p.phase === 'planning') {
@@ -431,8 +444,8 @@ export function drawProgress(p: Progress, d: ProgressDraw) {
       <Box key="progress-bar" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
         backgroundColor={look.bg} borderStyle="round" borderColor={look.edge}>
         {d.Svg ? (
-          <Box key="progress-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <d.Svg key={`art-${p.phase}`} source={progressArtSvg(p.phase)} alt="" width={440} height={64} isInteractive />
+          <Box key="progress-art" position="absolute" top={-1} left={0} bottom={-1}>
+            <d.Svg key={`art-${p.phase}`} source={progressArtSvg(p.phase)} alt="" width={ART_W} height={ART_H} isInteractive />
           </Box>
         ) : null}
         {name}
@@ -484,8 +497,8 @@ export function drawProgress(p: Progress, d: ProgressDraw) {
     <Box key="progress-bar" position="relative" flexDirection="column" paddingX={1} overflow="hidden"
       backgroundColor={look.bg} borderStyle="round" borderColor={look.edge}>
       {d.Svg ? (
-        <Box key="progress-art" position="absolute" top={-1} right={0} bottom={-1}>
-          <d.Svg key={`art-${p.phase}`} source={progressArtSvg(p.phase)} alt="" width={440} height={64} isInteractive />
+        <Box key="progress-art" position="absolute" top={-1} left={0} bottom={-1}>
+          <d.Svg key={`art-${p.phase}`} source={progressArtSvg(p.phase)} alt="" width={ART_W} height={ART_H} isInteractive />
         </Box>
       ) : null}
       <Box key="progress-head" position="relative" flexDirection="row" gap={1} alignItems="center">
@@ -500,22 +513,8 @@ export function drawProgress(p: Progress, d: ProgressDraw) {
         {closeButton}
       </Box>
       {d.Svg ? (
-        <Box key="progress-track" position="relative" flexDirection="row" gap={1} alignItems="center" overflow="hidden">
-          {p.steps.map((s, i) => {
-            const state = p.phase === 'done' || s.status === 'completed' ? 'done' : s.status === 'in_progress' && p.phase !== 'paused' ? 'current' : 'pending'
-            return (
-              <Box key={`pill-${i}`} flexShrink={0}>
-                {state === 'current' ? (
-                  <d.Svg key={`pill-${i}-${p.phase}`} source={pillSvg(p.phase, state, pill)} alt={s.doing} width={pill} height={PILL_H} isInteractive />
-                ) : (
-                  <d.Svg key={`pill-${i}-${p.phase}-${state}`} source={pillSvg(p.phase, state, pill)} alt={s.label} width={pill} height={PILL_H} />
-                )}
-              </Box>
-            )
-          })}
-          <Box key="progress-finish" flexShrink={0}>
-            <d.Svg source={finishSvg(p.phase)} alt={p.phase === 'done' ? 'finished' : 'finish line'} width={PILL_H} height={PILL_H} />
-          </Box>
+        <Box key="progress-track" position="relative" flexDirection="row">
+          <d.Svg key={`track-${p.phase}`} source={progressTrackSvg(p)} alt={title} />
         </Box>
       ) : (
         <Box key="progress-track" flexDirection="row" gap={total <= SEGMENTS_MAX ? 1 : 0} alignItems="center">

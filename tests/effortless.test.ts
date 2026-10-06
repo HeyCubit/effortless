@@ -2249,9 +2249,9 @@ describe('progress bar', () => {
     // On desktop the track is one still image, never a row of line characters.
     expect(await drawn(band)).toContain('<svg')
     expect(await drawn(band)).not.toContain('━')
-    // Two animated images, each given both sizes (an interactive Svg without them gets a 300 by 150 frame): the art
-    // behind the band and the current step's pill.
-    expect((await drawn(band)).match(/isInteractive/g)?.length).toBe(2)
+    // One animated image, the art behind the band, given both sizes (an interactive Svg without them gets a 300 by
+    // 150 frame); the track is a plain image that scales to the band.
+    expect((await drawn(band)).match(/isInteractive/g)?.length).toBe(1)
     await band.unmount()
     await $.tool.call({ tool: 'TodoWrite', todos: todos(['completed', 'completed', 'completed', 'completed']) } as never)
     await endTurn($, 'All four steps are done.')
@@ -2354,6 +2354,11 @@ describe('progress bar', () => {
     expect(await drawn(band)).toContain('Done · all 5 steps')
     await band.unmount()
     expect(played.join('\n')).toContain('done.wav')
+    await $.command.run({ command: 'effortless', args: 'progress plan' })
+    band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('Planning a bigger task')
+    expect(await band.find({ key: 'progress-thinking' })).toBeDefined()
+    await band.unmount()
     await $.command.run({ command: 'effortless', args: 'progress clear' })
     await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
   })
