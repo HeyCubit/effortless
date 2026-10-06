@@ -350,7 +350,7 @@ export type JudgeConfig = {
 export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
 
 /** The parts of effortless a person can switch off in the settings. */
-export const HIDEABLE = ['handoff', 'timer', 'status', 'cold', 'swamp', 'hot', 'down'] as const
+export const HIDEABLE = ['handoff', 'timer', 'cold', 'swamp', 'hot', 'down'] as const
 export type Hideable = (typeof HIDEABLE)[number]
 let config: JudgeConfig = {
   judge: 'auto',
@@ -931,41 +931,6 @@ async function showCache($: EngineInterface) {
   if ((minutes === 0) !== (was === 0)) $.ui.invalidate('ui.render')
 }
 
-/** The status line under the prompt: cache, context, then what Auto runs with. The app cuts a long line short and
- * shows all of it on hover, so the most useful part comes first. */
-export function statusText(s: {
-  cache: number | null
-  context: { tokens: number; window: number; percent: number } | null
-  auto: boolean
-  effort?: Effort
-  by?: string
-}): string {
-  const parts: string[] = []
-  if (s.cache !== null) parts.push(s.cache <= 0 ? 'cache cold' : `cache ${cacheLabel(s.cache)}`)
-  if (s.context && s.context.window) parts.push(`ctx ${Math.round(s.context.percent)}%`, `${kTokens(s.context.tokens)}/${kTokens(s.context.window)}`)
-  if (!s.auto) parts.push('Auto off')
-  else if (s.effort) parts.push(`Auto ${EFFORT_LABELS[s.effort]}${s.by && s.by !== 'manual' ? ` (${s.by})` : ''}`)
-  return parts.join(' · ')
-}
-
-let lastStatus: string | undefined
-async function showStatus($: EngineInterface) {
-  let text: string | undefined
-  if (!config.hide.includes('status')) {
-    const v = await snap($)
-    text = statusText({
-      cache: v.cacheNow,
-      context: lastContext,
-      auto: v.auto,
-      effort: effortOf(v, v.modelNow ?? 'sonnet'),
-      by: v.current?.by,
-    }) || undefined
-  }
-  if (text === lastStatus) return
-  lastStatus = text
-  $.ui.status(text)
-}
-
 /** Minutes left, rounded up, so "1" means under a minute and 0 means cold. */
 async function cacheMinutes($: EngineInterface): Promise<number> {
   const left = cacheExpires - (await $.clock.now())
@@ -1317,7 +1282,6 @@ async function toggleAutoEffort($: EngineInterface) {
 async function choose($: EngineInterface, next: Pick | null) {
   const before = await read($, pick)
   await Promise.all([update($, pick, () => next), $.store.set('pick', next)])
-  await showStatus($).catch(() => undefined)
   // A change Auto made is shown as "Low → High" for a moment, so the switch is seen.
   if (next && next.by !== 'manual' && before && before.model !== 'haiku' && before.effort !== next.effort) {
     const change = { from: before.effort, to: next.effort }
@@ -1421,7 +1385,7 @@ export const register: Register = (on, options) => {
     }
     // The cache countdown's clock. A timer started inside a request ends with that request, so it lives here.
     $.clock.every(CACHE_TICK_MS, () => void showCache($).catch(() => undefined))
-    $.clock.every(CACHE_TICK_MS, () => void checkSwamp($).then(() => showStatus($)).catch(() => undefined))
+    $.clock.every(CACHE_TICK_MS, () => void checkSwamp($).catch(() => undefined))
     // A written handoff is cleared and resent from here: a hook the turn waits on may not run commands.
     handoffTimer?.cancel()
     handoffTimer = $.clock.every(HANDOFF_POLL_MS, () => void finishHandoff($).catch(() => undefined))
@@ -1818,7 +1782,6 @@ Saved to ${out}.md and .json` }
         [
           ['handoff', '⇥ Handoff button'],
           ['timer', 'Cache timer'],
-          ['status', 'Status line'],
           ['cold', 'Cold'],
           ['swamp', 'Swamped'],
           ['hot', 'Running hot'],
