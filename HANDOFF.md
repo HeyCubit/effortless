@@ -30,7 +30,7 @@
 - Desktop not seen: Compact complete card, progress sounds in a real task.
 
 ## Next
-0. After an app restart (1.35.13): narrow window, the band row clips instead of running under the buttons; an effort
+0. Narrow band confirmed by Isac (1.35.13). Still unseen: an effort
    change glows purple and fades to white in 1.4 s. Neither seen in the app yet.
 1. Isac opens an old chat: cold band should show. If not, `/effortless debug` and look for classic.SessionStart.
 2. Isac opens plain `claude` in a terminal and looks at the bands (2.1.285 now loads the mod).
