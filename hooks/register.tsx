@@ -2004,8 +2004,8 @@ Saved to ${out}.md and .json` }
         </Box>
         <Box flexGrow={1} minWidth={2} />
         <Box key="try-card-actions" position="relative" flexShrink={0} flexDirection="row" gap={1} alignItems="center">
-          <Button key="try-card-settings" label="Settings" onPress={() => openPluginSettings($)} />
-          <Button key="try-card-handoff" variant="primary" label="Handoff" onPress={() => openHandoffBar($)} />
+          <Button key="try-card-settings" label="Settings" onPress={async () => { $.ui.toast('Card button pressed: Settings'); await openPluginSettings($) }} />
+          <Button key="try-card-handoff" variant="primary" label="Handoff" onPress={async () => { $.ui.toast('Card button pressed: Handoff'); await openHandoffBar($) }} />
         </Box>
       </Box>
     )
