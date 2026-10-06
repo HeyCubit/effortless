@@ -1,23 +1,23 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.23.2, pushed and installed. Direct pushes, no open PRs.
+- `main` on HeyCubit/effortless, version 1.24.0, pushed and installed. Direct pushes, no open PRs.
 - Release: bump `version` in `.claude-plugin/plugin.json`, `claude plugin validate .`, `claude plugin test .`
   (0 fail), push, `claude plugin marketplace update effortless`, `claude plugin update effortless@effortless`, restart.
-- CLI on this PC: `$APPDATA/Claude/claude-code/<version>/<hash>/claude.exe` (newest folder).
+- CLI on this PC: `$APPDATA/Claude/claude-code/<version>/<hash>/claude.exe` (newest folder). `claude` on PATH is 2.1.220: fails validate, has no `plugin test`.
 
 ## Half done
-- Handoff fork still falls back to a turn. 1.21.2 logs why: `lastFork` in the store, `last fork:` in
-  `/effortless debug`, toast on fallback. Reason not yet read from a real run.
+- 1.24.0: ⇥ = quick handoff (fork, built-in prompt), ⇥⇥ = full (handoffSkill as a turn). The earlier "fork falls
+  back" was the skill setting: with a skill set, every handoff ran the skill and never forked. Fork not yet seen
+  answering in the app.
 - Branding images in `docs/brand/` (social preview, README banner, band strip, avatar): untracked, not in README.
 - README does not mention the "Swamped at" setting yet.
 - Not yet seen in the app: settings opened before a chat's first message (1.20.1), Show > Cache timer (1.21.0),
   Swamped at (1.23.0).
 
 ## Next
-1. Isac runs Handoff in a chat with replies, then `/effortless debug`; fix by the `last fork:` reason:
-   `nothing-to-fork` (no main-thread reply in that session), `aborted` (timer dispatch cut), `api-error`
-   (retry rate_limit/overloaded), `threw` (fork refused from a timer hook).
+1. Needs Isac: restart, press ⇥ in a chat with replies, then `/effortless debug`. Expect `last fork: answered`.
+   Else fix by reason: `nothing-to-fork`, `aborted` (timer dispatch cut), `api-error`, `threw`.
 2. On Isac's OK: banner at top of README, document Swamped at, commit `docs/brand/`.
 
 ## Decided, do not redo
