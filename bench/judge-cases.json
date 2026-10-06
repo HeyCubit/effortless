@@ -1,0 +1,65 @@
+{
+  "about": "Labelled prompts for /effortless bench. `ok` lists every effort a careful person would accept for the message on `current.model`; the first is the cheapest acceptable. `context` is what the judge sees of the conversation (the last user message and the end of the assistant's reply).",
+  "cases": [
+    { "id": "t01", "kind": "trivial", "current": { "model": "sonnet", "effort": "medium" }, "message": "what does the -r flag do in cp?", "ok": ["low"] },
+    { "id": "t02", "kind": "trivial", "current": { "model": "sonnet", "effort": "medium" }, "message": "rename the variable usr to user in auth.ts", "ok": ["low"] },
+    { "id": "t03", "kind": "trivial", "current": { "model": "sonnet", "effort": "high" }, "message": "fix the typo in the README title, it says 'Instalation'", "ok": ["low"] },
+    { "id": "t04", "kind": "trivial", "current": { "model": "sonnet", "effort": "medium" }, "message": "thanks, that worked!", "ok": ["low"] },
+    { "id": "t05", "kind": "trivial", "current": { "model": "sonnet", "effort": "medium" }, "message": "what time zone is CET in UTC terms?", "ok": ["low"] },
+    { "id": "t06", "kind": "trivial", "current": { "model": "sonnet", "effort": "medium" }, "message": "vad heter kommandot för att lista git-grenar?", "ok": ["low"] },
+    { "id": "t07", "kind": "trivial", "current": { "model": "sonnet", "effort": "medium" }, "message": "bump the version in package.json to 2.4.1", "ok": ["low"] },
+    { "id": "t08", "kind": "trivial", "current": { "model": "sonnet", "effort": "high" }, "message": "show me the last 5 commits", "ok": ["low"] },
+
+    { "id": "n01", "kind": "normal", "current": { "model": "sonnet", "effort": "medium" }, "message": "add a dark mode toggle to the settings page, it should persist in localStorage", "ok": ["medium", "high"] },
+    { "id": "n02", "kind": "normal", "current": { "model": "sonnet", "effort": "low" }, "message": "write unit tests for the parseDate helper in utils/date.ts", "ok": ["medium"] },
+    { "id": "n03", "kind": "normal", "current": { "model": "sonnet", "effort": "medium" }, "message": "explain how the caching layer in src/cache works", "ok": ["medium", "low"] },
+    { "id": "n04", "kind": "normal", "current": { "model": "sonnet", "effort": "medium" }, "message": "the login button does nothing on mobile safari, can you look?", "ok": ["medium", "high"] },
+    { "id": "n05", "kind": "normal", "current": { "model": "sonnet", "effort": "medium" }, "message": "add pagination to the /api/orders endpoint, 50 per page", "ok": ["medium", "high"] },
+    { "id": "n06", "kind": "normal", "current": { "model": "sonnet", "effort": "medium" }, "message": "skriv en kort produkttext för vår nya proteinpulver-smak, mango, max 60 ord", "ok": ["low", "medium"] },
+    { "id": "n07", "kind": "normal", "current": { "model": "sonnet", "effort": "high" }, "message": "convert this component from a class to hooks", "ok": ["medium"] },
+    { "id": "n08", "kind": "normal", "current": { "model": "sonnet", "effort": "medium" }, "message": "make the footer sticky and match the header colors", "ok": ["low", "medium"] },
+    { "id": "n09", "kind": "normal", "current": { "model": "sonnet", "effort": "medium" }, "message": "draft an email to our supplier asking to move the delivery to next Friday", "ok": ["low", "medium"] },
+    { "id": "n10", "kind": "normal", "current": { "model": "sonnet", "effort": "low" }, "message": "why is this test flaky? it passes locally but fails in CI about 1 in 5 runs", "ok": ["medium", "high"] },
+
+    { "id": "b01", "kind": "big", "current": { "model": "sonnet", "effort": "medium" }, "message": "migrate the whole app from REST to GraphQL, keep the old endpoints working until clients move", "ok": ["high", "xhigh"] },
+    { "id": "b02", "kind": "big", "current": { "model": "sonnet", "effort": "medium" }, "message": "we're leaking memory in production, heap grows ~200MB/hour. find it", "ok": ["high", "xhigh"] },
+    { "id": "b03", "kind": "big", "current": { "model": "sonnet", "effort": "medium" }, "message": "review the entire repo for security issues before we go public", "ok": ["high", "xhigh"] },
+    { "id": "b04", "kind": "big", "current": { "model": "sonnet", "effort": "low" }, "message": "design the database schema and sync protocol for offline-first multi-device editing", "ok": ["high", "xhigh"] },
+    { "id": "b05", "kind": "big", "current": { "model": "sonnet", "effort": "medium" }, "message": "refactor the payment module into separate services, there are 40 files touching it", "ok": ["high", "xhigh"] },
+    { "id": "b06", "kind": "big", "current": { "model": "sonnet", "effort": "medium" }, "message": "race condition: two workers sometimes process the same job twice. only under load. fix it properly", "ok": ["high", "xhigh"] },
+
+    { "id": "s01", "kind": "short-but-big", "current": { "model": "sonnet", "effort": "low" }, "message": "clean up my whole drive", "ok": ["high", "medium"] },
+    { "id": "s02", "kind": "short-but-big", "current": { "model": "sonnet", "effort": "low" }, "message": "migrate everything to typescript", "ok": ["high", "xhigh"] },
+    { "id": "s03", "kind": "short-but-big", "current": { "model": "sonnet", "effort": "low" }, "message": "make it production ready", "ok": ["high", "xhigh"] },
+    { "id": "s04", "kind": "short-but-big", "current": { "model": "sonnet", "effort": "low" }, "message": "gör om hela sajten mobilanpassad", "ok": ["high", "medium"] },
+    { "id": "s05", "kind": "short-but-big", "current": { "model": "sonnet", "effort": "low" }, "message": "fix all failing tests", "ok": ["medium", "high"] },
+
+    { "id": "a01", "kind": "answer", "current": { "model": "sonnet", "effort": "medium" }, "context": "user: we need a pricing section on the landing page\nassistant: Three ways to build it:\nA) a static three-column table, 20 minutes\nB) a dynamic section pulling plans from Stripe with a monthly/yearly toggle, currency detection and a comparison drawer\nC) skip it and link to a separate page\nWhich one?", "message": "B", "ok": ["high", "medium"] },
+    { "id": "a02", "kind": "answer", "current": { "model": "sonnet", "effort": "high" }, "context": "user: tidy up the old branches\nassistant: Done. The branch feature/old-nav is merged and stale. Should I archive it?", "message": "yes", "ok": ["low"] },
+    { "id": "a03", "kind": "answer", "current": { "model": "sonnet", "effort": "medium" }, "context": "user: the importer is slow\nassistant: Two options: 1) add an index on orders.created_at (one migration), or 2) rewrite the importer as a streaming pipeline with batching, retries and a progress bar. Which do you want?", "message": "2", "ok": ["high", "medium"] },
+    { "id": "a04", "kind": "answer", "current": { "model": "sonnet", "effort": "high" }, "context": "user: set up the logger\nassistant: Should the log level default to info or debug?", "message": "info", "ok": ["low"] },
+    { "id": "a05", "kind": "answer", "current": { "model": "sonnet", "effort": "medium" }, "context": "user: plan the auth work\nassistant: Plan: 1) passwordless email codes, 2) device keys signing every request, 3) account recovery, 4) migrate existing users. Want me to build all four now?", "message": "ja kör alla fyra", "ok": ["high", "xhigh"] },
+    { "id": "a06", "kind": "answer", "current": { "model": "sonnet", "effort": "medium" }, "context": "user: what font for the headings?\nassistant: Inter or Söhne would both fit. Inter is free. Which one?", "message": "inter", "ok": ["low"] },
+    { "id": "a07", "kind": "answer", "current": { "model": "sonnet", "effort": "low" }, "context": "user: the dashboard is slow\nassistant: I found the cause: every widget refetches all data on each render. Should I rewrite the data layer to a shared cache with subscriptions? It touches about 25 components.", "message": "do it", "ok": ["high", "medium"] },
+
+    { "id": "f01", "kind": "follow-up", "current": { "model": "sonnet", "effort": "high" }, "context": "user: refactor the sync engine\nassistant: Step 1 of 3 done (extracted the queue). Continue with step 2?", "message": "go", "ok": ["high"] },
+    { "id": "f02", "kind": "follow-up", "current": { "model": "sonnet", "effort": "low" }, "context": "user: rename x to count\nassistant: Renamed in 3 places. Also rename it in the tests?", "message": "yes", "ok": ["low"] },
+    { "id": "f03", "kind": "follow-up", "current": { "model": "sonnet", "effort": "medium" }, "context": "user: add the export button\nassistant: Added the button. Next I'll wire it to the CSV writer.", "message": "continue", "ok": ["medium"] },
+    { "id": "f04", "kind": "follow-up", "current": { "model": "sonnet", "effort": "high" }, "context": "user: hunt down the memory leak\nassistant: Narrowed it to the websocket handlers. Keep going?", "message": "kör", "ok": ["high"] },
+
+    { "id": "o01", "kind": "model-relative", "current": { "model": "opus", "effort": "medium" }, "message": "add pagination to the /api/orders endpoint, 50 per page", "ok": ["low", "medium"] },
+    { "id": "o02", "kind": "model-relative", "current": { "model": "opus", "effort": "medium" }, "message": "we're leaking memory in production, heap grows ~200MB/hour. find it", "ok": ["medium", "high"] },
+    { "id": "o03", "kind": "model-relative", "current": { "model": "opus", "effort": "high" }, "message": "rename the variable usr to user in auth.ts", "ok": ["low"] },
+    { "id": "o04", "kind": "model-relative", "current": { "model": "opus", "effort": "low" }, "message": "refactor the payment module into separate services, there are 40 files touching it", "ok": ["medium", "high"] },
+
+    { "id": "x01", "kind": "non-code", "current": { "model": "sonnet", "effort": "medium" }, "message": "go through all my Notion tasks and tell me what's overdue", "ok": ["medium", "low"] },
+    { "id": "x02", "kind": "non-code", "current": { "model": "sonnet", "effort": "medium" }, "message": "research the top 5 competitors in Nordic sports nutrition and compare pricing, with sources", "ok": ["high", "medium"] },
+    { "id": "x03", "kind": "non-code", "current": { "model": "sonnet", "effort": "medium" }, "message": "summarize this meeting note in 3 bullets", "ok": ["low"] },
+    { "id": "x04", "kind": "non-code", "current": { "model": "sonnet", "effort": "low" }, "message": "plan our next three product drops with deadlines, assets and who does what", "ok": ["medium", "high"] },
+    { "id": "x05", "kind": "non-code", "current": { "model": "sonnet", "effort": "high" }, "message": "translate this paragraph to Swedish", "ok": ["low"] },
+
+    { "id": "m01", "kind": "meta", "current": { "model": "sonnet", "effort": "medium" }, "message": "what effort are you using?", "ok": ["low"] },
+    { "id": "m02", "kind": "meta", "current": { "model": "sonnet", "effort": "medium" }, "message": "how much effort should I use for a big refactor?", "ok": ["low"] },
+    { "id": "m03", "kind": "meta", "current": { "model": "sonnet", "effort": "low" }, "message": "think really hard about this: why does our churn spike every March? here's 2 years of data in data/churn.csv", "ok": ["high", "xhigh"] }
+  ]
+}

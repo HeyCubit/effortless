@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText } from '../hooks/register'
+import { benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText } from '../hooks/register'
 
 const BAND = {
   component: 'AbovePrompt',
@@ -1224,5 +1224,48 @@ describe('judge failures are said', () => {
     expect(asked.length).toBe(2)
     expect(said.filter(t => t.includes('out of credits')).length).toBe(1)
     expect(said[0]).toContain('Haiku judges for now')
+  })
+})
+
+describe('judge benchmark', () => {
+  const c = (id: string, ok: ('low' | 'medium' | 'high')[], message = 'do a thing please') =>
+    ({ id, kind: 'k', current: { model: 'sonnet', effort: 'medium' }, message, ok }) as never
+
+  test('grades an answer as right, too low, too high or missing', () => {
+    expect(benchGrade(c('a', ['medium', 'high']), 'high')).toBe('hit')
+    expect(benchGrade(c('a', ['medium', 'high']), 'low')).toBe('under')
+    expect(benchGrade(c('a', ['low']), 'xhigh')).toBe('over')
+    expect(benchGrade(c('a', ['low']), undefined)).toBe('none')
+  })
+
+  test('the report counts per judge and lists the misses', () => {
+    const cases = [c('a', ['low']), c('b', ['high'])]
+    const report = benchReport(cases, [
+      { id: 'a', judge: 'haiku', effort: 'low', ms: 300, tokens: 10 },
+      { id: 'b', judge: 'haiku', effort: 'medium', ms: 500, tokens: 10 },
+    ])
+    expect(report).toContain('| haiku | 50% | 1 | 0 | 0 | 500 |')
+    expect(report).toContain('haiku b: said medium, wanted high')
+  })
+
+  test('/effortless bench runs every case through Haiku, keeps follow-ups, and writes the report', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    const asked = judgeSays(on, '{"model":"sonnet","effort":"low","why":"x"}')
+    const cases = { cases: [c('a', ['low'], 'rename foo to bar in utils.ts'), c('f', ['medium'], 'go')] }
+    on('fs.read', (_$, e) => ({ value: String(e.path).endsWith('judge-cases.json') ? JSON.stringify(cases) : '' }) as never)
+    const written: Record<string, string> = {}
+    on('fs.write', (_$, e) => {
+      written[String(e.path)] = String(e.text)
+      return { value: undefined } as never
+    })
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const res = await $.command.run({ command: 'effortless', args: 'bench' })
+    expect(asked.length).toBe(1)
+    expect(res.text).toContain('| haiku | 100% |')
+    expect(res.text).toContain('| always medium |')
+    expect(Object.keys(written).some(p => p.endsWith('.md'))).toBe(true)
   })
 })
