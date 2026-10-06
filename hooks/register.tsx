@@ -2512,15 +2512,15 @@ Saved to ${out}.md and .json` }
           </Box>
           <Box flexShrink={0}>
             <Text color={ICE} bold wrap="truncate">
-              ✦ Chat went cold
+              {compacting ? '✦ Compacting the chat…' : '✦ Chat went cold'}
             </Text>
           </Box>
-          <Text wrap="truncate">Next message costs full price. Compact first.</Text>
+          <Text wrap="truncate">{compacting ? 'Summing it up. The band goes when it is done.' : 'Next message costs full price. Compact first.'}</Text>
           {/* Room for the buttons, which sit in their own layer after the frost so they are drawn on top of it. */}
           <Box flexGrow={1} minWidth={22} />
           <Box key="cold-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
-            <Button key="cold-hide" plain label="Not now" onPress={() => update($, isColdHidden, () => true)} />
-            <Button key="cold-compact" variant="primary" label={compacting ? 'Compacting…' : 'Compact'} onPress={() => compactCold($)} />
+            {compacting ? null : <Button key="cold-hide" plain label="Not now" onPress={() => update($, isColdHidden, () => true)} />}
+            {compacting ? null : <Button key="cold-compact" variant="primary" label="Compact" onPress={() => compactCold($)} />}
           </Box>
         </Box>
       )
@@ -2549,7 +2549,7 @@ Saved to ${out}.md and .json` }
           </Box>
           <Box flexShrink={0}>
             <Text color={BOG} bold wrap="truncate">
-              ✦ Chat is getting swamped
+              {compacting ? '✦ Compacting the chat…' : '✦ Chat is getting swamped'}
             </Text>
           </Box>
           {/* How full the context is, as a ring and a figure: the tokens alone do not say how close the limit is. */}
@@ -2559,11 +2559,20 @@ Saved to ${out}.md and .json` }
               <Text color={BOG}>{`${lastContext.percent}%`}</Text>
             </Box>
           ) : null}
-          <Text wrap="truncate">{`${Math.round(swampTokens / 1000)}k tokens re-read every message.`}</Text>
+          <Text wrap="truncate">
+            {compacting
+              ? `Summing up ${Math.round(swampTokens / 1000)}k tokens. The band goes when it is done.`
+              : `${Math.round(swampTokens / 1000)}k tokens re-read every message.`}
+          </Text>
           <Box flexGrow={1} minWidth={34} />
           <Box key="swamp-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
-            <Button key="swamp-compact" variant="primary" hotkey="c" label={compacting ? 'Compacting…' : 'Compact'} onPress={() => compactCold($)} />
-            <Button key="swamp-handoff" hotkey="h" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />
+            {/* While compacting, the title and line say so and the buttons step aside: nothing to press until it ends. */}
+            {compacting ? null : (
+              <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => compactCold($)} />
+            )}
+            {compacting ? null : (
+              <Button key="swamp-handoff" hotkey="h" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />
+            )}
             <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />
           </Box>
         </Box>
