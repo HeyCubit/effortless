@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "modellval",
+  "description": "Automatic reasoning effort and a prompt-cache countdown for Claude Code.",
+  "owner": {
+    "name": "Segueapp",
+    "url": "https://github.com/Segueapp"
+  },
+  "plugins": [
+    {
+      "name": "modellval",
+      "description": "Sets the reasoning effort for every prompt automatically and shows a prompt-cache countdown with one-click Compact.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}
