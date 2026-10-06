@@ -1415,14 +1415,7 @@ async function typesafeKeyAnywhere($: EngineInterface): Promise<string | undefin
   return parseJevKey(typeof text === 'string' ? text : '')
 }
 
-export type SetupStep = 'pick' | 'jev' | 'custom' | 'lean' | 'handoff' | 'footer' | 'done'
-
-/** The parts the setup's step 4 offers, as the part's hide key and its label. Sound can join here. */
-export const SETUP_FOOTER = [
-  ['timer', 'Cache timer'],
-  ['handoff', '⇥ Handoff'],
-  ['progress', 'Progress bar'],
-] as const
+export type SetupStep = 'pick' | 'jev' | 'custom' | 'lean' | 'handoff' | 'done'
 
 /** The lean's five stops, cheaper to smarter: a name, and what it does to the judge's pick (see tipped). */
 export const LEAN_STOPS = [
@@ -1433,12 +1426,11 @@ export const LEAN_STOPS = [
   ['Smartest', 'more picks go higher'],
 ] as const
 
-/** The guide's step after this one: the judge (with its key or URL), the lean, the handoff, the footer, then done. */
+/** The guide's step after this one: the judge (with its key or URL), the lean, the handoff, then done. */
 export function setupNext(step: SetupStep): SetupStep | null {
   if (step === 'pick' || step === 'jev' || step === 'custom') return 'lean'
   if (step === 'lean') return 'handoff'
-  if (step === 'handoff') return 'footer'
-  if (step === 'footer') return 'done'
+  if (step === 'handoff') return 'done'
   return null
 }
 
@@ -1446,15 +1438,14 @@ export function setupNext(step: SetupStep): SetupStep | null {
 export function setupBack(step: SetupStep): SetupStep | null {
   if (step === 'jev' || step === 'custom' || step === 'lean') return 'pick'
   if (step === 'handoff') return 'lean'
-  if (step === 'footer') return 'handoff'
-  if (step === 'done') return 'footer'
+  if (step === 'done') return 'handoff'
   return null
 }
 
-/** "2/4" for the step shown; the closing step has no number. */
+/** "2/3" for the step shown; the closing step has no number. */
 export function setupCounter(step: SetupStep): string {
-  const n = { pick: 1, jev: 1, custom: 1, lean: 2, handoff: 3, footer: 4, done: 0 }[step]
-  return n ? `${n}/4` : ''
+  const n = { pick: 1, jev: 1, custom: 1, lean: 2, handoff: 3, done: 0 }[step]
+  return n ? `${n}/3` : ''
 }
 
 /** Shows a step of the guide; the handoff step needs the installed skills to pick from. */
@@ -2871,28 +2862,6 @@ Saved to ${out}.md and .json` }
             onSelect={(v: string) => pick('handoffSkill', v === '-' ? '' : v)} />,
           ...nav(nextButton),
         ])
-      }
-      if (step === 'footer') {
-        // What sits in the footer, ticked when it shows. The alert bands are left on; ⚙ switches them off.
-        const toggles = SETUP_FOOTER.map(([part, label]) => {
-          const off = shown.hide.includes(part)
-          const after = off ? shown.hide.filter(h => h !== part) : [...shown.hide, part]
-          // A checkbox of its own beside the name: on is a primary button (white, a heavy black tick), off a secondary
-          // one holding the same tick, dimmed: the same label is the only sure way to the same size (blanks of any width
-          // drew a pill or a wider box). The name toggles it too.
-          const toggle = () => pick('hide', after.join(','))
-          return (
-            <Box key={`setup-show-${part}`} flexDirection="row" alignItems="center">
-              {off ? (
-                <Button key={`setup-box-${part}`} variant="secondary" dimColor label={'\u2714\ufe0e'} onPress={toggle} />
-              ) : (
-                <Button key={`setup-box-${part}`} variant="primary" label={'\u2714\ufe0e'} onPress={toggle} />
-              )}
-              <Button key={`setup-name-${part}`} plain dimColor={off} label={label} onPress={toggle} />
-            </Box>
-          )
-        })
-        return band('Show these (all recommended):', 74, [...toggles, ...nav(nextButton)])
       }
       return band('⏻ Auto on or off. ⚙ all settings. Auto pauses on Fable.', 24, [
         ...nav(<Button key="setup-done" variant="primary" autoFocus label="Done" onPress={() => finishSetup($)} />),

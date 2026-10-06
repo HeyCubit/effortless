@@ -1196,20 +1196,19 @@ describe('setup guide', () => {
     return said
   }
 
-  test('the steps run judge, lean, handoff, footer, done; Back goes one step back', () => {
+  test('the steps run judge, lean, handoff, done; Back goes one step back', () => {
     expect(setupNext('pick')).toBe('lean')
     expect(setupNext('jev')).toBe('lean')
     expect(setupNext('custom')).toBe('lean')
     expect(setupNext('lean')).toBe('handoff')
-    expect(setupNext('handoff')).toBe('footer')
-    expect(setupNext('footer')).toBe('done')
+    expect(setupNext('handoff')).toBe('done')
     expect(setupNext('done')).toBeNull()
     expect(setupBack('pick')).toBeNull()
     expect(setupBack('jev')).toBe('pick')
     expect(setupBack('lean')).toBe('pick')
-    expect(setupBack('done')).toBe('footer')
-    expect(setupCounter('jev')).toBe('1/4')
-    expect(setupCounter('footer')).toBe('4/4')
+    expect(setupBack('done')).toBe('handoff')
+    expect(setupCounter('jev')).toBe('1/3')
+    expect(setupCounter('handoff')).toBe('3/3')
     expect(setupCounter('done')).toBe('')
   })
 
@@ -1226,7 +1225,7 @@ describe('setup guide', () => {
     await clickable(band, 'setup-actions')
     // Branded: the name in the footer's purple, the step counter beside it.
     expect(await drawn(band)).toContain('"color":"#a79cf7"')
-    expect(await drawn(band)).toContain('✦ effortless setup  1/4')
+    expect(await drawn(band)).toContain('✦ effortless setup  1/3')
     expect(await drawn(band)).toContain('Jev (API)')
     // The right side: a still SVG (every click redraws the band, and a redrawn animation flickers) with the gradient.
     const first = await drawn(band)
@@ -1238,38 +1237,29 @@ describe('setup guide', () => {
     expect(set).toEqual([])
     expect(said.join(' ')).toContain('Haiku judges')
 
-    // 2/4 the lean: each stop is named and says what it does; the track lights toward the marker.
-    expect(await drawn(band)).toContain('2/4')
+    // 2/3 the lean: each stop is named and says what it does; the track lights toward the marker.
+    expect(await drawn(band)).toContain('2/3')
     expect(await drawn(band)).toContain('Balanced: ')
     await band.press({ key: 'setup-bias4' })
     expect(await drawn(band)).toContain('Smartest: ')
     expect(await drawn(band)).toContain('{"color":"#a79cf7"},"children":["──"]')
     await band.press({ key: 'setup-next' })
 
-    // 3/4 the handoff: the installed skills to pick from.
-    expect(await drawn(band)).toContain('3/4')
+    // 3/3 the handoff: the installed skills to pick from.
+    expect(await drawn(band)).toContain('3/3')
     expect(await drawn(band)).toContain('/session-handoff')
     await band.select({ key: 'setup-skill', value: 'session-handoff' })
     await band.press({ key: 'setup-next' })
 
-    // 4/4 the footer: the cache timer and the handoff button, both ticked; a click unticks one.
-    expect(await drawn(band)).toContain('4/4')
-    expect(await drawn(band)).toContain('{"key":"setup-box-handoff","label":"✔︎","variant":"primary"}')
-    expect(await band.find({ key: 'setup-show-cold' })).toBeUndefined()
-    expect(await band.find({ key: 'setup-box-progress' })).toBeDefined()
-    await band.press({ key: 'setup-box-timer' })
-    expect(await drawn(band)).toContain('{"key":"setup-box-timer","label":"✔︎","dimColor":true,"variant":"secondary"}')
-    await band.press({ key: 'setup-next' })
-
-    // The last word: the footer's buttons and Fable. Back goes to the footer step.
+    // The last word: the footer's buttons and Fable; no step of ticks. Back goes to the handoff step.
     expect(await drawn(band)).toContain('Auto pauses on Fable')
+    expect(await band.find({ key: 'setup-box-timer' })).toBeUndefined()
     await band.press({ key: 'setup-back' })
-    expect(await drawn(band)).toContain('4/4')
+    expect(await drawn(band)).toContain('3/3')
     await band.press({ key: 'setup-next' })
     expect(set).toEqual([])
     await band.press({ key: 'setup-done' })
     expect(set).toEqual([
-      { key: 'effortless.hide', value: 'timer' },
       { key: 'effortless.judge', value: 'haiku' },
       { key: 'effortless.effortBias', value: '2' },
       { key: 'effortless.handoffSkill', value: 'session-handoff' },
@@ -1331,7 +1321,7 @@ describe('setup guide', () => {
     const band = await $.ui.mount(DESK)
     await band.press({ key: 'setup-skip' })
     expect(set).toEqual([])
-    expect(await drawn(band)).toContain('2/4')
+    expect(await drawn(band)).toContain('2/3')
     await band.press({ key: 'setup-close' })
     await band.unmount()
     const footer = await $.ui.mount(FOOTER)
@@ -1349,7 +1339,7 @@ describe('setup guide', () => {
     const band = await $.ui.mount(DESK)
     await band.press({ key: 'setup-jev' })
     expect(said.join(' ')).toContain('Jev judges')
-    expect(await drawn(band)).toContain('2/4')
+    expect(await drawn(band)).toContain('2/3')
     await band.press({ key: 'setup-close' })
     await band.unmount()
     await expect($.ui.mount(DESK)).rejects.toThrow()
