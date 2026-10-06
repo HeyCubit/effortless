@@ -1573,6 +1573,12 @@ Saved to ${out}.md and .json` }
     if (await read($, settingsOpen)) {
       const { Input, Select } = $.ui.resolve(e)
       const opts = (values: readonly string[]) => values.map(value => ({ value, label: value }))
+      // The skills and commands installed here, to pick the handoff writer from: no typing, no file paths. A plugin
+      // cannot open a file dialog, and a skill is run by its name anyway.
+      const installed = await $.command.list().catch(() => [])
+      const skillNames = [...new Set(installed.filter(c => c.source === 'user' || c.source === 'plugin').map(c => c.name))]
+        .filter(name => !name.startsWith('effortless'))
+        .sort()
       const hasKey = Boolean(await jevKey($).catch(() => undefined)) || Boolean(await typesafeKeyAnywhere($).catch(() => undefined))
       // A plain button with its own handler: a dismiss-role button may be taken by the app before onPress runs.
       const close = async () => {
@@ -1620,10 +1626,12 @@ Saved to ${out}.md and .json` }
       }
       const row = (key: string, label: string, children: unknown[], words?: string) => (
         <Box key={key} flexDirection="row" gap={1} alignItems="center">
-          <Box width={8} flexShrink={0}>
+          <Box width={8} flexShrink={0} alignSelf="flex-start">
             <Text dimColor>{label}</Text>
           </Box>
-          {children}
+          <Box flexDirection="row" flexWrap="wrap" gap={1} alignItems="center" flexShrink={1}>
+            {children}
+          </Box>
           {words ? (
             <Text key="hint" dimColor wrap="truncate">
               {words}
@@ -1688,8 +1696,12 @@ Saved to ${out}.md and .json` }
             <Select key="settings-after-pick" value={shown.handoffAfter}
               options={[{ value: 'continue', label: 'then carry on' }, { value: 'confirm', label: 'then wait' }]}
               onSelect={set('handoffAfter')} />,
-            field('skill-field', <Input key="settings-skill" placeholder="Built-in, or a skill name" value={shown.handoffSkill}
-              submitLabel="ok" onInput={set('handoffSkill')} onSubmit={set('handoffSkill')} />, 30),
+            <Select key="settings-skill" label="Written by" value={shown.handoffSkill || '-'}
+              options={[
+                { value: '-', label: 'built-in prompt' },
+                ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
+              ]}
+              onSelect={v => set('handoffSkill')(v === '-' ? '' : v)} />,
           ])}
           {row('settings-show', 'Show', toggles)}
         </Box>

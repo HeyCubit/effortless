@@ -42,7 +42,7 @@ function engine(on: On, env: Record<string, string> = {}, sessionModel = 'claude
   on('ui.status', () => ({ value: undefined }))
   on('session.messages', () => ({ value: said }) as never)
   on('session.model', () => ({ value: sessionModel }))
-  on('command.list', () => ({ value: [{ name: 'model' }, { name: 'effort' }] as never }))
+  on('command.list', () => ({ value: [{ name: 'model' }, { name: 'effort' }, { name: 'session-handoff', source: 'user' }] as never }))
 }
 
 /** Records the slash commands the mod runs, as the person's own /model and /effort. */
@@ -1583,11 +1583,13 @@ describe('settings panel', () => {
     await panel.press({ key: 'bias3' })
     await panel.select({ key: 'settings-floor', value: 'medium' })
     await panel.input({ key: 'settings-key', text: ' tk-new ' })
+    await panel.select({ key: 'settings-skill', value: 'session-handoff' })
     await panel.press({ key: 'show-swamp' })
     await panel.press({ key: 'show-handoff' })
     expect(set).toEqual([])
     await panel.press({ key: 'settings-save' })
     expect(set).toContainEqual({ key: 'effortless.hide', value: 'swamp,handoff' })
+    expect(set).toContainEqual({ key: 'effortless.handoffSkill', value: 'session-handoff' })
     expect(set).toContainEqual({ key: 'effortless.effortBias', value: '1' })
     expect(set).toContainEqual({ key: 'effortless.effortFloor', value: 'medium' })
     expect(set).toContainEqual({ key: 'effortless.judge', value: 'jev' })
