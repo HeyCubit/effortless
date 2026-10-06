@@ -1173,9 +1173,9 @@ export async function finishHandoff($: EngineInterface) {
   }
 }
 
-/** Opens the effortless settings panel above the prompt: the app does not let a plugin open its /plugin dialog. */
-async function openPluginSettings($: EngineInterface) {
-  // The installed skills are read here, once, not while drawing: a slow or refused lookup must not cost the panel.
+/** The user and plugin skills, for the handoff picker in the settings and the setup guide. */
+async function loadInstalledSkills($: EngineInterface) {
+  // Read here, once, not while drawing: a slow or refused lookup must not cost the panel.
   const installed = await $.command.list().catch(() => [])
   // At most 25, handoff-like ones first: a picker with hundreds of options is more than the slot takes.
   const names = [...new Set(installed.filter(c => c.source === 'user' || c.source === 'plugin').map(c => c.name))]
@@ -1183,6 +1183,11 @@ async function openPluginSettings($: EngineInterface) {
     .sort((a, b) => Number(!/handoff/i.test(a)) - Number(!/handoff/i.test(b)) || a.localeCompare(b))
     .slice(0, 25)
   await update($, installedSkills, () => names)
+}
+
+/** Opens the effortless settings panel above the prompt: the app does not let a plugin open its /plugin dialog. */
+async function openPluginSettings($: EngineInterface) {
+  await loadInstalledSkills($)
   await update($, settingsOpen, () => true)
   // Before a chat's first message the app may start the mod's session afresh for each command, and the state with
   // it: the request also goes to the store, which outlives that, and the next drawing picks it up.
@@ -1299,18 +1304,63 @@ async function typesafeKeyAnywhere($: EngineInterface): Promise<string | undefin
   return parseJevKey(typeof text === 'string' ? text : '')
 }
 
-/** Closes the guide for good: it does not open by itself again. */
-async function finishSetup($: EngineInterface, said?: string) {
-  await Promise.all([update($, setupStep, () => null), update($, setupPending, () => false), $.store.set('setupDone', true)])
-  if (said) $.ui.toast(said)
+export type SetupStep = 'pick' | 'jev' | 'custom' | 'lean' | 'handoff' | 'alerts' | 'done'
+
+/** The guide's step after this one: the judge (with its key or URL), the lean, the handoff, the alerts, then done. */
+export function setupNext(step: SetupStep): SetupStep | null {
+  if (step === 'pick' || step === 'jev' || step === 'custom') return 'lean'
+  if (step === 'lean') return 'handoff'
+  if (step === 'handoff') return 'alerts'
+  if (step === 'alerts') return 'done'
+  return null
 }
 
-/** The person picked a judge in the guide: it is saved as the plugin's setting, and the next step shown. */
+/** The step Back goes to: the judge's key or URL goes back to the pick, as does the lean. */
+export function setupBack(step: SetupStep): SetupStep | null {
+  if (step === 'jev' || step === 'custom' || step === 'lean') return 'pick'
+  if (step === 'handoff') return 'lean'
+  if (step === 'alerts') return 'handoff'
+  if (step === 'done') return 'alerts'
+  return null
+}
+
+/** "2/4" for the step shown; the closing step has no number. */
+export function setupCounter(step: SetupStep): string {
+  const n = { pick: 1, jev: 1, custom: 1, lean: 2, handoff: 3, alerts: 4, done: 0 }[step]
+  return n ? `${n}/4` : ''
+}
+
+/** Shows a step of the guide; the handoff step needs the installed skills to pick from. */
+async function goSetup($: EngineInterface, step: SetupStep | null) {
+  if (step === 'handoff') await loadInstalledSkills($)
+  await update($, settingsDraft, () => ({}))
+  await update($, setupStep, () => step)
+}
+
+/** The judge is settled (picked or skipped): the guide does not open by itself again, and the footer shows ⚙. */
+async function markSetupDone($: EngineInterface) {
+  await Promise.all([update($, setupPending, () => false), $.store.set('setupDone', true)])
+}
+
+/** Closes the guide at its last step. */
+async function finishSetup($: EngineInterface) {
+  await markSetupDone($)
+  await goSetup($, null)
+}
+
+/** The person picked a judge in the guide: it is saved at once, then the judge's key or URL, or the next step. */
 async function pickJudge($: EngineInterface, choice: 'haiku' | 'jev' | 'custom') {
-  await $.config.set({ key: 'effortless.judge', value: choice }).catch(() => undefined)
-  if (choice === 'haiku') return finishSetup($, 'effortless: Haiku judges, no key needed. /effortless setup changes it.')
-  if (choice === 'jev' && (await findTypesafeKey($))) return finishSetup($, 'effortless: Jev judges with the TypeSafe key it found.')
-  await update($, setupStep, () => choice)
+  await saveSetting($, 'judge', choice)
+  await markSetupDone($)
+  if (choice === 'haiku') {
+    $.ui.toast('effortless: Haiku judges, no key needed.')
+    return goSetup($, 'lean')
+  }
+  if (choice === 'jev' && (await findTypesafeKey($))) {
+    $.ui.toast('effortless: Jev judges with the TypeSafe key it found.')
+    return goSetup($, 'lean')
+  }
+  await goSetup($, choice)
 }
 
 /** 1234 -> "1.2k", 87 -> "87". */
@@ -2050,78 +2100,144 @@ Saved to ${out}.md and .json` }
         </Box>
       )
     }
-    // The setup guide, one step at a time: pick a judge, then only what that judge needs.
+    // The setup guide, one step at a time: the judge (and only what that judge needs), the lean, the handoff, the
+    // alerts, then a word on the footer. Every choice is saved the moment it is made, so closing keeps what was picked.
     const step = await read($, setupStep)
     if (step) {
-      const openSettings = () => openPluginSettings($)
-      // The same build as the cold band: one styled surface, the art a backdrop layer behind the right side, and the
-      // buttons in a later layer so they are drawn on top of it. The text keeps clear of them with a spacer.
-      // The ✕ closes the guide without picking: the footer keeps offering "Setup" until a judge is picked.
-      const close = <Button key="setup-close" plain role="dismiss" label="✕" onPress={() => update($, setupStep, () => null)} />
-      const band = (words: string, buttons: unknown[]) => (
-        <Box
-          key="setup"
-          position="relative"
-          flexDirection="row"
-          gap={1}
-          alignItems="center"
-          paddingX={1}
-          overflow="hidden"
-          backgroundColor={BRAND_BG}
-          borderStyle="round"
-          borderColor={BRAND_EDGE}
-        >
-          <Box key="brand" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
+      const { Input, Select } = $.ui.resolve(e)
+      const draft = await read($, settingsDraft)
+      const go = (to: SetupStep | null) => () => goSetup($, to)
+      const back = setupBack(step)
+      const counter = setupCounter(step)
+      // The ✕ closes the guide without picking: until a judge is picked the footer keeps offering "Setup".
+      const nav = (forward: unknown) => [
+        ...(back ? [<Button key="setup-back" plain dimColor label="Back" onPress={go(back)} />] : []),
+        forward,
+        <Button key="setup-close" plain role="dismiss" label="✕" onPress={() => update($, setupStep, () => null)} />,
+      ]
+      const nextButton = <Button key="setup-next" variant="primary" label="Next" onPress={go(setupNext(step))} />
+      // The same build as the handoff bar: the title over one line of words on the left, the controls on the right,
+      // both in the flow and lifted above the art by position="relative". The art is still: every click redraws the band.
+      const band = (words: string, controls: unknown[]) => (
+        <Box key="setup" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
+          backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
+          <Box key="setup-art" position="absolute" top={-1} right={0} bottom={-1}>
+            <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
           </Box>
-          <Box flexShrink={0}>
+          <Box key="setup-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
             <Text color={ACCENT} bold wrap="truncate">
-              ✦ effortless
+              {counter ? `✦ effortless setup  ${counter}` : '✦ effortless setup'}
             </Text>
+            <Text key="setup-what" wrap="truncate">{words}</Text>
           </Box>
-          <Text wrap="truncate">{words}</Text>
-          <Box flexGrow={1} minWidth={38} />
-          <Box key="setup-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={2} alignItems="center">
-            {buttons}
-            {close}
+          <Box flexGrow={1} minWidth={2} />
+          <Box key="setup-actions" position="relative" flexShrink={0} flexDirection="row" gap={1} alignItems="center">
+            {controls}
           </Box>
         </Box>
       )
       if (step === 'pick')
-        return band(
-          'Who picks the effort?',
+        return band('Who picks the effort for each message?', [
+          // Each mark sits tight against its own button; the pairs stand apart.
+          <Box key="pick-jev" flexDirection="row" gap={1} alignItems="center">
+            <Svg source={TYPESAFE_MARK} alt="TypeSafe" width={12} height={18} />
+            <Button key="setup-jev" variant="primary" label="Jev (API)" onPress={() => pickJudge($, 'jev')} />
+          </Box>,
+          <Box key="pick-haiku" flexDirection="row" gap={1} alignItems="center">
+            <Svg source={CLAUDE_MARK} alt="Claude" width={16} height={16} />
+            <Button key="setup-haiku" variant="primary" label="Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />
+          </Box>,
+          <Button key="setup-custom" plain label="Custom" onPress={() => pickJudge($, 'custom')} />,
+          ...nav(
+            <Button key="setup-skip" plain dimColor label="Skip" onPress={async () => {
+              await markSetupDone($)
+              await goSetup($, 'lean')
+            }} />,
+          ),
+        ])
+      if (step === 'jev')
+        return band('Paste a TypeSafe key from typesafe.ai.', [
+          <Box key="key-field" width={30} flexShrink={1}>
+            <Input key="setup-key" placeholder="TypeSafe key" value={draft.key ?? ''} submitLabel="Save"
+              onInput={(v: string) => update($, settingsDraft, d => ({ ...d, key: v }))}
+              onSubmit={async (v: string) => {
+                if (!v.trim()) return
+                await saveJevKey($, v)
+                await goSetup($, 'lean')
+              }} />
+          </Box>,
+          ...nav(<Button key="setup-skip" plain label="Skip" onPress={go('lean')} />),
+        ])
+      if (step === 'custom')
+        return band('Your judge: a chat completions URL and a model.', [
+          <Box key="url-field" width={28} flexShrink={1}>
+            <Input key="setup-url" placeholder="URL" value={draft.customUrl ?? config.customUrl} submitLabel="ok"
+              onInput={(v: string) => update($, settingsDraft, d => ({ ...d, customUrl: v }))}
+              onSubmit={(v: string) => saveSetting($, 'customUrl', v.trim())} />
+          </Box>,
+          <Box key="model-field" width={16} flexShrink={1}>
+            <Input key="setup-model" placeholder="Model" value={draft.customModel ?? config.customModel} submitLabel="ok"
+              onInput={(v: string) => update($, settingsDraft, d => ({ ...d, customModel: v }))}
+              onSubmit={(v: string) => saveSetting($, 'customModel', v.trim())} />
+          </Box>,
+          ...nav(
+            <Button key="setup-next" variant="primary" label="Next" onPress={async () => {
+              // What was typed and not yet sent with ok is kept too.
+              if (draft.customUrl !== undefined) await saveSetting($, 'customUrl', draft.customUrl.trim())
+              if (draft.customModel !== undefined) await saveSetting($, 'customModel', draft.customModel.trim())
+              await goSetup($, 'lean')
+            }} />,
+          ),
+        ])
+      if (step === 'lean') {
+        // The settings panel's slider: five stops, the marker on the one in force. A click saves it.
+        const track: unknown[] = []
+        for (const n of [-2, -1, 0, 1, 2]) {
+          if (n > -2) track.push(<Text key={`t${n}`} dimColor>──</Text>)
+          track.push(<Button key={`setup-bias${n + 2}`} plain label={n === config.bias ? '◉' : '○'}
+            onPress={() => saveSetting($, 'bias', String(n))} />)
+        }
+        return band('On close calls, lean cheaper or smarter?', [
+          <Text key="cheap" dimColor>Cheaper</Text>,
+          <Box key="track" flexDirection="row" alignItems="center">
+            {track}
+          </Box>,
+          <Text key="smart" dimColor>Smarter</Text>,
+          ...nav(nextButton),
+        ])
+      }
+      if (step === 'handoff') {
+        const skillNames = await read($, installedSkills)
+        return band('⇥ at the bottom moves the chat to a fresh one. Full handoff by:', [
+          <Select key="setup-skill" value={config.handoffSkill || '-'}
+            options={[
+              { value: '-', label: 'none, quick only' },
+              ...[...new Set([...(config.handoffSkill ? [config.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
+            ]}
+            onSelect={(v: string) => saveSetting($, 'handoffSkill', v === '-' ? '' : v)} />,
+          ...nav(nextButton),
+        ])
+      }
+      if (step === 'alerts') {
+        // Filled dot shown, hollow dot hidden; a click saves it.
+        const toggles = (
           [
-            // Each mark sits tight against its own button; the pairs stand apart.
-            <Box key="pick-jev" flexDirection="row" gap={1} alignItems="center">
-              <Svg source={TYPESAFE_MARK} alt="TypeSafe" width={12} height={18} />
-              <Button key="setup-jev" variant="primary" label="Jev (API)" onPress={() => pickJudge($, 'jev')} />
-            </Box>,
-            <Box key="pick-haiku" flexDirection="row" gap={1} alignItems="center">
-              <Svg source={CLAUDE_MARK} alt="Claude" width={16} height={16} />
-              <Button key="setup-haiku" variant="primary" label="Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />
-            </Box>,
-          ],
-        )
-      return band(
-        step === 'jev' ? 'Paste a TypeSafe key (typesafe.ai) in the settings.' : 'Fill in the URL and model in the settings.',
-        [
-          <Button
-            key="setup-open"
-            variant="primary"
-            label="Open settings"
-            onPress={async () => {
-              await finishSetup($)
-              await openSettings()
-            }}
-          />,
-          <Button
-            key="setup-done"
-            label="Done"
-            onPress={() => finishSetup($, 'effortless: restart Claude Code so the new settings are used.')}
-          />,
-          <Button key="setup-back" plain label="Back" onPress={() => update($, setupStep, () => 'pick')} />
-        ],
-      )
+            ['timer', 'Timer'],
+            ['cold', 'Cold'],
+            ['swamp', 'Swamped'],
+            ['hot', 'Hot'],
+            ['down', 'Judge down'],
+          ] as const
+        ).map(([part, label]) => {
+          const off = config.hide.includes(part)
+          const after = off ? config.hide.filter(h => h !== part) : [...config.hide, part]
+          return <Button key={`setup-show-${part}`} plain label={`${off ? '○' : '●'} ${label}`} onPress={() => saveSetting($, 'hide', after.join(','))} />
+        })
+        return band('Which alerts show? The minutes at the bottom are the cache timer.', [...toggles, ...nav(nextButton)])
+      }
+      return band('⏻ at the bottom turns Auto on or off, ⚙ changes all this. Auto pauses on Fable.', [
+        ...nav(<Button key="setup-done" variant="primary" autoFocus label="Done" onPress={() => finishSetup($)} />),
+      ])
     }
     // The judge the person picked is failing: Haiku stands in until it works again.
     const downReason = await read($, judgeDown)

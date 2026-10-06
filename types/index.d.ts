@@ -90,7 +90,7 @@ declare module 'claude-code' {
       /** The handoff bar above the prompt, open with the choice shown in it, or null. */
       handoffPick: HandoffChoice | null
       /** The setup guide's step, or null when it is closed. */
-      setupStep: 'pick' | 'jev' | 'custom' | null
+      setupStep: 'pick' | 'jev' | 'custom' | 'lean' | 'handoff' | 'alerts' | 'done' | null
       /** Auto on model: the judge may suggest another model (never switched without a yes). Off by default. */
       isAutoModel: boolean
       pick: Pick | null

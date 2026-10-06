@@ -19,7 +19,7 @@ Type these two lines in Claude Code's chat box, no terminal needed:
 /plugin install effortless@effortless
 ```
 
-Restart Claude Code. A short setup opens above the prompt the first time: pick **Jev** (API key needed, about 4x faster than Haiku), **Haiku** (one click, no key, runs on your own Claude login) or **your own AI**, and it asks only for what that choice needs. Run `/effortless setup` to change it later.
+Restart Claude Code. A short setup opens above the prompt the first time: pick **Jev** (API key needed, about 4x faster than Haiku), **Haiku** (one click, no key, runs on your own Claude login) or **your own AI**, and it asks only for what that choice needs. Then three short steps: lean cheaper or smarter, which skill writes a full handoff, and which alerts show. Back and Skip on every step; everything is saved as you click. Run `/effortless setup` to go through it again, or change any of it in ⚙.
 
 From a terminal it is the same without the slashes: `claude plugin marketplace add HeyCubit/effortless`, then `claude plugin install effortless@effortless`.
 
@@ -58,7 +58,7 @@ Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and 
 
 | Command | Does |
 |---|---|
-| `/effortless setup` | pick the judge again |
+| `/effortless setup` | run the setup again |
 | `/effortless auto` | Auto on or off |
 | `/effortless stats` | what the prompts Auto steered cost this session, per effort, and what the judge took |
 | `⇥` in the footer | opens the handoff bar: **Quick** (a fork writes it in seconds) or **Full** (your own skill, setting `handoffSkill`, which can check git and save files), then **Clear & carry on**, **Clear & wait**, **Keep chat & copy** or **New chat & archive** (the model starts a new chat from the handoff with the app's session tools, then archives this one; one click on a card where the app asks). A line in the bar says what will happen; it remembers your last choice. The swamp band's Handoff opens the same bar |

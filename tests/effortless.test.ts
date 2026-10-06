@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome } from '../hooks/register'
+import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter } from '../hooks/register'
 
 const BAND = {
   component: 'AbovePrompt',
@@ -701,7 +701,10 @@ describe('cache countdown', () => {
   /** The band above the prompt, with the first-run setup guide closed so the cold band can show. */
   const coldBand = async ($: Engine) => {
     const band = await $.ui.mount(DESK_BAND)
-    if (await band.find({ key: 'setup-haiku' })) await band.press({ key: 'setup-haiku' })
+    if (await band.find({ key: 'setup-haiku' })) {
+      await band.press({ key: 'setup-haiku' })
+      await band.press({ key: 'setup-close' })
+    }
     return band
   }
 
@@ -720,6 +723,7 @@ describe('cache countdown', () => {
     // Still warm: no band (only the first-run guide, closed here), so nothing to compact yet.
     const guide = await $.ui.mount(DESK_BAND)
     await guide.press({ key: 'setup-haiku' })
+    await guide.press({ key: 'setup-close' })
     await guide.unmount()
     await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
     await mocked.advance(2 * 60_000)
@@ -1168,7 +1172,24 @@ describe('setup guide', () => {
     return said
   }
 
-  test('opens by itself the first time; Haiku is one click and needs nothing more; it does not open again', async ($, on) => {
+  test('the steps run judge, lean, handoff, alerts, done; Back goes one step back', () => {
+    expect(setupNext('pick')).toBe('lean')
+    expect(setupNext('jev')).toBe('lean')
+    expect(setupNext('custom')).toBe('lean')
+    expect(setupNext('lean')).toBe('handoff')
+    expect(setupNext('handoff')).toBe('alerts')
+    expect(setupNext('alerts')).toBe('done')
+    expect(setupNext('done')).toBeNull()
+    expect(setupBack('pick')).toBeNull()
+    expect(setupBack('jev')).toBe('pick')
+    expect(setupBack('lean')).toBe('pick')
+    expect(setupBack('done')).toBe('alerts')
+    expect(setupCounter('jev')).toBe('1/4')
+    expect(setupCounter('alerts')).toBe('4/4')
+    expect(setupCounter('done')).toBe('')
+  })
+
+  test('opens by itself the first time; each step saves its choice at once; Done closes it for good', async ($, on) => {
     engine(on)
     mock.clock(on)
     const set = settings(on)
@@ -1176,20 +1197,47 @@ describe('setup guide', () => {
     await start($, on)
     const band = await $.ui.mount(DESK)
     expect(await band.find({ key: 'setup-haiku' })).toBeDefined()
-    expect(await band.find({ key: 'setup-open' })).toBeUndefined()
-    // Branded: the name in the footer's purple.
+    expect(await band.find({ key: 'setup-custom' })).toBeDefined()
+    expect(await band.find({ key: 'setup-back' })).toBeUndefined()
+    // Branded: the name in the footer's purple, the step counter beside it.
     expect(await drawn(band)).toContain('"color":"#a79cf7"')
-    expect(await drawn(band)).toContain('✦ effortless')
+    expect(await drawn(band)).toContain('✦ effortless setup  1/4')
     expect(await drawn(band)).toContain('Jev (API)')
-    // The right side: an interactive SVG (so its sparkles animate), a gradient, and sparkles that twinkle.
+    // The right side: a still SVG (every click redraws the band, and a redrawn animation flickers) with the gradient.
     const first = await drawn(band)
     expect(first).toContain('"type":"Svg"')
-    expect(first).toContain('"isInteractive":true')
+    expect(first).not.toContain('"isInteractive":true')
     expect(first).toContain('linearGradient')
-    expect((first.match(/class=\\"sp\\"/g) ?? []).length).toBeGreaterThanOrEqual(8)
     await band.press({ key: 'setup-haiku' })
     expect(set).toEqual([{ key: 'effortless.judge', value: 'haiku' }])
     expect(said.join(' ')).toContain('Haiku judges')
+
+    // 2/4 the lean: a click on the slider saves it.
+    expect(await drawn(band)).toContain('2/4')
+    await band.press({ key: 'setup-bias4' })
+    expect(set).toContainEqual({ key: 'effortless.effortBias', value: '2' })
+    await band.press({ key: 'setup-next' })
+
+    // 3/4 the handoff: the installed skills to pick from.
+    expect(await drawn(band)).toContain('3/4')
+    expect(await drawn(band)).toContain('/session-handoff')
+    await band.select({ key: 'setup-skill', value: 'session-handoff' })
+    expect(set).toContainEqual({ key: 'effortless.handoffSkill', value: 'session-handoff' })
+    await band.press({ key: 'setup-next' })
+
+    // 4/4 the alerts: a click hides one.
+    expect(await drawn(band)).toContain('4/4')
+    await band.press({ key: 'setup-show-timer' })
+    expect(set).toContainEqual({ key: 'effortless.hide', value: 'timer' })
+    expect(await drawn(band)).toContain('○ Timer')
+    await band.press({ key: 'setup-next' })
+
+    // The last word: the footer's buttons and Fable. Back goes to the alerts.
+    expect(await drawn(band)).toContain('Auto pauses on Fable')
+    await band.press({ key: 'setup-back' })
+    expect(await drawn(band)).toContain('4/4')
+    await band.press({ key: 'setup-next' })
+    await band.press({ key: 'setup-done' })
     await band.unmount()
     await expect($.ui.mount(DESK)).rejects.toThrow()
 
@@ -1202,7 +1250,7 @@ describe('setup guide', () => {
     await again.unmount()
   })
 
-  test('Jev without a key asks only for the key, and Open settings opens the panel with the key field', async ($, on) => {
+  test('Jev without a key asks for it in the band; Skip goes on to the lean, Back returns to the pick', async ($, on) => {
     engine(on)
     mock.clock(on)
     const set = settings(on)
@@ -1212,14 +1260,45 @@ describe('setup guide', () => {
     expect(set).toEqual([{ key: 'effortless.judge', value: 'jev' }])
     expect(await drawn(band)).toContain('TypeSafe key')
     expect(await drawn(band)).toContain('typesafe.ai')
+    expect(await band.find({ key: 'setup-key' })).toBeDefined()
     expect(await band.find({ key: 'setup-haiku' })).toBeUndefined()
-    await band.press({ key: 'setup-open' })
+    await band.press({ key: 'setup-skip' })
+    expect(await band.find({ key: 'setup-bias2' })).toBeDefined()
+    await band.press({ key: 'setup-back' })
+    expect(await band.find({ key: 'setup-jev' })).toBeDefined()
     await band.unmount()
-    const panel = await $.ui.mount(DESK)
-    expect(await panel.find({ key: 'settings-key' })).toBeDefined()
-    await panel.press({ key: 'settings-close' })
-    await panel.unmount()
-    await expect($.ui.mount(DESK)).rejects.toThrow()
+  })
+
+  test('Custom asks for the URL and the model in the band', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    const set = settings(on)
+    await start($, on)
+    const band = await $.ui.mount(DESK)
+    await band.press({ key: 'setup-custom' })
+    expect(set).toEqual([{ key: 'effortless.judge', value: 'custom' }])
+    expect(await band.find({ key: 'setup-url' })).toBeDefined()
+    expect(await band.find({ key: 'setup-model' })).toBeDefined()
+    await band.press({ key: 'setup-next' })
+    expect(await band.find({ key: 'setup-bias2' })).toBeDefined()
+    await band.unmount()
+  })
+
+  test('Skip on the judge keeps the default judge and moves on; the footer then shows the gear', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    const set = settings(on)
+    await start($, on)
+    const band = await $.ui.mount(DESK)
+    await band.press({ key: 'setup-skip' })
+    expect(set).toEqual([])
+    expect(await drawn(band)).toContain('2/4')
+    await band.press({ key: 'setup-close' })
+    await band.unmount()
+    const footer = await $.ui.mount(FOOTER)
+    expect(await footer.find({ key: 'setup' })).toBeUndefined()
+    expect(await footer.find({ key: 'settings' })).toBeDefined()
+    await footer.unmount()
   })
 
   test('Jev with a key already in the environment needs no second step', async ($, on) => {
@@ -1231,6 +1310,8 @@ describe('setup guide', () => {
     const band = await $.ui.mount(DESK)
     await band.press({ key: 'setup-jev' })
     expect(said.join(' ')).toContain('Jev judges')
+    expect(await drawn(band)).toContain('2/4')
+    await band.press({ key: 'setup-close' })
     await band.unmount()
     await expect($.ui.mount(DESK)).rejects.toThrow()
   })
@@ -1366,6 +1447,7 @@ describe('cold band', () => {
     const DESK = { plugin: 'effortless', surface: 'desktop', ...BAND } as never
     const guide = await $.ui.mount(DESK)
     await guide.press({ key: 'setup-haiku' })
+    await guide.press({ key: 'setup-close' })
     await guide.unmount()
     await $.command.run({ command: 'effortless', args: 'cold' })
     const band = await $.ui.mount(DESK)
@@ -1752,6 +1834,7 @@ describe('swamp band and setup entry', () => {
     const reopened = await $.ui.mount(DESK_BAND)
     expect(await reopened.find({ key: 'setup-jev' })).toBeDefined()
     await reopened.press({ key: 'setup-haiku' })
+    await reopened.press({ key: 'setup-close' })
     await reopened.unmount()
     expect(await footer.find({ key: 'setup' })).toBeUndefined()
     // Once set up, the same place is a gear that opens the settings panel.
