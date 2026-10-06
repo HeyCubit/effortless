@@ -26,7 +26,7 @@ const EFFORT_LABELS: Record<Effort, string> = { low: 'Low', medium: 'Medium', hi
 
 // Auto is two switches. `isAuto` is effort (the name stays: it is what the store and state hold);
 // `isAutoModel` lets the judge suggest another model and starts off.
-const isAuto = atom({ plugin: 'modellval', key: 'isAuto' } as const, true)
+const isAuto = atom({ plugin: 'effortless', key: 'isAuto' } as const, true)
 const JEV_TIMEOUT_MS = 3000
 const JEV_URL = 'https://api.typesafe.ai/v1/systemone'
 const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, read: 0, out: 0, byEffort: {}, judge: { jev: 0, haiku: 0, custom: 0, ms: 0, tokens: 0 } }
@@ -42,22 +42,22 @@ const CACHE_YELLOW_MIN = 20
 const CACHE_RED_MIN = 5
 const YELLOW = '#e0a33a'
 const RED = '#e5534b'
-const isAutoModel = atom({ plugin: 'modellval', key: 'isAutoModel' } as const, false)
-const pick = atom({ plugin: 'modellval', key: 'pick' } as const, null)
-const isJudging = atom({ plugin: 'modellval', key: 'isJudging' } as const, false)
-const suggestion = atom({ plugin: 'modellval', key: 'suggestion' } as const, null)
-const appEffort = atom({ plugin: 'modellval', key: 'appEffort' } as const, null)
-const model = atom({ plugin: 'modellval', key: 'model' } as const, null)
+const isAutoModel = atom({ plugin: 'effortless', key: 'isAutoModel' } as const, false)
+const pick = atom({ plugin: 'effortless', key: 'pick' } as const, null)
+const isJudging = atom({ plugin: 'effortless', key: 'isJudging' } as const, false)
+const suggestion = atom({ plugin: 'effortless', key: 'suggestion' } as const, null)
+const appEffort = atom({ plugin: 'effortless', key: 'appEffort' } as const, null)
+const model = atom({ plugin: 'effortless', key: 'model' } as const, null)
 // The last change Auto made to the effort, shown for a moment as "Low → High" and then cleared.
-const switched = atom({ plugin: 'modellval', key: 'switched' } as const, null)
+const switched = atom({ plugin: 'effortless', key: 'switched' } as const, null)
 // What the prompts Auto steered cost this session, measured, and what judging them took.
-const saved = atom({ plugin: 'modellval', key: 'saved' } as const, EMPTY_SPENT)
+const saved = atom({ plugin: 'effortless', key: 'saved' } as const, EMPTY_SPENT)
 // True while the session runs a model where Auto must not change effort (see cacheSafe).
-const paused = atom({ plugin: 'modellval', key: 'paused' } as const, false)
+const paused = atom({ plugin: 'effortless', key: 'paused' } as const, false)
 // How long the main conversation's prompt cache stays warm, in whole minutes left: null before the first response,
 // 0 once it has gone cold. Updated only when the minute changes, so the footer redraws once a minute at most.
-const cacheLeft = atom({ plugin: 'modellval', key: 'cacheLeft' } as const, null)
-const isCompacting = atom({ plugin: 'modellval', key: 'isCompacting' } as const, false)
+const cacheLeft = atom({ plugin: 'effortless', key: 'cacheLeft' } as const, null)
+const isCompacting = atom({ plugin: 'effortless', key: 'isCompacting' } as const, false)
 
 const JUDGE_SYSTEM = `You choose which Claude model and reasoning effort an agentic assistant (it reads files, runs tools and edits things, not only code) should use for the user's next message. Pick the cheapest pair that will still do the job well.
 
@@ -372,8 +372,8 @@ async function sessionModel($: EngineInterface): Promise<ModelKey> {
 }
 
 
-// Proof log: every verdict, /effort and request effort, written to MODELLVAL_LOG, or to
-// %TEMP%/modellval-proof.log while the mod is loaded from a dev-mods folder. Off otherwise.
+// Proof log: every verdict, /effort and request effort, written to EFFORTLESS_LOG, or to
+// %TEMP%/effortless-proof.log while the mod is loaded from a dev-mods folder. Off otherwise.
 const proofLines: string[] = []
 // An environment variable does not change while the session runs, so each one is asked for once. The
 // engine wants the name spelled out in every $.env.get call, hence one small getter per variable.
@@ -386,10 +386,10 @@ let askJevUrl: EnvAsk
 let askJevKey: EnvAsk
 let askUserProfile: EnvAsk
 let askHome: EnvAsk
-const envLog = ($: EngineInterface) => (askLog = askLog ?? $.env.get('MODELLVAL_LOG'))
+const envLog = ($: EngineInterface) => (askLog = askLog ?? $.env.get('EFFORTLESS_LOG'))
 const envTemp = ($: EngineInterface) => (askTemp = askTemp ?? $.env.get('TEMP'))
 const envTmpdir = ($: EngineInterface) => (askTmpdir = askTmpdir ?? $.env.get('TMPDIR'))
-const envModelUi = ($: EngineInterface) => (askModelUi = askModelUi ?? $.env.get('MODELLVAL_MODEL_UI'))
+const envModelUi = ($: EngineInterface) => (askModelUi = askModelUi ?? $.env.get('EFFORTLESS_MODEL_UI'))
 const envJevUrl = ($: EngineInterface) => (askJevUrl = askJevUrl ?? $.env.get('JEV_URL'))
 const envJevKey = ($: EngineInterface) => (askJevKey = askJevKey ?? $.env.get('TYPESAFE_API_KEY'))
 const envUserProfile = ($: EngineInterface) => (askUserProfile = askUserProfile ?? $.env.get('USERPROFILE'))
@@ -400,7 +400,7 @@ async function proofPath($: EngineInterface): Promise<string | undefined> {
   if (named) return named
   if (!$.plugin.root.replace(/\\/g, '/').includes('/dev-mods/')) return undefined
   const tmp = (await envTemp($)) ?? (await envTmpdir($)) ?? '/tmp'
-  return `${tmp}/modellval-proof.log`
+  return `${tmp}/effortless-proof.log`
 }
 async function proof($: EngineInterface, line: string) {
   const path = await proofPath($).catch(() => undefined)
@@ -613,7 +613,7 @@ function tokens(n: number): string {
 const share = (part: number, whole: number) => `${Math.round((part / whole) * 100)} %`
 
 /**
- * What /modellval stats answers: what the prompts Auto steered cost, measured, split by kind and by effort,
+ * What /effortless stats answers: what the prompts Auto steered cost, measured, split by kind and by effort,
  * and what the judge took. No "saved" figure: what a prompt would have cost at another effort is not known,
  * since effort mostly changes how many tool calls it makes. Cost is in tokens weighted as priced (WEIGHT).
  */
@@ -719,13 +719,13 @@ export const register: Register = (on, options) => {
     $.ui.status(undefined)
     await modelIs($, await $.session.model()).catch(() => undefined)
     await $.command.register({
-      name: 'modellval',
-      description: 'Auto on/off: /modellval auto. What Auto cost: /modellval stats. Try Compact: /modellval cold. Model suggestion: /modellval switch or keep',
+      name: 'effortless',
+      description: 'Auto on/off: /effortless auto. What Auto cost: /effortless stats. Try Compact: /effortless cold. Model suggestion: /effortless switch or keep',
     })
     return next(e)
   })
 
-  on('command.run', { command: 'modellval' }, async ($, e) => {
+  on('command.run', { command: 'effortless' }, async ($, e) => {
     const wanted = await read($, suggestion)
     const arg = e.args.trim().toLowerCase()
     if (arg === 'auto') {
@@ -793,7 +793,7 @@ export const register: Register = (on, options) => {
         }
         if (wantsModel && verdict.model !== inUse && verdict.model !== declined) {
           await update($, suggestion, () => verdict.model)
-          $.ui.toast(`Suggestion: switch to ${verdict.model}? /modellval switch or /modellval keep`)
+          $.ui.toast(`Suggestion: switch to ${verdict.model}? /effortless switch or /effortless keep`)
         } else if (verdict.model === inUse) {
           await update($, suggestion, () => null)
         }
@@ -854,7 +854,7 @@ export const register: Register = (on, options) => {
   // The only desktop UI: the effort in use, as purple text in the prompt footer, under the chat box, and a small
   // button that switches Auto off and on. A Button cannot be coloured and the footer draws no outline or tint, so
   // plain Text is what is purple. While the judge decides it says "Deciding…", for a moment after Auto switches the level it says
-  // "Low → High", and while Auto is off it says "Off" in the dim colour. Auto is switched with /modellval auto.
+  // "Low → High", and while Auto is off it says "Off" in the dim colour. Auto is switched with /effortless auto.
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     if (e.surface !== 'desktop') return next(e)
     const { Box, Text, Button } = $.ui.resolve(e)
@@ -912,7 +912,7 @@ export const register: Register = (on, options) => {
     const { auto, autoModel, current, judging, wanted, shownByApp } = v
     const inUse = v.modelNow ?? (await sessionModel($))
     const effortNow = effortOf(v, inUse)
-    // The model row is paused: effort first. MODELLVAL_MODEL_UI=1 brings it back.
+    // The model row is paused: effort first. EFFORTLESS_MODEL_UI=1 brings it back.
     const showModel = (await envModelUi($)) === '1'
 
     const setEffort = (level: Effort) => () => pickEffort($, level)

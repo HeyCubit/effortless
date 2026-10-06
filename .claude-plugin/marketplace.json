@@ -1,6 +1,6 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "modellval",
+  "name": "effortless",
   "description": "Automatic reasoning effort and a prompt-cache countdown for Claude Code.",
   "owner": {
     "name": "HeyCubit",
@@ -8,7 +8,7 @@
   },
   "plugins": [
     {
-      "name": "modellval",
+      "name": "effortless",
       "description": "Sets the reasoning effort for every prompt automatically and shows a prompt-cache countdown with one-click Compact.",
       "source": "./",
       "category": "productivity"

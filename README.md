@@ -1,4 +1,4 @@
-# modellval
+# effortless
 
 A Claude Code mod that picks the reasoning effort for every prompt, so easy questions run on low and hard jobs get high, without you touching the Effort control. It also shows how long the prompt cache stays warm, with one-click Compact when it goes cold.
 
@@ -13,15 +13,15 @@ A Claude Code mod that picks the reasoning effort for every prompt, so easy ques
 ## Install
 
 ```bash
-claude plugin marketplace add HeyCubit/modellval
-claude plugin install modellval@modellval
+claude plugin marketplace add HeyCubit/effortless
+claude plugin install effortless@effortless
 ```
 
 Restart Claude Code. It works right away with Haiku as the judge, on your own Claude login, no key needed.
 
 ## Pick your judge
 
-Run `/plugin configure modellval@modellval` in Claude Code, or set it at install time with `--config judge=...`. Left unset, `auto` applies.
+Run `/plugin configure effortless@effortless` in Claude Code, or set it at install time with `--config judge=...`. Left unset, `auto` applies.
 
 | Judge | What it needs | Speed |
 |---|---|---|
@@ -39,7 +39,7 @@ Custom examples:
 | OpenRouter | `https://openrouter.ai/api/v1/chat/completions` | any |
 | Ollama (local) | `http://localhost:11434/v1/chat/completions` | `llama3.2`, no key |
 
-Keys are stored as secret settings by Claude Code, never in a file of this repo. If a judge fails or takes longer than 3 seconds, modellval falls back to Haiku for that prompt.
+Keys are stored as secret settings by Claude Code, never in a file of this repo. If a judge fails or takes longer than 3 seconds, effortless falls back to Haiku for that prompt.
 
 Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and ask no judge.
 
@@ -47,9 +47,9 @@ Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and 
 
 | Command | Does |
 |---|---|
-| `/modellval auto` | Auto on or off |
-| `/modellval stats` | what the prompts Auto steered cost this session, per effort, and what the judge took |
-| `/modellval cold` | shows the cache as cold now, to try the Compact button |
+| `/effortless auto` | Auto on or off |
+| `/effortless stats` | what the prompts Auto steered cost this session, per effort, and what the judge took |
+| `/effortless cold` | shows the cache as cold now, to try the Compact button |
 
 ## What it saves, honestly
 
