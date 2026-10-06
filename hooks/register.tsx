@@ -984,7 +984,12 @@ export const register: Register = (on, options) => {
       if (step === 'pick')
         return (
           <Box flexDirection="column">
-            <Text bold>effortless: who should pick the effort for each prompt?</Text>
+            <Box flexDirection="row" gap={1} alignItems="center">
+              <Text color={ACCENT} bold>
+                ✦ effortless
+              </Text>
+              <Text>Who should pick the effort for each prompt?</Text>
+            </Box>
             <Box flexDirection="row" gap={1} alignItems="center">
               <Button key="setup-haiku" variant="primary" label="Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />
               <Button key="setup-jev" label="Jev (TypeSafe key)" onPress={() => pickJudge($, 'jev')} />
@@ -999,7 +1004,12 @@ export const register: Register = (on, options) => {
           : 'Open the settings and fill in the custom judge URL and model, and its key unless it runs locally.'
       return (
         <Box flexDirection="column">
-          <Text bold>effortless: {need}</Text>
+          <Box flexDirection="row" gap={1} alignItems="center">
+            <Text color={ACCENT} bold>
+              ✦ effortless
+            </Text>
+            <Text>{need}</Text>
+          </Box>
           <Box flexDirection="row" gap={1} alignItems="center">
             <Button key="setup-open" variant="primary" label="Open settings" onPress={openSettings} />
             <Button key="setup-done" label="Done" onPress={() => finishSetup($)} />
