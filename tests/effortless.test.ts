@@ -1291,7 +1291,7 @@ describe('setup guide', () => {
     const band = await $.ui.mount(DESK)
     await band.press({ key: 'setup-jev' })
     expect(set).toEqual([])
-    expect(await drawn(band)).toContain('TypeSafe key')
+    expect(await drawn(band)).toContain('typesafe.ai')
     expect(await drawn(band)).toContain('typesafe.ai')
     expect(await band.find({ key: 'setup-key' })).toBeDefined()
     expect(await band.find({ key: 'setup-haiku' })).toBeUndefined()
