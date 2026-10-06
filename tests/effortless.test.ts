@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText } from '../hooks/register'
+import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome } from '../hooks/register'
 
 const BAND = {
   component: 'AbovePrompt',
@@ -1450,6 +1450,49 @@ describe('handoff', () => {
     expect(submitted.at(-1)).toContain('Goal: ship it. Next: tests.')
     expect(submitted.at(-1)).toContain('Continue with the next step.')
     await footer.unmount()
+  })
+
+  test('a fork that writes nothing says why: in a toast and in /effortless debug, and the turn takes over', async ($, on) => {
+    mock.store(on)
+    mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
+    on('ui.status', () => ({ value: undefined }))
+    on('session.messages', () => ({ value: [] }) as never)
+    on('session.model', () => ({ value: 'claude-opus-5-5' }))
+    on('command.list', () => ({ value: [{ name: 'model' }, { name: 'effort' }] as never }))
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    on('model.fork', () => ({ value: { isAnswered: false, reason: 'api-error', status: 529, error: 'overloaded', usage: USAGE } }) as never)
+    on('command.run', () => ({ text: 'ok' }))
+    const submitted: string[] = []
+    on('prompt.submit', (_$, e) => {
+      submitted.push(e.text)
+      return { text: e.text }
+    })
+    const toasts: string[] = []
+    on('ui.toast', (_$, e) => {
+      toasts.push(String((e as { text?: string }).text ?? e))
+      return { value: undefined } as never
+    })
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const footer = await $.ui.mount(FOOTER)
+    await footer.press({ key: 'handoff' })
+    await mocked.advance(1000)
+    expect(submitted.at(-1)).toBe(HANDOFF_PROMPT)
+    expect(toasts.join(' ')).toContain('api-error 529 overloaded')
+    const debug = String((await $.command.run({ command: 'effortless', args: 'debug' })).text)
+    expect(debug).toContain('last fork: api-error 529 overloaded')
+    await footer.unmount()
+  })
+
+  test('the fork outcome names the reason, or what an answer cost', () => {
+    expect(forkOutcome({ isAnswered: false, reason: 'nothing-to-fork' }, 0)).toBe('nothing-to-fork (0.0s)')
+    expect(forkOutcome({ isAnswered: false, reason: 'aborted', usage: USAGE }, 2500)).toBe('aborted (2.5s)')
+    expect(forkOutcome({ isAnswered: false, reason: 'api-error', status: null, error: 'unknown', usage: USAGE }, 0)).toBe('api-error no response unknown (0.0s)')
+    expect(forkOutcome(new Error('refused from a timer'), 100)).toBe('threw: refused from a timer (0.1s)')
+    const usage = { input_tokens: 10, output_tokens: 700, cache_read_input_tokens: 90, cache_creation_input_tokens: 0 }
+    expect(forkOutcome({ isAnswered: true, text: 'Goal', usage }, 4000)).toBe('answered, 700 out, 90% cached (4.0s)')
+    expect(forkOutcome({ isAnswered: true, text: '  ', usage }, 0)).toBe('answered with blank text (0.0s)')
   })
 })
 
