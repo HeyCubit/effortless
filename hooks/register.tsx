@@ -394,8 +394,10 @@ export type JudgeConfig = {
 /** The swamp thresholds the settings offer, in percent of the context window. */
 export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
 
-/** The parts of effortless a person can switch off in the settings. */
-export const HIDEABLE = ['handoff', 'timer', 'cold', 'swamp', 'hot', 'down', 'line', 'progress', 'sounds'] as const
+/** The parts of effortless a person can switch off: the footer's (setup) and the progress bar's (setup, settings).
+ * The alerts (cold, swamp, running hot, judge down) and the line under replies always show; each alert has its own ✕.
+ * An older hide list naming them is read without them. */
+export const HIDEABLE = ['handoff', 'timer', 'progress', 'sounds'] as const
 export type Hideable = (typeof HIDEABLE)[number]
 let config: JudgeConfig = {
   judge: 'auto',
