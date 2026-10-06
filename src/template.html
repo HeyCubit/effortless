@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>effortless</title>
+<meta name="description" content="A Claude Code plugin that sets the reasoning effort for every prompt and counts down how long the prompt cache stays warm.">
+<meta name="theme-color" content="#121214">
+<link rel="icon" href="__ICON__">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+<script>document.documentElement.classList.add('js')</script>
+<style>
+/* The band art below is the plugin's own SVG, copied unchanged from hooks/register.tsx. */
+:root{
+  --page:#121214;--surface:#18181b;--line:#26262b;--text:#ececef;--muted:#9a9aa4;--dim:#82828c;
+  --hover:#2b2b2f;--btn2:#2e2e34;--key:#3a3a42;
+  --accent:#a79cf7;--brand-bg:#15121f;--brand-edge:#4a3f80;
+  --ice:#7cc4ff;--ice-bg:#0e1820;--ice-edge:#2f5c80;
+  --bog:#a7c98f;--bog-bg:#111710;--bog-edge:#3e5a33;
+  --ember:#f08a3c;--ember-bg:#1a110c;--ember-edge:#6a3418;
+  --slate:#b4b8c4;--slate-bg:#12141b;--slate-edge:#39415a;
+  --yellow:#e0a33a;--red:#e5534b;
+  --art-brand:url("__ART_BRAND__");
+  --art-frost:url("__ART_FROST__");
+  --art-swamp:url("__ART_SWAMP__");
+  --art-ember:url("__ART_EMBER__");
+  --art-down:url("__ART_DOWN__");
+  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --sans:Inter,"Segoe UI",system-ui,-apple-system,sans-serif;
+  --display:Outfit,Inter,"Segoe UI",system-ui,sans-serif;
+  --ease:cubic-bezier(.16,1,.3,1);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--page);color:var(--text);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit}
+.wrap{max-width:920px;margin:0 auto;padding:0 24px}
+
+/* ---------- Stage: the full-screen opening ---------- */
+.stage{--gut:max(48px,calc((100vw - 1280px)/2 + 48px));position:relative;min-height:min(100vh,920px);min-height:min(100svh,920px);display:flex;flex-direction:column;overflow:hidden;isolation:isolate}
+.stage{background:radial-gradient(55% 75% at 88% 52%,#1d1934 0%,#16141f 45%,transparent 75%),var(--page)}
+.stage:before{content:"";position:absolute;inset:0;z-index:-2;pointer-events:none;background-image:radial-gradient(#2a2733 1.1px,transparent 1.5px);background-size:22px 22px;-webkit-mask-image:radial-gradient(60% 70% at 22% 50%,#000,transparent);mask-image:radial-gradient(60% 70% at 22% 50%,#000,transparent)}
+.demo{margin-top:48px;width:min(440px,100%)}
+.demo-box{border-radius:16px;background:#1d1c22;border:1px solid #2d2b34;padding:14px 12px 10px 16px}
+.demo-in{position:relative;color:var(--text);font-size:15px;min-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.demo-ph{position:absolute;left:0;top:0;color:#6f6c7a}
+.demo-in .caret{height:16px}
+.demo-bar{display:flex;align-items:center;gap:8px;margin-top:14px}
+.demo-plus{width:28px;height:28px;border-radius:8px;border:1px solid #33313b;color:var(--muted);display:grid;place-items:center;font-size:16px}
+.demo-model{margin-left:auto;color:var(--dim);font-size:13px}
+.demo-send{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:#2c2a33;color:#77748a;transition:background .2s,color .2s}
+.demo-send.on{background:#f1f0f4;color:#141218}
+.demo-send svg{width:15px;height:15px}
+.demo-foot{display:flex;gap:4px;margin:9px 0 0 6px;font-size:13.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+.demo-foot>span{padding:1px 5px}
+.demo-foot .lvl{min-width:6.5em}
+.stage:after{content:"";position:absolute;left:0;right:0;bottom:0;height:22%;z-index:-1;background:linear-gradient(transparent,var(--page));pointer-events:none}
+
+.stage-inner{flex:1;width:100%;padding:56px 0 96px var(--gut);display:grid;grid-template-columns:minmax(0,500px);align-items:center}
+.intro{position:relative;z-index:2}
+.kind{display:flex;align-items:center;gap:.42em;margin:18px 0 0;font:400 clamp(20px,2vw,26px)/1.2 var(--display);color:#bdb6d6;letter-spacing:-.005em}
+.kind img{width:.95em;height:.95em;flex-shrink:0}
+.eyebrow{margin:0 0 22px;color:#b6b0cc;font-size:13px;font-weight:500;letter-spacing:.04em;display:inline-flex;align-items:center;gap:10px}
+.eyebrow:before{content:"";width:22px;height:1px;background:#6f64b8}
+.intro>*{animation:up 1.1s var(--ease) both}
+.intro>:nth-child(2){animation-delay:.1s}.intro>:nth-child(3){animation-delay:.18s}.intro>:nth-child(4){animation-delay:.26s}
+@keyframes up{from{opacity:0;transform:translateY(22px)}}
+
+h1{margin:0;display:flex;align-items:center;gap:.2em;font:500 clamp(52px,6.6vw,100px)/1 var(--display);letter-spacing:-.025em;color:#f4f2ff}
+h1 .spark{width:.62em;height:.62em;flex-shrink:0;}
+/* The word goes soft at its bottom right: a crisp copy fades out there and a grainy blurred copy takes over. */
+.word{position:relative;display:inline-block;padding:0 .08em .12em 0}
+.word .crisp{-webkit-mask-image:radial-gradient(46% 80% at 100% 100%,transparent 15%,#000 85%);mask-image:radial-gradient(46% 80% at 100% 100%,transparent 15%,#000 85%)}
+.word .soft{position:absolute;left:0;top:0;padding:0 .3em .3em 0;color:#f4f2ff;filter:url(#grainy);-webkit-mask-image:radial-gradient(40% 72% at 86% 82%,#000 30%,transparent 100%);mask-image:radial-gradient(40% 72% at 86% 82%,#000 30%,transparent 100%);pointer-events:none;user-select:none}
+.lede{margin:24px 0 0;max-width:25em;text-wrap:balance;font-size:18px;line-height:1.55;color:#cfcae2}
+.cta{margin-top:32px;display:flex;flex-wrap:wrap;gap:12px}
+.gh,.ghost{display:inline-flex;align-items:center;gap:10px;height:48px;padding:0 20px;border-radius:10px;text-decoration:none;font-weight:600;font-size:15px;transition:background .2s,border-color .2s}
+.gh{background:#f4f3f8;color:#141218;padding-left:16px}
+.gh svg{width:20px;height:20px}
+.gh:hover{background:#fff}
+.stars{margin-left:2px;padding:3px 8px;border-radius:6px;background:#e3e1ea;font-size:13px;font-variant-numeric:tabular-nums}
+.ghost{color:#e6e4ee;border:1px solid #34313f;font-weight:500}
+.ghost svg{width:14px;height:14px;color:#9a96aa}
+.ghost:hover{background:#1c1b22;border-color:#45414f}
+.gh:focus-visible,.ghost:focus-visible,.cue:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+/* The bands on the right: big, nearly flush, stepping right as they go down and running off the edge.
+   Each drifts sideways by its own depth as the pointer moves. */
+.stack{position:absolute;top:0;bottom:0;right:0;left:calc(var(--gut) + 600px)}
+.stack-in{--k:1.5;position:absolute;left:0;top:50%;width:calc(100% / var(--k) + 90px);display:flex;flex-direction:column;gap:10px;transform:translateY(-50%) scale(var(--k));transform-origin:0 50%}
+.chip{display:block;color:inherit;text-decoration:none;margin-left:calc(var(--i)*40px);animation:chip-in 1.1s var(--ease) both;animation-delay:calc(.25s + var(--i)*.08s)}
+@keyframes chip-in{from{opacity:0;translate:60px 0}}
+.chip .band{min-height:64px;padding:0 104px 0 18px;gap:10px;border-radius:12px;font-size:14px;box-shadow:0 18px 40px -26px #000}
+.chip .band:before{top:-8px;bottom:-8px;left:0;width:auto;max-width:none}
+.chip .handoff:before{top:-12px;bottom:-12px;width:auto}
+.chip .t{font-weight:700}
+.chip .band{filter:grayscale(1) brightness(.8);transition:transform .45s var(--ease),border-color .3s,filter .45s,box-shadow .45s var(--ease)}
+.stack .chip:hover .band,.stack .chip:focus-visible .band{filter:none;transform:translateX(-10px);border-color:var(--c);box-shadow:0 18px 40px -26px #000,0 0 0 1px var(--c)}
+.chip:focus-visible{outline:none}
+.chip .btn{transition:background .2s,color .2s}
+.chip .btn:not(.primary):hover{background:var(--hover)}
+.chip .btn.primary:hover{background:#fff}
+.item{scroll-margin-top:40px}
+.chip .btn{font-size:12.5px;padding:7px 11px;border-radius:7px}
+.chip .what{font-size:12.5px}
+.chip .ring img{width:16px;height:16px}
+
+
+/* ---------- A band, as the plugin draws it above the prompt ---------- */
+.band{position:relative;overflow:hidden;display:flex;align-items:center;gap:10px;min-height:46px;padding:9px 12px 9px 14px;border-radius:10px;background:var(--bg);border:1px solid var(--edge);font-size:14px}
+.band:before{content:"";position:absolute;top:-14px;bottom:-14px;right:0;width:440px;max-width:100%;background:var(--art) right center/auto 100% no-repeat;pointer-events:none}
+.band>*{position:relative}
+.t{color:var(--c);font-weight:700;white-space:nowrap}
+.d{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acts{display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:auto}
+.ring{display:inline-flex;align-items:center;gap:6px;color:var(--c);white-space:nowrap}
+.ring img{width:16px;height:16px;display:block}
+.mark{display:inline-flex;align-items:center;gap:7px}
+.mark img{display:block}
+.ice{--c:var(--ice);--bg:var(--ice-bg);--edge:var(--ice-edge);--art:var(--art-frost)}
+.bog{--c:var(--bog);--bg:var(--bog-bg);--edge:var(--bog-edge);--art:var(--art-swamp)}
+.ember{--c:var(--ember);--bg:var(--ember-bg);--edge:var(--ember-edge);--art:var(--art-ember)}
+.slate{--c:var(--slate);--bg:var(--slate-bg);--edge:var(--slate-edge);--art:var(--art-down)}
+.brand{--c:var(--accent);--bg:var(--brand-bg);--edge:var(--brand-edge);--art:var(--art-brand)}
+.btn{display:inline-flex;align-items:center;gap:6px;font:500 13px/1 var(--sans);padding:6px 11px;border-radius:7px;border:0;color:var(--text);background:none;white-space:nowrap}
+.btn.primary{background:#f1f0f4;color:#141218;font-weight:600}
+.btn.secondary{background:var(--btn2)}
+.btn.dim{color:var(--muted)}
+.btn.x{color:var(--muted);padding:6px 6px}
+.k{font-size:11px;line-height:1;padding:2px 4px;border-radius:4px;border:1px solid var(--key);color:var(--muted)}
+.btn.primary .k{border-color:#c9c7d1;color:#55525e}
+.handoff{padding:9px 10px 9px 14px;min-height:58px;scroll-margin:160px 0}
+.handoff:before{top:-30px;bottom:-30px;width:880px}
+.words{display:flex;flex-direction:column;min-width:0;flex:1}
+.words .t{line-height:1.35}
+.what{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35}
+button.btn{cursor:pointer}
+button.btn:not(.primary):hover{background:var(--hover)}
+button.btn.secondary:hover{background:#38383f}
+button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.sel{position:relative;display:inline-flex}
+.sel select{appearance:none;-webkit-appearance:none;font:500 13px/1 var(--sans);color:var(--text);background:var(--brand-bg);border:1px solid var(--key);border-radius:7px;padding:6px 28px 6px 11px;cursor:pointer}
+.sel select:hover{background:var(--hover)}
+.sel:after{content:"";position:absolute;right:11px;top:50%;width:6px;height:6px;margin-top:-5px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);pointer-events:none}
+.sel option{background:#1d1d22;color:var(--text)}
+
+/* ---------- Every band, flat ---------- */
+.styles{padding:32px 0 16px}
+.styles .wrap{max-width:1120px}
+h2{margin:0 0 6px;font:500 34px/1.15 var(--display);letter-spacing:-.015em}
+.sub{margin:0 0 48px;color:var(--muted);font-size:16px}
+.item{margin:0 0 34px;display:grid;grid-template-columns:270px minmax(0,1fr);gap:48px;align-items:center}
+.cap{margin:0;color:var(--muted);font-size:14.5px;line-height:1.5;text-wrap:pretty}
+.cap b{display:block;margin-bottom:4px;color:var(--c,var(--text));font:500 19px/1.25 var(--display)}
+.js .reveal{opacity:0;transition:opacity .9s var(--ease)}
+.js .reveal.in{opacity:1;transform:none}
+
+.prompt{border-radius:16px;background:var(--surface);border:1px solid var(--line);padding:16px 18px 14px}
+.input{color:var(--dim);font-size:15px;min-height:44px}
+.caret{display:inline-block;width:1.5px;height:17px;background:var(--text);vertical-align:-3px;margin-left:1px;animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.plus{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);color:var(--muted);display:grid;place-items:center;font-size:17px}
+.foot{display:flex;align-items:center;gap:4px;font-size:14px;color:var(--dim);margin:12px 0 0 6px}
+.foot>span{padding:2px 5px;border-radius:5px;transition:background .12s}
+.foot>span:hover{background:var(--hover)}
+.lvl{color:var(--accent);font-weight:700}
+
+.site-foot{margin-top:56px;border-top:1px solid var(--line);padding:28px 0 48px}
+.site-foot .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;color:var(--dim);font-size:14px}
+.site-foot .name{display:inline-flex;align-items:center;gap:8px;color:var(--text);font:500 17px var(--display)}
+.site-foot .name svg{width:16px;height:16px}
+.site-foot a{display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:var(--text);padding:8px 14px;border-radius:10px;background:var(--surface);border:1px solid var(--line);font-weight:500}
+.site-foot a:hover{background:var(--hover)}
+.site-foot a svg{width:16px;height:16px}
+
+/* ---------- Narrow screens: the deck stands below the words ---------- */
+@media (max-width:1080px){
+  .stage-inner{grid-template-columns:minmax(0,1fr);gap:56px}
+  .stage-inner{padding:72px 0 40px 32px}
+  .stack{position:relative;left:auto;top:auto;bottom:auto;padding:0 0 88px 32px}
+  .stack-in{position:relative;top:auto;width:auto;margin-right:-90px;transform:none}
+  .chip{margin-left:calc(var(--i)*24px)}
+  .intro{padding-right:32px}
+}
+@media (max-width:860px){
+  .item{grid-template-columns:minmax(0,1fr);gap:12px}
+}
+@media (max-width:720px){
+  .wrap{padding:0 16px}
+  .stage-inner{padding:56px 0 32px 16px}
+  .stack{padding:0 0 72px 16px}
+  .intro{padding-right:16px}
+  .demo{margin-top:32px}
+  .chip{margin-left:calc(var(--i)*14px)}
+  .chip .band{min-height:56px;padding:0 104px 0 16px;font-size:15px;flex-wrap:nowrap}
+  .chip .band .d,.chip .band .acts>:not(:last-child),.chip .what{display:none}
+  .chip .band .acts{flex-basis:auto;flex-wrap:nowrap}
+  .chip .bog .acts{display:none}
+  .chip .handoff:before{top:-6px;bottom:-6px}
+  .chip .band:before{top:-10px;bottom:-10px}
+  .lede{font-size:16px;margin-top:20px}
+  .cta{margin-top:26px}
+  .styles{padding-top:24px}
+  h2{font-size:28px}
+  .sub{margin-bottom:26px}
+  .band{flex-wrap:wrap;row-gap:8px;column-gap:8px;padding:9px 9px 9px 12px}
+  .band:before{top:0;bottom:0}
+  .band .acts{flex-basis:100%;justify-content:flex-end;flex-wrap:wrap;gap:4px}
+  .btn{padding:6px 9px}
+  .k{display:none}
+  .sel select{padding:6px 24px 6px 9px}
+  .sel:after{right:9px}
+  .btn.x{padding:6px 4px}
+  .handoff:before{top:-10px;bottom:-10px}
+  .handoff .words{flex-basis:100%}
+  }
+@media (prefers-reduced-motion:reduce){
+  *,*:before,*:after{animation:none!important;transition:none!important}
+  .js .reveal{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <filter id="grainy" x="-20%" y="-20%" width="140%" height="160%">
+    <feTurbulence type="fractalNoise" baseFrequency="1.7" numOctaves="1" seed="7" result="noise"/>
+    <feDisplacementMap in="SourceGraphic" in2="noise" scale="7" xChannelSelector="R" yChannelSelector="G" result="moved"/>
+    <feGaussianBlur in="moved" stdDeviation="1" result="soft"/>
+    <feComponentTransfer in="noise" result="dots"><feFuncA type="discrete" tableValues="0 0 1 1 1"/></feComponentTransfer>
+    <feComposite in="soft" in2="dots" operator="in"/>
+  </filter>
+</svg>
+
+<section class="stage" id="top">
+  <div class="stage-inner">
+    <div class="intro">
+      <h1>__SPARK__<span class="word" aria-label="effortless"><span class="crisp" aria-hidden="true">effortless</span><span class="soft" aria-hidden="true">effortless</span></span></h1>
+      <p class="kind"><img src="__CLAUDE__" alt="" width="22" height="22">A Claude Code mod</p>
+      <p class="lede">Picks the reasoning effort for every prompt, and tells you when the prompt cache is about to go cold.</p>
+      <div class="cta">
+        <a class="gh" href="https://github.com/HeyCubit/effortless">__GITHUB__<span>Star on GitHub</span><span class="stars" id="stars" hidden></span></a>
+        <a class="ghost" href="#bands">How it works<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+      </div>
+      <div class="demo" aria-hidden="true">
+        <div class="demo-box">
+          <div class="demo-in"><span id="demo-text"></span><span class="caret"></span><span class="demo-ph" id="demo-ph">Reply to Claude</span></div>
+          <div class="demo-bar"><span class="demo-plus">+</span><span class="demo-model">Opus 5.5</span><span class="demo-send" id="demo-send"><svg viewBox="0 0 16 16"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+        </div>
+        <div class="demo-foot"><span class="lvl" id="demo-lvl">Medium</span><span>⏻</span><span>⚙</span><span>⇥</span><span id="demo-cache">42m</span></div>
+      </div>
+    </div>
+
+    <div class="stack" id="stack" aria-label="The bands effortless shows in Claude Code"><div class="stack-in" id="stack-in">
+      <a class="chip" href="#b-cold" style="--i:0;--d:.6"><div class="band ice"><span class="t">✦ Chat went cold</span><span class="d">Compact first.</span><span class="acts"><span class="btn">Not now</span><span class="btn primary">Compact</span></span></div></a>
+      <a class="chip" href="#b-swamp" style="--i:1;--d:1"><div class="band bog"><span class="t">✦ Chat is getting swamped</span><span class="ring"><img src="__RING__" alt="">72%</span><span class="acts"><span class="btn primary">Compact</span></span></div></a>
+      <a class="chip" href="#b-hot" style="--i:2;--d:.45"><div class="band ember"><span class="t">✦ Running hot</span><span class="d">84% of 5h limit</span><span class="acts"><span class="btn primary">Save mode</span></span></div></a>
+      <a class="chip" href="#b-setup" style="--i:3;--d:.8"><div class="band brand"><span class="t">✦ effortless</span><span class="acts"><span class="mark"><img src="__TYPESAFE__" alt="" width="12" height="18"><span class="btn primary">Jev (API)</span></span><span class="mark"><img src="__CLAUDE__" alt="" width="16" height="16"><span class="btn primary">Haiku (no key)</span></span></span></div></a>
+      <a class="chip" href="#b-handoff" style="--i:4;--d:.55"><div class="band brand handoff"><span class="words"><span class="t">⇥ Handoff</span><span class="what">Done in seconds.</span></span><span class="acts"><span class="btn secondary">Quick</span><span class="btn dim">Full</span><span class="btn primary">Go</span></span></div></a>
+    </div></div>
+  </div>
+</section>
+
+<main class="styles" id="bands">
+  <div class="wrap">
+    <h2 class="reveal">In the app</h2>
+    <p class="sub reveal">A band shows up above the prompt only when something needs you.</p>
+
+    <figure class="item reveal" id="b-cold" style="--c:var(--ice)">
+      <figcaption class="cap"><b>Cold cache</b>The prompt cache expired. Compact before the next message pays to write it all again.</figcaption>
+      <div class="band ice">
+        <span class="t">✦ Chat went cold</span>
+        <span class="d">Next message costs full price. Compact first.</span>
+        <span class="acts"><span class="btn">Not now</span><span class="btn primary">Compact</span></span>
+      </div>
+    </figure>
+
+    <figure class="item reveal" id="b-swamp" style="--c:var(--bog)">
+      <figcaption class="cap"><b>Swamped</b>Every message re-reads a large context. Compact it, or hand off to a fresh chat.</figcaption>
+      <div class="band bog">
+        <span class="t">✦ Chat is getting swamped</span>
+        <span class="ring"><img src="__RING__" alt="">72%</span>
+        <span class="d">180k tokens re-read every message.</span>
+        <span class="acts"><span class="btn primary">Compact <span class="k">C</span></span><span class="btn">Handoff <span class="k">H</span></span><span class="btn x">✕</span></span>
+      </div>
+    </figure>
+
+    <figure class="item reveal" id="b-hot" style="--c:var(--ember)">
+      <figcaption class="cap"><b>Running hot</b>A 5 hour or weekly limit is past 80%. Save mode keeps effort at medium or lower until it resets.</figcaption>
+      <div class="band ember">
+        <span class="t">✦ Running hot</span>
+        <span class="d">84% of your 5h limit used · resets 16:20</span>
+        <span class="acts"><span class="btn primary">Save mode</span><span class="btn x">✕</span></span>
+      </div>
+    </figure>
+
+    <figure class="item reveal" style="--c:var(--slate)">
+      <figcaption class="cap"><b>Judge down</b>Your judge stopped answering. Haiku stands in until it works again.</figcaption>
+      <div class="band slate">
+        <span class="t">✦ Judge down</span>
+        <span class="d">Key rejected. Haiku stands in.</span>
+        <span class="acts"><span class="btn primary">Open settings</span><span class="btn x">✕</span></span>
+      </div>
+    </figure>
+
+    <figure class="item reveal" id="b-setup" style="--c:var(--accent)">
+      <figcaption class="cap"><b>Setup</b>Pick who judges each prompt: Jev by TypeSafe, the fastest, with an API key. Haiku, with no key. Or any OpenAI-compatible API.</figcaption>
+      <div class="band brand">
+        <span class="t">✦ effortless</span>
+        <span class="d">Who picks the effort?</span>
+        <span class="acts">
+          <span class="mark"><img src="__TYPESAFE__" alt="" width="12" height="18"><span class="btn primary">Jev (API)</span></span>
+          <span class="mark"><img src="__CLAUDE__" alt="" width="16" height="16"><span class="btn primary">Haiku (no key)</span></span>
+          <span class="btn x">✕</span>
+        </span>
+      </div>
+    </figure>
+
+    <figure class="item reveal" id="b-handoff" style="--c:var(--accent)">
+      <figcaption class="cap"><b>Handoff</b>Writes a handoff note, then clears the chat and carries on. Try the controls.</figcaption>
+      <div class="band brand handoff" id="handoff">
+        <span class="words">
+          <span class="t">⇥ Handoff</span>
+          <span class="what" id="what">Done in seconds. Clears chat, carries on.</span>
+        </span>
+        <span class="acts">
+          <button type="button" class="btn secondary" data-kind="quick" aria-label="Quick" aria-pressed="true">Quick <span class="k">Q</span></button>
+          <button type="button" class="btn dim" data-kind="full" aria-label="Full" aria-pressed="false">Full <span class="k">F</span></button>
+          <span class="sel"><select id="after" aria-label="What follows the handoff">
+            <option value="continue">Clear &amp; carry on</option>
+            <option value="confirm">Clear &amp; wait</option>
+            <option value="copy">Keep chat &amp; copy</option>
+            <option value="newchat">New chat &amp; archive</option>
+          </select></span>
+          <span class="btn primary">Go</span>
+          <span class="btn x">✕</span>
+        </span>
+      </div>
+    </figure>
+
+    <figure class="item reveal">
+      <figcaption class="cap"><b>Under the prompt box</b>The effort picked for this prompt, Auto on or off, settings, handoff, and minutes until the cache goes cold.</figcaption>
+      <div class="footmock">
+        <div class="prompt">
+          <div class="input">Fix the flaky login test<span class="caret"></span></div>
+          <span class="plus">+</span>
+        </div>
+        <div class="foot" aria-label="effortless footer">
+          <span class="lvl">Medium</span><span>⏻</span><span>⚙</span><span>⇥</span><span>42m</span>
+        </div>
+      </div>
+    </figure>
+  </div>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <span class="name">__SPARK__effortless</span>
+    <a href="https://github.com/HeyCubit/effortless">__GITHUB__GitHub</a>
+  </div>
+</footer>
+
+<script>
+// The handoff bar's line says what will happen, like the plugin's handoffWhat().
+(function(){
+  var kind='quick', bar=document.getElementById('handoff');
+  var after=document.getElementById('after'), what=document.getElementById('what');
+  var then={copy:'Copied, chat stays.',newchat:'New chat, this one archived.',confirm:'Clears chat, then waits.',continue:'Clears chat, carries on.'};
+  function draw(){
+    what.textContent=(kind==='full'?'/handoff, slower':'Done in seconds')+'. '+then[after.value];
+    bar.querySelectorAll('[data-kind]').forEach(function(b){
+      var on=b.dataset.kind===kind;
+      b.className='btn '+(on?'secondary':'dim');
+      b.setAttribute('aria-pressed',String(on));
+    });
+  }
+  bar.addEventListener('click',function(e){var b=e.target.closest('[data-kind]');if(b){kind=b.dataset.kind;draw();}});
+  after.addEventListener('change',draw);
+})();
+
+// Items rise into view as the page scrolls to them.
+(function(){
+  var items=document.querySelectorAll('.reveal');
+  if(!('IntersectionObserver' in window)){items.forEach(function(e){e.classList.add('in')});return;}
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}})},{rootMargin:'0px 0px -8% 0px'});
+  items.forEach(function(e){io.observe(e)});
+})();
+
+// The star count, live from GitHub. Hidden until there is at least one.
+fetch('https://api.github.com/repos/HeyCubit/effortless').then(function(r){return r.ok?r.json():null}).then(function(d){var n=d&&d.stargazers_count;if(n>0){var s=document.getElementById('stars');s.textContent=n>=1000?(n/1000).toFixed(1)+'k':String(n);s.hidden=false;}}).catch(function(){});
+
+// The little prompt box: a prompt is typed, the judge decides, the footer shows the effort it picked.
+(function(){
+  var text=document.getElementById('demo-text'),lvl=document.getElementById('demo-lvl'),cache=document.getElementById('demo-cache');
+  var runs=[['rename this variable to userId','Low'],['why does the token refresh fail after a deploy?','High'],['thanks','High'],['add a test for the date parser','Medium'],['plan the billing migration, all services','XHigh']];
+  var prev='Medium',i=0,mins=42;
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){show(runs[1][0]);lvl.textContent='High';return;}
+  var ph=document.getElementById('demo-ph'),send=document.getElementById('demo-send');
+  function show(s){text.textContent=s;ph.hidden=!!s;send.classList.toggle('on',!!s);}
+  function type(s,k,done){show(s.slice(0,k));if(k<s.length)setTimeout(function(){type(s,k+1,done)},32+Math.random()*40);else setTimeout(done,450);}
+  function run(){
+    var r=runs[i%runs.length];i++;
+    type(r[0],0,function(){
+      show('');lvl.textContent='Deciding…';
+      setTimeout(function(){
+        lvl.textContent=r[1]===prev?r[1]:prev+' → '+r[1];cache.textContent='59m';mins=59;
+        setTimeout(function(){lvl.textContent=r[1];prev=r[1];},1600);
+        setTimeout(run,3600);
+      },650);
+    });
+  }
+  setInterval(function(){if(mins>1){mins--;cache.textContent=mins+'m';}},900);
+  setTimeout(run,1400);
+})();
+
+// The stack is scaled so it runs from the top of the opening to the bottom.
+(function(){
+  var stage=document.getElementById('top'),inner=document.getElementById('stack-in');
+  function fit(){
+    if(innerWidth<=1080){inner.style.removeProperty('--k');return;}
+    // As tall as the words on the left, but never so big that a band's words and buttons stop fitting the width.
+    var col=inner.parentNode.clientWidth,intro=document.querySelector('.intro').offsetHeight;
+    var k=Math.max(1,Math.min((intro+40)/inner.offsetHeight,col/470,1.3));
+    inner.style.setProperty('--k',k.toFixed(3));
+  }
+  fit();addEventListener('resize',fit);
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fit);
+})();
+</script>
+</body>
+</html>
