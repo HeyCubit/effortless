@@ -11,7 +11,7 @@
   another chat. Not pushed by the setup release.
 
 ## Half done
-- 1.27.1 setup in steps (1.27.0 buttons took no clicks, fixed): not yet seen working in the app (`/effortless setup` shows it again).
+- Setup in steps: confirmed working by Isac in 1.27.6 (clicks, saves at Done, footer checkboxes).
 - 1.25.0 handoff bar: not yet seen in the app at narrow widths, Enter on Go, copy to the clipboard on desktop.
 - Branding images in `docs/brand/` (social preview, README banner, band strip, avatar): untracked, not in README.
 - README does not mention the "Swamped at" setting yet.
@@ -21,7 +21,7 @@
 ## Next
 0. Split view: the app draws plugin UI only in the left pane (proven: right pane asked 8x then never). Separate
    windows both work (README says so). Bug report written; Isac sends it via /feedback.
-1. Needs Isac: look at the setup steps, step 4/4 at a narrow width first (widest row).
+1. Setup at narrow widths (under ~80 columns) not yet seen.
 2. Needs Isac: restart, ⇥ then Quick + Go in a chat with replies, then `/effortless debug`. Expect
    `last fork: answered`; else fix by reason (`nothing-to-fork`, `aborted`, `api-error`, `threw`).
 3. On Isac's OK: banner at top of README, document Swamped at, commit `docs/brand/`.
