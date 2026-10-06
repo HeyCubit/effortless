@@ -17,7 +17,7 @@ claude plugin marketplace add HeyCubit/effortless
 claude plugin install effortless@effortless
 ```
 
-Restart Claude Code. It works right away with Haiku as the judge, on your own Claude login, no key needed.
+Restart Claude Code. A short setup opens above the prompt the first time: pick **Haiku** (one click, no key, runs on your own Claude login), **Jev** or **your own AI**, and it asks only for what that choice needs. Run `/effortless setup` to change it later.
 
 ## Pick your judge
 
@@ -39,7 +39,7 @@ Custom examples:
 | OpenRouter | `https://openrouter.ai/api/v1/chat/completions` | any |
 | Ollama (local) | `http://localhost:11434/v1/chat/completions` | `llama3.2`, no key |
 
-Keys are stored as secret settings by Claude Code, never in a file of this repo. If a judge fails or takes longer than 3 seconds, effortless falls back to Haiku for that prompt.
+Keys are stored as secret settings by Claude Code, never in a file of this repo. If a judge fails or takes longer than 3 seconds, effortless falls back to Haiku for that prompt and tells you why once per session (out of credits, key rejected, no answer).
 
 Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and ask no judge.
 
@@ -54,6 +54,7 @@ Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and 
 
 | Command | Does |
 |---|---|
+| `/effortless setup` | pick the judge again |
 | `/effortless auto` | Auto on or off |
 | `/effortless stats` | what the prompts Auto steered cost this session, per effort, and what the judge took |
 | `/effortless cold` | shows the cache as cold now, to try the Compact button |

@@ -38,6 +38,8 @@ declare module 'claude-code' {
       cacheLeft: number | null
       /** A compaction started from the footer's Compact button is running. */
       isCompacting: boolean
+      /** The setup guide's step, or null when it is closed. */
+      setupStep: 'pick' | 'jev' | 'custom' | null
       /** Auto on model: the judge may suggest another model (never switched without a yes). Off by default. */
       isAutoModel: boolean
       pick: Pick | null

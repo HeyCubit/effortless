@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText } from '../hooks/register'
+import { judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText } from '../hooks/register'
 
 const BAND = {
   component: 'AbovePrompt',
@@ -1101,5 +1101,116 @@ describe('keys', () => {
     await $.prompt.submit({ text: 'hello there', wait: false, origin: { kind: 'composer' } })
     expect(read.filter(path => path.includes('.env'))).toEqual([])
     expect(asked.length).toBe(1)
+  })
+})
+
+describe('setup guide', () => {
+  const DESK = { plugin: 'effortless', surface: 'desktop', ...BAND } as never
+  const start = async ($: Engine, on: On) => {
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+  }
+  const settings = (on: On) => {
+    const set: { key: string; value: unknown }[] = []
+    on('config.set', (_$, e) => {
+      set.push({ key: e.key, value: e.value })
+      return { value: e.value } as never
+    })
+    return set
+  }
+  const toasts = (on: On) => {
+    const said: string[] = []
+    on('ui.toast', (_$, e) => {
+      said.push(String((e as { text?: string }).text ?? e))
+      return { value: undefined } as never
+    })
+    return said
+  }
+
+  test('opens by itself the first time; Haiku is one click and needs nothing more; it does not open again', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    const set = settings(on)
+    const said = toasts(on)
+    await start($, on)
+    const band = await $.ui.mount(DESK)
+    expect(await band.find({ key: 'setup-haiku' })).toBeDefined()
+    expect(await band.find({ key: 'setup-open' })).toBeUndefined()
+    await band.press({ key: 'setup-haiku' })
+    expect(set).toEqual([{ key: 'effortless.judge', value: 'haiku' }])
+    expect(said.join(' ')).toContain('Haiku judges')
+    await band.unmount()
+    await expect($.ui.mount(DESK)).rejects.toThrow()
+
+    // A new session: the guide stays closed; /effortless setup opens it again.
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    await expect($.ui.mount(DESK)).rejects.toThrow()
+    await $.command.run({ command: 'effortless', args: 'setup' })
+    const again = await $.ui.mount(DESK)
+    expect(await again.find({ key: 'setup-jev' })).toBeDefined()
+    await again.unmount()
+  })
+
+  test('Jev without a key asks only for the key, and Open settings types the settings command', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    const set = settings(on)
+    const filled: string[] = []
+    on('prompt.read', () => ({ value: { text: '', cursor: 0 } }) as never)
+    on('prompt.fill', (_$, e) => {
+      filled.push(e.text)
+      return { isFilled: true } as never
+    })
+    await start($, on)
+    const band = await $.ui.mount(DESK)
+    await band.press({ key: 'setup-jev' })
+    expect(set).toEqual([{ key: 'effortless.judge', value: 'jev' }])
+    expect(await drawn(band)).toContain('TypeSafe API key')
+    expect(await band.find({ key: 'setup-haiku' })).toBeUndefined()
+    await band.press({ key: 'setup-open' })
+    expect(filled).toEqual(['/plugin configure effortless@effortless'])
+    await band.press({ key: 'setup-done' })
+    await band.unmount()
+    await expect($.ui.mount(DESK)).rejects.toThrow()
+  })
+
+  test('Jev with a key already in the environment needs no second step', async ($, on) => {
+    engine(on, { TYPESAFE_API_KEY: 'k' })
+    mock.clock(on)
+    settings(on)
+    const said = toasts(on)
+    await start($, on)
+    const band = await $.ui.mount(DESK)
+    await band.press({ key: 'setup-jev' })
+    expect(said.join(' ')).toContain('Jev judges')
+    await band.unmount()
+    await expect($.ui.mount(DESK)).rejects.toThrow()
+  })
+})
+
+describe('judge failures are said', () => {
+  test('judgeFailure names the cause', () => {
+    expect(judgeFailure('Jev', 402)).toContain('out of credits')
+    expect(judgeFailure('Jev', 429)).toContain('out of credits')
+    expect(judgeFailure('Jev', 401)).toContain('rejected the key')
+    expect(judgeFailure('Jev', 'timeout')).toContain('did not answer')
+  })
+
+  test('Jev out of credits: the person is told once, and Haiku judges', async ($, on) => {
+    engine(on, { TYPESAFE_API_KEY: 'k' })
+    mock.clock(on)
+    const asked = judgeSays(on, '{"model":"sonnet","effort":"low","why":"x"}')
+    on('http.fetch', () => ({ value: { status: 402, ok: false, headers: {}, text: 'payment required' } }))
+    const said: string[] = []
+    on('ui.toast', (_$, e) => {
+      said.push(String((e as { text?: string }).text ?? e))
+      return { value: undefined } as never
+    })
+    await $.prompt.submit({ text: 'first question here', wait: false, origin: { kind: 'composer' } })
+    await $.prompt.submit({ text: 'second question here', wait: false, origin: { kind: 'composer' } })
+    expect(asked.length).toBe(2)
+    expect(said.filter(t => t.includes('out of credits')).length).toBe(1)
+    expect(said[0]).toContain('Haiku judges for now')
   })
 })

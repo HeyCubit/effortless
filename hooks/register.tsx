@@ -58,6 +58,9 @@ const paused = atom({ plugin: 'effortless', key: 'paused' } as const, false)
 // 0 once it has gone cold. Updated only when the minute changes, so the footer redraws once a minute at most.
 const cacheLeft = atom({ plugin: 'effortless', key: 'cacheLeft' } as const, null)
 const isCompacting = atom({ plugin: 'effortless', key: 'isCompacting' } as const, false)
+// The setup guide above the prompt: which step it shows, or null when it is closed.
+const setupStep = atom({ plugin: 'effortless', key: 'setupStep' } as const, null)
+const SETTINGS_COMMAND = '/plugin configure effortless@effortless'
 
 const JUDGE_SYSTEM = `You choose which Claude model and reasoning effort an agentic assistant (it reads files, runs tools and edits things, not only code) should use for the user's next message. Pick the cheapest pair that will still do the job well.
 
@@ -201,6 +204,22 @@ async function jevKey($: EngineInterface): Promise<string | undefined> {
 
 type Judged = { verdict?: Pick; tokens: number }
 
+/** Why a judge the person picked could not answer, in words: what a status code means for them. */
+export function judgeFailure(name: string, status: number | 'timeout'): string {
+  if (status === 'timeout') return `${name} did not answer in time`
+  if (status === 401 || status === 403) return `${name} rejected the key (HTTP ${status})`
+  if (status === 402 || status === 429) return `${name} is out of credits or rate limited (HTTP ${status})`
+  return `${name} failed (HTTP ${status})`
+}
+const warned = new Set<string>()
+/** Tells the person once per session and reason that their judge failed and Haiku stands in. */
+function warnJudge($: EngineInterface, reason: string) {
+  void proof($, `judge fallback: ${reason}`)
+  if (warned.has(reason)) return
+  warned.add(reason)
+  $.ui.toast(`effortless: ${reason}. Haiku judges for now.`)
+}
+
 /** Which judge the person picked in the plugin's settings, and what it needs. */
 export type JudgeConfig = {
   judge: 'auto' | 'haiku' | 'jev' | 'custom'
@@ -272,6 +291,7 @@ async function askCustom($: EngineInterface, prompt: string, current: Pick | nul
         throw new Error('custom judge timeout')
       }),
     ])
+    if (!res.ok) warnJudge($, judgeFailure('Your judge', res.status))
     const verdict = res.ok ? parseChatCompletion(res.text) : undefined
     if (!verdict) return undefined
     let used = 0
@@ -282,7 +302,8 @@ async function askCustom($: EngineInterface, prompt: string, current: Pick | nul
       // No usage in the reply: counted as 0.
     }
     return { verdict: { ...verdict, by: 'custom' }, tokens: used }
-  } catch {
+  } catch (error) {
+    warnJudge($, String(error).includes('timeout') ? judgeFailure('Your judge', 'timeout') : 'Your judge could not be reached')
     return undefined
   }
 }
@@ -325,6 +346,7 @@ async function judge($: EngineInterface, prompt: string, current: Pick | null): 
           throw new Error('jev timeout')
         }),
       ])
+      if (!res.ok) warnJudge($, judgeFailure('Jev', res.status))
       const verdict = res.ok ? parseJevAnswer(res.text, current) : undefined
       if (verdict) {
         let used = 0
@@ -336,8 +358,9 @@ async function judge($: EngineInterface, prompt: string, current: Pick | null): 
         }
         return { verdict: { ...verdict, by: 'jev' }, tokens: used }
       }
-    } catch {
-      // Jev down or slow: fall through to Haiku.
+    } catch (error) {
+      // Jev down or slow: fall through to Haiku, and say so.
+      warnJudge($, String(error).includes('timeout') ? judgeFailure('Jev', 'timeout') : 'Jev could not be reached')
     }
   }
   const asked = judgeQuestion(prompt, current, context)
@@ -611,6 +634,29 @@ async function compactCold($: EngineInterface) {
   }
 }
 
+/** A TypeSafe key the jev judge would use: the settings, TYPESAFE_API_KEY, or ~/.config/jev/.env (Jev was picked). */
+async function findTypesafeKey($: EngineInterface): Promise<boolean> {
+  if (config.typesafeKey || (await envJevKey($))) return true
+  const home = (await envUserProfile($)) ?? (await envHome($))
+  if (!home) return false
+  const text = await $.fs.read(`${home}/.config/jev/.env`).catch(() => '')
+  return Boolean(parseJevKey(typeof text === 'string' ? text : ''))
+}
+
+/** Closes the guide for good: it does not open by itself again. */
+async function finishSetup($: EngineInterface, said?: string) {
+  await Promise.all([update($, setupStep, () => null), $.store.set('setupDone', true)])
+  if (said) $.ui.toast(said)
+}
+
+/** The person picked a judge in the guide: it is saved as the plugin's setting, and the next step shown. */
+async function pickJudge($: EngineInterface, choice: 'haiku' | 'jev' | 'custom') {
+  await $.config.set({ key: 'effortless.judge', value: choice }).catch(() => undefined)
+  if (choice === 'haiku') return finishSetup($, 'effortless: Haiku judges, no key needed. /effortless setup changes it.')
+  if (choice === 'jev' && (await findTypesafeKey($))) return finishSetup($, 'effortless: Jev judges with the TypeSafe key it found.')
+  await update($, setupStep, () => choice)
+}
+
 /** 1234 -> "1.2k", 87 -> "87". */
 function tokens(n: number): string {
   const v = Math.abs(n)
@@ -723,12 +769,14 @@ export const register: Register = (on, options) => {
     }
     // The cache countdown's clock. A timer started inside a request ends with that request, so it lives here.
     $.clock.every(CACHE_TICK_MS, () => void showCache($).catch(() => undefined))
+    // The first time the mod runs, the setup guide opens above the prompt.
+    if ((await $.store.get('setupDone')) !== true) await update($, setupStep, () => 'pick')
     // Clear the status entry older versions set.
     $.ui.status(undefined)
     await modelIs($, await $.session.model()).catch(() => undefined)
     await $.command.register({
       name: 'effortless',
-      description: 'Auto on/off: /effortless auto. What Auto cost: /effortless stats. Try Compact: /effortless cold. Model suggestion: /effortless switch or keep',
+      description: 'Setup: /effortless setup. Auto on/off: /effortless auto. What Auto cost: /effortless stats. Try Compact: /effortless cold.',
     })
     return next(e)
   })
@@ -741,6 +789,10 @@ export const register: Register = (on, options) => {
       return { text: (await read($, isAuto)) ? 'Auto on: effort is picked for every prompt.' : 'Auto off: the effort is yours.' }
     }
     // A test aid: marks the cache cold now, so the Compact button can be tried without waiting out the hour.
+    if (arg === 'setup') {
+      await update($, setupStep, () => 'pick')
+      return { text: 'The effortless setup is open above the prompt.' }
+    }
     if (arg === 'cold') {
       cacheExpires = await $.clock.now()
       await update($, cacheLeft, () => 0)
@@ -810,6 +862,15 @@ export const register: Register = (on, options) => {
       await update($, isJudging, () => false)
     }
     return next(e)
+  })
+
+  // In /config the custom judge's rows only show while the custom judge is picked.
+  on('config.describe', async ($, e, next) => {
+    const described = await next(e)
+    if ((e.key === 'effortless.customUrl' || e.key === 'effortless.customModel') && config.judge !== 'custom') {
+      return { ...described, isHidden: true }
+    }
+    return described
   })
 
   // A switch from anywhere (the app's picker, /model, a fallback) moves the pick at once.
@@ -916,6 +977,37 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
     const { Box, Text, Button } = $.ui.resolve(e)
+    // The setup guide, one step at a time: pick a judge, then only what that judge needs.
+    const step = await read($, setupStep)
+    if (step) {
+      const openSettings = () => typeCommand($, SETTINGS_COMMAND)
+      if (step === 'pick')
+        return (
+          <Box flexDirection="column">
+            <Text bold>effortless: who should pick the effort for each prompt?</Text>
+            <Box flexDirection="row" gap={1} alignItems="center">
+              <Button key="setup-haiku" variant="primary" label="Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />
+              <Button key="setup-jev" label="Jev (TypeSafe key)" onPress={() => pickJudge($, 'jev')} />
+              <Button key="setup-custom" label="Your own AI" onPress={() => pickJudge($, 'custom')} />
+              <Button key="setup-later" plain dimColor label="Later" onPress={() => finishSetup($)} />
+            </Box>
+          </Box>
+        )
+      const need =
+        step === 'jev'
+          ? 'Jev needs a TypeSafe key. Open the settings and fill in "TypeSafe API key"; it is stored as a secret.'
+          : 'Open the settings and fill in the custom judge URL and model, and its key unless it runs locally.'
+      return (
+        <Box flexDirection="column">
+          <Text bold>effortless: {need}</Text>
+          <Box flexDirection="row" gap={1} alignItems="center">
+            <Button key="setup-open" variant="primary" label="Open settings" onPress={openSettings} />
+            <Button key="setup-done" label="Done" onPress={() => finishSetup($)} />
+            <Button key="setup-back" plain dimColor label="Back" onPress={() => update($, setupStep, () => 'pick')} />
+          </Box>
+        </Box>
+      )
+    }
     const v = await snap($)
     const { auto, autoModel, current, judging, wanted, shownByApp } = v
     const inUse = v.modelNow ?? (await sessionModel($))
