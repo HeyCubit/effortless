@@ -19,9 +19,21 @@ Type these two lines in Claude Code's chat box, no terminal needed:
 /plugin install effortless@effortless
 ```
 
-Restart Claude Code. A short setup opens above the prompt the first time: pick **Jev** (API key needed, about 4x faster than Haiku), **Haiku** (one click, no key, runs on your own Claude login) or **your own AI**, and it asks only for what that choice needs. Then three short steps: lean cheaper or smarter, which skill writes a full handoff, and what shows (cache timer, ⇥ handoff, progress bar). Back on every step; your choices are saved when you press Done or close it. Run `/effortless setup` to go through it again, or change any of it in ⚙.
+Restart Claude Code. A short setup opens above the prompt the first time: pick **Jev** (API key needed, about 4x faster than Haiku), **Haiku** (one click, no key, runs on your own Claude login) or **your own AI**, and it asks only for what that choice needs. Then two short steps: lean cheaper or smarter, and which skill writes a full handoff. Back on every step; your choices are saved when you press Done or close it. Run `/effortless setup` to go through it again, or change any of it in ⚙.
 
 From a terminal it is the same without the slashes: `claude plugin marketplace add HeyCubit/effortless`, then `claude plugin install effortless@effortless`.
+
+### In the terminal
+
+effortless draws in the terminal CLI too, with moving pixel art in its bands. Claude Code may not load a plugin's code
+there yet: if `/effortless` says the mod is not loaded after a restart, add this to `~/.claude/settings.json` and
+restart:
+
+```json
+{ "env": { "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1" } }
+```
+
+Tested on Claude Code 2.1.286 and 2.1.288 at 80 and 120 columns. Below 90 columns the bands leave their art out.
 
 ## Pick your judge
 
