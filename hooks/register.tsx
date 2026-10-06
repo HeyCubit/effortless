@@ -80,7 +80,11 @@ Effort is relative to the model in use ("Current" names it): a stronger model ne
 
 Judge the SCOPE and the amount of work, not whether it is code. A short message can ask for a lot: "go through my whole drive and clean it up", "review the entire repo", "migrate everything" are big, multi-step, tool-heavy jobs where mistakes are costly: never low, usually high. Low is only for answers that need no tools and no planning.
 
-If the message answers a question in the assistant's last reply (picks an option, says which one, confirms a plan), judge the work that answer starts, as the reply describes it, not the length of the answer: "B" can mean "build the complicated section B" (high), while "yes" to "should I archive this?" is a small job (low).
+If the message answers a question in the assistant's last reply (picks an option, says which one, confirms a plan), judge only the work that answer starts, as the reply describes it, not the length of the answer and not the work done before the question: "B" can mean "build the complicated section B" (high), while "yes" or "no" to one small action ("should I archive this?", "delete the old ones too?") is low, and picking a value (a level, a colour, a name, a font) is low. Approving a whole plan or several steps takes the effort of that plan.
+
+Thanks, praise or a closing remark with no new request is low. A question about how to do something, or about effort itself, that needs no tools is low.
+
+If the person asks for deep thought ("think hard", "ultrathink", "be thorough"), pick at least high; if they ask for a quick answer, pick low.
 
 If the message is a short follow-up to ongoing work ("yes", "go", "ok", "continue", or the same in any language), keep the current pair.
 
@@ -149,7 +153,11 @@ const JEV_TASK =
   'Effort is relative to current_model: a stronger model needs less for the same job. Opus at medium does about what ' +
   'Sonnet does at high, so for one task pick one step lower on Opus than on Sonnet. ' +
   'A short follow-up ("yes", "go", "ok", in any language) keeps the current effort. When the message answers a ' +
-  "question in the assistant's last reply (picks an option), judge the work that answer starts, not its length."
+  "question in the assistant's last reply (picks an option), judge only the work that answer starts, not its length and " +
+  'not the work before the question: yes/no to one small action, or picking a value (a level, a colour, a name), is low; ' +
+  'approving a whole plan takes the effort of that plan. Thanks or a closing remark with no new request is low. A ' +
+  'question about how to do something that needs no tools is low. "think hard", "ultrathink" or "be thorough" means ' +
+  'at least high; "quick question" means low.'
 
 /** A short follow-up such as "go", "ok", "yes", "continue": two words and a dozen characters at most. */
 export function isFollowUp(text: string): boolean {
@@ -417,7 +425,7 @@ async function askHaiku($: EngineInterface, prompt: string, current: Pick | null
 
 // The judge benchmark (/effortless bench): labelled prompts in bench/judge-cases.json, each run through the same
 // pipeline a real prompt takes (a short follow-up keeps the current effort, anything else goes to a judge).
-export type BenchCase = { id: string; kind: string; current: Pick; context?: string; message: string; ok: Effort[] }
+export type BenchCase = { id: string; kind: string; holdout?: boolean; current: Pick; context?: string; message: string; ok: Effort[] }
 export type BenchAnswer = { id: string; judge: string; effort?: Effort; by?: string; why?: string; ms: number; tokens: number }
 
 /** Where an answer lands against the labels: right, too low (risks quality), too high (wastes), or no answer. */
@@ -446,6 +454,21 @@ export function benchReport(cases: BenchCase[], answers: BenchAnswer[]): string 
     const asked = mine.filter(a => a.ms > 0).map(a => a.ms)
     lines.push(`| ${j} | ${pct(n('hit'), g.length)} | ${n('under')} | ${n('over')} | ${n('none')} | ${asked.length ? median(asked) : '-'} |`)
   }
+  // The held-out cases were never tuned against: the honest score. The rest shaped the judge prompts.
+  const sets = [
+    ['tuned on', cases.filter(c => !c.holdout)],
+    ['held out', cases.filter(c => c.holdout)],
+  ] as const
+  lines.push('', `| Set (cases) | ${judges.join(' | ')} |`, `| --- | ${judges.map(() => '---').join(' | ')} |`)
+  for (const [name, set] of sets) {
+    if (!set.length) continue
+    const ids = set.map(c => c.id)
+    const cells = judges.map(j => {
+      const mine = answers.filter(a => a.judge === j && ids.includes(a.id))
+      return pct(mine.filter(a => benchGrade(byId.get(a.id)!, a.effort) === 'hit').length, mine.length)
+    })
+    lines.push(`| ${name} (${set.length}) | ${cells.join(' | ')} |`)
+  }
   lines.push('', `| Kind (cases) | ${judges.join(' | ')} |`, `| --- | ${judges.map(() => '---').join(' | ')} |`)
   for (const k of kinds) {
     const ids = cases.filter(c => c.kind === k).map(c => c.id)
@@ -472,7 +495,8 @@ async function runBench($: EngineInterface, cases: BenchCase[]): Promise<BenchAn
       'jev',
       async c => {
         const jev = await askJev($, key, c.message, c.current, c.context ?? '')
-        return jev?.verdict?.why === UNSURE ? haikuAfter($, jev, c.message, c.current, c.context ?? '') : jev
+        if (!jev) return askHaiku($, c.message, c.current, c.context ?? '')
+        return jev.verdict?.why === UNSURE ? haikuAfter($, jev, c.message, c.current, c.context ?? '') : jev
       },
     ])
   if (config.customUrl) judges.push(['custom', c => askCustom($, c.message, c.current, c.context ?? '')])
