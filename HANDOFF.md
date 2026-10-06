@@ -1,7 +1,7 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.27.0, pushed and installed. Direct pushes, no open PRs.
+- `main` on HeyCubit/effortless, version 1.27.1, pushed and installed. Direct pushes, no open PRs.
 - Release: bump `version` in `.claude-plugin/plugin.json`, `<cli> plugin validate .`, `<cli> plugin test .`
   (0 fail), push, `<cli> plugin marketplace update effortless`, `<cli> plugin update effortless@effortless`, restart.
 - CLI on this PC: `$APPDATA/Claude/claude-code/<version>/<hash>/claude.exe` (newest folder). `claude` on PATH is
@@ -11,7 +11,7 @@
   another chat. Not pushed by the setup release.
 
 ## Half done
-- 1.27.0 setup in steps: tested in the test kit, not yet seen in the app (`/effortless setup` shows it again).
+- 1.27.1 setup in steps (1.27.0 buttons took no clicks, fixed): not yet seen working in the app (`/effortless setup` shows it again).
 - 1.25.0 handoff bar: not yet seen in the app at narrow widths, Enter on Go, copy to the clipboard on desktop.
 - Branding images in `docs/brand/` (social preview, README banner, band strip, avatar): untracked, not in README.
 - README does not mention the "Swamped at" setting yet.
