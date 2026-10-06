@@ -65,6 +65,8 @@ declare module 'claude-code' {
       settingsOpen: boolean
       /** Changes made in the settings panel and not saved yet. */
       settingsDraft: SettingsDraft
+      /** The user and plugin skills, read when the settings panel opens. */
+      installedSkills: string[]
       /** The fullest usage window once past 80%, or null. */
       hot: { kind: string; percent: number; resetsAt: string | null } | null
       /** Percent at which the running-hot band was closed. */

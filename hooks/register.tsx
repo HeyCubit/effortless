@@ -87,6 +87,8 @@ const setupPending = atom({ plugin: 'effortless', key: 'setupPending' } as const
 // The effortless settings panel is open above the prompt.
 const settingsOpen = atom({ plugin: 'effortless', key: 'settingsOpen' } as const, false)
 // What was changed in the panel and not saved yet, by field; Save applies it all, the cross drops it.
+// The user and plugin skills, read when the settings panel opens.
+const installedSkills = atom({ plugin: 'effortless', key: 'installedSkills' } as const, [])
 const settingsDraft = atom({ plugin: 'effortless', key: 'settingsDraft' } as const, {})
 const judgeDown = atom({ plugin: 'effortless', key: 'judgeDown' } as const, null)
 // The judge-down band was closed for this reason; a new reason shows it again.
@@ -1018,6 +1020,12 @@ export async function finishHandoff($: EngineInterface) {
 
 /** Opens the effortless settings panel above the prompt: the app does not let a plugin open its /plugin dialog. */
 async function openPluginSettings($: EngineInterface) {
+  // The installed skills are read here, once, not while drawing: a slow or refused lookup must not cost the panel.
+  const installed = await $.command.list().catch(() => [])
+  const names = [...new Set(installed.filter(c => c.source === 'user' || c.source === 'plugin').map(c => c.name))]
+    .filter(name => !name.startsWith('effortless'))
+    .sort()
+  await update($, installedSkills, () => names)
   await update($, settingsOpen, () => true)
   $.ui.invalidate('ui.render')
 }
@@ -1575,10 +1583,7 @@ Saved to ${out}.md and .json` }
       const opts = (values: readonly string[]) => values.map(value => ({ value, label: value }))
       // The skills and commands installed here, to pick the handoff writer from: no typing, no file paths. A plugin
       // cannot open a file dialog, and a skill is run by its name anyway.
-      const installed = await $.command.list().catch(() => [])
-      const skillNames = [...new Set(installed.filter(c => c.source === 'user' || c.source === 'plugin').map(c => c.name))]
-        .filter(name => !name.startsWith('effortless'))
-        .sort()
+      const skillNames = await read($, installedSkills)
       const hasKey = Boolean(await jevKey($).catch(() => undefined)) || Boolean(await typesafeKeyAnywhere($).catch(() => undefined))
       // A plain button with its own handler: a dismiss-role button may be taken by the app before onPress runs.
       const close = async () => {
