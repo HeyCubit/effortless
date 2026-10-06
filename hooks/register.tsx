@@ -1714,18 +1714,18 @@ Saved to ${out}.md and .json` }
       return (
         <Box key="settings" position="relative" flexDirection="column" gap={roomy ? 1 : 0} paddingX={2} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
-          <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={3} overflow="hidden" backgroundColor={BRAND_HEAD}>
+          <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={2} overflow="hidden" backgroundColor={BRAND_HEAD}>
             <Box key="settings-art" position="absolute" top={0} right={0} bottom={0}>
               <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
             </Box>
           </Box>
-          <Box key="settings-title" position="absolute" top={0} left={1} height={2} flexDirection="row" alignItems="center">
+          <Box key="settings-title" position="absolute" top={0} left={1} height={1} flexDirection="row" alignItems="center">
             <Text color={ACCENT} bold>
               ✦ effortless settings
             </Text>
             {dirty ? <Text dimColor> · unsaved changes</Text> : null}
           </Box>
-          <Box key="settings-actions" position="absolute" top={0} right={1} height={2} flexDirection="row" gap={2} alignItems="center">
+          <Box key="settings-actions" position="absolute" top={0} right={1} height={1} flexDirection="row" gap={2} alignItems="center">
             <Button key="settings-save" variant="primary" label="Save" onPress={() => saveDraft($)} />
             <Button key="settings-close" plain label="✕" onPress={close} />
           </Box>
