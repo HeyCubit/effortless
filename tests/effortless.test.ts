@@ -336,7 +336,7 @@ describe('footer text', () => {
     expect(text).toContain(`"color":"${PURPLE}"`)
     expect(text).toContain('"children":[" Auto "]')
     // The only button is the small switch for Auto: no label other than the power glyph, not the lit look.
-    // The Auto switch and the handoff symbol.
+    // The Auto switch, the setup (or settings gear) and the handoff symbol.
     expect(text.match(/"type":"Button"/g)?.length).toBe(3)
     expect(text).toContain('"label":" ⏻ "')
     // No frame of its own (it drew wide and cut off): plain, with the same grey box as the level on hover.
