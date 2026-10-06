@@ -2196,22 +2196,24 @@ describe('settings panel', () => {
 })
 
 describe('switching parts off', () => {
-  test('readConfig keeps only known parts', () => {
-    expect(readConfig({ hide: 'swamp, handoff,bogus' }).hide).toEqual(['swamp', 'handoff'])
+  test('readConfig keeps only parts that can be switched off; the alerts are not among them', () => {
+    expect(readConfig({ hide: 'swamp, handoff,bogus,down,progress' }).hide).toEqual(['handoff', 'progress'])
   })
 
-  test('a hidden handoff button is not in the footer; a hidden swamp band does not show', { options: { hide: 'handoff,swamp' } } as never, async ($, on) => {
+  test('a hidden handoff button is not in the footer; an old hide list cannot hide the swamp band', { options: { hide: 'handoff,swamp' } } as never, async ($, on) => {
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
     on('command.register', () => ({ value: undefined }) as never)
     engine(on)
     const mocked = mock.clock(on)
-    on('session.usage', () => ({ value: { context: { tokens: 180_000, window: 1_000_000, percent: 18 } } }) as never)
+    on('session.usage', () => ({ value: { context: { tokens: 600_000, window: 1_000_000, percent: 60 } } }) as never)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
     const guide = await $.ui.mount(DESK_BAND)
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
     await mocked.advance(16_000)
-    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('Chat is getting swamped')
+    await band.unmount()
     const footer = await $.ui.mount(FOOTER)
     expect(await footer.find({ key: 'handoff' })).toBeUndefined()
     await footer.unmount()
