@@ -46,7 +46,7 @@ a{color:inherit}
 
 .stage-inner{flex:1;width:100%;padding:56px 0 96px max(48px,calc((100vw - 1280px)/2 + 48px));display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);align-items:center;gap:64px}
 .intro{position:relative;z-index:2}
-.kind{margin:14px 0 0 .1em;font:400 clamp(20px,2vw,26px)/1.2 var(--display);color:#bdb6d6;letter-spacing:-.005em}
+.kind{margin:18px 0 0;font:400 clamp(20px,2vw,26px)/1.2 var(--display);color:#bdb6d6;letter-spacing:-.005em}
 .eyebrow{margin:0 0 22px;color:#b6b0cc;font-size:13px;font-weight:500;letter-spacing:.04em;display:inline-flex;align-items:center;gap:10px}
 .eyebrow:before{content:"";width:22px;height:1px;background:#6f64b8}
 .intro>*{animation:up 1.1s var(--ease) both}
@@ -57,26 +57,37 @@ h1{margin:0;display:flex;align-items:center;gap:.2em;font:500 clamp(52px,6.6vw,1
 h1 .spark{width:.62em;height:.62em;flex-shrink:0;}
 /* The word goes soft at its bottom right: a crisp copy fades out there and a grainy blurred copy takes over. */
 .word{position:relative;display:inline-block;padding:0 .08em .12em 0}
-.word .crisp{-webkit-mask-image:radial-gradient(52% 78% at 100% 100%,rgba(0,0,0,.18),#000);mask-image:radial-gradient(52% 78% at 100% 100%,rgba(0,0,0,.18),#000)}
-.word .soft{position:absolute;left:0;top:0;color:#d9d1ff;filter:url(#grainy);-webkit-mask-image:radial-gradient(52% 78% at 100% 100%,#000 10%,transparent 100%);mask-image:radial-gradient(52% 78% at 100% 100%,#000 10%,transparent 100%);pointer-events:none;user-select:none}
-.lede{margin:28px 0 0;max-width:27em;font-size:18px;line-height:1.55;color:#cfcae2}
-.cta{margin-top:34px;display:flex;flex-wrap:wrap;gap:12px}
-.gh{display:inline-flex;align-items:center;gap:10px;background:#f4f3f8;color:#141218;text-decoration:none;font-weight:600;font-size:15px;padding:13px 22px 13px 18px;border-radius:12px;transition:background .2s}
+.word .crisp{-webkit-mask-image:radial-gradient(64% 95% at 100% 100%,transparent 8%,#000 92%);mask-image:radial-gradient(64% 95% at 100% 100%,transparent 8%,#000 92%)}
+.word .soft{position:absolute;left:0;top:0;color:#d9d1ff;filter:url(#grainy);-webkit-mask-image:radial-gradient(64% 95% at 100% 100%,#000 30%,transparent 100%);mask-image:radial-gradient(64% 95% at 100% 100%,#000 30%,transparent 100%);pointer-events:none;user-select:none}
+.lede{margin:24px 0 0;max-width:25em;text-wrap:balance;font-size:18px;line-height:1.55;color:#cfcae2}
+.cta{margin-top:32px;display:flex;flex-wrap:wrap;gap:12px}
+.gh,.ghost{display:inline-flex;align-items:center;gap:10px;height:48px;padding:0 20px;border-radius:10px;text-decoration:none;font-weight:600;font-size:15px;transition:background .2s,border-color .2s}
+.gh{background:#f4f3f8;color:#141218;padding-left:16px}
 .gh svg{width:20px;height:20px}
 .gh:hover{background:#fff}
-.ghost{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-weight:500;font-size:15px;padding:13px 18px;border-radius:12px;background:#1b1830;border:1px solid #352d5e;color:#e6e2f7;transition:background .2s}
-.ghost:hover{background:#241f40}
+.stars{margin-left:2px;padding:3px 8px;border-radius:6px;background:#e3e1ea;font-size:13px;font-variant-numeric:tabular-nums}
+.ghost{color:#e6e4ee;border:1px solid #34313f;font-weight:500}
+.ghost svg{width:14px;height:14px;color:#9a96aa}
+.ghost:hover{background:#1c1b22;border-color:#45414f}
 .gh:focus-visible,.ghost:focus-visible,.cue:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 
 /* The bands on the right: big, nearly flush, stepping right as they go down and running off the edge.
    Each drifts sideways by its own depth as the pointer moves. */
 .stack{display:flex;flex-direction:column;gap:6px;min-width:0}
-.chip{margin:0 -72px 0 calc(var(--i)*48px);transform:translate3d(var(--px,0px),0,0);animation:chip-in 1.3s var(--ease) both;animation-delay:calc(.3s + var(--i)*.1s)}
+.chip{display:block;color:inherit;text-decoration:none;margin:0 -72px 0 calc(var(--i)*48px);transform:translate3d(var(--px,0px),0,0);animation:chip-in 1.3s var(--ease) both;animation-delay:calc(.3s + var(--i)*.1s)}
 @keyframes chip-in{from{opacity:0;translate:60px 0}}
 .chip .band{min-height:80px;padding:0 96px 0 26px;gap:14px;border-radius:16px;font-size:17px;box-shadow:0 24px 50px -30px #000}
 .chip .band:before{top:-8px;bottom:-8px;left:0;width:auto;max-width:none}
 .chip .handoff:before{top:-14px;bottom:-14px;width:1000px}
 .chip .t{font-weight:700}
+.chip .band{transition:transform .45s var(--ease),border-color .3s,opacity .3s,box-shadow .45s var(--ease)}
+.stack:hover .chip .band{opacity:.55}
+.stack .chip:hover .band,.stack .chip:focus-visible .band{opacity:1;transform:translateX(-18px);border-color:var(--c);box-shadow:0 30px 60px -28px #000,0 0 0 1px var(--c)}
+.chip:focus-visible{outline:none}
+.chip .btn{transition:background .2s,color .2s}
+.chip .btn:not(.primary):hover{background:var(--hover)}
+.chip .btn.primary:hover{background:#fff}
+.item{scroll-margin-top:40px}
 .chip .btn{font-size:14px;padding:9px 15px;border-radius:9px}
 .chip .what{font-size:15px}
 .chip .ring img{width:20px;height:20px}
@@ -213,8 +224,8 @@ h2{margin:0 0 6px;font:500 34px/1.15 var(--display);letter-spacing:-.015em}
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <filter id="grainy" x="-10%" y="-10%" width="120%" height="130%">
     <feTurbulence type="fractalNoise" baseFrequency="1.3" numOctaves="1" seed="7" result="noise"/>
-    <feGaussianBlur in="SourceGraphic" stdDeviation="2.6" result="soft"/>
-    <feDisplacementMap in="soft" in2="noise" scale="11" xChannelSelector="R" yChannelSelector="G"/>
+    <feGaussianBlur in="SourceGraphic" stdDeviation="4.2" result="soft"/>
+    <feDisplacementMap in="soft" in2="noise" scale="16" xChannelSelector="R" yChannelSelector="G"/>
   </filter>
 </svg>
 
@@ -223,19 +234,19 @@ h2{margin:0 0 6px;font:500 34px/1.15 var(--display);letter-spacing:-.015em}
     <div class="intro">
       <h1><svg class="spark" viewBox="0 0 24 24" aria-hidden="true"><path fill="#a79cf7" d="M12 0 C12.9 7.2 16.8 11.1 24 12 C16.8 12.9 12.9 16.8 12 24 C11.1 16.8 7.2 12.9 0 12 C7.2 11.1 11.1 7.2 12 0 Z"/></svg><span class="word" aria-label="effortless"><span class="crisp" aria-hidden="true">effortless</span><span class="soft" aria-hidden="true">effortless</span></span></h1>
       <p class="kind">A Claude Code mod</p>
-      <p class="lede">Sets Claude Code's reasoning effort for every prompt on its own. Shows it under the prompt box, with a countdown of how long the prompt cache stays warm.</p>
+      <p class="lede">Picks the reasoning effort for every prompt, and tells you when the prompt cache is about to go cold.</p>
       <div class="cta">
-        <a class="gh" href="https://github.com/HeyCubit/effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>View on GitHub</a>
-        <a class="ghost" href="#judges">How it works</a>
+        <a class="gh" href="https://github.com/HeyCubit/effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span>Star on GitHub</span><span class="stars" id="stars" hidden></span></a>
+        <a class="ghost" href="#judges">How it works<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
       </div>
     </div>
 
     <div class="stack" id="stack" aria-label="The bands effortless shows in Claude Code">
-      <div class="chip" style="--i:0;--d:.6"><div class="band ice"><span class="t">✦ Chat went cold</span><span class="d">Next message costs full price.</span><span class="acts"><span class="btn">Not now</span><span class="btn primary">Compact</span></span></div></div>
-      <div class="chip" style="--i:1;--d:1"><div class="band bog"><span class="t">✦ Chat is getting swamped</span><span class="ring"><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%3E%3Ccircle%20cx%3D%228%22%20cy%3D%228%22%20r%3D%226%22%20fill%3D%22none%22%20stroke%3D%22%23a7c98f%22%20stroke-opacity%3D%22.25%22%20stroke-width%3D%222.2%22%2F%3E%3Ccircle%20cx%3D%228%22%20cy%3D%228%22%20r%3D%226%22%20fill%3D%22none%22%20stroke%3D%22%23a7c98f%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-dasharray%3D%2227.14%2037.70%22%20transform%3D%22rotate%28-90%208%208%29%22%2F%3E%3C%2Fsvg%3E" alt="">72%</span><span class="acts"><span class="btn primary">Compact</span><span class="btn">Handoff</span></span></div></div>
-      <div class="chip" style="--i:2;--d:.45"><div class="band ember"><span class="t">✦ Running hot</span><span class="d">84% of your 5h limit used</span><span class="acts"><span class="btn primary">Save mode</span></span></div></div>
-      <div class="chip" style="--i:3;--d:.8"><div class="band brand"><span class="t">✦ effortless</span><span class="acts"><span class="btn primary">Jev (API)</span><span class="btn primary">Haiku (no key)</span></span></div></div>
-      <div class="chip" style="--i:4;--d:.55"><div class="band brand handoff"><span class="words"><span class="t">⇥ Handoff</span><span class="what">Done in seconds.</span></span><span class="acts"><span class="btn secondary">Quick</span><span class="btn dim">Full</span><span class="btn primary">Go</span></span></div></div>
+      <a class="chip" href="#b-cold" style="--i:0;--d:.6"><div class="band ice"><span class="t">✦ Chat went cold</span><span class="d">Next message costs full price.</span><span class="acts"><span class="btn">Not now</span><span class="btn primary">Compact</span></span></div></a>
+      <a class="chip" href="#b-swamp" style="--i:1;--d:1"><div class="band bog"><span class="t">✦ Chat is getting swamped</span><span class="ring"><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%3E%3Ccircle%20cx%3D%228%22%20cy%3D%228%22%20r%3D%226%22%20fill%3D%22none%22%20stroke%3D%22%23a7c98f%22%20stroke-opacity%3D%22.25%22%20stroke-width%3D%222.2%22%2F%3E%3Ccircle%20cx%3D%228%22%20cy%3D%228%22%20r%3D%226%22%20fill%3D%22none%22%20stroke%3D%22%23a7c98f%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-dasharray%3D%2227.14%2037.70%22%20transform%3D%22rotate%28-90%208%208%29%22%2F%3E%3C%2Fsvg%3E" alt="">72%</span><span class="acts"><span class="btn primary">Compact</span><span class="btn">Handoff</span></span></div></a>
+      <a class="chip" href="#b-hot" style="--i:2;--d:.45"><div class="band ember"><span class="t">✦ Running hot</span><span class="d">84% of your 5h limit used</span><span class="acts"><span class="btn primary">Save mode</span></span></div></a>
+      <a class="chip" href="#b-setup" style="--i:3;--d:.8"><div class="band brand"><span class="t">✦ effortless</span><span class="acts"><span class="btn primary">Jev (API)</span><span class="btn primary">Haiku (no key)</span></span></div></a>
+      <a class="chip" href="#b-handoff" style="--i:4;--d:.55"><div class="band brand handoff"><span class="words"><span class="t">⇥ Handoff</span><span class="what">Done in seconds.</span></span><span class="acts"><span class="btn secondary">Quick</span><span class="btn dim">Full</span><span class="btn primary">Go</span></span></div></a>
     </div>
   </div>
 </section>
@@ -272,7 +283,7 @@ h2{margin:0 0 6px;font:500 34px/1.15 var(--display);letter-spacing:-.015em}
     <h2 class="reveal">How it looks</h2>
     <p class="sub reveal">A band shows up above the prompt only when something needs you.</p>
 
-    <figure class="item reveal" style="--c:var(--ice)">
+    <figure class="item reveal" id="b-cold" style="--c:var(--ice)">
       <figcaption class="cap"><b>Cold</b>The prompt cache has expired. Compact before the next message writes it all again.</figcaption>
       <div class="band ice">
         <span class="t">✦ Chat went cold</span>
@@ -281,7 +292,7 @@ h2{margin:0 0 6px;font:500 34px/1.15 var(--display);letter-spacing:-.015em}
       </div>
     </figure>
 
-    <figure class="item reveal" style="--c:var(--bog)">
+    <figure class="item reveal" id="b-swamp" style="--c:var(--bog)">
       <figcaption class="cap"><b>Swamped</b>Every message re-reads a big context. Compact it, or hand off to a fresh chat.</figcaption>
       <div class="band bog">
         <span class="t">✦ Chat is getting swamped</span>
@@ -291,7 +302,7 @@ h2{margin:0 0 6px;font:500 34px/1.15 var(--display);letter-spacing:-.015em}
       </div>
     </figure>
 
-    <figure class="item reveal" style="--c:var(--ember)">
+    <figure class="item reveal" id="b-hot" style="--c:var(--ember)">
       <figcaption class="cap"><b>Running hot</b>A usage limit is past 80%. Save mode keeps effort at medium or below until it resets.</figcaption>
       <div class="band ember">
         <span class="t">✦ Running hot</span>
@@ -309,7 +320,7 @@ h2{margin:0 0 6px;font:500 34px/1.15 var(--display);letter-spacing:-.015em}
       </div>
     </figure>
 
-    <figure class="item reveal" style="--c:var(--accent)">
+    <figure class="item reveal" id="b-setup" style="--c:var(--accent)">
       <figcaption class="cap"><b>Setup</b>The first time, it asks who should pick the effort.</figcaption>
       <div class="band brand">
         <span class="t">✦ effortless</span>
@@ -322,7 +333,7 @@ h2{margin:0 0 6px;font:500 34px/1.15 var(--display);letter-spacing:-.015em}
       </div>
     </figure>
 
-    <figure class="item reveal" style="--c:var(--accent)">
+    <figure class="item reveal" id="b-handoff" style="--c:var(--accent)">
       <figcaption class="cap"><b>Handoff</b>Writes a handoff note, then clears the chat and carries on. Try the controls.</figcaption>
       <div class="band brand handoff" id="handoff">
         <span class="words">
@@ -396,6 +407,9 @@ h2{margin:0 0 6px;font:500 34px/1.15 var(--display);letter-spacing:-.015em}
   var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}})},{rootMargin:'0px 0px -8% 0px'});
   items.forEach(function(e){io.observe(e)});
 })();
+
+// The star count, live from GitHub. Hidden until there is at least one.
+fetch('https://api.github.com/repos/HeyCubit/effortless').then(function(r){return r.ok?r.json():null}).then(function(d){var n=d&&d.stargazers_count;if(n>0){var s=document.getElementById('stars');s.textContent=n>=1000?(n/1000).toFixed(1)+'k':String(n);s.hidden=false;}}).catch(function(){});
 
 // The bands on the right drift sideways by their depth as the pointer moves.
 (function(){
