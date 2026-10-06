@@ -1,7 +1,8 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, ModelForkResult, Register } from 'claude-code'
+import type { EngineInterface, ModelForkResult, Register, RenderInput } from 'claude-code'
 
 import type { Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
+import { afterPrompt, atTurnEnd, demoProgress, drawProgress, progressShows, queueCue, registerProgress, soundArgv, stepsKey, takeCues } from './progress'
 
 // The ladders the two sliders walk, cheapest first.
 export const MODELS: { key: ModelKey; label: string; long: string; id: string }[] = [
@@ -109,6 +110,9 @@ const setupStep = atom({ plugin: 'effortless', key: 'setupStep' } as const, null
 // What was picked in the setup guide and not saved yet: it is saved in one go at Done or ✕. Each saved setting reloads
 // the plugin, and the app says so in the chat, so a save per click filled the chat with notices.
 const setupDraft = atom({ plugin: 'effortless', key: 'setupDraft' } as const, {})
+// The progress bar's task and the list it was closed for (hooks/progress.tsx declares the same two for its own hooks).
+const progressState = atom({ plugin: 'effortless', key: 'progress' } as const, null)
+const progressHiddenState = atom({ plugin: 'effortless', key: 'progressHidden' } as const, null)
 // The band above the prompt when the cache has gone cold: an icy gradient with snowflakes drifting down.
 const FROST_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.f path{stroke:#eaf6ff;stroke-width:.5;stroke-linecap:round;fill:none}.f{transform-box:fill-box;transform-origin:center;animation:spin linear infinite;opacity:.75}@keyframes spin{to{transform:rotate(360deg)}}.fr{stroke:#dff1ff;stroke-width:.4;fill:none;stroke-linecap:round;opacity:.5}.gl{fill:#fff;opacity:0;animation:tw 3.6s ease-in-out infinite}@keyframes tw{0%,70%,100%{opacity:0}80%{opacity:.9}}.br{animation:br 6s ease-in-out infinite}@keyframes br{0%,100%{opacity:.85}50%{opacity:1}}</style><defs><linearGradient id="ice" x1="0" x2="1"><stop offset=".43" stop-color="#5aa9e6" stop-opacity="0"/><stop offset=".62" stop-color="#5aa9e6" stop-opacity=".12"/><stop offset=".85" stop-color="#8fd0ff" stop-opacity=".28"/><stop offset="1" stop-color="#cdeaff" stop-opacity=".42"/></linearGradient><radialGradient id="cold" cx="330" cy="15" r="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e9f6ff" stop-opacity=".22"/><stop offset="1" stop-color="#e9f6ff" stop-opacity="0"/></radialGradient><linearGradient id="rime" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".22" stop-color="#fff" stop-opacity="0"/><stop offset=".78" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".15"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".07"/></pattern></defs><g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#ice)"/><rect width="360" height="30" fill="url(#cold)"/><rect width="360" height="30" fill="url(#rime)"/><rect width="360" height="30" fill="url(#grain)"/><path class="fr" d="M360.0 3.0L354.1 2.1M354.1 2.1L349.8 1.8M349.8 1.8L346.7 2.1M346.7 2.1L344.4 2.2M348.2 1.9L347.5 3.2M351.9 1.9L350.3 3.1M350.3 3.1L349.2 3.8M357.0 2.5L355.1 0.6M355.1 0.6L353.5 -0.5M353.5 -0.5L352.4 -1.4M356.1 1.6L354.9 1.4M360.0 27.0L354.1 27.9M354.1 27.9L349.8 28.5M349.8 28.5L346.9 29.6M346.9 29.6L345.0 30.8M348.3 29.0L347.1 28.4M351.9 28.2L350.9 29.9M350.9 29.9L350.3 31.1M357.0 27.5L355.2 29.4M355.2 29.4L353.9 30.9M353.9 30.9L352.8 31.8M356.1 28.4L354.9 28.5M350.0 30.0L348.8 26.2M348.8 26.2L347.9 23.4M347.9 23.4L347.6 21.4M347.6 21.4L347.7 19.9M348.4 24.8L348.9 23.6M349.4 28.1L350.2 26.5M350.2 26.5L350.8 25.3M352.0 0.0L351.0 3.9M351.0 3.9L350.4 6.7M350.4 6.7L349.6 8.6M349.6 8.6L349.0 10.0M350.7 5.3L349.6 5.9M351.5 1.9L352.2 3.6M352.2 3.6L352.9 4.7"/><circle class="gl" cx="228" cy="26" r="0.5" style="animation-delay:0s"/><circle class="gl" cx="205" cy="4" r="0.45" style="animation-delay:1.3s"/><circle class="gl" cx="186" cy="26" r="0.4" style="animation-delay:2.4s"/><circle class="gl" cx="262" cy="6" r="0.5" style="animation-delay:0.7s"/><circle class="gl" cx="300" cy="25" r="0.45" style="animation-delay:3.1s"/><circle class="gl" cx="330" cy="6" r="0.5" style="animation-delay:1.9s"/><g class="f" style="animation-duration:10s;animation-delay:0s"><path d="M236.0 9.0L236.0 13.2M236.0 10.9L237.0 11.8M236.0 10.9L235.0 11.8M236.0 11.9L236.7 12.6M236.0 11.9L235.3 12.6M236.0 9.0L232.4 11.1M234.4 9.9L234.0 11.2M234.4 9.9L233.1 9.6M233.5 10.5L233.2 11.4M233.5 10.5L232.6 10.2M236.0 9.0L232.4 6.9M234.4 8.1L233.1 8.4M234.4 8.1L234.0 6.8M233.5 7.5L232.6 7.8M233.5 7.5L233.2 6.6M236.0 9.0L236.0 4.8M236.0 7.1L235.0 6.2M236.0 7.1L237.0 6.2M236.0 6.1L235.3 5.4M236.0 6.1L236.7 5.4M236.0 9.0L239.6 6.9M237.6 8.1L238.0 6.8M237.6 8.1L238.9 8.4M238.5 7.5L238.8 6.6M238.5 7.5L239.4 7.8M236.0 9.0L239.6 11.1M237.6 9.9L238.9 9.6M237.6 9.9L238.0 11.2M238.5 10.5L239.4 10.2M238.5 10.5L238.8 11.4"/></g><g class="f" style="animation-duration:12s;animation-delay:-4s"><path d="M214.0 21.0L214.0 24.2M214.0 22.4L214.7 23.2M214.0 22.4L213.3 23.2M214.0 23.2L214.5 23.7M214.0 23.2L213.5 23.7M214.0 21.0L211.2 22.6M212.8 21.7L212.5 22.7M212.8 21.7L211.8 21.5M212.1 22.1L211.9 22.8M212.1 22.1L211.4 21.9M214.0 21.0L211.2 19.4M212.8 20.3L211.8 20.5M212.8 20.3L212.5 19.3M212.1 19.9L211.4 20.1M212.1 19.9L211.9 19.2M214.0 21.0L214.0 17.8M214.0 19.6L213.3 18.8M214.0 19.6L214.7 18.8M214.0 18.8L213.5 18.3M214.0 18.8L214.5 18.3M214.0 21.0L216.8 19.4M215.2 20.3L215.5 19.3M215.2 20.3L216.2 20.5M215.9 19.9L216.1 19.2M215.9 19.9L216.6 20.1M214.0 21.0L216.8 22.6M215.2 21.7L216.2 21.5M215.2 21.7L215.5 22.7M215.9 22.1L216.6 21.9M215.9 22.1L216.1 22.8"/></g><g class="f" style="animation-duration:11s;animation-delay:-7s"><path d="M194.0 8.0L194.0 10.6M194.0 9.2L194.6 9.8M194.0 9.2L193.4 9.8M194.0 9.8L194.4 10.2M194.0 9.8L193.6 10.2M194.0 8.0L191.7 9.3M193.0 8.6L192.8 9.4M193.0 8.6L192.2 8.4M192.4 8.9L192.3 9.5M192.4 8.9L191.9 8.8M194.0 8.0L191.7 6.7M193.0 7.4L192.2 7.6M193.0 7.4L192.8 6.6M192.4 7.1L191.9 7.2M192.4 7.1L192.3 6.5M194.0 8.0L194.0 5.4M194.0 6.8L193.4 6.2M194.0 6.8L194.6 6.2M194.0 6.2L193.6 5.8M194.0 6.2L194.4 5.8M194.0 8.0L196.3 6.7M195.0 7.4L195.2 6.6M195.0 7.4L195.8 7.6M195.6 7.1L195.7 6.5M195.6 7.1L196.1 7.2M194.0 8.0L196.3 9.3M195.0 8.6L195.8 8.4M195.0 8.6L195.2 9.4M195.6 8.9L196.1 8.8M195.6 8.9L195.7 9.5"/></g><g class="f" style="animation-duration:13s;animation-delay:-2s"><path d="M176.0 19.0L176.0 21.2M176.0 20.0L176.5 20.5M176.0 20.0L175.5 20.5M176.0 20.5L176.3 20.9M176.0 20.5L175.7 20.9M176.0 19.0L174.1 20.1M175.1 19.5L175.0 20.2M175.1 19.5L174.5 19.3M174.7 19.8L174.5 20.2M174.7 19.8L174.2 19.6M176.0 19.0L174.1 17.9M175.1 18.5L174.5 18.7M175.1 18.5L175.0 17.8M174.7 18.2L174.2 18.4M174.7 18.2L174.5 17.8M176.0 19.0L176.0 16.8M176.0 18.0L175.5 17.5M176.0 18.0L176.5 17.5M176.0 17.5L175.7 17.1M176.0 17.5L176.3 17.1M176.0 19.0L177.9 17.9M176.9 18.5L177.0 17.8M176.9 18.5L177.5 18.7M177.3 18.2L177.5 17.8M177.3 18.2L177.8 18.4M176.0 19.0L177.9 20.1M176.9 19.5L177.5 19.3M176.9 19.5L177.0 20.2M177.3 19.8L177.8 19.6M177.3 19.8L177.5 20.2"/></g><g class="f" style="animation-duration:14s;animation-delay:-9s"><path d="M252.0 22.0L252.0 24.4M252.0 23.1L252.5 23.6M252.0 23.1L251.5 23.6M252.0 23.7L252.4 24.1M252.0 23.7L251.6 24.1M252.0 22.0L249.9 23.2M251.1 22.5L250.9 23.3M251.1 22.5L250.3 22.3M250.5 22.8L250.4 23.4M250.5 22.8L250.0 22.7M252.0 22.0L249.9 20.8M251.1 21.5L250.3 21.7M251.1 21.5L250.9 20.7M250.5 21.2L250.0 21.3M250.5 21.2L250.4 20.6M252.0 22.0L252.0 19.6M252.0 20.9L251.5 20.4M252.0 20.9L252.5 20.4M252.0 20.3L251.6 19.9M252.0 20.3L252.4 19.9M252.0 22.0L254.1 20.8M252.9 21.5L253.1 20.7M252.9 21.5L253.7 21.7M253.5 21.2L253.6 20.6M253.5 21.2L254.0 21.3M252.0 22.0L254.1 23.2M252.9 22.5L253.7 22.3M252.9 22.5L253.1 23.3M253.5 22.8L254.0 22.7M253.5 22.8L253.6 23.4"/></g></g></svg>`
 // The frost is drawn larger than the band and cut by it: wide enough for the right side, tall enough for any band.
@@ -356,7 +360,7 @@ export type JudgeConfig = {
 export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
 
 /** The parts of effortless a person can switch off in the settings. */
-export const HIDEABLE = ['handoff', 'timer', 'cold', 'swamp', 'hot', 'down', 'line'] as const
+export const HIDEABLE = ['handoff', 'timer', 'cold', 'swamp', 'hot', 'down', 'line', 'progress', 'sounds'] as const
 export type Hideable = (typeof HIDEABLE)[number]
 let config: JudgeConfig = {
   judge: 'auto',
@@ -1641,9 +1645,64 @@ let lastRenderError = ''
 let sessionStarted = 0
 let handoffTimer: { cancel: () => void } | undefined
 const HANDOFF_POLL_MS = 1000
+// For /effortless debug: how the last progress chime went.
+let lastCue = ''
+let lastCueAt = 0
+
+// The progress bar's glue: the rules and the drawing are in hooks/progress.tsx, and $ is followed only into functions of
+// the file it is in.
+
+/** Plays the queued progress sounds, from the session's timer: PowerShell on Windows, $.audio.play elsewhere. */
+async function playProgressCues($: EngineInterface) {
+  for (const sound of takeCues()) {
+    const file = `sounds/${sound}.wav`
+    const argv = soundArgv($.plugin.root, file)
+    const how = argv ? 'powershell' : 'audio.play'
+    try {
+      if (argv) {
+        const ran = await $.process.run(argv, { timeoutMs: 10_000 })
+        lastCue = `${sound} by ${how}: exit ${ran.exitCode}${ran.stderr ? ` (${ran.stderr.trim().slice(0, 80)})` : ''}`
+      } else {
+        await $.audio.play({ asset: file })
+        lastCue = `${sound} by ${how}: played`
+      }
+    } catch (error) {
+      lastCue = `${sound} by ${how}: ${(error instanceof Error ? error.message : String(error)).slice(0, 80)}`
+    }
+    lastCueAt = Date.now()
+  }
+}
+
+/** A main-conversation turn ended: where the task stands now, with a chime when it is done or Claude asks. */
+async function progressAtTurnEnd($: EngineInterface, e: { agentId?: string; reason: string; answer: string }) {
+  if (config.hide.includes('progress') || e.agentId !== undefined) return
+  const p = await read($, progressState)
+  if (!p) return
+  const { next, cue } = atTurnEnd(p, e, endsOnQuestion)
+  await update($, progressState, () => next)
+  queueCue(config.hide, cue)
+}
+
+/** The progress bar for one of its two places above the prompt, or null. */
+async function progressBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, when: 'active' | 'resting') {
+  if (config.hide.includes('progress')) return null
+  const p = await read($, progressState)
+  if (!progressShows(p, await read($, progressHiddenState), when)) return null
+  const { Box, Text, Button } = $.ui.resolve(e)
+  // ✕ ends a finished or planning bar; a running one hides until Claude writes another list.
+  const onClose = async () => {
+    const cur = await read($, progressState)
+    if (!cur) return
+    if (cur.phase === 'done' || cur.phase === 'planning') await update($, progressState, () => null)
+    else await update($, progressHiddenState, () => stepsKey(cur.steps))
+  }
+  return drawProgress(p, { Box, Text, Button, maxRows: typeof e.props.maxRows === 'number' ? e.props.maxRows : 4, onClose })
+}
 
 export const register: Register = (on, options) => {
   config = readConfig(options)
+  // The progress bar's two hooks of its own (hooks/progress.tsx); the rest of its glue is in this file.
+  registerProgress(on, () => config.hide)
   on('session.start', async ($, e, next) => {
     sessionStarted = Date.now()
     // The command file lists /effortless before the session starts; registering it here makes plain /effortless the
@@ -1663,9 +1722,13 @@ export const register: Register = (on, options) => {
     // The cache countdown's clock. A timer started inside a request ends with that request, so it lives here.
     $.clock.every(CACHE_TICK_MS, () => void showCache($).catch(() => undefined))
     $.clock.every(CACHE_TICK_MS, () => void checkSwamp($).catch(() => undefined))
-    // A written handoff is cleared and resent from here: a hook the turn waits on may not run commands.
+    // A written handoff is cleared and resent from here: a hook the turn waits on may not run commands. The progress
+    // bar's sounds ride the same timer, so a chime never holds up the hook that queued it.
     handoffTimer?.cancel()
-    handoffTimer = $.clock.every(HANDOFF_POLL_MS, () => void finishHandoff($).catch(() => undefined))
+    handoffTimer = $.clock.every(HANDOFF_POLL_MS, () => {
+      void finishHandoff($).catch(() => undefined)
+      void playProgressCues($).catch(() => undefined)
+    })
     // The first time the mod runs, the setup guide opens above the prompt.
     if ((await $.store.get('setupDone')) !== true) {
       await update($, setupStep, () => 'pick')
@@ -1680,6 +1743,7 @@ export const register: Register = (on, options) => {
   // The handoff turn ended: keep its text; the session's timer clears the chat and sends it.
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
+    await progressAtTurnEnd($, e).catch(() => undefined)
     if (!e.agentId && (await read($, handoffStage)) === 'writing') {
       if (e.reason === 'answer' && e.answer.trim()) handoffText = e.answer
       else {
@@ -1721,6 +1785,14 @@ export const register: Register = (on, options) => {
       await $.ui.close({ id: TRY_PANE }).catch(() => undefined)
       $.ui.status(undefined)
       return { text: 'Status line cleared.' }
+    }
+    if (arg === 'progress' || arg.startsWith('progress ')) {
+      const demo = demoProgress(arg.slice('progress'.length).trim())
+      await update($, progressHiddenState, () => null)
+      await update($, progressState, () => demo.progress)
+      queueCue(config.hide, demo.cue)
+      $.ui.invalidate('ui.render')
+      return { text: demo.text }
     }
     if (arg === 'auto') {
       await toggleAutoEffort($)
@@ -1777,6 +1849,7 @@ export const register: Register = (on, options) => {
           `handoff: ${await read($, handoffStage)}`,
           `last fork: ${lastFork ? `${lastFork.outcome}, ${ago(lastFork.at)}` : 'none'}`,
           `hidden: ${config.hide.join(',') || 'nothing'}`,
+          `last chime: ${lastCue ? `${lastCue}, ${ago(lastCueAt)}` : 'none'}`,
         ].join(' | '),
       }
     }
@@ -1819,6 +1892,10 @@ Saved to ${out}.md and .json` }
   })
 
   on('prompt.submit', async ($, e, next) => {
+    if (!config.hide.includes('progress')) {
+      const was = await read($, progressState)
+      if (afterPrompt(was, e) !== was) await update($, progressState, p => afterPrompt(p, e))
+    }
     const byPerson = e.origin.kind === 'composer' || e.origin.kind === 'bridge' || e.origin.kind === 'sdk'
     const wantsEffort = await read($, isAuto)
     const wantsModel = await read($, isAutoModel)
@@ -2191,6 +2268,8 @@ Saved to ${out}.md and .json` }
           ['hot', 'Running hot'],
           ['down', 'Judge down'],
           ['line', 'Line under replies'],
+          ['progress', 'Progress'],
+          ['sounds', 'Sounds'],
         ] as const
       ).map(([part, label]) => {
         const off = hidden.includes(part)
@@ -2510,6 +2589,9 @@ Saved to ${out}.md and .json` }
         ...nav(<Button key="setup-done" variant="primary" autoFocus label="Done" onPress={() => finishSetup($)} />),
       ])
     }
+    // A bigger task under way: its progress bar comes before the alerts.
+    const liveProgress = await progressBand($, e, 'active')
+    if (liveProgress) return liveProgress
     // The judge the person picked is failing: Haiku stands in until it works again.
     const downReason = await read($, judgeDown)
     if (downReason && !config.hide.includes('down') && downReason !== (await read($, judgeDownHidden))) {
@@ -2656,6 +2738,9 @@ Saved to ${out}.md and .json` }
         </Box>
       )
     }
+    // A finished or paused task: its bar after the alerts.
+    const restingProgress = await progressBand($, e, 'resting')
+    if (restingProgress) return restingProgress
     const v = await snap($)
     const { auto, autoModel, current, judging, wanted, shownByApp } = v
     const inUse = v.modelNow ?? (await sessionModel($))

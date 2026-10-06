@@ -2,6 +2,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter } from '../hooks/register'
+import { afterPrompt, currentStep, isBigPick, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
 
 const BAND = {
   component: 'AbovePrompt',
@@ -2112,3 +2113,256 @@ describe('the command file', () => {
   })
 })
 
+
+describe('progress bar', () => {
+  const start = async ($: Engine, on: On) => {
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    // The first-run guide comes before the bar: closed here.
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+  }
+
+  /** The tools the bar watches, answered as the engine would; the sounds played, by file. */
+  const tools = (on: On) => {
+    let nextTask = 0
+    on('tool.call', (_$, e) => {
+      if (e.tool === 'TaskCreate') return { result: { task: { id: String(++nextTask), subject: e.subject } } } as never
+      if (e.tool === 'TaskUpdate') return { result: { success: true, taskId: e.taskId, updatedFields: [] } } as never
+      if (e.tool === 'AskUserQuestion') return { result: { answers: {} } } as never
+      return { result: { oldTodos: [], newTodos: [] } } as never
+    })
+    const played: string[] = []
+    on('process.run', (_$, e) => {
+      played.push(e.argv.join(' '))
+      return { value: { exitCode: 0, stdout: '', stderr: '' } } as never
+    })
+    on('audio.play', (_$, e) => {
+      played.push(String((e.clip as { asset?: string }).asset))
+      return { value: undefined } as never
+    })
+    on('turn.start', (_$, e) => ({ turnId: e.turnId }))
+    on('turn.complete', () => ({ text: '' }))
+    return played
+  }
+
+  const todos = (statuses: ('pending' | 'in_progress' | 'completed')[]) =>
+    statuses.map((status, i) => ({ content: `Step ${i + 1}`, activeForm: `Doing step ${i + 1}`, status }))
+
+  const endTurn = ($: Engine, answer: string, reason = 'answer') =>
+    $.turn.complete({ turnId: 't1', answer, durationMs: 1, isAborted: reason === 'aborted', reason } as never)
+
+  test('the steps: share, number and the one named', () => {
+    const steps = stepsFromTodos(todos(['completed', 'in_progress', 'pending', 'pending']))
+    expect(progressShare(steps)).toBe(1.5 / 4)
+    expect(stepNumber(steps)).toBe(2)
+    expect(currentStep(steps)?.doing).toBe('Doing step 2')
+    expect(stepNumber(stepsFromTodos(todos(['completed', 'completed', 'completed'])))).toBe(3)
+    expect(progressShare([])).toBe(0)
+  })
+
+  test('tasks are added, updated and deleted by id', () => {
+    let steps = withTaskCreated([], '1', { subject: 'Read', activeForm: 'Reading' })
+    steps = withTaskCreated(steps, '2', { subject: 'Write' })
+    steps = withTaskUpdated(steps, { taskId: '1', status: 'in_progress' })
+    expect(steps.map(s => [s.id, s.status, s.doing])).toEqual([['1', 'in_progress', 'Reading'], ['2', 'pending', 'Write']])
+    expect(withTaskUpdated(steps, { taskId: '2', status: 'deleted' }).map(s => s.id)).toEqual(['1'])
+  })
+
+  test('a turn ends done, asking or paused; too short a list ends the bar', () => {
+    const q = endsOnQuestion
+    const p = (s: ('pending' | 'in_progress' | 'completed')[]) => ({ phase: 'working' as const, steps: stepsFromTodos(todos(s)) })
+    expect(phaseAtTurnEnd(p(['completed', 'completed', 'completed']), { reason: 'answer', answer: 'All done.' }, q)).toBe('done')
+    expect(phaseAtTurnEnd(p(['completed', 'pending', 'pending']), { reason: 'answer', answer: 'Should I go on?' }, q)).toBe('asking')
+    expect(phaseAtTurnEnd(p(['completed', 'pending', 'pending']), { reason: 'aborted', answer: '' }, q)).toBe('paused')
+    expect(phaseAtTurnEnd(p(['completed', 'pending']), { reason: 'answer', answer: '' }, q)).toBeNull()
+  })
+
+  test('a prompt carries an asking or paused task on and ends a finished one; slash commands change nothing', () => {
+    const steps = stepsFromTodos(todos(['completed', 'pending', 'pending']))
+    const said = { text: 'yes', origin: { kind: 'composer' } }
+    expect(afterPrompt({ phase: 'asking', steps }, said)?.phase).toBe('working')
+    expect(afterPrompt({ phase: 'paused', steps }, said)?.phase).toBe('working')
+    expect(afterPrompt({ phase: 'done', steps }, said)).toBeNull()
+    expect(afterPrompt({ phase: 'done', steps }, { text: '/effortless debug', origin: { kind: 'composer' } })?.phase).toBe('done')
+  })
+
+  test('where it shows, what it says, and when the judge calls a turn big', () => {
+    const steps = stepsFromTodos(todos(['completed', 'in_progress', 'pending']))
+    expect(progressShows({ phase: 'working', steps }, null, 'active')).toBe(true)
+    expect(progressShows({ phase: 'working', steps }, null, 'resting')).toBe(false)
+    expect(progressShows({ phase: 'done', steps }, null, 'resting')).toBe(true)
+    expect(progressShows({ phase: 'working', steps }, 'Step 1\nStep 2\nStep 3', 'active')).toBe(false)
+    expect(progressShows({ phase: 'working', steps: steps.slice(0, 2) }, null, 'active')).toBe(false)
+    expect(progressTitle({ phase: 'asking', steps })).toBe('Waiting for your answer · step 2 of 3')
+    expect(progressTitle({ phase: 'done', steps })).toBe('Done · all 3 steps')
+    expect(isBigPick({ model: 'opus', effort: 'high', why: '', by: 'jev' })).toBe(true)
+    expect(isBigPick({ model: 'opus', effort: 'high', why: '', by: 'manual' })).toBe(false)
+    expect(isBigPick({ model: 'opus', effort: 'medium', why: '', by: 'haiku' })).toBe(false)
+  })
+
+  test('Windows plays the chime with PowerShell; elsewhere the app plays it', () => {
+    const argv = soundArgv('C:\\Users\\x\\plugins\\effortless', 'sounds/done.wav')
+    expect(argv?.[0]).toBe('powershell.exe')
+    expect(argv?.join(' ')).toContain("SoundPlayer 'C:\\Users\\x\\plugins\\effortless\\sounds\\done.wav'")
+    expect(soundArgv('/Users/x/.claude/plugins/effortless', 'sounds/done.wav')).toBeNull()
+  })
+
+  test('a step list fills the bar, names the step, and turns green with a chime when every step is done', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    const played = tools(on)
+    await start($, on)
+    await $.tool.call({ tool: 'TodoWrite', todos: todos(['completed', 'in_progress', 'pending', 'pending']) } as never)
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await band.find({ key: 'progress-bar' })).toBeDefined()
+    expect(await drawn(band)).toContain('Step 2 of 4')
+    expect(await drawn(band)).toContain('Doing step 2')
+    await band.unmount()
+    await $.tool.call({ tool: 'TodoWrite', todos: todos(['completed', 'completed', 'completed', 'completed']) } as never)
+    await endTurn($, 'All four steps are done.')
+    await mocked.advance(1000)
+    const green = await $.ui.mount(DESK_BAND)
+    expect(await drawn(green)).toContain('Done · all 4 steps')
+    expect(played.join('\n')).toContain('done.wav')
+    // The next prompt ends a finished task.
+    await green.unmount()
+    await $.prompt.submit({ text: 'thanks', wait: false, origin: { kind: 'composer' } })
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+  })
+
+  test('a turn that ends on a question turns the bar yellow with a chime; the answer carries it on', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    const played = tools(on)
+    await start($, on)
+    await $.tool.call({ tool: 'TodoWrite', todos: todos(['completed', 'in_progress', 'pending']) } as never)
+    await endTurn($, 'The tests pass. Should I go on with the docs?')
+    await mocked.advance(1000)
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('Waiting for your answer')
+    expect(played.join('\n')).toContain('question.wav')
+    await band.unmount()
+    await $.prompt.submit({ text: 'yes', wait: false, origin: { kind: 'composer' } })
+    const again = await $.ui.mount(DESK_BAND)
+    expect(await drawn(again)).toContain('Step 2 of 3')
+    await again.unmount()
+  })
+
+  test('AskUserQuestion chimes while it asks; tasks from TaskCreate and TaskUpdate count as steps', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    const played = tools(on)
+    await start($, on)
+    for (const subject of ['Read', 'Build', 'Test']) await $.tool.call({ tool: 'TaskCreate', subject, description: subject } as never)
+    await $.tool.call({ tool: 'TaskUpdate', taskId: '1', status: 'completed' } as never)
+    await $.tool.call({ tool: 'TaskUpdate', taskId: '2', status: 'in_progress', activeForm: 'Building it' } as never)
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('Building it')
+    await band.unmount()
+    await $.tool.call({ tool: 'AskUserQuestion', questions: [] } as never)
+    await mocked.advance(1000)
+    expect(played.join('\n')).toContain('question.wav')
+    // Answered: back to work.
+    const after = await $.ui.mount(DESK_BAND)
+    expect(await drawn(after)).toContain('Step 2 of 3')
+    await after.unmount()
+  })
+
+  test('a list of two steps draws nothing; the cross hides a list until another one comes', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    tools(on)
+    await start($, on)
+    await $.tool.call({ tool: 'TodoWrite', todos: todos(['in_progress', 'pending']) } as never)
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    await $.tool.call({ tool: 'TodoWrite', todos: todos(['in_progress', 'pending', 'pending']) } as never)
+    const band = await $.ui.mount(DESK_BAND)
+    await band.press({ key: 'progress-close' })
+    await band.unmount()
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    await $.tool.call({ tool: 'TodoWrite', todos: todos(['in_progress', 'pending', 'pending', 'pending']) } as never)
+    const back = await $.ui.mount(DESK_BAND)
+    expect(await drawn(back)).toContain('Step 1 of 4')
+    await back.unmount()
+  })
+
+  test('a turn the judge calls big shows Planning until a list comes; with none it goes quietly', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    const played = tools(on)
+    judgeSays(on, '{"model":"opus","effort":"high","why":"big job"}')
+    await start($, on)
+    await $.prompt.submit({ text: 'go through the whole repo and clean it up', wait: false, origin: { kind: 'composer' } })
+    await $.turn.start({ text: 'go through the whole repo', turnId: 't1' } as never)
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('Planning a bigger task')
+    await band.unmount()
+    await endTurn($, 'Nothing needed cleaning.')
+    await mocked.advance(1000)
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    expect(played).toEqual([])
+  })
+
+  test('/effortless progress shows the bar working, asking and done, then clears it', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    const played = tools(on)
+    await start($, on)
+    await $.command.run({ command: 'effortless', args: 'progress' })
+    let band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('Step 3 of 5')
+    await band.unmount()
+    await $.command.run({ command: 'effortless', args: 'progress done' })
+    await mocked.advance(1000)
+    band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('Done · all 5 steps')
+    await band.unmount()
+    expect(played.join('\n')).toContain('done.wav')
+    await $.command.run({ command: 'effortless', args: 'progress clear' })
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+  })
+
+  test('switched off, the bar is never drawn and nothing plays', { options: { hide: 'progress' } } as never, async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    const played = tools(on)
+    await start($, on)
+    await $.tool.call({ tool: 'TodoWrite', todos: todos(['completed', 'completed', 'completed']) } as never)
+    await endTurn($, 'Done.')
+    await mocked.advance(1000)
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    expect(played).toEqual([])
+  })
+
+  test('with sounds off the bar still turns green, silently', { options: { hide: 'sounds' } } as never, async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    const played = tools(on)
+    await start($, on)
+    await $.tool.call({ tool: 'TodoWrite', todos: todos(['completed', 'completed', 'completed']) } as never)
+    await endTurn($, 'Done.')
+    await mocked.advance(1000)
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('Done · all 3 steps')
+    await band.unmount()
+    expect(played).toEqual([])
+  })
+
+  test('the bar draws on the terminal too, and as one row when there is little room', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    tools(on)
+    await start($, on)
+    await $.command.run({ command: 'effortless', args: 'progress ask' })
+    for (const maxRows of [10, 3]) {
+      const band = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND, props: { ...BAND.props, maxRows } } as never)
+      expect(await drawn(band)).toContain('Waiting for your answer')
+      expect(Boolean(await band.find({ key: 'progress-track' }))).toBe(maxRows >= 4)
+      expect(Boolean(await band.find({ key: 'progress-blocks' }))).toBe(maxRows < 4)
+      await band.unmount()
+    }
+  })
+})

@@ -52,7 +52,17 @@ Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and 
 - The default judge needs **no key**: Haiku runs on your own Claude login.
 - A key is only needed for `jev` or `custom`. Enter it with `/plugin configure`, never on the command line, so it stays out of your shell history. Claude Code keeps it in its secure storage, not in a file.
 - A key is sent only to the judge you picked (TypeSafe, or the custom URL you entered), and to nothing else. Use a key with a spending limit if your provider offers one.
-- Like any Claude Code plugin, this mod runs code on your machine. It is one file, [`hooks/register.tsx`](hooks/register.tsx): read it before you install if you do not know the author.
+- Like any Claude Code plugin, this mod runs code on your machine. It is two files, [`hooks/register.tsx`](hooks/register.tsx) and [`hooks/progress.tsx`](hooks/progress.tsx): read them before you install if you do not know the author. On Windows the progress bar's chimes are played by PowerShell's sound player; that is the only program it starts.
+
+## Progress bar
+
+When Claude works through a bigger task, a bar above the prompt follows it. It appears once Claude writes a step list of 3 or more steps (or, before that, as "Planning" when the judge picked high effort or above), fills one segment per step toward the flag at the end, and names the step in progress.
+
+- **Yellow**, with a chime: Claude asks you something (a question card, or a reply that ends on a question).
+- **Green**, with a chime: every step is done. It stays until your next message or ✕.
+- ✕ on a running bar hides it until Claude writes a new list.
+
+Switch it off in `/effortless settings` under Show: **Progress** (the whole bar) or **Sounds** (the chimes only).
 
 ## Commands
 
@@ -66,6 +76,7 @@ Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and 
 | `/effortless hot`, `/effortless down` | show the running-hot band (a 5h or weekly limit past 80%, with Save mode) or the judge-down band now, to try them |
 | `/effortless swamp` | shows the swamp band now, to try it (it appears by itself once each message re-reads 150k+ tokens) |
 | `/effortless cold` | shows the cache as cold now, to try the Compact button |
+| `/effortless progress` | a demo progress bar; `progress ask` and `progress done` show yellow and green with their chimes, `progress clear` removes it |
 | `/effortless bench` | runs the 75 labelled prompts (20 held out) in `bench/judge-cases.json` through each judge you have (Haiku, plus Jev and your own if set up) and saves a score table next to fixed medium/high |
 
 ## What it saves, honestly
