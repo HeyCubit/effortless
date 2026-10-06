@@ -1,15 +1,18 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.26.1, pushed and installed. Direct pushes, no open PRs.
-- Release: bump `version` in `.claude-plugin/plugin.json`, `claude plugin validate .`, `claude plugin test .`
-  (0 fail), push, `claude plugin marketplace update effortless`, `claude plugin update effortless@effortless`, restart.
-- CLI on this PC: `$APPDATA/Claude/claude-code/<version>/<hash>/claude.exe` (newest folder). `claude` on PATH is 2.1.220: fails validate, has no `plugin test`.
+- `main` on HeyCubit/effortless, version 1.27.0, pushed and installed. Direct pushes, no open PRs.
+- Release: bump `version` in `.claude-plugin/plugin.json`, `<cli> plugin validate .`, `<cli> plugin test .`
+  (0 fail), push, `<cli> plugin marketplace update effortless`, `<cli> plugin update effortless@effortless`, restart.
+- CLI on this PC: `$APPDATA/Claude/claude-code/<version>/<hash>/claude.exe` (newest folder). `claude` on PATH is
+  2.1.220: fails validate, has no `plugin test`.
+- Another chat builds a showcase site in `site/` in its own worktree. Leave `site/` alone.
+- The main checkout (`~/Documents/effortless`) had two local `test(aid)` commits not on origin (2026-10-06), from
+  another chat. Not pushed by the setup release.
 
 ## Half done
-- 1.25.0: ⇥ opens a handoff bar (Quick fork / Full skill; Clear & carry on / Clear & wait / Keep chat & copy),
-  remembered in the store as `handoffChoice`. The old "fork falls back" was the skill setting, not a fork failure.
-  Not yet seen in the app: the bar's layout at narrow widths, Enter on Go, copy to the clipboard on desktop.
+- 1.27.0 setup in steps: tested in the test kit, not yet seen in the app (`/effortless setup` shows it again).
+- 1.25.0 handoff bar: not yet seen in the app at narrow widths, Enter on Go, copy to the clipboard on desktop.
 - Branding images in `docs/brand/` (social preview, README banner, band strip, avatar): untracked, not in README.
 - README does not mention the "Swamped at" setting yet.
 - Not yet seen in the app: settings opened before a chat's first message (1.20.1), Show > Cache timer (1.21.0),
@@ -18,23 +21,29 @@
 ## Next
 0. Split view: the app draws plugin UI only in the left pane (proven: right pane asked 8x then never). Separate
    windows both work (README says so). Bug report written; Isac sends it via /feedback.
-1. Needs Isac: restart, ⇥ then Quick + Go in a chat with replies, then `/effortless debug`. Expect `last fork: answered`.
-   Else fix by reason: `nothing-to-fork`, `aborted` (timer dispatch cut), `api-error`, `threw`.
-2. On Isac's OK: banner at top of README, document Swamped at, commit `docs/brand/`.
+1. Needs Isac: look at the setup steps, step 4/4 at a narrow width first (widest row).
+2. Needs Isac: restart, ⇥ then Quick + Go in a chat with replies, then `/effortless debug`. Expect
+   `last fork: answered`; else fix by reason (`nothing-to-fork`, `aborted`, `api-error`, `threw`).
+3. On Isac's OK: banner at top of README, document Swamped at, commit `docs/brand/`.
+4. Idea, not started: allow one effort change on Fable while the cache is still small (new chat, right after a
+   compact), where a rewrite costs almost nothing.
 
 ## Decided, do not redo
-- Handoff bar stays brand purple (Isac 2026-10-06); other colours mean alerts. Variants in docs/brand/previews/.
-- Status line removed (1.23.1): when it fits, the app shows it whole, so no hover; it duplicated the footer.
-- Band art always animates (1.23.2); the flicker on resize/scroll is accepted. No still-image option.
-- Swamp band = one percent setting `swampAt` (default 50), no token rule.
-- `/split` dropped: no `start_session` tool for mods or this session.
-- Footer hover cards impossible (footer ignores display none/absolute).
+- Setup steps (2026-10-06): judge, lean, handoff skill, alerts, done line on ⏻, ⚙ and Fable. Range, Swamped at,
+  handoffAfter stay in ⚙ only. Choices save on click. Picking or skipping the judge ends "Setup" in the footer.
+- Setup and handoff bars use still art (each click redraws them); the alert bands keep animated art.
+- Handoff bar stays brand purple; other colours mean alerts. Variants in docs/brand/previews/.
+- Auto pauses on Fable 5.1 and older Opus: an effort change rewrote 56 to 100% of the cache (measured).
+- Status line removed (1.23.1). Swamp band = one percent setting `swampAt` (default 50), no token rule.
+- `/split` dropped: no `start_session` tool for mods. Footer hover cards impossible.
 
 ## Only Isac
 - Visual checks in the desktop app and the handoff run above.
 - A separate GitHub account if full anonymity is wanted.
 
 ## Pointers
-- Code `hooks/register.tsx`, tests `tests/effortless.test.ts` (96), command file `commands/effortless.md`.
+- Code `hooks/register.tsx` (setup: `setupNext`, `goSetup`, `pickJudge`, the "setup guide" block), tests
+  `tests/effortless.test.ts`, command file `commands/effortless.md`.
+- Spec: `docs/superpowers/specs/2026-10-06-setup-steps-design.md`.
 - Judge benchmark: `bench/judge-cases.json`. Band styling limits: memory `mod_band_styling.md`.
 - Mod state: memory `modellval_mod.md`.
