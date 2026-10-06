@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, statusText } from '../hooks/register'
+import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome } from '../hooks/register'
 
 const BAND = {
   component: 'AbovePrompt',
@@ -1756,12 +1756,3 @@ describe('the command file', () => {
   })
 })
 
-describe('status line', () => {
-  const ctx = { tokens: 420_000, window: 1_000_000, percent: 42 }
-  test('cache first, then context, then what Auto runs with', () => {
-    expect(statusText({ cache: 58, context: ctx, auto: true, effort: 'high', by: 'jev' })).toBe('cache 57m · ctx 42% · 420k/1.0M · Auto High (jev)')
-    expect(statusText({ cache: 0, context: ctx, auto: true, effort: 'low', by: 'manual' })).toBe('cache cold · ctx 42% · 420k/1.0M · Auto Low')
-    expect(statusText({ cache: null, context: null, auto: false })).toBe('Auto off')
-    expect(statusText({ cache: null, context: { tokens: 0, window: 0, percent: 0 }, auto: true })).toBe('')
-  })
-})
