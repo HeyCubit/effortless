@@ -20,6 +20,8 @@ const WEIGHT = { input: 1, write: 1.25, read: 0.1, out: 5 }
 export const cacheSafe = (modelId: string) => /(opus|sonnet)-5-5/.test(modelId)
 // The purple the effort in the footer is written in.
 const ACCENT = '#a79cf7'
+const BRAND_BG = '#15121f'
+const BRAND_EDGE = '#4a3f80'
 // The box behind the level while it is hovered: the grey of the app's own pills.
 const HOVER_BOX = '#2b2b2f'
 const EFFORT_LABELS: Record<Effort, string> = { low: 'Low', medium: 'Medium', high: 'High', xhigh: 'XHigh', max: 'Max' }
@@ -76,7 +78,7 @@ const SETTINGS_COMMAND = '/plugin configure effortless@effortless'
 // The right of the setup guide, pure decoration (the name is on the left): a purple gradient with a soft glow,
 // faint light streaks and grain, a still star, and small sparkles that twinkle in and out here and there. One constant source, so the app never rebuilds its frame (a changing source flickers); the
 // motion is CSS inside it.
-const BRAND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="360" height="30" viewBox="0 0 360 30"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.sp{fill:#fff;opacity:0;transform:scale(0);animation-name:gl;animation-timing-function:ease-in-out;animation-iteration-count:infinite}@keyframes gl{0%,72%,100%{opacity:0;transform:scale(0) rotate(0deg)}82%{opacity:.9;transform:scale(1) rotate(30deg)}92%{opacity:0;transform:scale(.2) rotate(60deg)}}</style><defs><linearGradient id="bg" x1="0" x2="1"><stop offset="0" stop-color="#7c6cf0" stop-opacity="0"/><stop offset=".5" stop-color="#7c6cf0" stop-opacity=".2"/><stop offset="1" stop-color="#8f7ff0" stop-opacity=".5"/></linearGradient><radialGradient id="glow" cx=".93" cy=".5" r=".35" fx=".93" fy=".5"><stop offset="0" stop-color="#c9bdff" stop-opacity=".45"/><stop offset=".5" stop-color="#9a86ff" stop-opacity=".12"/><stop offset="1" stop-color="#9a86ff" stop-opacity="0"/></radialGradient><pattern id="grain" width="3" height="3" patternUnits="userSpaceOnUse"><rect width="1" height="1" fill="#fff" fill-opacity=".07"/></pattern><filter id="soft" x="-1" y="-1" width="3" height="3"><feGaussianBlur stdDeviation="1.8"/></filter></defs><rect width="100%" height="30" rx="7" fill="url(#bg)"/><rect width="100%" height="30" rx="7" fill="url(#glow)"/><rect x="40%" width="60%" height="30" rx="7" fill="url(#grain)"/><svg x="45%" y="0" width="1" height="30" overflow="visible"><line x1="0" y1="34" x2="20" y2="-4" stroke="#fff" stroke-opacity="0.05" stroke-width="5"/></svg><svg x="55%" y="0" width="1" height="30" overflow="visible"><line x1="0" y1="34" x2="20" y2="-4" stroke="#fff" stroke-opacity="0.04" stroke-width="2"/></svg><svg x="68%" y="0" width="1" height="30" overflow="visible"><line x1="0" y1="34" x2="20" y2="-4" stroke="#fff" stroke-opacity="0.06" stroke-width="8"/></svg><svg x="77%" y="0" width="1" height="30" overflow="visible"><line x1="0" y1="34" x2="20" y2="-4" stroke="#fff" stroke-opacity="0.04" stroke-width="2"/></svg><svg x="86%" y="0" width="1" height="30" overflow="visible"><line x1="0" y1="34" x2="20" y2="-4" stroke="#fff" stroke-opacity="0.05" stroke-width="4"/></svg><svg x="12%" y="0" width="1" height="30" overflow="visible"><path class="sp" style="transform-origin:0px 7px;animation-duration:4.2s;animation-delay:0.3s" d="M0 3.4 L0.76 6.24 L3.6 7 L0.76 7.76 L0 10.6 L-0.76 7.76 L-3.6 7 L-0.76 6.24 Z"/></svg><svg x="22%" y="0" width="1" height="30" overflow="visible"><path class="sp" style="transform-origin:0px 22px;animation-duration:5.1s;animation-delay:2.1s" d="M0 19 L0.63 21.37 L3 22 L0.63 22.63 L0 25 L-0.63 22.63 L-3 22 L-0.63 21.37 Z"/></svg><svg x="31%" y="0" width="1" height="30" overflow="visible"><path class="sp" style="transform-origin:0px 9px;animation-duration:3.8s;animation-delay:1.2s" d="M0 4.8 L0.88 8.12 L4.2 9 L0.88 9.88 L0 13.2 L-0.88 9.88 L-4.2 9 L-0.88 8.12 Z"/></svg><svg x="40%" y="0" width="1" height="30" overflow="visible"><path class="sp" style="transform-origin:0px 23px;animation-duration:4.6s;animation-delay:3.4s" d="M0 20 L0.63 22.37 L3 23 L0.63 23.63 L0 26 L-0.63 23.63 L-3 23 L-0.63 22.37 Z"/></svg><svg x="50%" y="0" width="1" height="30" overflow="visible"><path class="sp" style="transform-origin:0px 6px;animation-duration:5.4s;animation-delay:0.9s" d="M0 2.4 L0.76 5.24 L3.6 6 L0.76 6.76 L0 9.6 L-0.76 6.76 L-3.6 6 L-0.76 5.24 Z"/></svg><svg x="58%" y="0" width="1" height="30" overflow="visible"><path class="sp" style="transform-origin:0px 24px;animation-duration:4s;animation-delay:2.7s" d="M0 21 L0.63 23.37 L3 24 L0.63 24.63 L0 27 L-0.63 24.63 L-3 24 L-0.63 23.37 Z"/></svg><svg x="67%" y="0" width="1" height="30" overflow="visible"><path class="sp" style="transform-origin:0px 8px;animation-duration:4.8s;animation-delay:1.8s" d="M0 4.8 L0.67 7.33 L3.2 8 L0.67 8.67 L0 11.2 L-0.67 8.67 L-3.2 8 L-0.67 7.33 Z"/></svg><svg x="74%" y="0" width="1" height="30" overflow="visible"><path class="sp" style="transform-origin:0px 16px;animation-duration:5.8s;animation-delay:4s" d="M0 13.6 L0.50 15.50 L2.4 16 L0.50 16.50 L0 18.4 L-0.50 16.50 L-2.4 16 L-0.50 15.50 Z"/></svg><svg x="82%" y="0" width="1" height="30" overflow="visible"><path class="sp" style="transform-origin:0px 22px;animation-duration:3.6s;animation-delay:0.1s" d="M0 18.6 L0.71 21.29 L3.4 22 L0.71 22.71 L0 25.4 L-0.71 22.71 L-3.4 22 L-0.71 21.29 Z"/></svg><svg x="89%" y="0" width="1" height="30" overflow="visible"><path class="sp" style="transform-origin:0px 7px;animation-duration:4.4s;animation-delay:3s" d="M0 4.4 L0.55 6.45 L2.6 7 L0.55 7.55 L0 9.6 L-0.55 7.55 L-2.6 7 L-0.55 6.45 Z"/></svg><svg x="100%" y="0" width="1" height="30" overflow="visible"><g transform="translate(-30 0)"><path d="M0 7 L1.68 13.32 L8 15 L1.68 16.68 L0 23 L-1.68 16.68 L-8 15 L-1.68 13.32 Z" fill="#cfc4ff" filter="url(#soft)" opacity=".8"/><path d="M0 7 L1.68 13.32 L8 15 L1.68 16.68 L0 23 L-1.68 16.68 L-8 15 L-1.68 13.32 Z" fill="#fff"/></g></svg></svg>`
+const BRAND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.sp{fill:#fff;opacity:0;transform:scale(0);animation-name:gl;animation-timing-function:ease-in-out;animation-iteration-count:infinite}@keyframes gl{0%,72%,100%{opacity:0;transform:scale(0) rotate(0deg)}82%{opacity:.9;transform:scale(1) rotate(30deg)}92%{opacity:0;transform:scale(.2) rotate(60deg)}}.br{animation:br 6s ease-in-out infinite}@keyframes br{0%,100%{opacity:.85}50%{opacity:1}}</style><defs><linearGradient id="bg" x1="0" x2="1"><stop offset=".43" stop-color="#7c6cf0" stop-opacity="0"/><stop offset=".62" stop-color="#7c6cf0" stop-opacity=".16"/><stop offset=".85" stop-color="#8f7ff0" stop-opacity=".34"/><stop offset="1" stop-color="#b3a6ff" stop-opacity=".48"/></linearGradient><radialGradient id="glow" cx="320" cy="15" r="70" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#c9bdff" stop-opacity=".28"/><stop offset="1" stop-color="#9a86ff" stop-opacity="0"/></radialGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".07"/></pattern></defs><g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#bg)"/><rect width="360" height="30" fill="url(#glow)"/><rect width="360" height="30" fill="url(#grain)"/><line x1="186" y1="32" x2="198" y2="-2" stroke="#fff" stroke-opacity="0.04" stroke-width="3"/><line x1="204" y1="32" x2="216" y2="-2" stroke="#fff" stroke-opacity="0.05" stroke-width="1.2"/><line x1="226" y1="32" x2="238" y2="-2" stroke="#fff" stroke-opacity="0.05" stroke-width="4"/><line x1="262" y1="32" x2="274" y2="-2" stroke="#fff" stroke-opacity="0.04" stroke-width="1.5"/><line x1="290" y1="32" x2="302" y2="-2" stroke="#fff" stroke-opacity="0.05" stroke-width="3"/><line x1="320" y1="32" x2="332" y2="-2" stroke="#fff" stroke-opacity="0.04" stroke-width="1.2"/><path class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" d="M168 6.4 L168.34 7.66 L169.6 8 L168.34 8.34 L168 9.6 L167.66 8.34 L166.4 8 L167.66 7.66 Z"/><path class="sp" style="transform-origin:182px 22px;animation-duration:5.1s;animation-delay:2.1s" d="M182 20.7 L182.27 21.73 L183.3 22 L182.27 22.27 L182 23.3 L181.73 22.27 L180.7 22 L181.73 21.73 Z"/><path class="sp" style="transform-origin:196px 6px;animation-duration:3.8s;animation-delay:1.2s" d="M196 4.2 L196.38 5.62 L197.8 6 L196.38 6.38 L196 7.8 L195.62 6.38 L194.2 6 L195.62 5.62 Z"/><path class="sp" style="transform-origin:208px 19px;animation-duration:4.6s;animation-delay:3.4s" d="M208 17.8 L208.25 18.75 L209.2 19 L208.25 19.25 L208 20.2 L207.75 19.25 L206.8 19 L207.75 18.75 Z"/><path class="sp" style="transform-origin:221px 9px;animation-duration:5.4s;animation-delay:0.9s" d="M221 7.5 L221.31 8.69 L222.5 9 L221.31 9.31 L221 10.5 L220.69 9.31 L219.5 9 L220.69 8.69 Z"/><path class="sp" style="transform-origin:232px 23px;animation-duration:4.0s;animation-delay:2.7s" d="M232 21.9 L232.23 22.77 L233.1 23 L232.23 23.23 L232 24.1 L231.77 23.23 L230.9 23 L231.77 22.77 Z"/><path class="sp" style="transform-origin:244px 7px;animation-duration:4.8s;animation-delay:1.8s" d="M244 5.7 L244.27 6.73 L245.3 7 L244.27 7.27 L244 8.3 L243.73 7.27 L242.7 7 L243.73 6.73 Z"/><path class="sp" style="transform-origin:176px 15px;animation-duration:5.8s;animation-delay:4.0s" d="M176 14.0 L176.21 14.79 L177.0 15 L176.21 15.21 L176 16.0 L175.79 15.21 L175.0 15 L175.79 14.79 Z"/><path class="sp" style="transform-origin:214px 26px;animation-duration:4.4s;animation-delay:3.0s" d="M214 25.0 L214.21 25.79 L215.0 26 L214.21 26.21 L214 27.0 L213.79 26.21 L213.0 26 L213.79 25.79 Z"/><path class="sp" style="transform-origin:238px 15px;animation-duration:3.6s;animation-delay:0.1s" d="M238 14.0 L238.21 14.79 L239.0 15 L238.21 15.21 L238 16.0 L237.79 15.21 L237.0 15 L237.79 14.79 Z"/></g></svg>`
 
 const JUDGE_SYSTEM = `You choose which Claude model and reasoning effort an agentic assistant (it reads files, runs tools and edits things, not only code) should use for the user's next message. Pick the cheapest pair that will still do the job well.
 
@@ -1178,49 +1180,56 @@ Saved to ${out}.md and .json` }
     const step = await read($, setupStep)
     if (step) {
       const openSettings = () => typeCommand($, SETTINGS_COMMAND)
-      // The decoration takes all the room left on the row, so it reaches the right edge at any width.
-      const brand = (
-        <Box key="brand" flexDirection="row" flexGrow={1} justifyContent="flex-end">
-          <Svg source={BRAND_SVG} alt="effortless" width={DECOR_WIDTH} height={30} isInteractive />
-        </Box>
-      )
-      // One row: the name, the question, the choices, and the decoration on the right.
-      if (step === 'pick')
-        return (
-          <Box flexDirection="row" gap={1} alignItems="center">
-            <Box flexShrink={0}>
-              <Text color={ACCENT} bold wrap="truncate">
-                ✦ effortless
-              </Text>
-            </Box>
-            <Text wrap="truncate">Who picks the effort?</Text>
-            <Button key="setup-jev" variant="primary" label="Jev (API)" onPress={() => pickJudge($, 'jev')} />
-            <Button key="setup-haiku" label="Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />
-            <Button key="setup-later" label="⏎" onPress={() => finishSetup($)} />
-            {brand}
+      // The same build as the cold band: one styled surface, the art a backdrop layer behind the right side, and the
+      // buttons in a later layer so they are drawn on top of it. The text keeps clear of them with a spacer.
+      const band = (words: string, buttons: unknown) => (
+        <Box
+          key="setup"
+          position="relative"
+          flexDirection="row"
+          gap={1}
+          alignItems="center"
+          paddingX={1}
+          overflow="hidden"
+          backgroundColor={BRAND_BG}
+          borderStyle="round"
+          borderColor={BRAND_EDGE}
+        >
+          <Box key="brand" position="absolute" top={-1} right={0} bottom={-1}>
+            <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
           </Box>
-        )
-      const need =
-        step === 'jev'
-          ? 'Paste a TypeSafe key (typesafe.ai) in settings, then restart.'
-          : 'Fill in URL, model and key in settings, then restart.'
-      return (
-        <Box flexDirection="row" gap={1} alignItems="center">
           <Box flexShrink={0}>
             <Text color={ACCENT} bold wrap="truncate">
               ✦ effortless
             </Text>
           </Box>
-          <Text wrap="truncate">{need}</Text>
+          <Text wrap="truncate">{words}</Text>
+          <Box flexGrow={1} minWidth={34} />
+          <Box key="setup-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
+            {buttons}
+          </Box>
+        </Box>
+      )
+      if (step === 'pick')
+        return band(
+          'Who picks the effort?',
+          <>
+            <Button key="setup-jev" variant="primary" label="Jev (API)" onPress={() => pickJudge($, 'jev')} />
+            <Button key="setup-haiku" label="Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />
+            <Button key="setup-later" label="⏎" onPress={() => finishSetup($)} />
+          </>,
+        )
+      return band(
+        step === 'jev' ? 'Paste a TypeSafe key (typesafe.ai) in settings, then restart.' : 'Fill in URL, model and key in settings, then restart.',
+        <>
           <Button key="setup-open" variant="primary" label="Open settings" onPress={openSettings} />
           <Button
             key="setup-done"
             label="Done"
             onPress={() => finishSetup($, 'effortless: restart Claude Code so the new settings are used.')}
           />
-          <Button key="setup-back" plain dimColor label="Back" onPress={() => update($, setupStep, () => 'pick')} />
-          {brand}
-        </Box>
+          <Button key="setup-back" plain label="Back" onPress={() => update($, setupStep, () => 'pick')} />
+        </>,
       )
     }
     // The cache went cold: the next message writes the whole chat again at full price. Said where it cannot be missed.
