@@ -1257,6 +1257,9 @@ export const register: Register = (on, options) => {
   config = readConfig(options)
   on('session.start', async ($, e, next) => {
     sessionStarted = Date.now()
+    // The command file lists /effortless before the session starts; registering it here makes plain /effortless the
+    // mod's own command afterwards, instead of the file run as a skill.
+    await $.command.register({ name: 'effortless', description: 'effortless: settings, debug, handoff, setup, bench, auto, stats.' }).catch(() => undefined)
     keyFromFile = (await $.store.get('keyFromFile')) === true
     const storedAuto = await $.store.get('isAuto')
     if (typeof storedAuto === 'boolean') await update($, isAuto, () => storedAuto)
@@ -1612,6 +1615,8 @@ Saved to ${out}.md and .json` }
     const { Box, Text, Button, Svg } = $.ui.resolve(e)
     // The settings panel: a branded header bar, then one compact row per setting, a dim hint at the end of each row.
     if (await read($, settingsOpen)) {
+      // The app gives this slot maxRows rows and drops a taller tree whole, without a word. Gaps only when they fit.
+      const roomy = (typeof e.props.maxRows === 'number' ? e.props.maxRows : 12) >= 13
       const { Input, Select } = $.ui.resolve(e)
       const opts = (values: readonly string[]) => values.map(value => ({ value, label: value }))
       // The skills and commands installed here, to pick the handoff writer from: no typing, no file paths. A plugin
@@ -1664,10 +1669,10 @@ Saved to ${out}.md and .json` }
       }
       const row = (key: string, label: string, children: unknown[], words?: string) => (
         <Box key={key} flexDirection="row" gap={1} alignItems="center">
-          <Box width={8} flexShrink={0} alignSelf="flex-start">
+          <Box width={8} flexShrink={0}>
             <Text dimColor>{label}</Text>
           </Box>
-          <Box flexDirection="row" flexWrap="wrap" gap={1} alignItems="center" flexShrink={1}>
+          <Box flexDirection="row" gap={1} alignItems="center" flexShrink={1}>
             {children}
           </Box>
           {words ? (
@@ -1686,7 +1691,7 @@ Saved to ${out}.md and .json` }
       // art, then the title, then the buttons): an absolute layer covers whatever is in the flow, so nothing of the
       // header is in the flow but a spacer that keeps its row free.
       return (
-        <Box key="settings" position="relative" flexDirection="column" gap={1} paddingX={2} paddingBottom={1} overflow="hidden"
+        <Box key="settings" position="relative" flexDirection="column" gap={roomy ? 1 : 0} paddingX={2} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={3} overflow="hidden" backgroundColor={BRAND_HEAD}>
             <Box key="settings-art" position="absolute" top={0} right={0} bottom={0}>
