@@ -1618,16 +1618,17 @@ export const register: Register = (on, options) => {
     if (e.command !== 'effortless' && e.command !== 'effortless:effortless') return next(e)
     const wanted = await read($, suggestion)
     const arg = e.args.trim().toLowerCase()
-    // A test aid: the notices a pane the app does not draw in (split view's right pane) would get, two seconds apart.
-    if (arg === 'toasts') {
-      const samples = [
-        'effortless: effort High (Auto)',
-        'effortless: cache cold. Next message costs full price; /compact first.',
-        'effortless: chat is getting swamped (52% of context). /compact or /effortless handoff',
-        'effortless: running hot, 84% of your 5h limit used. /effortless save',
-      ]
-      samples.forEach((text, i) => $.clock.after(i * 2000, () => $.ui.toast(text)))
-      return { text: 'Showing the four sample notices, two seconds apart.' }
+    // A test aid for split view's right pane, where the app draws no plugin bars: the three other ways a plugin
+    // can show something, to see which of them that pane draws. `/effortless try clear` takes the status line off.
+    if (arg === 'try') {
+      $.ui.status('effortless · High · cache 42m')
+      $.ui.log('effortless · Chat went cold. The next message costs full price: /compact first.')
+      $.ui.toast('effortless: chat is getting swamped (52% of context). /compact or /effortless handoff', { timeoutMs: 8000 })
+      return { text: 'Shown: a status line under the prompt, a dim line in the chat, and a notice in the top right corner.' }
+    }
+    if (arg === 'try clear') {
+      $.ui.status(undefined)
+      return { text: 'Status line cleared.' }
     }
     if (arg === 'auto') {
       await toggleAutoEffort($)
