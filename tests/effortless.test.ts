@@ -1137,6 +1137,9 @@ describe('setup guide', () => {
     const band = await $.ui.mount(DESK)
     expect(await band.find({ key: 'setup-haiku' })).toBeDefined()
     expect(await band.find({ key: 'setup-open' })).toBeUndefined()
+    // Branded: the name in the footer's purple.
+    expect(await drawn(band)).toContain('"color":"#a79cf7"')
+    expect(await drawn(band)).toContain('✦ effortless')
     await band.press({ key: 'setup-haiku' })
     expect(set).toEqual([{ key: 'effortless.judge', value: 'haiku' }])
     expect(said.join(' ')).toContain('Haiku judges')
