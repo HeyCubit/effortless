@@ -2406,11 +2406,16 @@ Saved to ${out}.md and .json` }
         ])
       }
       if (step === 'footer') {
-        // What sits in the footer, a box ticked when it shows. The alert bands are left on; ⚙ switches them off.
+        // What sits in the footer, ticked when it shows. The alert bands are left on; ⚙ switches them off.
         const toggles = SETUP_FOOTER.map(([part, label]) => {
           const off = shown.hide.includes(part)
           const after = off ? shown.hide.filter(h => h !== part) : [...shown.hide, part]
-          return <Button key={`setup-show-${part}`} plain label={`${off ? '☐' : '☑'} ${label}`} onPress={() => pick('hide', after.join(','))} />
+          // The handoff bar's look: on is a quiet box with a tick, off is dim plain text. A box glyph drew in an odd font.
+          return off ? (
+            <Button key={`setup-show-${part}`} plain dimColor label={label} onPress={() => pick('hide', after.join(','))} />
+          ) : (
+            <Button key={`setup-show-${part}`} variant="secondary" label={`✓ ${label}`} onPress={() => pick('hide', after.join(','))} />
+          )
         })
         return band('Show at the bottom (both recommended):', 50, [...toggles, ...nav(nextButton)])
       }
