@@ -61,7 +61,7 @@ Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and 
 | `/effortless setup` | pick the judge again |
 | `/effortless auto` | Auto on or off |
 | `/effortless stats` | what the prompts Auto steered cost this session, per effort, and what the judge took |
-| `⇥` in the footer | opens the handoff bar: **Quick** (a fork writes it in seconds) or **Full** (your own skill, setting `handoffSkill`, which can check git and save files), then **Clear & carry on**, **Clear & wait** or **Keep chat & copy**. A line in the bar says what will happen; it remembers your last choice. The swamp band's Handoff opens the same bar |
+| `⇥` in the footer | opens the handoff bar: **Quick** (a fork writes it in seconds) or **Full** (your own skill, setting `handoffSkill`, which can check git and save files), then **Clear & carry on**, **Clear & wait**, **Keep chat & copy** or **New chat & archive** (the model starts a new chat from the handoff with the app's session tools, then archives this one; one click on a card where the app asks). A line in the bar says what will happen; it remembers your last choice. The swamp band's Handoff opens the same bar |
 | `/effortless handoff` / `handoff full` | the same without the bar, with the last choice of what follows |
 | `/effortless hot`, `/effortless down` | show the running-hot band (a 5h or weekly limit past 80%, with Save mode) or the judge-down band now, to try them |
 | `/effortless swamp` | shows the swamp band now, to try it (it appears by itself once each message re-reads 150k+ tokens) |

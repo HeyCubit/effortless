@@ -1,6 +1,6 @@
 {
   "name": "effortless",
-  "version": "1.25.4",
+  "version": "1.26.0",
   "description": "Sets the reasoning effort for every prompt automatically, shows it under the prompt box, and counts down how long the prompt cache stays warm.",
   "types": "./types/index.d.ts",
   "userConfig": {
@@ -51,12 +51,13 @@
     "handoffAfter": {
       "type": "string",
       "title": "After a handoff (first choice)",
-      "description": "What the handoff bar starts on; it then remembers your last choice. continue: clear and carry on. confirm: clear, the new chat says where things stand and waits. copy: keep the chat and copy the handoff.",
+      "description": "What the handoff bar starts on; it then remembers your last choice. continue: clear and carry on. confirm: clear, the new chat says where things stand and waits. copy: keep the chat and copy the handoff. newchat: a new chat starts from the handoff and this one is archived.",
       "default": "continue",
       "options": [
         "continue",
         "confirm",
-        "copy"
+        "copy",
+        "newchat"
       ]
     },
     "effortBias": {

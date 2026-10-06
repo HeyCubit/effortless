@@ -25,8 +25,8 @@ export type Pick = {
   sure?: number
 }
 
-/** What follows a handoff: clear and carry on, clear and wait, or keep the chat and copy the handoff. */
-export type HandoffAfter = 'continue' | 'confirm' | 'copy'
+/** What follows a handoff: clear and carry on, clear and wait, keep the chat and copy it, or a new chat and archive. */
+export type HandoffAfter = 'continue' | 'confirm' | 'copy' | 'newchat'
 
 /** A choice in the handoff bar: quick (a fork) or full (the person's skill), then what follows. */
 export type HandoffChoice = { kind: 'quick' | 'full'; after: HandoffAfter }

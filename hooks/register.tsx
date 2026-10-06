@@ -380,7 +380,7 @@ export function readConfig(options: unknown): JudgeConfig {
     customModel: str(o.customModel),
     customKey: str(o.customKey),
     handoffSkill: str(o.handoffSkill).replace(/^\//, ''),
-    handoffAfter: (['confirm', 'copy'] as const).find(a => a === str(o.handoffAfter)) ?? 'continue',
+    handoffAfter: (['confirm', 'copy', 'newchat'] as const).find(a => a === str(o.handoffAfter)) ?? 'continue',
     bias: Math.max(-2, Math.min(2, Math.round(Number(str(o.effortBias)) || 0))),
     floor: EFFORTS.includes(str(o.effortFloor) as Effort) ? (str(o.effortFloor) as Effort) : 'low',
     ceiling: EFFORTS.includes(str(o.effortCeiling) as Effort) ? (str(o.effortCeiling) as Effort) : 'max',
@@ -1009,6 +1009,22 @@ export function handoffMessage(handoff: string, after: HandoffAfter): string {
   return `Handoff from the previous chat:\n\n${handoff.trim()}\n\n${ask}`
 }
 
+/** New chat & archive: a plugin cannot start a chat, so the model in this one does it with the app's own tools. */
+export function newChatPrompt(message: string): string {
+  return [
+    'effortless handoff: move this work to a new chat and archive this one. Do exactly this and nothing else:',
+    '1. Start a new chat whose first message is the text between the markers, word for word. Use hand_off_to_session ' +
+      'or start_session when you have one, then show it with open_session_in (target "focus"). Otherwise use ' +
+      'spawn_task, its title a few words on the work, its tldr one sentence, its prompt the text.',
+    '2. Then archive this chat with archive_session, session_id "self", reason "handed off to a new chat".',
+    'Do not read files or run anything else. The handoff is also on the clipboard, in case a step is refused.',
+    '',
+    '<<<HANDOFF',
+    message,
+    'HANDOFF>>>',
+  ].join('\n')
+}
+
 // The handoff's text once its turn has ended, waiting for the chat to go idle so it can be cleared and resent.
 let handoffText: string | undefined
 let handoffDriving = false
@@ -1034,7 +1050,7 @@ async function startHandoff($: EngineInterface, full = false, after: HandoffAfte
 async function lastHandoffChoice($: EngineInterface): Promise<HandoffChoice> {
   const kept = (await $.store.get('handoffChoice').catch(() => null)) as Partial<HandoffChoice> | null
   const kind = kept?.kind === 'full' ? 'full' : 'quick'
-  const after = (['continue', 'confirm', 'copy'] as const).find(a => a === kept?.after) ?? config.handoffAfter
+  const after = (['continue', 'confirm', 'copy', 'newchat'] as const).find(a => a === kept?.after) ?? config.handoffAfter
   return { kind, after }
 }
 
@@ -1063,7 +1079,13 @@ async function goHandoff($: EngineInterface, choice: HandoffChoice) {
 export function handoffWhat(choice: HandoffChoice, skill: string): { by: string; then: string } {
   const by = choice.kind === 'full' ? `/${skill}, slower` : 'Done in seconds'
   const then =
-    choice.after === 'copy' ? 'Copied, chat stays.' : choice.after === 'confirm' ? 'Clears chat, then waits.' : 'Clears chat, carries on.'
+    choice.after === 'copy'
+      ? 'Copied, chat stays.'
+      : choice.after === 'newchat'
+        ? 'New chat, this one archived.'
+        : choice.after === 'confirm'
+          ? 'Clears chat, then waits.'
+          : 'Clears chat, carries on.'
   return { by, then }
 }
 
@@ -1121,6 +1143,13 @@ export async function finishHandoff($: EngineInterface) {
   const text = handoffText
   handoffText = undefined
   try {
+    if (handoffThen === 'newchat') {
+      // The model here starts the new chat and archives this one; the clipboard keeps the handoff should it fail.
+      const message = handoffMessage(text, 'continue')
+      await $.ui.copy({ text: message }).catch(() => undefined)
+      await $.prompt.submit({ text: newChatPrompt(message) })
+      return
+    }
     if (handoffThen === 'copy') {
       // The chat stays: the handoff goes to the clipboard, ready to paste into another chat. Should the clipboard
       // refuse, it goes in the prompt box instead, to cut from there.
@@ -1973,12 +2002,13 @@ Saved to ${out}.md and .json` }
       const fullReady = Boolean(config.handoffSkill)
       const what = handoffWhat(choice, config.handoffSkill)
       return (
-        // The title over the line on what happens, on the left; the controls on the right, centred on both rows. Go is
+        // The art is a still image here: an animated one sits in a frame the app rebuilds on every redraw, and the bar
+        // redraws on every choice. The title over the line on what happens, on the left; the controls on the right, centred on both rows. Go is
         // the one lit button: the picked kind is a quiet box, the other plain text.
         <Box key="handoff-bar" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} isInteractive />
+            <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
           </Box>
           <Box key="handoff-words" flexDirection="column" flexShrink={1} minWidth={0}>
             <Text color={ACCENT} bold wrap="truncate">
@@ -2005,6 +2035,7 @@ Saved to ${out}.md and .json` }
                 { value: 'continue', label: 'Clear & carry on' },
                 { value: 'confirm', label: 'Clear & wait' },
                 { value: 'copy', label: 'Keep chat & copy' },
+                { value: 'newchat', label: 'New chat & archive' },
               ]}
               onSelect={v => setBar({ after: v as HandoffAfter })()} />
             <Button key="handoff-go" variant="primary" autoFocus label="Go" onPress={() => goHandoff($, choice)} />
