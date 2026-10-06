@@ -2671,7 +2671,9 @@ describe('dashboard', () => {
     await closeSetup($, at)
     const band = await $.ui.mount(at)
     const text = await drawn(band)
-    expect(await band.find({ key: 'dash-auto' })).toBeDefined()
+    // Auto is switched in the effort row under the band, not twice.
+    expect(await band.find({ key: 'dash-auto' })).toBeUndefined()
+    expect(await band.find({ key: 'dash-handoff' })).toBeDefined()
     expect(text).toContain('"children":["Effort"]')
     expect(text).toContain('"type":"Raster"')
     await band.unmount()

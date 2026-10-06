@@ -1020,10 +1020,11 @@ async function setTurnBusy($: EngineInterface, busy: boolean) {
 
 async function checkSwamp($: EngineInterface) {
   const { context, rateLimits } = await $.session.usage()
-  lastContext = { tokens: context.tokens ?? 0, window: context.window ?? 0, percent: context.percent ?? 0 }
-  await checkHot($, rateLimits ?? [])
   const tokens = context.tokens ?? 0
-  const percent = context.percent ?? (context.window ? (tokens / context.window) * 100 : 0)
+  // The app may leave the percent out (or give 0) while it has the tokens and the window: work it out then.
+  const percent = context.percent || (context.window ? (tokens / context.window) * 100 : 0)
+  lastContext = { tokens, window: context.window ?? 0, percent }
+  await checkHot($, rateLimits ?? [])
   const over = percent >= config.swampAt
   const next = over ? tokens : null
   if (next !== (await read($, swamped))) {
@@ -1896,14 +1897,15 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
       $.ui.invalidate('ui.render')
     } else await openPluginSettings($)
   }
+  // The terminal's effort row under the band has its own Auto switch.
   const buttons = [
-    <Button key="dash-auto" plain={v.auto ? undefined : true} variant={v.auto ? 'secondary' : undefined} hotkey="a"
+    e.surface === 'terminal' ? null : <Button key="dash-auto" plain={v.auto ? undefined : true} variant={v.auto ? 'secondary' : undefined} hotkey="a"
       label={v.auto ? 'Auto on' : 'Auto off'} onPress={() => toggleAutoEffort($)} />,
     ...(config.hide.includes('handoff')
       ? []
       : [<Button key="dash-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />]),
     <Button key="dash-settings" plain label={'⚙︎'} onPress={toggleSettings} />,
-  ]
+  ].filter(Boolean)
   if (e.surface === 'terminal')
     return terminalBand($, e, { key: 'dash', kind: 'brand', color: ACCENT, bg: BRAND_BG, edge: BRAND_EDGE, title: head.replace(/^✦ /, ''), detail, buttons })
   const Svg = 'Svg' in els ? els.Svg : undefined
