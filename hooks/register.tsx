@@ -64,7 +64,7 @@ const SETTINGS_COMMAND = '/plugin configure effortless@effortless'
 // The right of the setup guide, pure decoration (the name is on the left): a purple gradient with a soft glow,
 // faint light streaks and grain, a still star, and small sparkles that twinkle in and out here and there. One constant source, so the app never rebuilds its frame (a changing source flickers); the
 // motion is CSS inside it.
-const BRAND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="40" viewBox="0 0 300 40"><style>:root{color-scheme:light dark}svg{background:transparent}.sp{fill:#fff;opacity:0;transform:scale(0);animation-name:gl;animation-timing-function:ease-in-out;animation-iteration-count:infinite}@keyframes gl{0%,72%,100%{opacity:0;transform:scale(0) rotate(0deg)}82%{opacity:.9;transform:scale(1) rotate(30deg)}92%{opacity:0;transform:scale(.2) rotate(60deg)}}</style><defs><linearGradient id="bg" x1="0" x2="1"><stop offset="0" stop-color="#7c6cf0" stop-opacity="0"/><stop offset=".5" stop-color="#7c6cf0" stop-opacity=".2"/><stop offset="1" stop-color="#8f7ff0" stop-opacity=".5"/></linearGradient><radialGradient id="glow" cx="258" cy="20" r="70" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#c9bdff" stop-opacity=".55"/><stop offset=".45" stop-color="#9a86ff" stop-opacity=".18"/><stop offset="1" stop-color="#9a86ff" stop-opacity="0"/></radialGradient><linearGradient id="fade" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".6" stop-color="#fff" stop-opacity="1"/></linearGradient><pattern id="grain" width="3" height="3" patternUnits="userSpaceOnUse"><rect width="1" height="1" fill="#fff" fill-opacity=".09"/></pattern><mask id="gm"><rect width="300" height="40" fill="url(#fade)"/></mask><filter id="soft" x="-1" y="-1" width="3" height="3"><feGaussianBlur stdDeviation="2.2"/></filter><clipPath id="r"><rect width="300" height="40" rx="9"/></clipPath></defs><g clip-path="url(#r)"><rect width="300" height="40" fill="url(#bg)"/><rect width="300" height="40" fill="url(#glow)"/><g mask="url(#gm)"><line x1="130" y1="44" x2="156" y2="-4" stroke="#fff" stroke-opacity="0.05" stroke-width="6"/><line x1="150" y1="44" x2="176" y2="-4" stroke="#fff" stroke-opacity="0.04" stroke-width="2"/><line x1="196" y1="44" x2="222" y2="-4" stroke="#fff" stroke-opacity="0.06" stroke-width="10"/><line x1="222" y1="44" x2="248" y2="-4" stroke="#fff" stroke-opacity="0.04" stroke-width="3"/><line x1="250" y1="44" x2="276" y2="-4" stroke="#fff" stroke-opacity="0.05" stroke-width="5"/><rect width="300" height="40" fill="url(#grain)"/></g><path class="sp" style="transform-origin:40px 9px;animation-duration:4.2s;animation-delay:0.3s" d="M40 4.2 L41.008 7.992 L44.8 9 L41.008 10.008 L40 13.8 L38.992 10.008 L35.2 9 L38.992 7.992 Z"/><path class="sp" style="transform-origin:78px 30px;animation-duration:5.1s;animation-delay:2.1s" d="M78 26 L78.84 29.16 L82 30 L78.84 30.84 L78 34 L77.16 30.84 L74 30 L77.16 29.16 Z"/><path class="sp" style="transform-origin:112px 12px;animation-duration:3.8s;animation-delay:1.2s" d="M112 6.4 L113.176 10.824 L117.6 12 L113.176 13.176 L112 17.6 L110.824 13.176 L106.4 12 L110.824 10.824 Z"/><path class="sp" style="transform-origin:140px 31px;animation-duration:4.6s;animation-delay:3.4s" d="M140 27 L140.84 30.16 L144 31 L140.84 31.84 L140 35 L139.16 31.84 L136 31 L139.16 30.16 Z"/><path class="sp" style="transform-origin:176px 8px;animation-duration:5.4s;animation-delay:0.9s" d="M176 3.2 L177.008 6.992 L180.8 8 L177.008 9.008 L176 12.8 L174.992 9.008 L171.2 8 L174.992 6.992 Z"/><path class="sp" style="transform-origin:204px 33px;animation-duration:4.0s;animation-delay:2.7s" d="M204 29 L204.84 32.16 L208 33 L204.84 33.84 L204 37 L203.16 33.84 L200 33 L203.16 32.16 Z"/><path class="sp" style="transform-origin:232px 10px;animation-duration:4.8s;animation-delay:1.8s" d="M232 5.6 L232.924 9.076 L236.4 10 L232.924 10.924 L232 14.4 L231.076 10.924 L227.6 10 L231.076 9.076 Z"/><path class="sp" style="transform-origin:290px 30px;animation-duration:3.6s;animation-delay:0.1s" d="M290 25.2 L291.008 28.992 L294.8 30 L291.008 31.008 L290 34.8 L288.992 31.008 L285.2 30 L288.992 28.992 Z"/><path class="sp" style="transform-origin:96px 21px;animation-duration:5.8s;animation-delay:4.0s" d="M96 17.8 L96.672 20.328 L99.2 21 L96.672 21.672 L96 24.2 L95.328 21.672 L92.8 21 L95.328 20.328 Z"/><path class="sp" style="transform-origin:282px 10px;animation-duration:4.4s;animation-delay:3.0s" d="M282 6.4 L282.756 9.244 L285.6 10 L282.756 10.756 L282 13.6 L281.244 10.756 L278.4 10 L281.244 9.244 Z"/></g><path d="M258 9.6 L260.184 17.816 L268.4 20 L260.184 22.184 L258 30.4 L255.816 22.184 L247.6 20 L255.816 17.816 Z" fill="#cfc4ff" filter="url(#soft)" opacity=".8"/><path d="M258 9.6 L260.184 17.816 L268.4 20 L260.184 22.184 L258 30.4 L255.816 22.184 L247.6 20 L255.816 17.816 Z" fill="#ffffff"/></svg>`
+const BRAND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="30" viewBox="0 0 240 30"><style>:root{color-scheme:light dark}svg{background:transparent}.sp{fill:#fff;opacity:0;transform:scale(0);animation-name:gl;animation-timing-function:ease-in-out;animation-iteration-count:infinite}@keyframes gl{0%,72%,100%{opacity:0;transform:scale(0) rotate(0deg)}82%{opacity:.9;transform:scale(1) rotate(30deg)}92%{opacity:0;transform:scale(.2) rotate(60deg)}}</style><defs><linearGradient id="bg" x1="0" x2="1"><stop offset="0" stop-color="#7c6cf0" stop-opacity="0"/><stop offset=".5" stop-color="#7c6cf0" stop-opacity=".2"/><stop offset="1" stop-color="#8f7ff0" stop-opacity=".5"/></linearGradient><radialGradient id="glow" cx="208" cy="15" r="55" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#c9bdff" stop-opacity=".55"/><stop offset=".45" stop-color="#9a86ff" stop-opacity=".18"/><stop offset="1" stop-color="#9a86ff" stop-opacity="0"/></radialGradient><linearGradient id="fade" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".6" stop-color="#fff" stop-opacity="1"/></linearGradient><pattern id="grain" width="3" height="3" patternUnits="userSpaceOnUse"><rect width="1" height="1" fill="#fff" fill-opacity=".09"/></pattern><mask id="gm"><rect width="240" height="30" fill="url(#fade)"/></mask><filter id="soft" x="-1" y="-1" width="3" height="3"><feGaussianBlur stdDeviation="1.8"/></filter><clipPath id="r"><rect width="240" height="30" rx="7"/></clipPath></defs><g clip-path="url(#r)"><rect width="240" height="30" fill="url(#bg)"/><rect width="240" height="30" fill="url(#glow)"/><g mask="url(#gm)"><line x1="100" y1="34" x2="120" y2="-4" stroke="#fff" stroke-opacity="0.05" stroke-width="5"/><line x1="118" y1="34" x2="138" y2="-4" stroke="#fff" stroke-opacity="0.04" stroke-width="2"/><line x1="154" y1="34" x2="174" y2="-4" stroke="#fff" stroke-opacity="0.06" stroke-width="8"/><line x1="176" y1="34" x2="196" y2="-4" stroke="#fff" stroke-opacity="0.04" stroke-width="2"/><line x1="198" y1="34" x2="218" y2="-4" stroke="#fff" stroke-opacity="0.05" stroke-width="4"/><rect width="240" height="30" fill="url(#grain)"/></g><path class="sp" style="transform-origin:30px 7px;animation-duration:4.2s;animation-delay:0.3s" d="M30 3.4 L30.756 6.244 L33.6 7 L30.756 7.756 L30 10.6 L29.244 7.756 L26.4 7 L29.244 6.244 Z"/><path class="sp" style="transform-origin:62px 22px;animation-duration:5.1s;animation-delay:2.1s" d="M62 19.0 L62.63 21.37 L65.0 22 L62.63 22.63 L62 25.0 L61.37 22.63 L59.0 22 L61.37 21.37 Z"/><path class="sp" style="transform-origin:90px 9px;animation-duration:3.8s;animation-delay:1.2s" d="M90 4.8 L90.882 8.118 L94.2 9 L90.882 9.882 L90 13.2 L89.118 9.882 L85.8 9 L89.118 8.118 Z"/><path class="sp" style="transform-origin:116px 23px;animation-duration:4.6s;animation-delay:3.4s" d="M116 20.0 L116.63 22.37 L119.0 23 L116.63 23.63 L116 26.0 L115.37 23.63 L113.0 23 L115.37 22.37 Z"/><path class="sp" style="transform-origin:146px 6px;animation-duration:5.4s;animation-delay:0.9s" d="M146 2.4 L146.756 5.244 L149.6 6 L146.756 6.756 L146 9.6 L145.244 6.756 L142.4 6 L145.244 5.244 Z"/><path class="sp" style="transform-origin:168px 24px;animation-duration:4.0s;animation-delay:2.7s" d="M168 21.0 L168.63 23.37 L171.0 24 L168.63 24.63 L168 27.0 L167.37 24.63 L165.0 24 L167.37 23.37 Z"/><path class="sp" style="transform-origin:190px 8px;animation-duration:4.8s;animation-delay:1.8s" d="M190 4.8 L190.672 7.328 L193.2 8 L190.672 8.672 L190 11.2 L189.328 8.672 L186.8 8 L189.328 7.328 Z"/><path class="sp" style="transform-origin:232px 22px;animation-duration:3.6s;animation-delay:0.1s" d="M232 18.4 L232.756 21.244 L235.6 22 L232.756 22.756 L232 25.6 L231.244 22.756 L228.4 22 L231.244 21.244 Z"/><path class="sp" style="transform-origin:76px 15px;animation-duration:5.8s;animation-delay:4.0s" d="M76 12.6 L76.504 14.496 L78.4 15 L76.504 15.504 L76 17.4 L75.496 15.504 L73.6 15 L75.496 14.496 Z"/><path class="sp" style="transform-origin:226px 7px;animation-duration:4.4s;animation-delay:3.0s" d="M226 4.4 L226.546 6.454 L228.6 7 L226.546 7.546 L226 9.6 L225.454 7.546 L223.4 7 L225.454 6.454 Z"/></g><path d="M208 7 L209.68 13.32 L216 15 L209.68 16.68 L208 23 L206.32 16.68 L200 15 L206.32 13.32 Z" fill="#cfc4ff" filter="url(#soft)" opacity=".8"/><path d="M208 7 L209.68 13.32 L216 15 L209.68 16.68 L208 23 L206.32 16.68 L200 15 L206.32 13.32 Z" fill="#ffffff"/></svg>`
 
 const JUDGE_SYSTEM = `You choose which Claude model and reasoning effort an agentic assistant (it reads files, runs tools and edits things, not only code) should use for the user's next message. Pick the cheapest pair that will still do the job well.
 
@@ -985,51 +985,42 @@ export const register: Register = (on, options) => {
     const step = await read($, setupStep)
     if (step) {
       const openSettings = () => typeCommand($, SETTINGS_COMMAND)
-      const brand = <Svg key="brand" source={BRAND_SVG} alt="effortless" width={300} height={40} isInteractive />
+      const brand = <Svg key="brand" source={BRAND_SVG} alt="effortless" width={240} height={30} isInteractive />
+      // One row: the name, the question, the choices, and the decoration on the right.
       if (step === 'pick')
         return (
-          <Box flexDirection="row" alignItems="center" gap={2}>
-          <Box flexDirection="column" flexGrow={1}>
-            <Box flexDirection="row" gap={1} alignItems="center">
-              <Text color={ACCENT} bold>
-                ✦ effortless
-              </Text>
-              <Text>Who should pick the effort for each prompt?</Text>
-            </Box>
-            <Box flexDirection="row" gap={1} alignItems="center">
-              <Button key="setup-jev" variant="primary" label="Jev (API Needed)" onPress={() => pickJudge($, 'jev')} />
-              <Button key="setup-haiku" label="Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />
-              <Button key="setup-custom" label="Your own AI" onPress={() => pickJudge($, 'custom')} />
-              <Button key="setup-later" plain dimColor label="Later" onPress={() => finishSetup($)} />
-            </Box>
-          </Box>
-          {brand}
-          </Box>
-        )
-      const need =
-        step === 'jev'
-          ? 'Jev needs a TypeSafe key (get one at typesafe.ai). Open the settings, paste it into "TypeSafe API key" and save. Restart Claude Code after saving.'
-          : 'Open the settings and fill in the custom judge URL and model, and its key unless it runs locally. Restart Claude Code after saving.'
-      return (
-        <Box flexDirection="row" alignItems="center" gap={2}>
-        <Box flexDirection="column" flexGrow={1}>
           <Box flexDirection="row" gap={1} alignItems="center">
             <Text color={ACCENT} bold>
               ✦ effortless
             </Text>
-            <Text>{need}</Text>
+            <Text>Who picks the effort?</Text>
+            <Button key="setup-jev" variant="primary" label="Jev (API Needed)" onPress={() => pickJudge($, 'jev')} />
+            <Button key="setup-haiku" label="Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />
+            <Button key="setup-custom" label="Your own AI" onPress={() => pickJudge($, 'custom')} />
+            <Button key="setup-later" plain dimColor label="Later" onPress={() => finishSetup($)} />
+            <Box flexGrow={1} />
+            {brand}
           </Box>
-          <Box flexDirection="row" gap={1} alignItems="center">
-            <Button key="setup-open" variant="primary" label="Open settings" onPress={openSettings} />
-            <Button
-              key="setup-done"
-              label="Done"
-              onPress={() => finishSetup($, 'effortless: restart Claude Code so the new settings are used.')}
-            />
-            <Button key="setup-back" plain dimColor label="Back" onPress={() => update($, setupStep, () => 'pick')} />
-          </Box>
-        </Box>
-        {brand}
+        )
+      const need =
+        step === 'jev'
+          ? 'Paste a TypeSafe key (typesafe.ai) into "TypeSafe API key", save. Restart Claude Code after saving.'
+          : 'Fill in the custom judge URL, model and key, save. Restart Claude Code after saving.'
+      return (
+        <Box flexDirection="row" gap={1} alignItems="center">
+          <Text color={ACCENT} bold>
+            ✦ effortless
+          </Text>
+          <Text>{need}</Text>
+          <Button key="setup-open" variant="primary" label="Open settings" onPress={openSettings} />
+          <Button
+            key="setup-done"
+            label="Done"
+            onPress={() => finishSetup($, 'effortless: restart Claude Code so the new settings are used.')}
+          />
+          <Button key="setup-back" plain dimColor label="Back" onPress={() => update($, setupStep, () => 'pick')} />
+          <Box flexGrow={1} />
+          {brand}
         </Box>
       )
     }
