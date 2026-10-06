@@ -1255,6 +1255,7 @@ describe('setup guide', () => {
     expect(await drawn(band)).toContain('4/4')
     expect(await drawn(band)).toContain('{"key":"setup-box-handoff","label":"✔︎","variant":"primary"}')
     expect(await band.find({ key: 'setup-show-cold' })).toBeUndefined()
+    expect(await band.find({ key: 'setup-box-progress' })).toBeDefined()
     await band.press({ key: 'setup-box-timer' })
     expect(await drawn(band)).toContain('{"key":"setup-box-timer","label":"✔︎","dimColor":true,"variant":"secondary"}')
     await band.press({ key: 'setup-next' })

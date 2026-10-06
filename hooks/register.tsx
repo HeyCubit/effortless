@@ -1370,10 +1370,11 @@ async function typesafeKeyAnywhere($: EngineInterface): Promise<string | undefin
 
 export type SetupStep = 'pick' | 'jev' | 'custom' | 'lean' | 'handoff' | 'footer' | 'done'
 
-/** The footer parts the setup offers, as the part's hide key and its label. Progress bars or sound join here. */
+/** The parts the setup's step 4 offers, as the part's hide key and its label. Sound can join here. */
 export const SETUP_FOOTER = [
   ['timer', 'Cache timer'],
   ['handoff', '⇥ Handoff'],
+  ['progress', 'Progress bar'],
 ] as const
 
 /** The lean's five stops, cheaper to smarter: a name, and what it does to the judge's pick (see tipped). */
@@ -2675,7 +2676,7 @@ Saved to ${out}.md and .json` }
             </Box>
           )
         })
-        return band('Show at the bottom (both recommended):', 58, [...toggles, ...nav(nextButton)])
+        return band('Show these (all recommended):', 74, [...toggles, ...nav(nextButton)])
       }
       return band('⏻ Auto on or off. ⚙ all settings. Auto pauses on Fable.', 24, [
         ...nav(<Button key="setup-done" variant="primary" autoFocus label="Done" onPress={() => finishSetup($)} />),

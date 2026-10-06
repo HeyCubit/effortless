@@ -1,7 +1,7 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.30.4 (progress bar: scaling still track, branded animated background across the band, thinking pill while planning), pushed and installed. Direct pushes, no open PRs.
+- `main` on HeyCubit/effortless, version 1.30.5 (progress bar: scaling still track, branded animated background, thinking pill; setup step 4 offers it), pushed and installed. Direct pushes, no open PRs.
 - Release: bump `version` in `.claude-plugin/plugin.json`, `<cli> plugin validate .`, `<cli> plugin test .`
   (0 fail), push, `<cli> plugin marketplace update effortless`, `<cli> plugin update effortless@effortless`, restart.
 - CLI on this PC: `$APPDATA/Claude/claude-code/<version>/<hash>/claude.exe` (newest folder). `claude` on PATH is
