@@ -87,7 +87,11 @@ const swamped = atom({ plugin: 'effortless', key: 'swamped' } as const, null)
 // The swamp band was closed at this many tokens; it comes back once the context has grown well past it.
 // The handoff card under the newest reply: shown from the start of a handoff, and once it lands ('done' in the
 // cleared chat, 'copied', 'newchat'). It goes with the reply after it, or HANDOFF_CARD_MS after it was set.
-type HandoffCard = { kind: 'writing' | 'done' | 'copied' | 'newchat'; full: boolean; at: number; seen: boolean }
+type HandoffCard = { kind: 'writing' | 'done' | 'copied' | 'newchat' | 'compacting' | 'compacted'; full: boolean; at: number; seen: boolean }
+// Kinds still under way: they stay until they land, with moving art. Compacting shares the card with the handoff.
+const cardRunning = (kind: HandoffCard['kind']) => kind === 'writing' || kind === 'compacting'
+// Kinds that landed well: the card turns green with a checkmark.
+const cardLanded = (kind: HandoffCard['kind']) => kind === 'done' || kind === 'compacted'
 const handoffCard = atom({ plugin: 'effortless', key: 'handoffCard' } as const, null)
 const HANDOFF_CARD_MS = 2 * 60_000
 // The handoff card's art while it is written: sparkles carried from left to right.
@@ -97,7 +101,7 @@ async function setHandoffCard($: EngineInterface, kind: HandoffCard['kind'], ful
   const at = await $.clock.now()
   await update($, handoffCard, () => ({ kind, full, at, seen }))
   // Gone after a while even with no reply; a timer that dies with its request leaves the next reply to clear it.
-  if (kind !== 'writing') {
+  if (!cardRunning(kind)) {
     try {
       $.clock.after(HANDOFF_CARD_MS, () => void update($, handoffCard, card => (card && card.at === at ? null : card)))
     } catch {}
@@ -1050,18 +1054,24 @@ async function cacheTouched($: EngineInterface, usage: unknown) {
 async function compactCold($: EngineInterface) {
   if (await read($, isCompacting)) return
   await update($, isCompacting, () => true)
+  await setHandoffCard($, 'compacting', false)
+  let compacted = false
   try {
     // The app's own /compact, run as if typed: nothing lands in the prompt box, nothing to send. It waits for the
     // session to be idle, where a direct $.session.compact() is refused whenever the app counts a turn as running.
     await $.command.run({ command: 'compact', args: '' })
     cacheExpires = 0
     await update($, cacheLeft, () => null)
+    compacted = true
   } catch (error) {
     const why = error instanceof Error ? error.message : String(error)
     void proof($, `compact failed: ${why}`)
     $.ui.toast(`effortless: compact failed: ${why.slice(0, 140)}`)
   } finally {
     await update($, isCompacting, () => false)
+    // Complete, or gone when it failed (the toast says why).
+    if (compacted) await setHandoffCard($, 'compacted', false)
+    else await update($, handoffCard, card => (card?.kind === 'compacting' ? null : card))
   }
 }
 
@@ -1793,7 +1803,7 @@ export const register: Register = (on, options) => {
     if (!e.agentId && e.reason === 'answer') await update($, lastAnswer, () => e.answer.trim())
     // A landed handoff card stays under the first reply after it, and goes with the next.
     if (!e.agentId) {
-      await update($, handoffCard, card => (!card || card.kind === 'writing' ? card : card.seen ? null : { ...card, seen: true }))
+      await update($, handoffCard, card => (!card || cardRunning(card.kind) ? card : card.seen ? null : { ...card, seen: true }))
     }
     if (!e.agentId && (await read($, handoffStage)) === 'writing') {
       if (e.reason === 'answer' && e.answer.trim()) handoffText = e.answer
@@ -2214,7 +2224,7 @@ Saved to ${out}.md and .json` }
     const text = e.props.text.trim()
     if (!answer || !text || !answer.endsWith(text)) return next(e)
     const card = await read($, handoffCard)
-    const fresh = card && (card.kind === 'writing' || (await $.clock.now()) - card.at < HANDOFF_CARD_MS) ? card : null
+    const fresh = card && (cardRunning(card.kind) || (await $.clock.now()) - card.at < HANDOFF_CARD_MS) ? card : null
     if (fresh) {
       const { Box, Text, Svg } = $.ui.resolve(e)
       const drawn = await next(e)
@@ -2224,22 +2234,24 @@ Saved to ${out}.md and .json` }
         done: ['✦ Handoff complete', 'Carried on from the last chat. The old one is cleared.'],
         copied: ['✦ Handoff copied', 'Paste it into a new chat. This one stays.'],
         newchat: ['✦ Handoff sent on', 'A new chat starts from it; this one gets archived.'],
+        compacting: ['✦ Compacting…', 'The chat is being summed up. Takes a minute or so.'],
+        compacted: ['✦ Compact complete', 'The chat is summed up; the next message reads far less.'],
       }[fresh.kind]
       return (
         <Box key="reply" flexDirection="column" gap={1}>
           {drawn}
           <Box key="reply-handoff" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
-            backgroundColor={fresh.kind === 'done' ? DONE_BG : BRAND_BG} borderStyle="round" borderColor={fresh.kind === 'done' ? DONE_EDGE : BRAND_EDGE}>
-            {/* Moving while it is written, still once it has landed; green with a checkmark once it is complete. */}
+            backgroundColor={cardLanded(fresh.kind) ? DONE_BG : BRAND_BG} borderStyle="round" borderColor={cardLanded(fresh.kind) ? DONE_EDGE : BRAND_EDGE}>
+            {/* Moving while it runs, still once it has landed; green with a checkmark once it is complete. */}
             <Box key="reply-handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
-              {fresh.kind === 'writing' ? (
-                <Svg source={HANDOFF_SVG} alt="handing off" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} isInteractive />
+              {cardRunning(fresh.kind) ? (
+                <Svg source={HANDOFF_SVG} alt={fresh.kind === 'compacting' ? 'compacting' : 'handing off'} width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} isInteractive />
               ) : (
-                <Svg source={fresh.kind === 'done' ? DONE_SVG : BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+                <Svg source={cardLanded(fresh.kind) ? DONE_SVG : BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
               )}
             </Box>
             <Box key="reply-handoff-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
-              <Text color={fresh.kind === 'done' ? DONE_ACCENT : ACCENT} bold wrap="truncate">{words[0]}</Text>
+              <Text color={cardLanded(fresh.kind) ? DONE_ACCENT : ACCENT} bold wrap="truncate">{words[0]}</Text>
               <Text wrap="truncate">{words[1]}</Text>
             </Box>
           </Box>
