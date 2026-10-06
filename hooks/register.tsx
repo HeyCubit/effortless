@@ -1520,77 +1520,121 @@ Saved to ${out}.md and .json` }
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
     const { Box, Text, Button, Svg } = $.ui.resolve(e)
-    // The settings panel: the same branded surface as the bands, taller, every setting in one place.
+    // The settings panel: the same branded surface as the bands, taller, every setting in one place, grouped by what it
+    // changes. The art sits behind the header row only, so the fields below stay on a plain surface.
     if (await read($, settingsOpen)) {
       const { Input, Select } = $.ui.resolve(e)
       const opts = (values: readonly string[]) => values.map(value => ({ value, label: value }))
       const hasKey = Boolean(await jevKey($).catch(() => undefined)) || Boolean(await typesafeKeyAnywhere($).catch(() => undefined))
       const close = () => update($, settingsOpen, () => false)
       // The slider: five stops, the marker on the one in force. No animation, a click moves it.
-      const stops = [-2, -1, 0, 1, 2].map(n => (
-        <Button key={`bias${n + 2}`} plain label={n === config.bias ? '●' : '○'} onPress={() => saveSetting($, 'bias', String(n))} />
-      ))
       const track: unknown[] = []
-      stops.forEach((stop, i) => {
-        if (i) track.push(<Text key={`t${i}`} dimColor>───</Text>)
-        track.push(stop)
-      })
-      const biasWords = ['Tips many close calls cheaper.', 'Tips close calls cheaper.', 'The judge decides as is.',
-        'Tips close calls smarter.', 'Tips many close calls smarter.'][config.bias + 2]
-      const row = (key: string, label: string, children: unknown) => (
-        <Box key={key} flexDirection="row" gap={1} alignItems="center">
-          <Box width={10} flexShrink={0}>
+      for (const n of [-2, -1, 0, 1, 2]) {
+        if (n > -2) track.push(<Text key={`t${n}`} dimColor>──</Text>)
+        track.push(<Button key={`bias${n + 2}`} plain label={n === config.bias ? '◉' : '○'} onPress={() => saveSetting($, 'bias', String(n))} />)
+      }
+      const biasWords = [
+        'Tips many close calls down a step. Calls the judge is sure of stay.',
+        'Tips close calls down a step. Calls the judge is sure of stay.',
+        'The judge decides as it is.',
+        'Tips close calls up a step. Calls the judge is sure of stay.',
+        'Tips many close calls up a step. Calls the judge is sure of stay.',
+      ][config.bias + 2]
+      const judgeWords = {
+        auto: 'Jev when a TypeSafe key is found, else Haiku.',
+        haiku: 'Haiku on your own Claude login. No key, no cost outside your plan.',
+        jev: "TypeSafe's Jev: the most accurate, needs a key from typesafe.ai.",
+        custom: 'Any OpenAI-compatible endpoint. Its key goes in /plugin configure.',
+      }[config.judge]
+      const section = (key: string, title: string, rows: unknown[]) => (
+        <Box key={key} flexDirection="column">
+          <Text color={ACCENT} bold>
+            {title}
+          </Text>
+          {rows}
+        </Box>
+      )
+      const row = (key: string, label: string, children: unknown[]) => (
+        <Box key={key} flexDirection="row" gap={1} alignItems="center" paddingLeft={2}>
+          <Box width={8} flexShrink={0}>
             <Text dimColor>{label}</Text>
           </Box>
           {children}
         </Box>
       )
+      const hint = (key: string, words: string) => (
+        <Box key={key} paddingLeft={11}>
+          <Text dimColor wrap="truncate">
+            {words}
+          </Text>
+        </Box>
+      )
+      const field = (key: string, input: unknown, width = 34) => (
+        <Box key={key} width={width} flexShrink={1}>
+          {input}
+        </Box>
+      )
       return (
-        <Box key="settings" position="relative" flexDirection="column" gap={1} paddingX={1} paddingY={0} overflow="hidden"
+        <Box key="settings" flexDirection="column" gap={1} paddingBottom={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
-          <Box key="settings-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH} height={FROST_HEIGHT * 4} isInteractive />
-          </Box>
-          <Box key="settings-head" flexDirection="row" alignItems="center">
-            <Text color={ACCENT} bold>✦ effortless settings</Text>
+          <Box key="settings-head" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden">
+            <Box key="settings-art" position="absolute" top={-1} right={0} bottom={-1}>
+              <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
+            </Box>
+            <Text color={ACCENT} bold>
+              ✦ effortless settings
+            </Text>
             <Box flexGrow={1} />
             <Button key="settings-close" plain role="dismiss" label="✕" onPress={close} />
           </Box>
-          {row('settings-bias', 'Effort', [
-            <Text key="cheap">Cheaper</Text>,
-            <Box key="track" flexDirection="row" alignItems="center">{track}</Box>,
-            <Text key="smart">Smarter</Text>,
-            <Text key="bias-words" dimColor wrap="truncate">{biasWords}</Text>,
-          ])}
-          {row('settings-range', 'Range', [
-            <Select key="settings-floor" label="Never below" value={config.floor} options={opts(EFFORTS)}
-              onSelect={v => saveSetting($, 'floor', v)} />,
-            <Select key="settings-ceiling" label="Never above" value={config.ceiling} options={opts(EFFORTS)}
-              onSelect={v => saveSetting($, 'ceiling', v)} />,
-          ])}
-          {row('settings-judge', 'Judge', [
-            <Select key="settings-judge-pick" value={config.judge} options={opts(['auto', 'haiku', 'jev', 'custom'])}
-              onSelect={v => saveSetting($, 'judge', v)} />,
-            config.judge === 'jev' || config.judge === 'auto' ? (
-              <Input key="settings-key" placeholder={hasKey ? 'TypeSafe key saved. Paste a new one to replace it' : 'Paste your TypeSafe key (typesafe.ai)'}
-                submitLabel="save" onSubmit={v => saveJevKey($, v)} />
-            ) : null,
-            config.judge === 'custom' ? (
-              <Input key="settings-url" placeholder="Chat completions URL" value={config.customUrl} submitLabel="save"
-                onSubmit={v => saveSetting($, 'customUrl', v.trim())} />
-            ) : null,
-            config.judge === 'custom' ? (
-              <Input key="settings-model" placeholder="Model name" value={config.customModel} submitLabel="save"
-                onSubmit={v => saveSetting($, 'customModel', v.trim())} />
-            ) : null,
-          ].filter(Boolean))}
-          {row('settings-handoff', 'Handoff', [
-            <Select key="settings-after" label="Then" value={config.handoffAfter}
-              options={[{ value: 'continue', label: 'carry on' }, { value: 'confirm', label: 'wait for me' }]}
-              onSelect={v => saveSetting($, 'handoffAfter', v)} />,
-            <Input key="settings-skill" placeholder="Own skill, e.g. session-handoff (empty: built-in)" value={config.handoffSkill}
-              submitLabel="save" onSubmit={v => saveSetting($, 'handoffSkill', v.trim().replace(/^\//, ''))} />,
-          ])}
+          <Box key="settings-body" flexDirection="column" gap={1} paddingX={2}>
+            {section('settings-effort', 'How hard Claude thinks', [
+              row('settings-bias', 'Lean', [
+                <Text key="cheap">Cheaper</Text>,
+                <Box key="track" flexDirection="row" alignItems="center">
+                  {track}
+                </Box>,
+                <Text key="smart">Smarter</Text>,
+              ]),
+              hint('settings-bias-hint', biasWords),
+              row('settings-range', 'Limits', [
+                <Select key="settings-floor" label="Never below" value={config.floor} options={opts(EFFORTS)}
+                  onSelect={v => saveSetting($, 'floor', v)} />,
+                <Select key="settings-ceiling" label="Never above" value={config.ceiling} options={opts(EFFORTS)}
+                  onSelect={v => saveSetting($, 'ceiling', v)} />,
+              ]),
+            ])}
+            {section('settings-who', 'Who picks the effort', [
+              row('settings-judge', 'Judge', [
+                <Select key="settings-judge-pick" value={config.judge} options={opts(['auto', 'haiku', 'jev', 'custom'])}
+                  onSelect={v => saveSetting($, 'judge', v)} />,
+                ...(config.judge === 'jev' || config.judge === 'auto'
+                  ? [field('key-field', <Input key="settings-key" placeholder={hasKey ? 'Key saved. Paste to replace' : 'Paste TypeSafe key'}
+                      submitLabel="save" onSubmit={v => saveJevKey($, v)} />)]
+                  : []),
+                ...(config.judge === 'custom'
+                  ? [
+                      field('url-field', <Input key="settings-url" placeholder="Chat completions URL" value={config.customUrl} submitLabel="save"
+                        onSubmit={v => saveSetting($, 'customUrl', v.trim())} />),
+                      field('model-field', <Input key="settings-model" placeholder="Model" value={config.customModel} submitLabel="save"
+                        onSubmit={v => saveSetting($, 'customModel', v.trim())} />, 18),
+                    ]
+                  : []),
+              ]),
+              hint('settings-judge-hint', judgeWords),
+            ])}
+            {section('settings-handoff', 'Handoff (the ⇥ button)', [
+              row('settings-after', 'After', [
+                <Select key="settings-after-pick" value={config.handoffAfter}
+                  options={[{ value: 'continue', label: 'carry on with the next step' }, { value: 'confirm', label: 'say where things stand, wait' }]}
+                  onSelect={v => saveSetting($, 'handoffAfter', v)} />,
+              ]),
+              row('settings-skill', 'Writer', [
+                field('skill-field', <Input key="settings-skill" placeholder="Built-in. Or a skill, e.g. session-handoff" value={config.handoffSkill}
+                  submitLabel="save" onSubmit={v => saveSetting($, 'handoffSkill', v.trim().replace(/^\//, ''))} />, 44),
+              ]),
+            ])}
+          </Box>
         </Box>
       )
     }
