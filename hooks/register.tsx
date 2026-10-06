@@ -2490,12 +2490,13 @@ Saved to ${out}.md and .json` }
           const off = shown.hide.includes(part)
           const after = off ? shown.hide.filter(h => h !== part) : [...shown.hide, part]
           // A checkbox of its own beside the name: on is a primary button (white, a heavy black tick), off a secondary
-          // one with a blank label, the same size: a default button lost its square shape. The name toggles it too.
+          // one whose label is an em space, as wide as the tick: a narrower blank drew a tall pill, not a square. The name
+          // toggles it too.
           const toggle = () => pick('hide', after.join(','))
           return (
             <Box key={`setup-show-${part}`} flexDirection="row" alignItems="center">
               {off ? (
-                <Button key={`setup-box-${part}`} variant="secondary" label={'\u00a0'} onPress={toggle} />
+                <Button key={`setup-box-${part}`} variant="secondary" label={'\u2003'} onPress={toggle} />
               ) : (
                 <Button key={`setup-box-${part}`} variant="primary" label={'\u2714\ufe0e'} onPress={toggle} />
               )}
