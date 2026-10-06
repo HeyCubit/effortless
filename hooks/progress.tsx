@@ -179,11 +179,25 @@ export function demoProgress(arg: string): { progress: Progress | null; cue?: Cu
   }
 }
 
+/** The line in the system prompt that asks Claude to keep a step list for multi-step work. */
+export const PROGRESS_PROMPT =
+  'When a request takes three or more distinct steps, write them as a task list with the task tools (TaskCreate and ' +
+  'TaskUpdate, or TodoWrite) before you start, and keep the status of each step current as you go. Skip the list for quick ' +
+  'answers and one-step changes.'
+
 /**
  * The hooks register.tsx does not have yet: the step list from the todo and task tools, Claude asking, and plan mode. `hidden` gives the parts switched off.
  */
 export function registerProgress(on: On, hidden: () => readonly string[]) {
   const off = () => hidden().includes('progress')
+
+  // The bar follows the task tools, and Claude writes a list only when it decides to: this line asks it to for real
+  // multi-step work, so the bar has steps to show. Static text, so the prompt cache stays warm.
+  on('prompt.compose', async ($, e, next) => {
+    const result = await next(e)
+    if (off()) return result
+    return { sections: [...result.sections, { id: 'effortless-progress', text: PROGRESS_PROMPT, scope: 'session' as const }] }
+  })
 
   on('tool.call', async ($, e, next) => {
     if (off() || e.agentId !== undefined) return next(e)
