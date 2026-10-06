@@ -355,8 +355,8 @@ describe('footer text', () => {
     expect(text).not.toContain('borderStyle')
     // Hovering the level puts a grey box behind it.
     expect(text).toContain('"hover":{"scope":"effort","backgroundColor":"#2b2b2f"}')
-    // No background at rest: the only ones are in the hover styles.
-    expect(text.replaceAll('"backgroundColor":"#2b2b2f"}', '')).not.toContain('backgroundColor')
+    // No background at rest: the only ones are in the hover styles and the hidden hover cards (display none).
+    expect(text.replaceAll('"backgroundColor":"#2b2b2f"}', '').replaceAll('"backgroundColor":"#221c3a"', '')).not.toContain('backgroundColor')
     await footer.unmount()
   })
 
@@ -524,7 +524,7 @@ describe('footer text', () => {
 
   test('nothing is drawn above the prompt on desktop', async ($, on) => {
     engine(on)
-    await noBand($, DESK_BAND)
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
   })
 
   test('a model suggestion still asks above the prompt on desktop', async ($, on) => {
@@ -721,7 +721,7 @@ describe('cache countdown', () => {
     const guide = await $.ui.mount(DESK_BAND)
     await guide.press({ key: 'setup-haiku' })
     await guide.unmount()
-    await noBand($, DESK_BAND)
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
     await mocked.advance(2 * 60_000)
     const band = await $.ui.mount(DESK_BAND)
     expect(await band.find({ key: 'cold-compact' })).toBeDefined()
@@ -1188,11 +1188,11 @@ describe('setup guide', () => {
     expect(set).toEqual([{ key: 'effortless.judge', value: 'haiku' }])
     expect(said.join(' ')).toContain('Haiku judges')
     await band.unmount()
-    await noBand($, DESK)
+    await expect($.ui.mount(DESK)).rejects.toThrow()
 
     // A new session: the guide stays closed; /effortless setup opens it again.
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
-    await noBand($, DESK)
+    await expect($.ui.mount(DESK)).rejects.toThrow()
     await $.command.run({ command: 'effortless', args: 'setup' })
     const again = await $.ui.mount(DESK)
     expect(await again.find({ key: 'setup-jev' })).toBeDefined()
@@ -1216,7 +1216,7 @@ describe('setup guide', () => {
     expect(await panel.find({ key: 'settings-key' })).toBeDefined()
     await panel.press({ key: 'settings-close' })
     await panel.unmount()
-    await noBand($, DESK)
+    await expect($.ui.mount(DESK)).rejects.toThrow()
   })
 
   test('Jev with a key already in the environment needs no second step', async ($, on) => {
@@ -1229,7 +1229,7 @@ describe('setup guide', () => {
     await band.press({ key: 'setup-jev' })
     expect(said.join(' ')).toContain('Jev judges')
     await band.unmount()
-    await noBand($, DESK)
+    await expect($.ui.mount(DESK)).rejects.toThrow()
   })
 })
 
@@ -1370,7 +1370,7 @@ describe('cold band', () => {
     expect(await drawn(band)).toContain('class=\\"f\\"')
     await band.press({ key: 'cold-hide' })
     await band.unmount()
-    await noBand($, DESK)
+    await expect($.ui.mount(DESK)).rejects.toThrow()
   })
 })
 
@@ -1475,7 +1475,7 @@ describe('swamp band and setup entry', () => {
     expect(await band.find({ key: 'swamp-handoff' })).toBeDefined()
     await band.press({ key: 'swamp-close' })
     await band.unmount()
-    await noBand($, DESK_BAND)
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
     tokens = 240_000
     await mocked.advance(16_000)
     const again = await $.ui.mount(DESK_BAND)
@@ -1490,7 +1490,7 @@ describe('swamp band and setup entry', () => {
     const guide = await $.ui.mount(DESK_BAND)
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
-    await noBand($, DESK_BAND)
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
     const footer = await $.ui.mount(FOOTER)
     expect(await footer.find({ key: 'setup' })).toBeDefined()
     await footer.press({ key: 'setup' })
@@ -1569,7 +1569,7 @@ describe('running hot and judge down', () => {
     await band.unmount()
     status = 200
     await $.prompt.submit({ text: 'now write tests for the queue module', wait: false, origin: { kind: 'composer' } })
-    await noBand($, DESK_BAND)
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
   })
 })
 
@@ -1641,7 +1641,7 @@ describe('settings panel', () => {
     expect(said.join(' | ')).toContain('key saved')
     expect(files['C:/Users/x/.config/jev/.env']).toBe('OTHER=1\nTYPESAFE_API_KEY=tk-new\n')
     await panel.unmount()
-    await noBand($, DESK_BAND)
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
   })
 })
 
@@ -1661,7 +1661,7 @@ describe('switching parts off', () => {
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
     await mocked.advance(16_000)
-    await noBand($, DESK_BAND)
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
     const footer = await $.ui.mount(FOOTER)
     expect(await footer.find({ key: 'handoff' })).toBeUndefined()
     await footer.unmount()
