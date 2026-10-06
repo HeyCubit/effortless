@@ -1392,7 +1392,17 @@ describe('handoff', () => {
     expect(HANDOFF_PROMPT).toContain('Do not use tools')
   })
 
-  test('with a skill set, ⇥ is the quick fork and ⇥⇥ runs the skill', { options: { handoffSkill: 'session-handoff' } } as never, async ($, on) => {
+  /** Presses ⇥ in the footer, makes the choices in the handoff bar, and presses Go. */
+  async function handOff($: Engine, footer: { press: (at: { key: string }) => Promise<unknown> }, keys: string[] = [], after?: string) {
+    await footer.press({ key: 'handoff' })
+    const bar = await $.ui.mount(DESK_BAND)
+    for (const key of keys) await bar.press({ key })
+    if (after) await bar.select({ key: 'handoff-after', value: after })
+    await bar.press({ key: 'handoff-go' })
+    await bar.unmount()
+  }
+
+  function handoffEngine(on: On) {
     mock.store(on)
     mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
     on('ui.status', () => ({ value: undefined }))
@@ -1411,37 +1421,122 @@ describe('handoff', () => {
       ran.push(e.command)
       return { text: 'ok' }
     })
-    on('prompt.submit', (_$, e) => ({ text: e.text }))
+    const submitted: string[] = []
+    on('prompt.submit', (_$, e) => {
+      submitted.push(e.text)
+      return { text: e.text }
+    })
     on('turn.complete', (_$, e) => ({ text: e.answer }))
+    return { forked, ran, submitted }
+  }
+
+  test('⇥ opens the handoff bar; it says what happens and starts nothing until Go', async ($, on) => {
+    const { forked } = handoffEngine(on)
     const mocked = mock.clock(on)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
     const footer = await $.ui.mount(FOOTER)
-    expect(await footer.find({ key: 'handoff-full' })).toBeDefined()
     await footer.press({ key: 'handoff' })
+    const bar = await $.ui.mount(DESK_BAND)
+    expect(await drawn(bar)).toContain('Handoff')
+    expect(await drawn(bar)).toContain('Clears this chat and carries on from it.')
+    await bar.select({ key: 'handoff-after', value: 'copy' })
+    expect(await drawn(bar)).toContain('this chat stays')
+    await mocked.advance(2500)
+    expect(forked).toEqual([])
+    await bar.press({ key: 'handoff-close' })
+    await bar.unmount()
+    const after = await $.ui.mount(DESK_BAND)
+    expect(await after.find({ key: 'handoff-go' })).toBeUndefined()
+    await after.unmount()
+    await footer.unmount()
+  })
+
+  test('with a skill set, Quick forks and Full runs the skill', { options: { handoffSkill: 'session-handoff' } } as never, async ($, on) => {
+    const { forked, ran } = handoffEngine(on)
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const footer = await $.ui.mount(FOOTER)
+    await handOff($, footer, ['handoff-quick'])
     await mocked.advance(2500)
     expect(forked).toEqual([HANDOFF_PROMPT])
     expect(ran).not.toContain('session-handoff')
     expect(ran).toContain('clear')
-    await footer.press({ key: 'handoff-full' })
+    await handOff($, footer, ['handoff-full'])
     await mocked.advance(1000)
     expect(ran).toContain('session-handoff')
     expect(forked).toHaveLength(1)
     await footer.unmount()
   })
 
-  test('without a skill there is no ⇥⇥', async ($, on) => {
-    mock.store(on)
-    mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
-    on('ui.status', () => ({ value: undefined }))
-    on('session.messages', () => ({ value: [] }) as never)
-    on('session.model', () => ({ value: 'claude-opus-5-5' }))
-    on('command.list', () => ({ value: [{ name: 'model' }, { name: 'effort' }] as never }))
-    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
-    on('command.register', () => ({ value: undefined }) as never)
+  test('the bar opens on the choice made last', { options: { handoffSkill: 'session-handoff' } } as never, async ($, on) => {
+    handoffEngine(on)
+    const mocked = mock.clock(on)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
     const footer = await $.ui.mount(FOOTER)
-    expect(await footer.find({ key: 'handoff' })).toBeDefined()
-    expect(await footer.find({ key: 'handoff-full' })).toBeUndefined()
+    await handOff($, footer, ['handoff-full'], 'confirm')
+    await mocked.advance(1000)
+    await $.turn.complete({ turnId: 't1', answer: 'Goal: full.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    await mocked.advance(1500)
+    await footer.press({ key: 'handoff' })
+    const bar = await $.ui.mount(DESK_BAND)
+    expect(await drawn(bar)).toContain('/session-handoff writes it')
+    expect(await drawn(bar)).toContain('the new one reads it and waits')
+    await bar.unmount()
+    await footer.unmount()
+  })
+
+  test('without a skill, Full says to pick one and Go does nothing', async ($, on) => {
+    const { forked, ran } = handoffEngine(on)
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const footer = await $.ui.mount(FOOTER)
+    await footer.press({ key: 'handoff' })
+    const bar = await $.ui.mount(DESK_BAND)
+    await bar.press({ key: 'handoff-full' })
+    expect(await drawn(bar)).toContain('Full needs a skill')
+    await bar.press({ key: 'handoff-go' })
+    await mocked.advance(2500)
+    expect(forked).toEqual([])
+    expect(ran).not.toContain('clear')
+    await bar.unmount()
+    await footer.unmount()
+  })
+
+  test('Keep chat & copy copies the handoff and clears nothing', async ($, on) => {
+    const { ran, submitted } = handoffEngine(on)
+    const copied: string[] = []
+    on('ui.copy', (_$, e) => {
+      copied.push(e.text)
+      return { value: { isCopied: true } } as never
+    })
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const footer = await $.ui.mount(FOOTER)
+    await handOff($, footer, [], 'copy')
+    await mocked.advance(2500)
+    expect(copied).toHaveLength(1)
+    expect(copied[0]).toContain('Goal: quick.')
+    expect(copied[0]).toContain('Continue with the next step.')
+    expect(ran).not.toContain('clear')
+    expect(submitted).toEqual([])
+    await footer.unmount()
+  })
+
+  test('if the clipboard refuses, the handoff goes in the prompt box', async ($, on) => {
+    const { ran } = handoffEngine(on)
+    on('ui.copy', () => ({ value: { isCopied: false, reason: 'no clipboard' } }) as never)
+    const filled: string[] = []
+    on('prompt.fill', (_$, e) => {
+      filled.push(e.text)
+      return { value: { isFilled: true, text: e.text } } as never
+    })
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const footer = await $.ui.mount(FOOTER)
+    await handOff($, footer, [], 'copy')
+    await mocked.advance(2500)
+    expect(filled.join('')).toContain('Goal: quick.')
+    expect(ran).not.toContain('clear')
     await footer.unmount()
   })
 
@@ -1472,7 +1567,7 @@ describe('handoff', () => {
     const mocked = mock.clock(on)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
     const footer = await $.ui.mount(FOOTER)
-    await footer.press({ key: 'handoff' })
+    await handOff($, footer)
     await mocked.advance(1000)
     expect(forked).toEqual([HANDOFF_PROMPT])
     expect(submitted).not.toContain(HANDOFF_PROMPT)
@@ -1506,7 +1601,7 @@ describe('handoff', () => {
     const mocked = mock.clock(on)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
     const footer = await $.ui.mount(FOOTER)
-    await footer.press({ key: 'handoff' })
+    await handOff($, footer)
     await mocked.advance(1000)
     expect(submitted.at(-1)).toBe(HANDOFF_PROMPT)
     await $.turn.complete({ turnId: 't9', answer: 'Goal: ship it. Next: tests.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
@@ -1541,7 +1636,7 @@ describe('handoff', () => {
     const mocked = mock.clock(on)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
     const footer = await $.ui.mount(FOOTER)
-    await footer.press({ key: 'handoff' })
+    await handOff($, footer)
     await mocked.advance(1000)
     expect(submitted.at(-1)).toBe(HANDOFF_PROMPT)
     expect(toasts.join(' ')).toContain('api-error 529 overloaded')
