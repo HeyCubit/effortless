@@ -1618,12 +1618,6 @@ Saved to ${out}.md and .json` }
         if (n > -2) track.push(<Text key={`t${n}`} dimColor>──</Text>)
         track.push(<Button key={`bias${n + 2}`} plain label={n === shown.bias ? '◉' : '○'} onPress={() => set('bias')(String(n))} />)
       }
-      const judgeWords = {
-        auto: 'Jev with a key, else Haiku.',
-        haiku: 'Your Claude login, no key.',
-        jev: 'Most accurate. Key: typesafe.ai',
-        custom: 'Its key: /plugin configure.',
-      }[shown.judge]
       const row = (key: string, label: string, children: unknown[], words?: string) => (
         <Box key={key} flexDirection="row" gap={1} alignItems="center">
           <Box width={8} flexShrink={0}>
@@ -1689,14 +1683,14 @@ Saved to ${out}.md and .json` }
                     onInput={set('customModel')} onSubmit={set('customModel')} />, 16),
                 ]
               : []),
-          ], judgeWords)}
+          ])}
           {row('settings-handoff', 'Handoff', [
             <Select key="settings-after-pick" value={shown.handoffAfter}
               options={[{ value: 'continue', label: 'then carry on' }, { value: 'confirm', label: 'then wait' }]}
               onSelect={set('handoffAfter')} />,
             field('skill-field', <Input key="settings-skill" placeholder="Built-in, or a skill name" value={shown.handoffSkill}
               submitLabel="ok" onInput={set('handoffSkill')} onSubmit={set('handoffSkill')} />, 30),
-          ], 'The ⇥ button.')}
+          ])}
           {row('settings-show', 'Show', toggles)}
         </Box>
       )
