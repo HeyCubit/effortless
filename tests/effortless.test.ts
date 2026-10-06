@@ -1891,6 +1891,26 @@ describe('swamp band and setup entry', () => {
     await again.unmount()
   })
 
+  test('the swamp band waits while a turn runs and comes back when it ends', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    on('turn.complete', () => ({ text: '' }) as never)
+    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 300_000, percent: 67 } } }) as never)
+    await start($, on)
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await mocked.advance(16_000)
+    await $.prompt.submit({ text: '/status', wait: false, origin: { kind: 'composer' } })
+    const busy = await $.ui.mount(DESK_BAND).catch(() => null)
+    expect(busy ? await drawn(busy) : '').not.toContain('Chat is getting swamped')
+    await busy?.unmount()
+    await $.turn.complete({ turnId: 't1', answer: 'Done.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    const after = await $.ui.mount(DESK_BAND)
+    expect(await drawn(after)).toContain('Chat is getting swamped')
+    await after.unmount()
+  })
+
   test('while compacting, the swamp band says so and its buttons step aside', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
@@ -2419,7 +2439,7 @@ describe('progress bar', () => {
       await band.unmount()
     }
   })
-  test('a finished task shows before the swamp band; the next message gives the band back', async ($, on) => {
+  test('a finished task shows before the swamp band; the next turn gives the band back', async ($, on) => {
     engine(on)
     mock.clock(on)
     tools(on)
@@ -2431,6 +2451,7 @@ describe('progress bar', () => {
     expect(await band.find({ key: 'progress-art' })).toBeDefined()
     await band.unmount()
     await $.prompt.submit({ text: 'thanks', wait: false, origin: { kind: 'composer' } })
+    await $.turn.complete({ turnId: 't1', answer: 'Glad to.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
     const after = await $.ui.mount(DESK_BAND)
     expect(await drawn(after)).toContain('swamped')
     await after.unmount()

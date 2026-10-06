@@ -987,6 +987,20 @@ export function capped(effort: Effort, saving: boolean): Effort {
   return saving && EFFORTS.indexOf(effort) > EFFORTS.indexOf('medium') ? 'medium' : effort
 }
 
+// A main-conversation turn is running: set when a prompt is sent and at each request, cleared when the turn ends (an
+// aborted one too). The swamp band and card wait for it: Compact or Handoff mid-turn would cut the reply off. A turn
+// with no request for TURN_STALE_MS counts as over, so a missed end never hides the band for good.
+let turnBusyAt: number | undefined
+const TURN_STALE_MS = 10 * 60_000
+function turnBusy(): boolean {
+  return turnBusyAt !== undefined && Date.now() - turnBusyAt < TURN_STALE_MS
+}
+async function setTurnBusy($: EngineInterface, busy: boolean) {
+  const was = turnBusyAt !== undefined
+  turnBusyAt = busy ? Date.now() : undefined
+  if (was !== busy) $.ui.invalidate('ui.render')
+}
+
 async function checkSwamp($: EngineInterface) {
   const { context, rateLimits } = await $.session.usage()
   lastContext = { tokens: context.tokens ?? 0, window: context.window ?? 0, percent: context.percent ?? 0 }
@@ -1782,6 +1796,7 @@ export const register: Register = (on, options) => {
   // The handoff turn ended: keep its text; the session's timer clears the chat and sends it.
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
+    if (!e.agentId) await setTurnBusy($, false)
     await progressAtTurnEnd($, e).catch(() => undefined)
     // The newest reply's text: its last block carries the warning card (see AssistantMessage).
     if (!e.agentId && e.reason === 'answer') await update($, lastAnswer, () => e.answer.trim())
@@ -1937,6 +1952,7 @@ Saved to ${out}.md and .json` }
   })
 
   on('prompt.submit', async ($, e, next) => {
+    await setTurnBusy($, true)
     if (!config.hide.includes('progress')) {
       const was = await read($, progressState)
       if (afterPrompt(was, e) !== was) await update($, progressState, p => afterPrompt(p, e))
@@ -2025,6 +2041,7 @@ Saved to ${out}.md and .json` }
       if (e.agentId === undefined && answer?.usage) await cacheTouched($, answer.usage).catch(() => undefined)
       return answer
     }
+    if (e.agentId === undefined) await setTurnBusy($, true)
     if (e.agentId === undefined) await modelIs($, e.model)
     if (e.agentId === undefined && typeof e.effort === 'string') {
       const seen = e.effort
@@ -2239,7 +2256,7 @@ Saved to ${out}.md and .json` }
       )
     }
     const warn = await turnWarning($)
-    if (!warn) return next(e)
+    if (!warn || turnBusy()) return next(e)
     const { Box, Text, Svg } = $.ui.resolve(e)
     const drawn = await next(e)
     return (
@@ -2766,7 +2783,7 @@ Saved to ${out}.md and .json` }
     // The context is swamped: every message re-reads all of it. Compact or hand off, right here.
     const swampTokens = await read($, swamped)
     const hiddenAt = await read($, swampHiddenAt)
-    if (swampTokens !== null && !config.hide.includes('swamp') && (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW)) {
+    if (swampTokens !== null && !config.hide.includes('swamp') && !turnBusy() && (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW)) {
       const compacting = await read($, isCompacting)
       const handing = (await read($, handoffStage)) !== null
       return (
