@@ -748,7 +748,11 @@ let cacheExpires = 0
 async function showCache($: EngineInterface) {
   if (cacheExpires === 0) return
   const minutes = await cacheMinutes($)
-  if (minutes !== (await read($, cacheLeft))) await update($, cacheLeft, () => minutes)
+  const was = await read($, cacheLeft)
+  if (minutes === was) return
+  await update($, cacheLeft, () => minutes)
+  // Going cold or warm adds or removes the band above the prompt; the desktop app redraws that site only when asked.
+  if ((minutes === 0) !== (was === 0)) $.ui.invalidate('ui.render')
 }
 
 /** Minutes left, rounded up, so "1" means under a minute and 0 means cold. */
@@ -978,6 +982,7 @@ Saved to ${out}.md and .json` }
     if (arg === 'cold') {
       cacheExpires = await $.clock.now()
       await update($, cacheLeft, () => 0)
+      $.ui.invalidate('ui.render')
       return { text: 'The cache shows as cold now (a test). Compact is in the footer. The next response restarts the countdown.' }
     }
     if (arg === 'stats' || arg === 'saved') return { text: `Auto, this session:\n${savedText(await read($, saved))}` }
