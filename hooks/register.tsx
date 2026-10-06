@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelForkResult, Register, RenderInput } from 'claude-code'
 
 import type { Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
+import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
 import { afterPrompt, atTurnEnd, demoProgress, drawProgress, progressShows, queueCue, registerProgress, soundArgv, stepsKey, takeCues } from './progress'
 
 // The ladders the two sliders walk, cheapest first.
@@ -1734,6 +1735,183 @@ async function progressAtTurnEnd($: EngineInterface, e: { agentId?: string; reas
   queueCue(config.hide, cue)
 }
 
+// The moving art's timer: one at a time, blitting the next frame to the band that drew it. A blit the surface refuses
+// (the band went away, another drew instead) ends it, so nothing has to stop it from outside.
+let artTimer: { cancel(): void } | null = null
+let artShown: { requestId: string; kind: ArtKind } | null = null
+let artFrameCount = 0
+
+/** A band's art on the terminal: a Raster on the right, moving for alert kinds; null where it has no room. */
+function bandArt($: EngineInterface, e: RenderInput<'AbovePrompt'>, kind: ArtKind) {
+  const els = $.ui.resolve(e)
+  const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 0
+  if (!('Raster' in els) || columns < ART_MIN_WIDTH) return null
+  const { Box, Raster } = els
+  artShown = { requestId: e.requestId, kind }
+  if (MOVING.has(kind) && !artTimer) {
+    artTimer = $.clock.every(ART_FRAME_MS, () => {
+      const shown = artShown
+      if (!shown || !MOVING.has(shown.kind)) {
+        artTimer?.cancel()
+        artTimer = null
+        return
+      }
+      artFrameCount++
+      void $.ui
+        .blit({ requestId: shown.requestId, key: 'art', cells: artFrame(shown.kind, artFrameCount) })
+        .then(r => {
+          if ('deny' in r && r.deny) {
+            artTimer?.cancel()
+            artTimer = null
+          }
+        })
+        .catch(() => undefined)
+    })
+  }
+  return (
+    <Box key="art-box" flexShrink={0}>
+      <Raster key="art" columns={ART_COLUMNS} rows={ART_ROWS} cells={artFrame(kind, artFrameCount)} />
+    </Box>
+  )
+}
+
+type TerminalBand = { key: string; kind: ArtKind; color: string; bg: string; edge: string; title: string; detail: string; buttons: unknown[] }
+
+/** An alert band on the terminal: title and buttons, the detail on a line of its own, art on the right, and the effort
+ * row under it, so effort stays in sight while a band shows. */
+async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b: TerminalBand) {
+  const { Box, Text } = $.ui.resolve(e)
+  const { rows } = await effortRows($, e)
+  return (
+    <Box key={`${b.key}-col`} flexDirection="column">
+      <Box key={b.key} flexDirection="row" gap={1} alignItems="center" paddingX={1} backgroundColor={b.bg} borderStyle="round" borderColor={b.edge}>
+        <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
+          <Box flexDirection="row" gap={1} alignItems="center">
+            <Box flexShrink={0}>
+              <Text color={b.color} bold>{`✦ ${b.title}`}</Text>
+            </Box>
+            <Box flexGrow={1} />
+            {b.buttons}
+          </Box>
+          <Text dimColor wrap="truncate">{b.detail}</Text>
+        </Box>
+        {bandArt($, e, b.kind)}
+      </Box>
+      {rows}
+    </Box>
+  )
+}
+
+/** The terminal's rows above the prompt (Effort steps, Auto, the model row when switched on) and, on any surface, the
+ * judge's question when it suggests another model. The rows also sit under an alert band, so effort never goes away. */
+async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
+  const { Box, Text, Button } = $.ui.resolve(e)
+  const v = await snap($)
+  const { auto, autoModel, current, judging, wanted, shownByApp } = v
+  const inUse = v.modelNow ?? (await sessionModel($))
+  const effortNow = effortOf(v, inUse)
+  // The model row is paused: effort first. EFFORTLESS_MODEL_UI=1 brings it back.
+  const showModel = (await envModelUi($)) === '1'
+
+  const setEffort = (level: Effort) => () => pickEffort($, level)
+  // Picking a model yourself turns off Auto for model alone; accepting a suggestion leaves it on.
+  const setModel = (model: ModelKey) => async () => {
+    await update($, isAutoModel, () => false)
+    await $.store.set('isAutoModel', false)
+    await changeModel(model)
+  }
+  // The person sends /model, so the app's own control moves too; with a draft in the box the mod runs it.
+  const changeModel = async (model: ModelKey) => {
+    if (await typeCommand($, `/model ${model}`)) return
+    await switchModel($, model)
+  }
+  const acceptSuggestion = (model: ModelKey) => () => changeModel(model)
+  const toggleAutoModel = async () => {
+    const turnOn = !(await read($, isAutoModel))
+    await update($, isAutoModel, () => turnOn)
+    await $.store.set('isAutoModel', turnOn)
+    if (!turnOn) await update($, suggestion, () => null)
+  }
+  const dismiss = async () => {
+    declined = wanted
+    await update($, suggestion, () => null)
+  }
+
+  const question = wanted ? (
+    <Box flexDirection="column">
+      <Box flexDirection="row" gap={1} alignItems="center">
+        <Text>Switch to {MODELS.find(m => m.key === wanted)?.label}? The context reloads.</Text>
+        <Button key="accept" variant="primary" label="Switch" onPress={acceptSuggestion(wanted)} />
+        <Button key="decline" label="Keep" onPress={dismiss} />
+      </Box>
+    </Box>
+  ) : null
+  if (e.surface !== 'terminal') return { question, rows: null }
+
+  const notAligned = current && inUse !== 'haiku' && shownByApp && shownByApp !== current.effort
+  const note = judging
+    ? 'Deciding…'
+    : notAligned
+      ? `/effort shows ${EFFORT_LABELS[shownByApp as Effort] ?? shownByApp}`
+      : current
+        ? `${current.by === 'manual' ? 'You' : current.by === 'jev' ? 'Jev' : current.by === 'custom' ? 'Judge' : 'Haiku'}: ${current.why}`
+        : auto
+          ? 'Picks the effort at the next prompt'
+          : 'Pick an effort'
+  const modelRow = (
+    <Box flexDirection="row" alignItems="center" gap={1}>
+      {MODELS.map(m =>
+        m.key === inUse ? (
+          <Button key={`m-${m.key}`} variant="primary" label={m.label} onPress={setModel(m.key)} />
+        ) : (
+          <Button key={`m-${m.key}`} plain dimColor label={m.label} onPress={setModel(m.key)} />
+        ),
+      )}
+      <Box flexGrow={1} />
+      <Button
+        key="auto-model"
+        hotkey="m"
+        variant={autoModel ? 'primary' : undefined}
+        label={autoModel ? 'Auto on' : 'Auto off'}
+        onPress={toggleAutoModel}
+      />
+    </Box>
+  )
+  const rows = (
+    <Box flexDirection="column">
+      {question}
+      {showModel ? modelRow : null}
+      <Box flexDirection="row" gap={1} alignItems="center">
+        {/* The word never breaks: the note at the end gives way first. */}
+        <Box flexShrink={0}>
+          <Text dimColor>Effort</Text>
+        </Box>
+        {EFFORTS.map(level =>
+          level === effortNow ? (
+            <Button key={`e-${level}`} variant="primary" label={level} onPress={setEffort(level)} />
+          ) : (
+            <Button key={`e-${level}`} plain dimColor label={level} onPress={setEffort(level)} />
+          ),
+        )}
+        <Box flexGrow={1} />
+        <Button
+          key="auto"
+          hotkey="a"
+          variant={auto ? 'primary' : undefined}
+          label={auto ? 'Auto on' : 'Auto off'}
+          onPress={() => toggleAutoEffort($)}
+        />
+        <Box flexShrink={1} minWidth={0}>
+          <Text dimColor wrap="truncate-end">
+            {note}
+          </Text>
+        </Box>
+      </Box>
+    </Box>
+  )
+  return { question, rows }
+}
+
 /** The progress bar for one of its two places above the prompt, or null. */
 async function progressBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, when: 'active' | 'resting') {
   if (config.hide.includes('progress')) return null
@@ -2706,6 +2884,15 @@ Saved to ${out}.md and .json` }
     // The judge the person picked is failing: Haiku stands in until it works again.
     const downReason = await read($, judgeDown)
     if (downReason && !config.hide.includes('down') && downReason !== (await read($, judgeDownHidden))) {
+      if (e.surface === 'terminal')
+        return terminalBand($, e, {
+          key: 'down', kind: 'down', color: SLATE, bg: SLATE_BG, edge: SLATE_EDGE, title: 'Judge down',
+          detail: `${downReason}. Haiku stands in.`,
+          buttons: [
+            <Button key="down-settings" variant="primary" label="Settings" onPress={() => openPluginSettings($)} />,
+            <Button key="down-close" plain role="dismiss" label="✕" onPress={() => update($, judgeDownHidden, () => downReason)} />,
+          ],
+        })
       return (
         <Box key="down" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={SLATE_BG} borderStyle="round" borderColor={SLATE_EDGE}>
@@ -2733,6 +2920,16 @@ Saved to ${out}.md and .json` }
       const saving = (await read($, saveUntil)) !== null
       const window = heat.kind === 'five_hour' ? '5h' : 'weekly'
       const resets = resetLabel(heat.resetsAt, await $.clock.now())
+      if (e.surface === 'terminal')
+        return terminalBand($, e, {
+          key: 'hot', kind: 'hot', color: EMBER, bg: EMBER_BG, edge: EMBER_EDGE, title: 'Running hot',
+          detail: `${Math.round(heat.percent)}% of your ${window} limit used${resets ? ` · resets ${resets}` : ''}`,
+          buttons: [
+            <Button key="hot-save" variant="primary" label={saving ? 'Save mode on' : 'Save mode'}
+              onPress={async () => { $.ui.toast(`effortless: ${await toggleSave($)}`) }} />,
+            <Button key="hot-close" plain role="dismiss" label="✕" onPress={() => update($, hotHidden, () => heat.percent)} />,
+          ],
+        })
       return (
         <Box key="hot" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={EMBER_BG} borderStyle="round" borderColor={EMBER_EDGE}>
@@ -2764,6 +2961,15 @@ Saved to ${out}.md and .json` }
     // While compacting, the card under the newest reply says so and the bands step aside.
     const compacting = await read($, isCompacting)
     if ((await read($, cacheLeft)) === 0 && !config.hide.includes('cold') && !(await read($, isColdHidden)) && !compacting) {
+      if (e.surface === 'terminal')
+        return terminalBand($, e, {
+          key: 'cold', kind: 'cold', color: ICE, bg: ICE_BG, edge: ICE_EDGE, title: 'Chat went cold',
+          detail: 'The next message costs full price. Compact first.',
+          buttons: [
+            <Button key="cold-hide" plain label="Not now" onPress={() => update($, isColdHidden, () => true)} />,
+            <Button key="cold-compact" variant="primary" label="Compact" onPress={() => compactCold($)} />,
+          ],
+        })
       // The art is a backdrop: an absolutely placed layer behind the right side, so the words and Compact sit on it.
       return (
         <Box
@@ -2802,6 +3008,16 @@ Saved to ${out}.md and .json` }
     const hiddenAt = await read($, swampHiddenAt)
     if (swampTokens !== null && !config.hide.includes('swamp') && !turnBusy() && !compacting && (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW)) {
       const handing = (await read($, handoffStage)) !== null
+      if (e.surface === 'terminal')
+        return terminalBand($, e, {
+          key: 'swamp', kind: 'swamp', color: BOG, bg: BOG_BG, edge: BOG_EDGE, title: 'Chat is getting swamped',
+          detail: `${Math.round(swampTokens / 1000)}k tokens${lastContext && lastContext.window ? ` (${lastContext.percent}% of context)` : ''} re-read every message.`,
+          buttons: [
+            <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => compactCold($)} />,
+            <Button key="swamp-handoff" hotkey="h" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />,
+            <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />,
+          ],
+        })
       return (
         <Box
           key="swamp"
@@ -2845,104 +3061,9 @@ Saved to ${out}.md and .json` }
     // A finished or paused task: its bar after the alerts.
     const restingProgress = await progressBand($, e, 'resting')
     if (restingProgress) return restingProgress
-    const v = await snap($)
-    const { auto, autoModel, current, judging, wanted, shownByApp } = v
-    const inUse = v.modelNow ?? (await sessionModel($))
-    const effortNow = effortOf(v, inUse)
-    // The model row is paused: effort first. EFFORTLESS_MODEL_UI=1 brings it back.
-    const showModel = (await envModelUi($)) === '1'
-
-    const setEffort = (level: Effort) => () => pickEffort($, level)
-    // Picking a model yourself turns off Auto for model alone; accepting a suggestion leaves it on.
-    const setModel = (model: ModelKey) => async () => {
-      await update($, isAutoModel, () => false)
-      await $.store.set('isAutoModel', false)
-      await changeModel(model)
-    }
-    // The person sends /model, so the app's own control moves too; with a draft in the box the mod runs it.
-    const changeModel = async (model: ModelKey) => {
-      if (await typeCommand($, `/model ${model}`)) return
-      await switchModel($, model)
-    }
-    const acceptSuggestion = (model: ModelKey) => () => changeModel(model)
-    const toggleAutoModel = async () => {
-      const turnOn = !(await read($, isAutoModel))
-      await update($, isAutoModel, () => turnOn)
-      await $.store.set('isAutoModel', turnOn)
-      if (!turnOn) await update($, suggestion, () => null)
-    }
-    const dismiss = async () => {
-      declined = wanted
-      await update($, suggestion, () => null)
-    }
-
-    const question = wanted ? (
-      <Box flexDirection="column">
-        <Box flexDirection="row" gap={1} alignItems="center">
-          <Text>Switch to {MODELS.find(m => m.key === wanted)?.label}? The context reloads.</Text>
-          <Button key="accept" variant="primary" label="Switch" onPress={acceptSuggestion(wanted)} />
-          <Button key="decline" label="Keep" onPress={dismiss} />
-        </Box>
-      </Box>
-    ) : null
+    const { question, rows } = await effortRows($, e)
     if (e.surface !== 'terminal') return question ?? next(e)
-
-    const notAligned = current && inUse !== 'haiku' && shownByApp && shownByApp !== current.effort
-    const note = judging
-      ? 'Deciding…'
-      : notAligned
-        ? `The app's control shows ${EFFORT_LABELS[shownByApp as Effort] ?? shownByApp}`
-        : current
-          ? `${current.by === 'manual' ? 'You' : current.by === 'jev' ? 'Jev' : current.by === 'custom' ? 'Judge' : 'Haiku'}: ${current.why}`
-          : auto
-            ? 'Picks the effort at the next prompt'
-            : 'Pick an effort'
-    const modelRow = (
-      <Box flexDirection="row" alignItems="center" gap={1}>
-        {MODELS.map(m =>
-          m.key === inUse ? (
-            <Button key={`m-${m.key}`} variant="primary" label={m.label} onPress={setModel(m.key)} />
-          ) : (
-            <Button key={`m-${m.key}`} plain dimColor label={m.label} onPress={setModel(m.key)} />
-          ),
-        )}
-        <Box flexGrow={1} />
-        <Button
-          key="auto-model"
-          hotkey="m"
-          variant={autoModel ? 'primary' : undefined}
-          label={autoModel ? 'Auto on' : 'Auto off'}
-          onPress={toggleAutoModel}
-        />
-      </Box>
-    )
-    return (
-      <Box flexDirection="column">
-        {question}
-        {showModel ? modelRow : null}
-        <Box flexDirection="row" gap={1} alignItems="center">
-          <Text dimColor>Effort</Text>
-          {EFFORTS.map(level =>
-            level === effortNow ? (
-              <Button key={`e-${level}`} variant="primary" label={level} onPress={setEffort(level)} />
-            ) : (
-              <Button key={`e-${level}`} plain dimColor label={level} onPress={setEffort(level)} />
-            ),
-          )}
-          <Box flexGrow={1} />
-          <Button
-            key="auto"
-            hotkey="a"
-            variant={auto ? 'primary' : undefined}
-            label={auto ? 'Auto on' : 'Auto off'}
-            onPress={() => toggleAutoEffort($)}
-          />
-          <Text dimColor wrap="truncate-end">
-            {note}
-          </Text>
-        </Box>
-      </Box>
-    )
+    return rows
     } catch (error) {
       lastRenderError = (error instanceof Error ? error.message : String(error)).slice(0, 300)
       return next(e)
