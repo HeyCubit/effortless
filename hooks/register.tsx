@@ -1238,6 +1238,13 @@ export function tipSvg(tip: string, width: number, height: number): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" fill="#000" fill-opacity="0.001"><title>${esc}</title></rect></svg>`
 }
 
+/** A small ring filled to `percent`, for the context in the swamp band. */
+export function ringSvg(percent: number, color: string): string {
+  const p = Math.max(0, Math.min(100, percent))
+  const c = 2 * Math.PI * 6
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="${color}" stroke-opacity=".25" stroke-width="2.2"/><circle cx="8" cy="8" r="6" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="${((c * p) / 100).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 8 8)"/></svg>`
+}
+
 /** k/M for token counts: 420000 -> "420k", 1000000 -> "1.0M". */
 function kTokens(n: number): string {
   return n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : `${Math.round(n / 1000)}k`
@@ -2028,6 +2035,13 @@ Saved to ${out}.md and .json` }
               ✦ Chat is getting swamped
             </Text>
           </Box>
+          {/* How full the context is, as a ring and a figure: the tokens alone do not say how close the limit is. */}
+          {lastContext && lastContext.window ? (
+            <Box key="swamp-ring" flexShrink={0} flexDirection="row" gap={1} alignItems="center">
+              <Svg source={ringSvg(lastContext.percent, BOG)} alt={`${lastContext.percent}% of context`} width={16} height={16} />
+              <Text color={BOG}>{`${lastContext.percent}%`}</Text>
+            </Box>
+          ) : null}
           <Text wrap="truncate">{`${Math.round(swampTokens / 1000)}k tokens re-read every message.`}</Text>
           <Box flexGrow={1} minWidth={34} />
           <Box key="swamp-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
