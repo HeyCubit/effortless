@@ -470,48 +470,43 @@ document.addEventListener('click',function(e){
     msg('ai','Fixed. The cookie was read before the mock server set it.');}
   function again(f,ms){if(!still)later(ms||2600,f);}
 
+  var COLD='<div class="band ice"><span class="t">✦ Chat went cold</span><span class="d">Next message costs full price. Compact first.</span><span class="acts"><span class="btn">Not now</span><span class="btn primary">Compact</span></span></div>';
+  var SWAMP='<div class="band bog"><span class="t">✦ Chat is getting swamped</span><span class="ring"><img src="__RING__" alt="">72%</span><span class="d">180k tokens re-read every message.</span><span class="acts"><span class="btn primary">Compact <span class="k">C</span></span><span class="btn">Handoff <span class="k">H</span></span></span></div>';
+  var HOT='<div class="band ember"><span class="t">✦ Running hot</span><span class="d">84% of your 5h limit used · resets 16:20</span><span class="acts"><span class="btn primary">Save mode</span></span></div>';
+  var HANDOFF='<div class="band brand handoff"><span class="words"><span class="t">⇥ Handoff</span><span class="what">Done in seconds. Clears chat, carries on.</span></span><span class="acts"><span class="btn secondary">Quick <span class="k">Q</span></span><span class="btn dim">Full <span class="k">F</span></span><span class="btn primary">Go</span></span></div>';
+  var SETUP='<div class="band brand"><span class="t">✦ effortless</span><span class="d">Who picks the effort?</span><span class="acts"><span class="mark"><img src="__TYPESAFE__" alt="" width="12" height="18"><span class="btn primary">Jev (API)</span></span><span class="mark"><img src="__CLAUDE__" alt="" width="16" height="16"><span class="btn primary" data-pick>Haiku (no key)</span></span></span></div>';
+
+  // Every scene sets up its band at once, so someone scrolling past still sees it, and only then plays it out.
   var scenes=[
     function effort(){base();
-      ask('rename this variable to userId','Low','Renamed in 4 files.',function(){
+      later(900,function(){ask('rename this variable to userId','Low','Renamed in 4 files.',function(){
         ask('plan the billing migration, all services','XHigh','Here is a plan in five stages, starting with the read path…',function(){
-          ask('add a test for the date parser','Medium','Added 6 cases, including leap days.',function(){again(effort);});});});},
-    function cold(){base();var m=3;foot('Medium','3m','bad');
-      (function tick(){m--;if(m>0){foot('Medium',m+'m','bad');later(450,tick);return;}
-        foot('Medium','Cold','bad');
-        later(400,function(){var b=band('<div class="band ice"><span class="t">✦ Chat went cold</span><span class="d">Next message costs full price. Compact first.</span><span class="acts"><span class="btn">Not now</span><span class="btn primary">Compact</span></span></div>');
-          later(3600,function(){press(b.querySelector('.primary'),function(){unband();wipe();
-            later(450,function(){msg('sys','Chat compacted');foot('Medium','59m');again(cold,2000);});});});});})();},
-    function swamp(){base();
-      later(0,function(){msg('me','now the retry logic');});
-      later(500,function(){msg('ai','Retries now back off from 200 ms to 6 s, and give up after 5 tries.');});
-      later(1000,function(){var b=band('<div class="band bog"><span class="t">✦ Chat is getting swamped</span><span class="ring"><img src="__RING__" alt="">72%</span><span class="d">180k tokens re-read every message.</span><span class="acts"><span class="btn primary">Compact <span class="k">C</span></span><span class="btn">Handoff <span class="k">H</span></span></span></div>');
-        later(3600,function(){press(b.querySelector('.primary'),function(){unband();wipe();
-          later(450,function(){msg('sys','Chat compacted');again(swamp,2000);});});});});},
-    function hot(){base();
-      later(0,function(){var b=band('<div class="band ember"><span class="t">✦ Running hot</span><span class="d">84% of your 5h limit used · resets 16:20</span><span class="acts"><span class="btn primary">Save mode</span></span></div>');
-        later(3400,function(){press(b.querySelector('.primary'),function(){unband();msg('sys','Save mode on until 16:20');
-          later(700,function(){ask('plan the billing migration, all services','Medium','Here is a plan in five stages…',function(){again(hot,2400);});});});});});},
-    function handoff(){base();msg('me','nice, now the retry logic');msg('ai','Done. Retries back off from 200 ms to 6 s.');
-      later(400,function(){ho.classList.add('hl');press(ho,function(){ho.classList.remove('hl');
-        var b=band('<div class="band brand handoff"><span class="words"><span class="t">⇥ Handoff</span><span class="what">Done in seconds. Clears chat, carries on.</span></span><span class="acts"><span class="btn secondary">Quick <span class="k">Q</span></span><span class="btn dim">Full <span class="k">F</span></span><span class="btn primary">Go</span></span></div>');
-        later(2800,function(){press(b.querySelector('.primary'),function(){b.querySelector('.what').textContent='Writing the handoff note…';
-          later(1600,function(){unband();wipe();
-            later(450,function(){foot('Medium','59m');msg('sys','Handoff note loaded');
-              later(500,function(){msg('ai','Picking up from the note: next, log each attempt.');again(handoff,3200);});});});});});});});},
-    function setup(){chat.innerHTML='';slot.innerHTML='';input('');foot('Off','60m');
-      msg('sys','effortless installed');
-      later(400,function(){var b=band('<div class="band brand"><span class="t">✦ effortless</span><span class="d">Who picks the effort?</span><span class="acts"><span class="mark"><img src="__TYPESAFE__" alt="" width="12" height="18"><span class="btn primary">Jev (API)</span></span><span class="mark"><img src="__CLAUDE__" alt="" width="16" height="16"><span class="btn primary" data-pick>Haiku (no key)</span></span></span></div>');
-        later(2800,function(){press(b.querySelector('[data-pick]'),function(){
-          b.querySelector('.d').textContent='Haiku judges your prompts. No key needed.';b.querySelector('.acts').remove();foot('Medium','60m');
-          later(2400,function(){unband();later(400,function(){ask('add a test for the date parser','Medium','Added 6 cases, including leap days.',function(){again(setup,2400);});});});});});});}
+          ask('add a test for the date parser','Medium','Added 6 cases, including leap days.',function(){again(effort);});});});});},
+    function cold(){base();foot('Medium','Cold','bad');var b=band(COLD);
+      later(3000,function(){press(b.querySelector('.primary'),function(){unband();wipe();
+        later(450,function(){msg('sys','Chat compacted');foot('Medium','59m');again(cold,2200);});});});},
+    function swamp(){base();msg('me','now the retry logic');var b=band(SWAMP);
+      later(3000,function(){press(b.querySelector('.primary'),function(){unband();wipe();
+        later(450,function(){msg('sys','Chat compacted');again(swamp,2200);});});});},
+    function hot(){base();var b=band(HOT);
+      later(3000,function(){press(b.querySelector('.primary'),function(){unband();msg('sys','Save mode on until 16:20');
+        later(700,function(){ask('plan the billing migration, all services','Medium','Here is a plan in five stages…',function(){again(hot,2400);});});});});},
+    function handoff(){base();msg('me','nice, now the retry logic');ho.classList.add('hl');var b=band(HANDOFF);
+      later(3000,function(){ho.classList.remove('hl');press(b.querySelector('.primary'),function(){b.querySelector('.what').textContent='Writing the handoff note…';
+        later(1600,function(){unband();wipe();
+          later(450,function(){foot('Medium','59m');msg('sys','Handoff note loaded');
+            later(500,function(){msg('ai','Picking up from the note: next, log each attempt.');again(handoff,3200);});});});});});},
+    function setup(){base();chat.innerHTML='';foot('Off','60m');msg('sys','effortless installed');var b=band(SETUP);
+      later(3000,function(){press(b.querySelector('[data-pick]'),function(){
+        b.querySelector('.d').textContent='Haiku judges your prompts. No key needed.';b.querySelector('.acts').remove();foot('Medium','60m');
+        later(2400,function(){unband();later(400,function(){ask('add a test for the date parser','Medium','Added 6 cases, including leap days.',function(){again(setup,2400);});});});});});}
   ];
 
   function show(i){if(i===cur)return;cur=i;stop();
     says.forEach(function(s,k){s.classList.toggle('on',k===i)});
     story.querySelector('.pin').style.setProperty('--sc','var(--'+['accent','ice','bog','ember','accent','accent'][i]+')');
     gos.forEach(function(b,k){b.setAttribute('aria-current',k===i?'step':'false')});
-    // The window resets at once and the scene starts a beat later, after the caption has slid in.
-    base();later(900,scenes[i]);}
+    scenes[i]();}
   function onScroll(){var r=story.getBoundingClientRect(),span=story.offsetHeight-innerHeight,p=span>0?-r.top/span:0;
     show(Math.max(0,Math.min(n-1,Math.floor(p*n))));}
   gos.forEach(function(b,k){b.addEventListener('click',function(){var span=story.offsetHeight-innerHeight;
