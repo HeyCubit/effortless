@@ -1022,9 +1022,11 @@ export async function finishHandoff($: EngineInterface) {
 async function openPluginSettings($: EngineInterface) {
   // The installed skills are read here, once, not while drawing: a slow or refused lookup must not cost the panel.
   const installed = await $.command.list().catch(() => [])
+  // At most 25, handoff-like ones first: a picker with hundreds of options is more than the slot takes.
   const names = [...new Set(installed.filter(c => c.source === 'user' || c.source === 'plugin').map(c => c.name))]
     .filter(name => !name.startsWith('effortless'))
-    .sort()
+    .sort((a, b) => Number(!/handoff/i.test(a)) - Number(!/handoff/i.test(b)) || a.localeCompare(b))
+    .slice(0, 25)
   await update($, installedSkills, () => names)
   await update($, settingsOpen, () => true)
   $.ui.invalidate('ui.render')
@@ -1244,6 +1246,8 @@ function effortOf(v: Snap, inUse: ModelKey): Effort | undefined {
 }
 
 // For /effortless debug: how often the app asked for the band, when, and the last error drawing it.
+// /effortless probe N: 1 a bare box, 2 the panel's frame and header only, 3 the panel without pickers or fields.
+let probeLevel = 0
 let renderCalls = 0
 let lastRenderProps = ''
 let lastRenderBranch = ''
@@ -1334,6 +1338,12 @@ export const register: Register = (on, options) => {
     if (arg === 'handoff') {
       await startHandoff($)
       return { text: 'Writing the handoff. The chat is cleared and continues from it when it is done.' }
+    }
+    if (arg.startsWith('probe')) {
+      probeLevel = Number(arg.slice(5).trim()) || 0
+      await update($, settingsOpen, () => true)
+      $.ui.invalidate('ui.render')
+      return { text: `Probe ${probeLevel} drawn above the prompt (0 is the real panel). Tell me if you see it.` }
     }
     if (arg === 'debug') {
       const ago = (t: number) => (t ? `${Math.round((Date.now() - t) / 1000)}s ago` : 'never')
@@ -1690,6 +1700,16 @@ Saved to ${out}.md and .json` }
       // One column, a row per setting, its hint at the end. The header is three absolute layers, drawn in order (bar and
       // art, then the title, then the buttons): an absolute layer covers whatever is in the flow, so nothing of the
       // header is in the flow but a spacer that keeps its row free.
+      if (probeLevel === 1) {
+        return (
+          <Box key="probe" borderStyle="round" borderColor={BRAND_EDGE} paddingX={1}>
+            <Text>effortless probe 1: a bare box</Text>
+          </Box>
+        )
+      }
+      // Probe 2 keeps only the frame and header; probe 3 keeps the rows of buttons and text, no pickers or fields.
+      const frameOnly = probeLevel === 2
+      const bare = probeLevel === 3
       return (
         <Box key="settings" position="relative" flexDirection="column" gap={roomy ? 1 : 0} paddingX={2} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
@@ -1709,17 +1729,21 @@ Saved to ${out}.md and .json` }
             <Button key="settings-close" plain label="✕" onPress={close} />
           </Box>
           <Box key="settings-spacer" height={2} />
-          {row('settings-bias', 'Effort', [
+          {frameOnly ? null : row('settings-bias', 'Effort', [
             <Text key="cheap" dimColor>Cheaper</Text>,
             <Box key="track" flexDirection="row" alignItems="center">
               {track}
             </Box>,
             <Text key="smart" dimColor>Smarter</Text>,
-            <Box key="gap" width={2} />,
-            <Select key="settings-floor" label="Min" value={shown.floor} options={opts(EFFORTS)} onSelect={set('floor')} />,
-            <Select key="settings-ceiling" label="Max" value={shown.ceiling} options={opts(EFFORTS)} onSelect={set('ceiling')} />,
+            ...(bare
+              ? []
+              : [
+                  <Box key="gap" width={2} />,
+                  <Select key="settings-floor" label="Min" value={shown.floor} options={opts(EFFORTS)} onSelect={set('floor')} />,
+                  <Select key="settings-ceiling" label="Max" value={shown.ceiling} options={opts(EFFORTS)} onSelect={set('ceiling')} />,
+                ]),
           ])}
-          {row('settings-judge', 'Judge', [
+          {frameOnly || bare ? null : row('settings-judge', 'Judge', [
             <Select key="settings-judge-pick" value={shown.judge} options={opts(['auto', 'haiku', 'jev', 'custom'])}
               onSelect={set('judge')} />,
             ...(shown.judge === 'jev' || shown.judge === 'auto'
@@ -1735,7 +1759,7 @@ Saved to ${out}.md and .json` }
                 ]
               : []),
           ])}
-          {row('settings-handoff', 'Handoff', [
+          {frameOnly || bare ? null : row('settings-handoff', 'Handoff', [
             <Select key="settings-after-pick" value={shown.handoffAfter}
               options={[{ value: 'continue', label: 'then carry on' }, { value: 'confirm', label: 'then wait' }]}
               onSelect={set('handoffAfter')} />,
@@ -1746,7 +1770,7 @@ Saved to ${out}.md and .json` }
               ]}
               onSelect={v => set('handoffSkill')(v === '-' ? '' : v)} />,
           ])}
-          {row('settings-show', 'Show', toggles)}
+          {frameOnly ? null : row('settings-show', 'Show', toggles)}
         </Box>
       )
     }
