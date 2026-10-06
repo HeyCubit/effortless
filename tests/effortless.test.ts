@@ -2,6 +2,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter } from '../hooks/register'
+import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
 
 const BAND = {
@@ -2514,4 +2515,53 @@ describe('progress bar', () => {
     expect(await drawn(after)).toContain('swamped')
     await after.unmount()
   })
+})
+
+describe('terminal art', () => {
+  test('a frame is 16 by 2 cells of ▀, faded in from the left', () => {
+    // 32 cells of three 4-byte words: 384 bytes, 512 base64 characters.
+    expect(artFrame('swamp', 0)).toHaveLength(512)
+    for (const kind of ['cold', 'swamp', 'hot', 'down', 'brand', 'compacting', 'done'] as const) {
+      expect(artPixel(kind, 3, 0, 1)).toBe(artPixel(kind, 9, 0, 1))
+    }
+  })
+
+  test('moving kinds change over time; still ones do not', () => {
+    const frames = (kind: Parameters<typeof artFrame>[0]) => new Set(Array.from({ length: 30 }, (_, t) => artFrame(kind, t))).size
+    for (const kind of MOVING) expect(frames(kind)).toBeGreaterThan(1)
+    expect(frames('brand')).toBe(1)
+    expect(frames('done')).toBe(1)
+  })
+})
+
+describe('terminal bands', () => {
+  const start = async ($: Engine, on: On) => {
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    await $.session.start({ cwd: '.', surface: 'terminal', isInteractive: true } as never)
+  }
+  const at = (columns: number) =>
+    ({ plugin: 'effortless', surface: 'terminal', ...BAND, props: { ...BAND.props, bodyColumns: columns, maxRows: 14 } }) as never
+
+  for (const kind of ['swamp', 'cold', 'hot', 'down'] as const) {
+    test(`${kind}: art on the right when wide, none at 80 columns; the effort row stays under it`, async ($, on) => {
+      engine(on)
+      mock.clock(on)
+      await start($, on)
+      const guide = await $.ui.mount(at(120))
+      await guide.press({ key: 'setup-close' })
+      await guide.unmount()
+      await $.command.run({ command: 'effortless', args: kind } as never)
+      const wide = await $.ui.mount(at(120))
+      const text = await drawn(wide)
+      expect(text).toContain('"type":"Raster"')
+      expect(text).toContain('"children":["Effort"]')
+      await wide.unmount()
+      const narrow = await $.ui.mount(at(80))
+      const small = await drawn(narrow)
+      expect(small).not.toContain('"type":"Raster"')
+      expect(small).toContain('"children":["Effort"]')
+      await narrow.unmount()
+    })
+  }
 })
