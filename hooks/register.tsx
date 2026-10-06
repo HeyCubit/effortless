@@ -1051,10 +1051,10 @@ async function openPluginSettings($: EngineInterface) {
 
 /** The settings rows the panel changes, by field: saved as the plugin's own setting and used at once. */
 // Small purple marks beside the settings rows' titles.
-const ICON_EFFORT = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#a79cf7" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 11.5a5.5 5.5 0 0 1 11 0"/><path d="M8 11.5l3-4"/><circle cx="8" cy="11.5" r=".9" fill="#a79cf7"/></svg>`
-const ICON_JUDGE = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#a79cf7" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v11M4.5 13.5h7M3 5h10"/><path d="M3 5l-1.8 4h3.6zM13 5l-1.8 4h3.6z"/></svg>`
-const ICON_HANDOFF = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#a79cf7" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h9M8 4.5L11.5 8 8 11.5M13.5 3.5v9"/></svg>`
-const ICON_SHOW = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#a79cf7" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg>`
+const ICON_EFFORT = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#a79cf7" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><style>svg{background:transparent;display:block}</style><path d="M2.5 11.5a5.5 5.5 0 0 1 11 0"/><path d="M8 11.5l3-4"/><circle cx="8" cy="11.5" r=".9" fill="#a79cf7"/></svg>`
+const ICON_JUDGE = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#a79cf7" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><style>svg{background:transparent;display:block}</style><path d="M8 2.5v11M4.5 13.5h7M3 5h10"/><path d="M3 5l-1.8 4h3.6zM13 5l-1.8 4h3.6z"/></svg>`
+const ICON_HANDOFF = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#a79cf7" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><style>svg{background:transparent;display:block}</style><path d="M2 8h9M8 4.5L11.5 8 8 11.5M13.5 3.5v9"/></svg>`
+const ICON_SHOW = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#a79cf7" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><style>svg{background:transparent;display:block}</style><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg>`
 const SETTING_FIELDS = {
   judge: 'judge',
   bias: 'effortBias',
@@ -1758,8 +1758,10 @@ Saved to ${out}.md and .json` }
       }
       const row = (key: string, label: string, icon: string, children: unknown[]) => (
         <Box key={key} flexDirection="row" gap={1} alignItems="center">
-          <Box width={11} flexShrink={0} flexDirection="row" gap={1} alignItems="center">
-            <Svg source={icon} alt="" width={14} height={14} />
+          <Box width={13} flexShrink={0} flexDirection="row" gap={1} alignItems="center">
+            <Box flexShrink={0} width={2}>
+              <Svg source={icon} alt="" width={14} height={14} />
+            </Box>
             <Text dimColor>{label}</Text>
           </Box>
           <Box flexDirection="row" gap={1} alignItems="center" flexShrink={1}>
