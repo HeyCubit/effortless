@@ -7,7 +7,10 @@
   (0 fail), push, `<cli> plugin marketplace update effortless`, `<cli> plugin update effortless@effortless`, restart.
 - CLI on this PC: `$APPDATA/Claude/claude-code/<version>/<hash>/claude.exe` (newest folder). The agent sandbox sees a
   virtualised AppData, so Isac uses plain `claude`. `claude` on PATH is old: no `plugin test`.
-- Another chat builds a showcase site in `site/`. Leave it alone. Untracked `docs/brand/` waits for Isac.
+- Showcase site: branch `site-story` (pushed, not merged): scroll story with a big chat box, new footer, new logo
+  in `brand/`. Live Pages still shows the older main version. Waiting on Isac's OK to merge to main and republish.
+  State and do-not-repeat list: ai-setup `memory/effortless/site-design.md`. Leave `site/` and `brand/` to that work.
+  Untracked `docs/brand/` waits for Isac.
 
 ## Where things stand
 - Terminal release is live (1.34.x): alert bands draw two lines with moving half-block pixel art on the right
