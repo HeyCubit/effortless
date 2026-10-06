@@ -1140,7 +1140,7 @@ describe('setup guide', () => {
     // Branded: the name in the footer's purple.
     expect(await drawn(band)).toContain('"color":"#a79cf7"')
     expect(await drawn(band)).toContain('✦ effortless')
-    expect(await drawn(band)).toContain('Jev (recommended)')
+    expect(await drawn(band)).toContain('Jev (API Needed)')
     await band.press({ key: 'setup-haiku' })
     expect(set).toEqual([{ key: 'effortless.judge', value: 'haiku' }])
     expect(said.join(' ')).toContain('Haiku judges')
