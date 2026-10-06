@@ -25,6 +25,19 @@ export type Pick = {
   sure?: number
 }
 
+/** The settings panel's unsaved changes, by field, as the settings store them (strings). */
+export type SettingsDraft = {
+  bias?: string
+  floor?: string
+  ceiling?: string
+  judge?: string
+  handoffAfter?: string
+  handoffSkill?: string
+  customUrl?: string
+  customModel?: string
+  key?: string
+}
+
 declare module 'claude-code' {
   interface PluginState {
     effortless: {
@@ -48,6 +61,8 @@ declare module 'claude-code' {
       judgeDownHidden: string | null
       /** The effortless settings panel is open above the prompt. */
       settingsOpen: boolean
+      /** Changes made in the settings panel and not saved yet. */
+      settingsDraft: SettingsDraft
       /** The fullest usage window once past 80%, or null. */
       hot: { kind: string; percent: number; resetsAt: string | null } | null
       /** Percent at which the running-hot band was closed. */
