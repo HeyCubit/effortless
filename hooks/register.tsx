@@ -2029,13 +2029,14 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
       <Box key="dash-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
         {Svg ? buttons.slice(0, -1) : buttons}
         {Svg ? (
-          // The button sets the box, so its hover box is its own size whatever the icon's; the cog sits centred behind it
-          // and the button, drawn after, takes the click.
+          // The button sets the box, so its hover box is its own size whatever the icon's; the cog sits centred behind it.
+          // The button gets a positioned layer of its own: an absolute layer paints over plain siblings whatever their
+          // order, so without it the cog took the hover and the click.
           <Box key="dash-settings-icon" position="relative" alignItems="center" justifyContent="center">
             <Box position="absolute" top={0} right={0} bottom={0} left={0} alignItems="center" justifyContent="center">
               <Svg source={settingsSvg(DASH_TEXT)} alt="Settings" width={14} height={14} />
             </Box>
-            {buttons[buttons.length - 1]}
+            <Box position="relative">{buttons[buttons.length - 1]}</Box>
           </Box>
         ) : null}
       </Box>
