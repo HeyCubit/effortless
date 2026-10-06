@@ -2702,6 +2702,9 @@ describe('dashboard', () => {
     expect(await drawn(band)).toContain('"children":["18%"]')
     expect(await band.find({ key: 'dash-auto' })).toBeDefined()
     expect(await band.find({ key: 'dash-settings' })).toBeDefined()
+    // A drawn icon on desktop, not the word.
+    expect(await band.find({ key: 'dash-settings-icon' })).toBeDefined()
+    expect(await drawn(band)).not.toContain('"label":"Settings"')
     expect(await drawn(band)).toContain('✦ ')
     await band.press({ key: 'dash-auto' })
     expect(await drawn(band)).toContain('Auto off')
