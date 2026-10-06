@@ -1380,7 +1380,43 @@ describe('handoff', () => {
     expect(handoffMessage('x', 'confirm')).toContain('then wait for me')
   })
 
-  test('one click: the handoff is asked for, then the chat is cleared and the handoff sent into it', async ($, on) => {
+  test('the handoff is written by a fork: no turn in the chat, then cleared and sent', async ($, on) => {
+    mock.store(on)
+    mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
+    on('ui.status', () => ({ value: undefined }))
+    on('session.messages', () => ({ value: [] }) as never)
+    on('session.model', () => ({ value: 'claude-opus-5-5' }))
+    on('command.list', () => ({ value: [{ name: 'model' }, { name: 'effort' }] as never }))
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    const forked: string[] = []
+    on('model.fork', (_$, e) => {
+      forked.push(e.prompt)
+      return { value: { isAnswered: true, text: 'Goal: fork it. Next: ship.', usage: USAGE } } as never
+    })
+    const ran: string[] = []
+    on('command.run', (_$, e) => {
+      ran.push(e.command)
+      return { text: 'ok' }
+    })
+    const submitted: string[] = []
+    on('prompt.submit', (_$, e) => {
+      submitted.push(e.text)
+      return { text: e.text }
+    })
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const footer = await $.ui.mount(FOOTER)
+    await footer.press({ key: 'handoff' })
+    expect(forked).toEqual([HANDOFF_PROMPT])
+    expect(submitted).not.toContain(HANDOFF_PROMPT)
+    await mocked.advance(1500)
+    expect(ran).toContain('clear')
+    expect(submitted.at(-1)).toContain('Goal: fork it. Next: ship.')
+    await footer.unmount()
+  })
+
+  test('without a fork (no reply yet, or it failed) the handoff is written as a turn, then cleared and sent', async ($, on) => {
     // engine() without its prompt.submit, so this test can see what the mod sends.
     mock.store(on)
     mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
