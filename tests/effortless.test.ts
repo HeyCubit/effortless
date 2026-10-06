@@ -1055,7 +1055,7 @@ describe('context for the judge', () => {
     })
     await $.prompt.submit({ text: 'B', wait: false, origin: { kind: 'composer' } })
     expect(seen[0].prompt).toContain('B (a complicated multi-step layout)')
-    expect(seen[0].system).toContain('judge the work that answer starts')
+    expect(seen[0].system).toContain('judge only the work that answer starts')
     expect(seen[0].system).toContain('should I archive this?')
   })
 })

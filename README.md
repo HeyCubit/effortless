@@ -62,7 +62,7 @@ Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and 
 | `/effortless auto` | Auto on or off |
 | `/effortless stats` | what the prompts Auto steered cost this session, per effort, and what the judge took |
 | `/effortless cold` | shows the cache as cold now, to try the Compact button |
-| `/effortless bench` | runs the 52 labelled prompts in `bench/judge-cases.json` through each judge you have (Haiku, plus Jev and your own if set up) and saves a score table next to fixed medium/high |
+| `/effortless bench` | runs the 72 labelled prompts (20 held out) in `bench/judge-cases.json` through each judge you have (Haiku, plus Jev and your own if set up) and saves a score table next to fixed medium/high |
 
 ## What it saves, honestly
 
@@ -71,6 +71,29 @@ Measured over 80k requests of real Claude Code use, about 76% of the cost is the
 - Against a high default (high, xhigh) Auto saves a lot: a median xhigh prompt cost about three times a medium one.
 - Against a medium default it mostly saves a few percent, and gives hard jobs high on their own.
 - Keeping chats short and compacting before the cache goes cold often saves more than effort does. That is what the countdown is for.
+
+## How often the judge is right
+
+`/effortless bench` runs labelled prompts through each judge you have set up, using the same code a real prompt goes
+through, and scores them against a fixed effort. Each case lists the efforts a careful person would accept for that
+message on that model. The cases are in [`bench/judge-cases.json`](bench/judge-cases.json); run it yourself.
+
+Two runs on version 1.4.1, 52 cases, Sonnet and Opus 5.5:
+
+| Judge | Right | Too low | Too high | Median time |
+| --- | --- | --- | --- | --- |
+| Always medium | 44% | 12 | 17 | - |
+| Always high | 50% | 0 | 26 | - |
+| Haiku | 85-88% | 1 | 5-7 | 0.73 s |
+| Jev | 92-94% | 1 | 2 | 0.25 s |
+
+What this does and does not show:
+
+- It measures whether the judge picks a sensible effort, not how much a session costs or how good the answers are.
+- 52 cases is a small set, and the judges are not fully deterministic: runs differ by a few points.
+- The judge prompts were then tuned on these cases (1.4.2). 20 held-out cases, written before that tuning and never
+  tuned against, are reported on their own line by the bench. Quote that line, not the tuned one.
+- Weakest kind: short answers to a question ("yes", "the second one"), right 57-71% of the time.
 
 ## Models
 
