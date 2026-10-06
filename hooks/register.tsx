@@ -1000,8 +1000,8 @@ export const register: Register = (on, options) => {
         )
       const need =
         step === 'jev'
-          ? 'Jev needs a TypeSafe key. Open the settings and fill in "TypeSafe API key"; it is stored as a secret.'
-          : 'Open the settings and fill in the custom judge URL and model, and its key unless it runs locally.'
+          ? 'Jev needs a TypeSafe key (get one at typesafe.ai). Open the settings, paste it into "TypeSafe API key" and save. Restart Claude Code after saving.'
+          : 'Open the settings and fill in the custom judge URL and model, and its key unless it runs locally. Restart Claude Code after saving.'
       return (
         <Box flexDirection="column">
           <Box flexDirection="row" gap={1} alignItems="center">
@@ -1012,7 +1012,11 @@ export const register: Register = (on, options) => {
           </Box>
           <Box flexDirection="row" gap={1} alignItems="center">
             <Button key="setup-open" variant="primary" label="Open settings" onPress={openSettings} />
-            <Button key="setup-done" label="Done" onPress={() => finishSetup($)} />
+            <Button
+              key="setup-done"
+              label="Done"
+              onPress={() => finishSetup($, 'effortless: restart Claude Code so the new settings are used.')}
+            />
             <Button key="setup-back" plain dimColor label="Back" onPress={() => update($, setupStep, () => 'pick')} />
           </Box>
         </Box>
