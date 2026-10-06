@@ -41,6 +41,8 @@ const CACHE_TICK_MS = 15_000
 const CACHE_YELLOW_MIN = 20
 const CACHE_RED_MIN = 5
 const ICE = '#7cc4ff'
+const ICE_BG = '#0e1820'
+const ICE_EDGE = '#2f5c80'
 const YELLOW = '#e0a33a'
 const RED = '#e5534b'
 const isAutoModel = atom({ plugin: 'effortless', key: 'isAutoModel' } as const, false)
@@ -1221,18 +1223,31 @@ Saved to ${out}.md and .json` }
     // The cache went cold: the next message writes the whole chat again at full price. Said where it cannot be missed.
     if ((await read($, cacheLeft)) === 0 && !(await read($, isColdHidden))) {
       const compacting = await read($, isCompacting)
+      // The art is a backdrop: an absolutely placed layer behind the right side, so the words and Compact sit on it.
       return (
-        <Box flexDirection="row" gap={1} alignItems="center">
+        <Box
+          key="cold"
+          position="relative"
+          flexDirection="row"
+          gap={1}
+          alignItems="center"
+          paddingX={1}
+          overflow="hidden"
+          backgroundColor={ICE_BG}
+          borderStyle="round"
+          borderColor={ICE_EDGE}
+        >
+          <Box key="frost" position="absolute" top={0} right={0} bottom={0}>
+            <Svg source={FROST_SVG} alt="frost" width={DECOR_WIDTH} height={30} isInteractive />
+          </Box>
           <Box flexShrink={0}>
             <Text color={ICE} bold wrap="truncate">
               ❄ Chat went cold
             </Text>
           </Box>
           <Text wrap="truncate">The next message re-reads all of it at full price. Staying here? Compact first.</Text>
+          <Box flexGrow={1} />
           <Button key="cold-hide" plain dimColor label="Not now" onPress={() => update($, isColdHidden, () => true)} />
-          <Box key="frost" flexDirection="row" flexGrow={1} justifyContent="flex-end">
-            <Svg source={FROST_SVG} alt="frost" width={DECOR_WIDTH} height={30} isInteractive />
-          </Box>
           <Button key="cold-compact" variant="primary" label={compacting ? 'Compacting…' : 'Compact'} onPress={() => compactCold($)} />
         </Box>
       )
