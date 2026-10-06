@@ -85,6 +85,25 @@ const handoffPick = atom({ plugin: 'effortless', key: 'handoffPick' } as const, 
 // The context is swamped: tokens read per request, or null below the line. Drives the swamp band.
 const swamped = atom({ plugin: 'effortless', key: 'swamped' } as const, null)
 // The swamp band was closed at this many tokens; it comes back once the context has grown well past it.
+// The handoff card under the newest reply: shown from the start of a handoff, and once it lands ('done' in the
+// cleared chat, 'copied', 'newchat'). It goes with the reply after it, or HANDOFF_CARD_MS after it was set.
+type HandoffCard = { kind: 'writing' | 'done' | 'copied' | 'newchat'; full: boolean; at: number; seen: boolean }
+const handoffCard = atom({ plugin: 'effortless', key: 'handoffCard' } as const, null)
+const HANDOFF_CARD_MS = 2 * 60_000
+// The handoff card's art while it is written: sparkles carried from left to right.
+const HANDOFF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.d{fill:#d9d1ff;opacity:0;animation-name:go;animation-timing-function:ease-in-out;animation-iteration-count:infinite}@keyframes go{0%{opacity:0;transform:translate(0,0)}15%{opacity:.9}85%{opacity:.7}100%{opacity:0;transform:translate(190px,0)}}.br{animation:br 2.4s ease-in-out infinite}@keyframes br{0%,100%{opacity:.75}50%{opacity:1}}</style><defs><linearGradient id="bg" x1="0" x2="1"><stop offset=".43" stop-color="#7c6cf0" stop-opacity="0"/><stop offset=".7" stop-color="#7c6cf0" stop-opacity=".2"/><stop offset="1" stop-color="#b3a6ff" stop-opacity=".46"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".07"/></pattern></defs><g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#bg)"/><circle class="d" cx="170" cy="9.2" r="0.83" style="animation-duration:2.7s;animation-delay:-2.2s"/><circle class="d" cx="170" cy="17.8" r="0.54" style="animation-duration:2.2s;animation-delay:-3.0s"/><circle class="d" cx="170" cy="9.7" r="0.64" style="animation-duration:3.6s;animation-delay:-1.7s"/><circle class="d" cx="170" cy="22.4" r="0.79" style="animation-duration:3.1s;animation-delay:-0.5s"/><circle class="d" cx="170" cy="18.0" r="1.02" style="animation-duration:2.9s;animation-delay:-2.7s"/><circle class="d" cx="170" cy="18.8" r="0.54" style="animation-duration:3.3s;animation-delay:-2.1s"/><circle class="d" cx="170" cy="10.6" r="0.52" style="animation-duration:3.4s;animation-delay:-1.7s"/><circle class="d" cx="170" cy="19.8" r="1.03" style="animation-duration:3.2s;animation-delay:-3.3s"/><circle class="d" cx="170" cy="12.7" r="0.98" style="animation-duration:2.8s;animation-delay:-3.4s"/><circle class="d" cx="170" cy="23.3" r="0.56" style="animation-duration:2.4s;animation-delay:-0.8s"/><circle class="d" cx="170" cy="25.2" r="0.76" style="animation-duration:3.1s;animation-delay:-1.1s"/><circle class="d" cx="170" cy="15.2" r="0.73" style="animation-duration:2.7s;animation-delay:-2.1s"/><circle class="d" cx="170" cy="16.9" r="1.04" style="animation-duration:3.2s;animation-delay:-3.3s"/><circle class="d" cx="170" cy="22.8" r="1.09" style="animation-duration:3.1s;animation-delay:-0.6s"/><rect width="360" height="30" fill="url(#grain)"/></g></svg>`
+
+async function setHandoffCard($: EngineInterface, kind: HandoffCard['kind'], full: boolean, seen = false) {
+  const at = await $.clock.now()
+  await update($, handoffCard, () => ({ kind, full, at, seen }))
+  // Gone after a while even with no reply; a timer that dies with its request leaves the next reply to clear it.
+  if (kind !== 'writing') {
+    try {
+      $.clock.after(HANDOFF_CARD_MS, () => void update($, handoffCard, card => (card && card.at === at ? null : card)))
+    } catch {}
+  }
+}
+
 // The newest reply's text, so the warning card goes under its last block and nowhere else.
 const lastAnswer = atom({ plugin: 'effortless', key: 'lastAnswer' } as const, '')
 const swampHiddenAt = atom({ plugin: 'effortless', key: 'swampHiddenAt' } as const, null)
@@ -1097,6 +1116,7 @@ async function startHandoff($: EngineInterface, full = false, after: HandoffAfte
   handoffFull = full && Boolean(config.handoffSkill)
   handoffThen = after
   handoffQueued = true
+  await setHandoffCard($, 'writing', handoffFull)
 }
 
 /** The choice the handoff bar opens on: the one made last, else quick and the configured after. */
@@ -1200,6 +1220,7 @@ export async function finishHandoff($: EngineInterface) {
       // The model here starts the new chat and archives this one; the clipboard keeps the handoff should it fail.
       const message = handoffMessage(text, 'continue')
       await $.ui.copy({ text: message }).catch(() => undefined)
+      await setHandoffCard($, 'newchat', handoffFull)
       await $.prompt.submit({ text: newChatPrompt(message) })
       return
     }
@@ -1208,6 +1229,8 @@ export async function finishHandoff($: EngineInterface) {
       // refuse, it goes in the prompt box instead, to cut from there.
       const message = handoffMessage(text, 'continue')
       const copied = await $.ui.copy({ text: message }).catch(() => ({ isCopied: false as const }))
+      // Under the reply already there, so the next reply takes it away.
+      await setHandoffCard($, 'copied', handoffFull, true)
       if (copied.isCopied) $.ui.toast('effortless: handoff copied. Paste it into a new chat.')
       else {
         await $.prompt.fill({ text: message, mode: 'replace' })
@@ -1217,8 +1240,11 @@ export async function finishHandoff($: EngineInterface) {
     }
     await update($, handoffStage, () => 'clearing')
     await $.command.run({ command: 'clear', args: '' })
+    // Under the first reply of the cleared chat, gone with the one after it.
+    await setHandoffCard($, 'done', handoffFull)
     await $.prompt.submit({ text: handoffMessage(text, handoffThen) })
   } catch (error) {
+    await update($, handoffCard, () => null)
     $.ui.toast(`effortless: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`)
   } finally {
     handoffDriving = false
@@ -1750,6 +1776,10 @@ export const register: Register = (on, options) => {
     await progressAtTurnEnd($, e).catch(() => undefined)
     // The newest reply's text: its last block carries the warning card (see AssistantMessage).
     if (!e.agentId && e.reason === 'answer') await update($, lastAnswer, () => e.answer.trim())
+    // A landed handoff card stays under the first reply after it, and goes with the next.
+    if (!e.agentId) {
+      await update($, handoffCard, card => (!card || card.kind === 'writing' ? card : card.seen ? null : { ...card, seen: true }))
+    }
     if (!e.agentId && (await read($, handoffStage)) === 'writing') {
       if (e.reason === 'answer' && e.answer.trim()) handoffText = e.answer
       else {
@@ -2166,6 +2196,39 @@ Saved to ${out}.md and .json` }
     const answer = await read($, lastAnswer)
     const text = e.props.text.trim()
     if (!answer || !text || !answer.endsWith(text)) return next(e)
+    const card = await read($, handoffCard)
+    const fresh = card && (card.kind === 'writing' || (await $.clock.now()) - card.at < HANDOFF_CARD_MS) ? card : null
+    if (fresh) {
+      const { Box, Text, Svg } = $.ui.resolve(e)
+      const drawn = await next(e)
+      const by = fresh.full ? 'Full' : 'Quick'
+      const words = {
+        writing: ['✦ Handing off…', `${by} handoff being written. ${fresh.full ? 'Your skill takes a little while.' : 'A few seconds.'}`],
+        done: ['✦ Handoff complete', 'Carried on from the last chat. The old one is cleared.'],
+        copied: ['✦ Handoff copied', 'Paste it into a new chat. This one stays.'],
+        newchat: ['✦ Handoff sent on', 'A new chat starts from it; this one gets archived.'],
+      }[fresh.kind]
+      return (
+        <Box key="reply" flexDirection="column" gap={1}>
+          {drawn}
+          <Box key="reply-handoff" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
+            backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
+            {/* Moving while it is written, still once it has landed. */}
+            <Box key="reply-handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
+              {fresh.kind === 'writing' ? (
+                <Svg source={HANDOFF_SVG} alt="handing off" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} isInteractive />
+              ) : (
+                <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+              )}
+            </Box>
+            <Box key="reply-handoff-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
+              <Text color={ACCENT} bold wrap="truncate">{words[0]}</Text>
+              <Text wrap="truncate">{words[1]}</Text>
+            </Box>
+          </Box>
+        </Box>
+      )
+    }
     const warn = await turnWarning($)
     if (!warn) return next(e)
     const { Box, Text, Svg } = $.ui.resolve(e)
