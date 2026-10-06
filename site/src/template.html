@@ -154,7 +154,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 @keyframes blink{50%{opacity:0}}
 
 /* ---------- The install bar: appears once the opening has scrolled away ---------- */
-.topbar{position:fixed;top:0;left:0;right:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px max(24px,calc((100vw - 1180px)/2));background:#121214e0;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);transform:translateY(-110%);transition:transform .4s var(--ease)}
+.topbar{position:fixed;top:0;left:0;right:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px max(24px,calc((100vw - 1180px)/2));background:#121214e0;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transform:translateY(-110%);transition:transform .4s var(--ease)}
 .topbar.on{transform:none}
 .topbar .name{display:inline-flex;align-items:center;gap:8px;color:var(--text);font:500 17px var(--display);text-decoration:none}
 .topbar .name svg{width:16px;height:16px}
@@ -163,36 +163,40 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .inst:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .inst svg{width:12px;height:12px;transition:transform .25s}
 .inst[aria-expanded="true"] svg{transform:rotate(180deg)}
-.pop{position:absolute;right:max(24px,calc((100vw - 1180px)/2));top:calc(100% + 8px);width:min(540px,calc(100vw - 32px));padding:18px;border-radius:14px;background:#17161c;border:1px solid #2e2c36;box-shadow:0 30px 60px -20px #000;display:none}
+.pop{position:absolute;right:max(24px,calc((100vw - 1180px)/2));top:calc(100% + 8px);width:min(540px,calc(100vw - 32px));padding:18px;border-radius:14px;background:#17161c;box-shadow:0 30px 60px -20px #000;display:none}
 .pop.open{display:block}
 .pop p{margin:0;color:var(--muted);font-size:14px}
 .pop .cmds{margin-top:12px}
 
 /* ---------- The story: one Claude Code window, one feature at a time ---------- */
 .story{position:relative;height:calc(var(--n) * 90vh + 10vh)}
-.pin{position:sticky;top:0;height:100vh;display:grid;grid-template-columns:minmax(0,400px) minmax(0,620px);gap:72px;align-items:center;justify-content:center;padding:84px 32px 32px}
-.feats{list-style:none;margin:0 0 40px;padding:0;display:flex;flex-wrap:wrap;gap:6px}
-.feats button{font:500 13px var(--sans);color:var(--muted);background:none;border:1px solid var(--line);border-radius:99px;padding:6px 12px;cursor:pointer;transition:color .2s,background .2s,border-color .2s}
-.feats button:hover{color:var(--text);border-color:#3a3842}
-.feats button.on{color:#141218;background:#f1f0f4;border-color:#f1f0f4}
-.feats button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pin{--sc:var(--accent);position:sticky;isolation:isolate;top:0;height:100vh;display:grid;grid-template-columns:minmax(0,400px) minmax(0,620px);gap:72px;align-items:center;justify-content:center;padding:84px 32px 32px}
+.pin:before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(45% 55% at 72% 52%,color-mix(in srgb,var(--sc) 11%,transparent),transparent 72%),radial-gradient(#2a2733 1.1px,transparent 1.5px) 0 0/22px 22px;-webkit-mask-image:radial-gradient(75% 80% at 60% 50%,#000 40%,transparent);mask-image:radial-gradient(75% 80% at 60% 50%,#000 40%,transparent);transition:background .6s}
+.feats{list-style:none;margin:0 0 40px;padding:0;display:grid;gap:8px;max-width:360px}
+.feats li{margin-left:calc(var(--i) * 14px)}
+.feats .band{width:100%;min-height:42px;padding:8px 14px;font:inherit;font-size:13.5px;text-align:left;cursor:pointer;filter:grayscale(1) brightness(.62);transition:filter .45s,transform .5s var(--ease),box-shadow .45s}
+.feats .band:before{top:-8px;bottom:-8px;width:300px}
+.feats .band:hover{filter:grayscale(.5) brightness(.85)}
+.feats .band.on{filter:none;transform:translateX(-10px);box-shadow:0 18px 40px -24px var(--c)}
+.feats .band:focus-visible{outline:2px solid var(--c);outline-offset:2px}
 .caps{position:relative;min-height:260px}
 .say{position:absolute;inset:0 0 auto 0;opacity:0;transform:translateX(-32px);transition:opacity .45s var(--ease),transform .8s var(--ease);pointer-events:none}
 .say.on{opacity:1;transform:none;pointer-events:auto}
 .say h3{margin:0 0 14px;font:500 clamp(28px,3vw,40px)/1.1 var(--display);letter-spacing:-.02em;color:#f4f2ff;text-wrap:balance}
 .say p{margin:0;color:#c3bfd2;font-size:17px;line-height:1.6;max-width:28em}
-.say .fine{margin-top:16px;color:var(--dim);font-size:14px}
-.say kbd{font:inherit;padding:1px 6px;border-radius:5px;border:1px solid var(--key);color:var(--text)}
+.say .fine{margin-top:16px;color:var(--sc);font-size:14px;opacity:.85}
+.say kbd{font:inherit;padding:1px 6px;border-radius:5px;background:#2a2930;color:var(--text)}
 
-.win{position:relative;display:flex;flex-direction:column;height:min(580px,calc(100vh - 150px));border-radius:16px;background:#141417;border:1px solid #2a2930;box-shadow:0 50px 90px -50px #000,0 0 0 1px #00000066;overflow:hidden}
-.win:before{content:"";position:absolute;inset:-30% -30% auto auto;width:70%;height:70%;background:radial-gradient(closest-side,#a79cf714,transparent);pointer-events:none}
-.win-top{display:flex;align-items:center;gap:7px;padding:12px 14px;border-bottom:1px solid #222227;color:var(--dim);font-size:12.5px}
+.win{position:relative;display:flex;flex-direction:column;height:min(580px,calc(100vh - 150px));border-radius:16px;background:#141417;box-shadow:0 60px 120px -50px color-mix(in srgb,var(--sc) 40%,#000),0 30px 60px -30px #000;transition:box-shadow .6s;overflow:hidden}
+.win:before{content:"";position:absolute;inset:-30% -30% auto auto;width:70%;height:70%;background:radial-gradient(closest-side,color-mix(in srgb,var(--sc) 12%,transparent),transparent);pointer-events:none}
+.win-top{display:flex;align-items:center;gap:7px;padding:13px 14px 6px;color:var(--dim);font-size:12.5px}
 .win-top i{width:10px;height:10px;border-radius:50%;background:#2c2c32}
 .win-top span{margin-left:8px}
 .chat{flex:1;min-height:0;overflow:hidden;padding:18px 22px 14px;display:flex;flex-direction:column;justify-content:flex-end;gap:12px}
 .msg{max-width:86%;font-size:14px;line-height:1.5;color:#cfccd9;animation:msg-in .45s var(--ease) both}
 .msg.me{align-self:flex-end;background:#232229;border-radius:12px;padding:8px 12px;color:var(--text)}
-.msg.sys{align-self:center;color:var(--muted);font-size:12.5px;border:1px solid #2e2c36;border-radius:99px;padding:4px 12px}
+.msg.sys{align-self:center;color:var(--sc);font-size:12.5px;font-weight:500}
+.msg.sys:before{content:"✦ "}
 .msg.gone{animation:msg-out .4s var(--ease) both}
 @keyframes msg-in{from{opacity:0;transform:translateY(8px)}}
 @keyframes msg-out{to{opacity:0;transform:translateY(-10px)}}
@@ -215,21 +219,23 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .inst-sec .cta{margin-top:28px}
 .inst-sec code.f{font:13.5px ui-monospace,"Cascadia Code",Consolas,monospace;color:#d8d4ee;background:#1c1b22;padding:2px 6px;border-radius:5px}
 .cmds{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-top:32px;max-width:640px}
-.cmd{display:flex;align-items:center;gap:12px;background:#0c0c0f;border:1px solid var(--line);border-radius:12px;padding:8px 8px 8px 18px}
+.cmd{display:flex;align-items:center;gap:12px;background:#1b1a21;border-radius:12px;padding:8px 8px 8px 18px}
 .cmd code{flex:1;min-width:0;overflow-x:auto;white-space:nowrap;background:none;padding:6px 0;font:14.5px ui-monospace,"Cascadia Code",Consolas,monospace;color:var(--text)}
 .cmd code:before{content:"›";color:var(--accent);margin-right:10px;user-select:none}
-.copy{display:inline-flex;align-items:center;gap:7px;font:500 13px var(--sans);color:var(--text);background:#1f1e25;border:1px solid #2e2c36;border-radius:8px;padding:8px 12px;cursor:pointer;flex-shrink:0}
-.copy:hover{background:#2a2832}.copy svg{width:14px;height:14px}
+.copy{display:inline-flex;align-items:center;gap:7px;font:500 13px var(--sans);color:var(--text);background:#2a2932;border:0;border-radius:8px;padding:8px 12px;cursor:pointer;flex-shrink:0}
+.copy:hover{background:#34333d}.copy svg{width:14px;height:14px}
 .copy:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.copy.ok{color:var(--bog);border-color:var(--bog-edge)}
+.copy.ok{color:var(--bog)}
 
 /* ---------- Narrow screens: the window on top, the words under it ---------- */
 @media (max-width:960px){
   .pin{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto;align-content:start;gap:18px;padding:64px 16px 16px}
   .win{order:-1;height:min(400px,56vh)}
-  .feats{margin:0 0 14px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .feats{display:flex;max-width:none;margin:0 -16px 14px;padding:4px 16px 10px;overflow-x:auto;scrollbar-width:none}
   .feats::-webkit-scrollbar{display:none}
-  .feats button{white-space:nowrap}
+  .feats li{margin-left:0;flex-shrink:0}
+  .feats .band{min-height:36px;padding:6px 12px;font-size:12.5px;white-space:nowrap}
+  .feats .band.on{transform:none}
   .caps{min-height:190px}
   .say h3{font-size:24px;margin-bottom:8px}
   .say p{font-size:15px}
@@ -348,12 +354,12 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
     <div class="pin">
       <div class="side">
         <ol class="feats">
-          <li><button type="button" data-go="0">Effort</button></li>
-          <li><button type="button" data-go="1">Cold cache</button></li>
-          <li><button type="button" data-go="2">Swamped</button></li>
-          <li><button type="button" data-go="3">Running hot</button></li>
-          <li><button type="button" data-go="4">Handoff</button></li>
-          <li><button type="button" data-go="5">Setup</button></li>
+          <li style="--i:0"><button type="button" class="band brand" data-go="0"><span class="t">✦ Effort</span></button></li>
+          <li style="--i:1"><button type="button" class="band ice" data-go="1"><span class="t">✦ Cold cache</span></button></li>
+          <li style="--i:2"><button type="button" class="band bog" data-go="2"><span class="t">✦ Swamped</span></button></li>
+          <li style="--i:3"><button type="button" class="band ember" data-go="3"><span class="t">✦ Running hot</span></button></li>
+          <li style="--i:4"><button type="button" class="band brand" data-go="4"><span class="t">⇥ Handoff</span></button></li>
+          <li style="--i:5"><button type="button" class="band brand" data-go="5"><span class="t">✦ Setup</span></button></li>
         </ol>
         <div class="caps">
           <div class="say" data-i="0"><h3>Every prompt gets the effort it needs.</h3><p>Before a prompt runs, a small judge reads it. A rename gets Low, a migration plan gets XHigh. You never open the Effort menu.</p><p class="fine">Right on 95 to 100% of prompts it was never tuned on.</p></div>
@@ -487,6 +493,7 @@ document.addEventListener('click',function(e){
 
   function show(i){if(i===cur)return;cur=i;stop();
     says.forEach(function(s,k){s.classList.toggle('on',k===i)});
+    story.querySelector('.pin').style.setProperty('--sc','var(--'+['accent','ice','bog','ember','accent','accent'][i]+')');
     feats.forEach(function(b,k){b.classList.toggle('on',k===i);b.setAttribute('aria-current',k===i?'step':'false')});
     // On a phone the names scroll sideways; keep the current one in view.
     var list=feats[i].closest('ol');list.scrollLeft=feats[i].parentNode.offsetLeft-16;
