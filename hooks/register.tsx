@@ -990,28 +990,31 @@ export const register: Register = (on, options) => {
       if (step === 'pick')
         return (
           <Box flexDirection="row" gap={1} alignItems="center">
-            <Text color={ACCENT} bold>
-              ✦ effortless
-            </Text>
-            <Text>Who picks the effort?</Text>
-            <Button key="setup-jev" variant="primary" label="Jev (API Needed)" onPress={() => pickJudge($, 'jev')} />
+            <Box flexShrink={0}>
+              <Text color={ACCENT} bold wrap="truncate">
+                ✦ effortless
+              </Text>
+            </Box>
+            <Text wrap="truncate">Who picks the effort?</Text>
+            <Button key="setup-jev" variant="primary" label="Jev (API)" onPress={() => pickJudge($, 'jev')} />
             <Button key="setup-haiku" label="Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />
-            <Button key="setup-custom" label="Your own AI" onPress={() => pickJudge($, 'custom')} />
-            <Button key="setup-later" plain dimColor label="Later" onPress={() => finishSetup($)} />
+            <Button key="setup-later" plain dimColor label="⏎" onPress={() => finishSetup($)} />
             <Box flexGrow={1} />
             {brand}
           </Box>
         )
       const need =
         step === 'jev'
-          ? 'Paste a TypeSafe key (typesafe.ai) into "TypeSafe API key", save. Restart Claude Code after saving.'
-          : 'Fill in the custom judge URL, model and key, save. Restart Claude Code after saving.'
+          ? 'Paste a TypeSafe key (typesafe.ai) in settings, then restart.'
+          : 'Fill in URL, model and key in settings, then restart.'
       return (
         <Box flexDirection="row" gap={1} alignItems="center">
-          <Text color={ACCENT} bold>
-            ✦ effortless
-          </Text>
-          <Text>{need}</Text>
+          <Box flexShrink={0}>
+            <Text color={ACCENT} bold wrap="truncate">
+              ✦ effortless
+            </Text>
+          </Box>
+          <Text wrap="truncate">{need}</Text>
           <Button key="setup-open" variant="primary" label="Open settings" onPress={openSettings} />
           <Button
             key="setup-done"
