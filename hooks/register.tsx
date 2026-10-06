@@ -1732,7 +1732,8 @@ async function progressAtTurnEnd($: EngineInterface, e: { agentId?: string; reas
   if (!p) return
   const { next, cue } = atTurnEnd(p, e, endsOnQuestion)
   await update($, progressState, () => next)
-  queueCue(config.hide, cue)
+  // A chime only with a bar to see: a list the person closed, or one too short to show, stays quiet.
+  if (progressShows(next, await read($, progressHiddenState), 'active')) queueCue(config.hide, cue)
 }
 
 // The moving art's timer: one at a time, blitting the next frame to the band that drew it. A blit the surface refuses

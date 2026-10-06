@@ -25,6 +25,8 @@ const LOOKS: Record<Progress['phase'], { color: string; bg: string; edge: string
 const RUN = 160
 
 const progressState = atom({ plugin: 'effortless', key: 'progress' } as const, null)
+// The list the person closed with ✕, as register.tsx sets it; read here only.
+const progressHidden = atom({ plugin: 'effortless', key: 'progressHidden' } as const, null)
 
 export type Cue = 'question' | 'done'
 
@@ -206,7 +208,8 @@ export function registerProgress(on: On, hidden: () => readonly string[]) {
       const shown = Boolean(p && (p.phase === 'working' || p.phase === 'paused') && p.steps.length >= MIN_STEPS)
       if (shown) {
         await update($, progressState, cur => (cur ? { ...cur, phase: 'asking' } : cur))
-        queueCue(hidden(), 'question')
+        // A chime only with a bar to see: a list the person closed asks quietly.
+        if (p && (await read($, progressHidden)) !== stepsKey(p.steps)) queueCue(hidden(), 'question')
       }
       const result = await next(e)
       if (shown) await update($, progressState, cur => (cur?.phase === 'asking' ? { ...cur, phase: 'working' } : cur))
