@@ -2086,6 +2086,8 @@ Saved to ${out}.md and .json` }
     const handoffNow = (await read($, handoffStage)) !== null
     const needsSetup = await read($, setupPending)
     const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
+    // Save mode paints the level in the running-hot band's ember until the limit resets.
+    const saving = (await read($, saveUntil)) !== null
     const label = v.judging
       ? 'Deciding…'
       : v.switchedNow
@@ -2104,7 +2106,7 @@ Saved to ${out}.md and .json` }
             {' Paused '}
           </Text>
         ) : v.auto ? (
-          <Text color={ACCENT} bold hover={{ scope: 'effort', backgroundColor: HOVER_BOX }}>
+          <Text color={saving ? EMBER : ACCENT} bold hover={{ scope: 'effort', backgroundColor: HOVER_BOX }}>
             {` ${label} `}
           </Text>
         ) : (
