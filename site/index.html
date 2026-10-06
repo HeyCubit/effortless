@@ -172,13 +172,18 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .story{position:relative;height:calc(var(--n) * 90vh + 10vh)}
 .pin{--sc:var(--accent);position:sticky;isolation:isolate;top:0;height:100vh;display:grid;grid-template-columns:minmax(0,400px) minmax(0,620px);gap:72px;align-items:center;justify-content:center;padding:84px 32px 32px}
 .pin:before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(45% 55% at 72% 52%,color-mix(in srgb,var(--sc) 11%,transparent),transparent 72%),radial-gradient(#2a2733 1.1px,transparent 1.5px) 0 0/22px 22px;-webkit-mask-image:radial-gradient(75% 80% at 60% 50%,#000 40%,transparent);mask-image:radial-gradient(75% 80% at 60% 50%,#000 40%,transparent);transition:background .6s}
-.feats{list-style:none;margin:0 0 40px;padding:0;display:grid;gap:8px;max-width:360px}
-.feats li{margin-left:calc(var(--i) * 14px)}
-.feats .band{width:100%;min-height:42px;padding:8px 14px;font:inherit;font-size:13.5px;text-align:left;cursor:pointer;filter:grayscale(1) brightness(.62);transition:filter .45s,transform .5s var(--ease),box-shadow .45s}
-.feats .band:before{top:-8px;bottom:-8px;width:300px}
-.feats .band:hover{filter:grayscale(.5) brightness(.85)}
-.feats .band.on{filter:none;transform:translateX(-10px);box-shadow:0 18px 40px -24px var(--c)}
-.feats .band:focus-visible{outline:2px solid var(--c);outline-offset:2px}
+/* One band at a time: they share a cell, the current one slides in from the left, the one before it leaves to the right. */
+.feats{list-style:none;margin:0 0 30px;padding:0;display:grid;max-width:380px}
+.feats li{grid-area:1/1}
+.feats .band{min-height:60px;padding:14px 20px;font-size:17px;opacity:0;transform:translateX(-48px);transition:opacity .4s var(--ease),transform .8s var(--ease),box-shadow .6s}
+.feats .band:before{top:-10px;bottom:-10px;width:340px}
+.feats .band.past{transform:translateX(36px)}
+.feats .band.on{opacity:1;transform:none;box-shadow:0 26px 60px -26px var(--c)}
+.go{display:flex;gap:4px;margin:0 0 26px -10px}
+.go button{font:500 15px var(--display);color:var(--dim);background:none;border:0;padding:6px 10px;cursor:pointer;font-variant-numeric:tabular-nums;transition:color .3s}
+.go button:hover{color:var(--text)}
+.go button[aria-current="step"]{color:var(--sc)}
+.go button:focus-visible{outline:2px solid var(--sc);outline-offset:1px;border-radius:6px}
 .caps{position:relative;min-height:260px}
 .say{position:absolute;inset:0 0 auto 0;opacity:0;transform:translateX(-32px);transition:opacity .45s var(--ease),transform .8s var(--ease);pointer-events:none}
 .say.on{opacity:1;transform:none;pointer-events:auto}
@@ -231,11 +236,9 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 @media (max-width:960px){
   .pin{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto;align-content:start;gap:18px;padding:64px 16px 16px}
   .win{order:-1;height:min(400px,56vh)}
-  .feats{display:flex;max-width:none;margin:0 -16px 14px;padding:4px 16px 10px;overflow-x:auto;scrollbar-width:none}
-  .feats::-webkit-scrollbar{display:none}
-  .feats li{margin-left:0;flex-shrink:0}
-  .feats .band{min-height:36px;padding:6px 12px;font-size:12.5px;white-space:nowrap}
-  .feats .band.on{transform:none}
+  .feats{margin-bottom:10px;max-width:none}
+  .feats .band{min-height:46px;padding:10px 16px;font-size:15px}
+  .go{margin-bottom:12px}
   .caps{min-height:190px}
   .say h3{font-size:24px;margin-bottom:8px}
   .say p{font-size:15px}
@@ -354,13 +357,14 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
     <div class="pin">
       <div class="side">
         <ol class="feats">
-          <li style="--i:0"><button type="button" class="band brand" data-go="0"><span class="t">✦ Effort</span></button></li>
-          <li style="--i:1"><button type="button" class="band ice" data-go="1"><span class="t">✦ Cold cache</span></button></li>
-          <li style="--i:2"><button type="button" class="band bog" data-go="2"><span class="t">✦ Swamped</span></button></li>
-          <li style="--i:3"><button type="button" class="band ember" data-go="3"><span class="t">✦ Running hot</span></button></li>
-          <li style="--i:4"><button type="button" class="band brand" data-go="4"><span class="t">⇥ Handoff</span></button></li>
-          <li style="--i:5"><button type="button" class="band brand" data-go="5"><span class="t">✦ Setup</span></button></li>
+          <li><div class="band brand"><span class="t">✦ Effort</span></div></li>
+          <li><div class="band ice"><span class="t">✦ Cold cache</span></div></li>
+          <li><div class="band bog"><span class="t">✦ Swamped</span></div></li>
+          <li><div class="band ember"><span class="t">✦ Running hot</span></div></li>
+          <li><div class="band brand"><span class="t">⇥ Handoff</span></div></li>
+          <li><div class="band brand"><span class="t">✦ Setup</span></div></li>
         </ol>
+        <div class="go"><button type="button" data-go="0" aria-label="Effort">1</button><button type="button" data-go="1" aria-label="Cold cache">2</button><button type="button" data-go="2" aria-label="Swamped">3</button><button type="button" data-go="3" aria-label="Running hot">4</button><button type="button" data-go="4" aria-label="Handoff">5</button><button type="button" data-go="5" aria-label="Setup">6</button></div>
         <div class="caps">
           <div class="say" data-i="0"><h3>Every prompt gets the effort it needs.</h3><p>Before a prompt runs, a small judge reads it. A rename gets Low, a migration plan gets XHigh. You never open the Effort menu.</p><p class="fine">Right on 95 to 100% of prompts it was never tuned on.</p></div>
           <div class="say" data-i="1"><h3>It tells you when the cache goes cold.</h3><p>The footer counts down how long the prompt cache stays warm. When it runs out, one click compacts the chat, so the next message does not pay to write it all again.</p><p class="fine">Yellow from 20 minutes, red from 5.</p></div>
@@ -433,7 +437,7 @@ document.addEventListener('click',function(e){
 // The story: one window stays put while the page scrolls, and each step plays one feature in it.
 (function(){
   var story=document.getElementById('how');if(!story)return;
-  var says=story.querySelectorAll('.say'),feats=story.querySelectorAll('[data-go]'),n=says.length;
+  var says=story.querySelectorAll('.say'),feats=story.querySelectorAll('.feats .band'),gos=story.querySelectorAll('[data-go]'),n=says.length;
   var chat=document.getElementById('w-chat'),slot=document.getElementById('w-slot'),lvl=document.getElementById('w-lvl'),cache=document.getElementById('w-cache');
   var text=document.getElementById('w-text'),ph=document.getElementById('w-ph'),send=document.getElementById('w-send'),ho=document.getElementById('w-ho'),title=document.getElementById('w-title');
   var still=matchMedia('(prefers-reduced-motion: reduce)').matches,timers=[],cur=-1;
@@ -448,8 +452,8 @@ document.addEventListener('click',function(e){
   function type(s,done){if(still){input(s);return later(0,done);}var k=0;(function step(){input(s.slice(0,++k));if(k<s.length)later(28+Math.random()*30,step);else later(380,done);})();}
   function press(el,done){if(!el)return done&&done();el.classList.remove('press');void el.offsetWidth;el.classList.add('press');later(420,done||function(){});}
   function ask(s,level,reply,done){type(s,function(){input('');msg('me',s);var prev=lvl.textContent;lvl.textContent='Deciding…';
-    later(650,function(){lvl.textContent=prev===level?level:prev+' → '+level;msg('ai',reply);later(1300,function(){lvl.textContent=level;done&&done();});});});}
-  function base(){chat.innerHTML='';slot.innerHTML='';input('');ho.classList.remove('hl');title.textContent='Claude Code';foot('Medium','42m');
+    later(650,function(){lvl.textContent=prev===level?level:prev+' → '+level;lvl.classList.add('hl');msg('ai',reply);later(1300,function(){lvl.textContent=level;lvl.classList.remove('hl');done&&done();});});});}
+  function base(){chat.innerHTML='';slot.innerHTML='';input('');ho.classList.remove('hl');lvl.classList.remove('hl');title.textContent='Claude Code';foot('Medium','42m');
     msg('me','the login test fails about one run in five');
     msg('ai','Found it. The session cookie is read before the mock server sets it. I moved the wait into the fixture and ran the suite 20 times: all green.');}
   function again(f,ms){if(!still)later(ms||2600,f);}
@@ -459,49 +463,47 @@ document.addEventListener('click',function(e){
       ask('rename this variable to userId','Low','Renamed in 4 files.',function(){
         ask('plan the billing migration, all services','XHigh','Here is a plan in five stages, starting with the read path…',function(){
           ask('add a test for the date parser','Medium','Added 6 cases, including leap days.',function(){again(effort);});});});},
-    function cold(){base();var m=6;foot('Medium','6m','bad');
-      (function tick(){m--;if(m>0){foot('Medium',m+'m','bad');later(420,tick);return;}
+    function cold(){base();var m=3;foot('Medium','3m','bad');
+      (function tick(){m--;if(m>0){foot('Medium',m+'m','bad');later(450,tick);return;}
         foot('Medium','Cold','bad');
-        later(500,function(){var b=band('<div class="band ice"><span class="t">✦ Chat went cold</span><span class="d">Next message costs full price. Compact first.</span><span class="acts"><span class="btn">Not now</span><span class="btn primary">Compact</span></span></div>');
-          later(1500,function(){press(b.querySelector('.primary'),function(){unband();wipe();
-            later(450,function(){msg('sys','Chat compacted');foot('Medium','59m');again(cold,3000);});});});});})();},
+        later(400,function(){var b=band('<div class="band ice"><span class="t">✦ Chat went cold</span><span class="d">Next message costs full price. Compact first.</span><span class="acts"><span class="btn">Not now</span><span class="btn primary">Compact</span></span></div>');
+          later(3600,function(){press(b.querySelector('.primary'),function(){unband();wipe();
+            later(450,function(){msg('sys','Chat compacted');foot('Medium','59m');again(cold,2000);});});});});})();},
     function swamp(){base();
-      later(300,function(){msg('me','now the retry logic');});
-      later(900,function(){msg('ai','Retries now back off from 200 ms to 6 s, and give up after 5 tries.');});
-      later(1500,function(){msg('me','and log each attempt');});
-      later(2100,function(){var b=band('<div class="band bog"><span class="t">✦ Chat is getting swamped</span><span class="ring"><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%3E%3Ccircle%20cx%3D%228%22%20cy%3D%228%22%20r%3D%226%22%20fill%3D%22none%22%20stroke%3D%22%23a7c98f%22%20stroke-opacity%3D%22.25%22%20stroke-width%3D%222.2%22%2F%3E%3Ccircle%20cx%3D%228%22%20cy%3D%228%22%20r%3D%226%22%20fill%3D%22none%22%20stroke%3D%22%23a7c98f%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-dasharray%3D%2227.14%2037.70%22%20transform%3D%22rotate%28-90%208%208%29%22%2F%3E%3C%2Fsvg%3E" alt="">72%</span><span class="d">180k tokens re-read every message.</span><span class="acts"><span class="btn primary">Compact <span class="k">C</span></span><span class="btn">Handoff <span class="k">H</span></span></span></div>');
-        later(1900,function(){press(b.querySelector('.primary'),function(){unband();wipe();
-          later(450,function(){msg('sys','Chat compacted');again(swamp,3000);});});});});},
+      later(0,function(){msg('me','now the retry logic');});
+      later(500,function(){msg('ai','Retries now back off from 200 ms to 6 s, and give up after 5 tries.');});
+      later(1000,function(){var b=band('<div class="band bog"><span class="t">✦ Chat is getting swamped</span><span class="ring"><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%3E%3Ccircle%20cx%3D%228%22%20cy%3D%228%22%20r%3D%226%22%20fill%3D%22none%22%20stroke%3D%22%23a7c98f%22%20stroke-opacity%3D%22.25%22%20stroke-width%3D%222.2%22%2F%3E%3Ccircle%20cx%3D%228%22%20cy%3D%228%22%20r%3D%226%22%20fill%3D%22none%22%20stroke%3D%22%23a7c98f%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-dasharray%3D%2227.14%2037.70%22%20transform%3D%22rotate%28-90%208%208%29%22%2F%3E%3C%2Fsvg%3E" alt="">72%</span><span class="d">180k tokens re-read every message.</span><span class="acts"><span class="btn primary">Compact <span class="k">C</span></span><span class="btn">Handoff <span class="k">H</span></span></span></div>');
+        later(3600,function(){press(b.querySelector('.primary'),function(){unband();wipe();
+          later(450,function(){msg('sys','Chat compacted');again(swamp,2000);});});});});},
     function hot(){base();
-      later(400,function(){var b=band('<div class="band ember"><span class="t">✦ Running hot</span><span class="d">84% of your 5h limit used · resets 16:20</span><span class="acts"><span class="btn primary">Save mode</span></span></div>');
-        later(1600,function(){press(b.querySelector('.primary'),function(){unband();msg('sys','Save mode on until 16:20');
+      later(0,function(){var b=band('<div class="band ember"><span class="t">✦ Running hot</span><span class="d">84% of your 5h limit used · resets 16:20</span><span class="acts"><span class="btn primary">Save mode</span></span></div>');
+        later(3400,function(){press(b.querySelector('.primary'),function(){unband();msg('sys','Save mode on until 16:20');
           later(700,function(){ask('plan the billing migration, all services','Medium','Here is a plan in five stages…',function(){again(hot,2400);});});});});});},
     function handoff(){base();msg('me','nice, now the retry logic');msg('ai','Done. Retries back off from 200 ms to 6 s.');
-      later(700,function(){ho.classList.add('hl');press(ho,function(){ho.classList.remove('hl');
+      later(400,function(){ho.classList.add('hl');press(ho,function(){ho.classList.remove('hl');
         var b=band('<div class="band brand handoff"><span class="words"><span class="t">⇥ Handoff</span><span class="what">Done in seconds. Clears chat, carries on.</span></span><span class="acts"><span class="btn secondary">Quick <span class="k">Q</span></span><span class="btn dim">Full <span class="k">F</span></span><span class="btn primary">Go</span></span></div>');
-        later(1500,function(){press(b.querySelector('.primary'),function(){b.querySelector('.what').textContent='Writing the handoff note…';
-          later(1100,function(){unband();wipe();
+        later(2800,function(){press(b.querySelector('.primary'),function(){b.querySelector('.what').textContent='Writing the handoff note…';
+          later(1600,function(){unband();wipe();
             later(450,function(){title.textContent='Claude Code · fresh chat';foot('Medium','59m');msg('sys','Handoff note loaded');
               later(500,function(){msg('ai','Picking up from the handoff: the flaky login test is fixed and retries back off. Next up, logging each attempt.');again(handoff,3200);});});});});});});});},
     function setup(){chat.innerHTML='';slot.innerHTML='';input('');title.textContent='Claude Code · first run';foot('Off','60m');
       msg('sys','effortless installed');
-      later(500,function(){var b=band('<div class="band brand"><span class="t">✦ effortless</span><span class="d">Who picks the effort?</span><span class="acts"><span class="mark"><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2218%22%20viewBox%3D%220%200%2016.487%2024%22%3E%3Cstyle%3Esvg%7Bbackground%3Atransparent%3Bdisplay%3Ablock%7D%3C%2Fstyle%3E%3Cpath%20d%3D%22M%2012.756%202.928%20L%2012.756%207.067%20L%2016.486%209.487%20L%2016.487%2018.652%20L%208.244%2024%20L%203.732%2021.073%20L%203.732%2016.82%20L%200%2014.399%20L%200%205.35%20L%200.355%205.118%20L%208.244%200%20Z%20M%205.94%2020.65%20L%208.242%2022.144%20L%2014.275%2018.227%20L%2011.975%2016.735%20Z%20M%209.022%2010.332%20L%209.022%2014.4%20L%205.29%2016.822%20L%205.29%2019.216%20L%2011.197%2015.383%20L%2011.197%208.921%20Z%20M%2012.756%2015.384%20L%2014.928%2016.794%20L%2014.928%2010.332%20L%2012.756%208.922%20Z%20M%202.21%2013.976%20L%204.511%2015.47%20L%206.812%2013.976%20L%204.512%2012.485%20Z%20M%201.559%206.193%20L%201.559%2012.544%20L%203.731%2011.134%20L%203.731%207.066%20L%207.464%204.643%20L%207.464%202.36%20L%201.56%206.193%20Z%20M%205.291%2011.132%20L%207.463%2012.542%20L%207.463%2010.332%20L%205.292%208.921%20L%205.292%2011.132%20Z%20M%205.94%207.487%20L%208.244%208.981%20L%2010.544%207.488%20L%208.244%205.994%20Z%20M%209.024%204.643%20L%2011.196%206.054%20L%2011.196%203.774%20L%209.024%202.359%20Z%22%20fill%3D%22%23ffffff%22%2F%3E%3C%2Fsvg%3E" alt="" width="12" height="18"><span class="btn primary">Jev (API)</span></span><span class="mark"><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%20248%20248%22%3E%3Cstyle%3Esvg%7Bbackground%3Atransparent%3Bdisplay%3Ablock%7D%3C%2Fstyle%3E%3Cpath%20d%3D%22M52.4285%20162.873L98.7844%20136.879L99.5485%20134.602L98.7844%20133.334H96.4921L88.7237%20132.862L62.2346%20132.153L39.3113%20131.207L17.0249%20130.026L11.4214%20128.844L6.2%20121.873L6.7094%20118.447L11.4214%20115.257L18.171%20115.847L33.0711%20116.911L55.485%20118.447L71.6586%20119.392L95.728%20121.873H99.5485L100.058%20120.337L98.7844%20119.392L97.7656%20118.447L74.5877%20102.732L49.4995%2086.1905L36.3823%2076.62L29.3779%2071.7757L25.8121%2067.2858L24.2839%2057.3608L30.6515%2050.2716L39.3113%2050.8623L41.4763%2051.4531L50.2636%2058.1879L68.9842%2072.7209L93.4357%2090.6804L97.0015%2093.6343L98.4374%2092.6652L98.6571%2091.9801L97.0015%2089.2625L83.757%2065.2772L69.621%2040.8192L63.2534%2030.6579L61.5978%2024.632C60.9565%2022.1032%2060.579%2020.0111%2060.579%2017.4246L67.8381%207.49965L71.9133%206.19995L81.7193%207.49965L85.7946%2011.0443L91.9074%2024.9865L101.714%2046.8451L116.996%2076.62L121.453%2085.4816L123.873%2093.6343L124.764%2096.1155H126.292V94.6976L127.566%2077.9197L129.858%2057.3608L132.15%2030.8942L132.915%2023.4505L136.608%2014.4708L143.994%209.62643L149.725%2012.344L154.437%2019.0788L153.8%2023.4505L150.998%2041.6463L145.522%2070.1215L141.957%2089.2625H143.994L146.414%2086.7813L156.093%2074.0206L172.266%2053.698L179.398%2045.6635L187.803%2036.802L193.152%2032.5484H203.34L210.726%2043.6549L207.415%2055.1159L196.972%2068.3492L188.312%2079.5739L175.896%2096.2095L168.191%20109.585L168.882%20110.689L170.738%20110.53L198.755%20104.504L213.91%20101.787L231.994%2098.7149L240.144%20102.496L241.036%20106.395L237.852%20114.311L218.495%20119.037L195.826%20123.645L162.07%20131.592L161.696%20131.893L162.137%20132.547L177.36%20133.925L183.855%20134.279H199.774L229.447%20136.524L237.215%20141.605L241.8%20147.867L241.036%20152.711L229.065%20158.737L213.019%20154.956L175.45%20145.977L162.587%20142.787H160.805V143.85L171.502%20154.366L191.242%20172.089L215.82%20195.011L217.094%20200.682L213.91%20205.172L210.599%20204.699L188.949%20188.394L180.544%20181.069L161.696%20165.118H160.422V166.772L164.752%20173.152L187.803%20207.771L188.949%20218.405L187.294%20221.832L181.308%20223.959L174.813%20222.777L161.187%20203.754L147.305%20182.486L136.098%20163.345L134.745%20164.2L128.075%20235.42L125.019%20239.082L117.887%20241.8L111.902%20237.31L108.718%20229.984L111.902%20215.452L115.722%20196.547L118.779%20181.541L121.58%20162.873L123.291%20156.636L123.14%20156.219L121.773%20156.449L107.699%20175.752L86.304%20204.699L69.3663%20222.777L65.291%20224.431L58.2867%20220.768L58.9235%20214.27L62.8713%20208.48L86.304%20178.705L100.44%20160.155L109.551%20149.507L109.462%20147.967L108.959%20147.924L46.6977%20188.512L35.6182%20189.93L30.7788%20185.44L31.4156%20178.115L33.7079%20175.752L52.4285%20162.873Z%22%20fill%3D%22%23ffffff%22%2F%3E%3C%2Fsvg%3E" alt="" width="16" height="16"><span class="btn primary" data-pick>Haiku (no key)</span></span></span></div>');
-        later(1700,function(){press(b.querySelector('[data-pick]'),function(){
+      later(400,function(){var b=band('<div class="band brand"><span class="t">✦ effortless</span><span class="d">Who picks the effort?</span><span class="acts"><span class="mark"><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2218%22%20viewBox%3D%220%200%2016.487%2024%22%3E%3Cstyle%3Esvg%7Bbackground%3Atransparent%3Bdisplay%3Ablock%7D%3C%2Fstyle%3E%3Cpath%20d%3D%22M%2012.756%202.928%20L%2012.756%207.067%20L%2016.486%209.487%20L%2016.487%2018.652%20L%208.244%2024%20L%203.732%2021.073%20L%203.732%2016.82%20L%200%2014.399%20L%200%205.35%20L%200.355%205.118%20L%208.244%200%20Z%20M%205.94%2020.65%20L%208.242%2022.144%20L%2014.275%2018.227%20L%2011.975%2016.735%20Z%20M%209.022%2010.332%20L%209.022%2014.4%20L%205.29%2016.822%20L%205.29%2019.216%20L%2011.197%2015.383%20L%2011.197%208.921%20Z%20M%2012.756%2015.384%20L%2014.928%2016.794%20L%2014.928%2010.332%20L%2012.756%208.922%20Z%20M%202.21%2013.976%20L%204.511%2015.47%20L%206.812%2013.976%20L%204.512%2012.485%20Z%20M%201.559%206.193%20L%201.559%2012.544%20L%203.731%2011.134%20L%203.731%207.066%20L%207.464%204.643%20L%207.464%202.36%20L%201.56%206.193%20Z%20M%205.291%2011.132%20L%207.463%2012.542%20L%207.463%2010.332%20L%205.292%208.921%20L%205.292%2011.132%20Z%20M%205.94%207.487%20L%208.244%208.981%20L%2010.544%207.488%20L%208.244%205.994%20Z%20M%209.024%204.643%20L%2011.196%206.054%20L%2011.196%203.774%20L%209.024%202.359%20Z%22%20fill%3D%22%23ffffff%22%2F%3E%3C%2Fsvg%3E" alt="" width="12" height="18"><span class="btn primary">Jev (API)</span></span><span class="mark"><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%20248%20248%22%3E%3Cstyle%3Esvg%7Bbackground%3Atransparent%3Bdisplay%3Ablock%7D%3C%2Fstyle%3E%3Cpath%20d%3D%22M52.4285%20162.873L98.7844%20136.879L99.5485%20134.602L98.7844%20133.334H96.4921L88.7237%20132.862L62.2346%20132.153L39.3113%20131.207L17.0249%20130.026L11.4214%20128.844L6.2%20121.873L6.7094%20118.447L11.4214%20115.257L18.171%20115.847L33.0711%20116.911L55.485%20118.447L71.6586%20119.392L95.728%20121.873H99.5485L100.058%20120.337L98.7844%20119.392L97.7656%20118.447L74.5877%20102.732L49.4995%2086.1905L36.3823%2076.62L29.3779%2071.7757L25.8121%2067.2858L24.2839%2057.3608L30.6515%2050.2716L39.3113%2050.8623L41.4763%2051.4531L50.2636%2058.1879L68.9842%2072.7209L93.4357%2090.6804L97.0015%2093.6343L98.4374%2092.6652L98.6571%2091.9801L97.0015%2089.2625L83.757%2065.2772L69.621%2040.8192L63.2534%2030.6579L61.5978%2024.632C60.9565%2022.1032%2060.579%2020.0111%2060.579%2017.4246L67.8381%207.49965L71.9133%206.19995L81.7193%207.49965L85.7946%2011.0443L91.9074%2024.9865L101.714%2046.8451L116.996%2076.62L121.453%2085.4816L123.873%2093.6343L124.764%2096.1155H126.292V94.6976L127.566%2077.9197L129.858%2057.3608L132.15%2030.8942L132.915%2023.4505L136.608%2014.4708L143.994%209.62643L149.725%2012.344L154.437%2019.0788L153.8%2023.4505L150.998%2041.6463L145.522%2070.1215L141.957%2089.2625H143.994L146.414%2086.7813L156.093%2074.0206L172.266%2053.698L179.398%2045.6635L187.803%2036.802L193.152%2032.5484H203.34L210.726%2043.6549L207.415%2055.1159L196.972%2068.3492L188.312%2079.5739L175.896%2096.2095L168.191%20109.585L168.882%20110.689L170.738%20110.53L198.755%20104.504L213.91%20101.787L231.994%2098.7149L240.144%20102.496L241.036%20106.395L237.852%20114.311L218.495%20119.037L195.826%20123.645L162.07%20131.592L161.696%20131.893L162.137%20132.547L177.36%20133.925L183.855%20134.279H199.774L229.447%20136.524L237.215%20141.605L241.8%20147.867L241.036%20152.711L229.065%20158.737L213.019%20154.956L175.45%20145.977L162.587%20142.787H160.805V143.85L171.502%20154.366L191.242%20172.089L215.82%20195.011L217.094%20200.682L213.91%20205.172L210.599%20204.699L188.949%20188.394L180.544%20181.069L161.696%20165.118H160.422V166.772L164.752%20173.152L187.803%20207.771L188.949%20218.405L187.294%20221.832L181.308%20223.959L174.813%20222.777L161.187%20203.754L147.305%20182.486L136.098%20163.345L134.745%20164.2L128.075%20235.42L125.019%20239.082L117.887%20241.8L111.902%20237.31L108.718%20229.984L111.902%20215.452L115.722%20196.547L118.779%20181.541L121.58%20162.873L123.291%20156.636L123.14%20156.219L121.773%20156.449L107.699%20175.752L86.304%20204.699L69.3663%20222.777L65.291%20224.431L58.2867%20220.768L58.9235%20214.27L62.8713%20208.48L86.304%20178.705L100.44%20160.155L109.551%20149.507L109.462%20147.967L108.959%20147.924L46.6977%20188.512L35.6182%20189.93L30.7788%20185.44L31.4156%20178.115L33.7079%20175.752L52.4285%20162.873Z%22%20fill%3D%22%23ffffff%22%2F%3E%3C%2Fsvg%3E" alt="" width="16" height="16"><span class="btn primary" data-pick>Haiku (no key)</span></span></span></div>');
+        later(2800,function(){press(b.querySelector('[data-pick]'),function(){
           b.querySelector('.d').textContent='Haiku judges your prompts. No key needed.';b.querySelector('.acts').remove();foot('Medium','60m');
-          later(1500,function(){unband();later(400,function(){ask('add a test for the date parser','Medium','Added 6 cases, including leap days.',function(){again(setup,2400);});});});});});});}
+          later(2400,function(){unband();later(400,function(){ask('add a test for the date parser','Medium','Added 6 cases, including leap days.',function(){again(setup,2400);});});});});});});}
   ];
 
   function show(i){if(i===cur)return;cur=i;stop();
     says.forEach(function(s,k){s.classList.toggle('on',k===i)});
     story.querySelector('.pin').style.setProperty('--sc','var(--'+['accent','ice','bog','ember','accent','accent'][i]+')');
-    feats.forEach(function(b,k){b.classList.toggle('on',k===i);b.setAttribute('aria-current',k===i?'step':'false')});
-    // On a phone the names scroll sideways; keep the current one in view.
-    var list=feats[i].closest('ol');list.scrollLeft=feats[i].parentNode.offsetLeft-16;
+    feats.forEach(function(b,k){b.classList.toggle('on',k===i);b.classList.toggle('past',k<i)});
+    gos.forEach(function(b,k){b.setAttribute('aria-current',k===i?'step':'false')});
     // The window resets at once and the scene starts a beat later, after the caption has slid in.
-    base();later(700,scenes[i]);}
+    base();later(600,scenes[i]);}
   function onScroll(){var r=story.getBoundingClientRect(),span=story.offsetHeight-innerHeight,p=span>0?-r.top/span:0;
     show(Math.max(0,Math.min(n-1,Math.floor(p*n))));}
-  feats.forEach(function(b,k){b.addEventListener('click',function(){var span=story.offsetHeight-innerHeight;
+  gos.forEach(function(b,k){b.addEventListener('click',function(){var span=story.offsetHeight-innerHeight;
     scrollTo(0,story.offsetTop+span*(k+.5)/n);});});
   // The story holds still while the install commands are open, and picks up again when they close.
   addEventListener('install-panel',function(e){if(e.detail){stop();}else{cur=-1;onScroll();}});
