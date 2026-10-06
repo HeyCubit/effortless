@@ -1526,6 +1526,12 @@ describe('handoff', () => {
       'Handoff from the previous chat:\n\nthe plan\n\nContinue with the next step. If it is marked "needs user", say what you need and wait.',
     )
     expect(handoffMessage('x', 'confirm')).toContain('then wait for me')
+    // Full: the skill saved the handoff; its last words may only say so. The new chat reads what it saved first.
+    const full = handoffMessage("I've saved the handoff.", 'continue', 'session-handoff')
+    expect(full).toContain('it ran /session-handoff')
+    expect(full).toContain('First read the handoff /session-handoff saved')
+    expect(full).toContain('HANDOFF.md')
+    expect(full).toContain('Continue with the next step')
   })
 
   test('the prompt asks for checked work, marked user steps and git as of last check', () => {
@@ -1596,7 +1602,7 @@ describe('handoff', () => {
   })
 
   test('with a skill set, Quick forks and Full runs the skill', { options: { handoffSkill: 'session-handoff' } } as never, async ($, on) => {
-    const { forked, ran } = handoffEngine(on)
+    const { forked, ran, submitted } = handoffEngine(on)
     const mocked = mock.clock(on)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
     const footer = await $.ui.mount(FOOTER)
@@ -1609,6 +1615,10 @@ describe('handoff', () => {
     await mocked.advance(1000)
     expect(ran).toContain('session-handoff')
     expect(forked).toHaveLength(1)
+    // The skill's last words only say it saved the handoff: the new chat is told to read what it saved.
+    await $.turn.complete({ turnId: 't2', answer: "I've saved the handoff.", durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    await mocked.advance(2500)
+    expect(submitted.at(-1)).toContain('First read the handoff /session-handoff saved')
     await footer.unmount()
   })
 
