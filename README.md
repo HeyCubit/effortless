@@ -56,7 +56,7 @@ Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and 
 
 ## Progress bar
 
-When Claude works through a bigger task, a bar above the prompt follows it. It appears once Claude writes a step list of 3 or more steps (or, before that, as "Planning" when the judge picked high effort or above), fills one segment per step toward the flag at the end, and names the step in progress.
+When Claude works through a bigger task, a bar above the prompt follows it. It appears once Claude writes a step list of 3 or more steps (or, before that, as "Planning" while Claude is in plan mode), fills one segment per step toward the flag at the end, and names the step in progress.
 
 - **Yellow**, with a chime: Claude asks you something (a question card, or a reply that ends on a question).
 - **Green**, with a chime: every step is done. It stays until your next message or ✕.

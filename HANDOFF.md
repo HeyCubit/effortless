@@ -48,6 +48,7 @@ Open decisions for Isac (suggestion in brackets):
 - Landed handoff/compact cards are green (`cardLanded`); copied / sent on stay purple. No "split view" tag: the
   plugin cannot tell which pane draws.
 - Progress bar design and rules: spec `docs/specs/2026-10-06-progress-bar.md`. Done shows before alert bands.
+  "Planning" only in plan mode (a high effort pick alone is no signal).
 - Setup steps: spec `docs/superpowers/specs/2026-10-06-setup-steps-design.md`. Setup/handoff bars use still art;
   alert bands animate. Handoff bar stays brand purple.
 - Auto pauses on Fable 5.1 and older Opus: an effort change rewrote 56 to 100% of the cache (measured).
