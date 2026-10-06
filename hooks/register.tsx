@@ -1982,28 +1982,27 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           <Svg source={DASH_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         </Box>
       ) : null}
-      {/* One row: the figures first; the reason and the last reply after them, dim, cut first when room runs out. The
-          effort word stays whole; the cache after it is cut next, and the row clips rather than run under the buttons. */}
-      <Box key="dash-words" position="relative" flexDirection="row" gap={2} flexShrink={1} minWidth={0} overflow="hidden">
-        <Box flexShrink={1} minWidth={0} flexDirection="row">
+      {/* One row: the effort word, the cache, the ring, then the reason and the last reply, dim. The word never shrinks;
+          when room runs out the reason goes first (it shrinks a hundred times faster), then the cache, and the row clips
+          rather than run under the buttons. Siblings, not nested: a shrunk parent let the word spill under the ring. */}
+      <Box key="dash-words" position="relative" flexDirection="row" flexShrink={1} minWidth={0} overflow="hidden">
+        <Box flexShrink={0} flexDirection="row">
           <Text color={ACCENT} bold>✦ </Text>
-          <Box flexShrink={0}>
-            <Text key="dash-level" color={wordColor} bold>{what}</Text>
-          </Box>
-          {rest ? (
-            <Box flexShrink={1} minWidth={0}>
-              <Text color={DASH_TEXT} bold wrap="truncate">{rest}</Text>
-            </Box>
-          ) : null}
+          <Text key="dash-level" color={wordColor} bold>{what}</Text>
         </Box>
+        {rest ? (
+          <Box flexShrink={1} minWidth={0}>
+            <Text color={DASH_TEXT} bold wrap="truncate">{rest}</Text>
+          </Box>
+        ) : null}
         {Svg && lastContext && lastContext.window ? (
-          <Box key="dash-ring" flexShrink={0} flexDirection="row" gap={1} alignItems="center">
+          <Box key="dash-ring" flexShrink={0} marginLeft={2} flexDirection="row" gap={1} alignItems="center">
             <Svg source={ringSvg(lastContext.percent, DASH_TEXT)} alt={`${Math.round(lastContext.percent)}% of context`} width={16} height={16} />
             <Text color={DASH_TEXT}>{`${Math.round(lastContext.percent)}%`}</Text>
           </Box>
         ) : null}
         {detail ? (
-          <Box flexShrink={1} minWidth={0}>
+          <Box flexShrink={100} minWidth={0} marginLeft={2}>
             <Text dimColor wrap="truncate">{detail}</Text>
           </Box>
         ) : null}
