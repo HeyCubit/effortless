@@ -93,6 +93,28 @@ async function drawn(ui: { drawn: () => Promise<unknown> }): Promise<string> {
   return JSON.stringify(await ui.drawn())
 }
 
+/**
+ * The band's buttons take clicks: the app draws anything in the flow under an absolutely placed art layer, so the
+ * layer holding them must itself be absolute and come after the art.
+ */
+async function clickable(ui: { drawn: () => Promise<unknown> }, layer: string) {
+  const find = (node: unknown): Record<string, unknown> | undefined => {
+    if (!node || typeof node !== 'object') return undefined
+    const n = node as Record<string, unknown>
+    const props = (n.props ?? {}) as Record<string, unknown>
+    if (n.key === layer || props.key === layer) return n
+    for (const value of Object.values(n)) {
+      const hit = Array.isArray(value) ? value.map(find).find(Boolean) : find(value)
+      if (hit) return hit
+    }
+    return undefined
+  }
+  const node = find(await ui.drawn())
+  expect(node).toBeDefined()
+  const props = ((node as Record<string, unknown>).props ?? node) as Record<string, unknown>
+  expect(props.position).toBe('absolute')
+}
+
 describe('auto', () => {
   test('effort follows the judge, the model stays the one in use', async ($, on) => {
     engine(on)
@@ -1199,6 +1221,7 @@ describe('setup guide', () => {
     expect(await band.find({ key: 'setup-haiku' })).toBeDefined()
     expect(await band.find({ key: 'setup-custom' })).toBeDefined()
     expect(await band.find({ key: 'setup-back' })).toBeUndefined()
+    await clickable(band, 'setup-actions')
     // Branded: the name in the footer's purple, the step counter beside it.
     expect(await drawn(band)).toContain('"color":"#a79cf7"')
     expect(await drawn(band)).toContain('✦ effortless setup  1/4')
@@ -1519,6 +1542,7 @@ describe('handoff', () => {
     const footer = await $.ui.mount(FOOTER)
     await footer.press({ key: 'handoff' })
     const bar = await $.ui.mount(DESK_BAND)
+    await clickable(bar, 'handoff-actions')
     expect(await drawn(bar)).toContain('Handoff')
     expect(await drawn(bar)).toContain('Clears chat, carries on.')
     await bar.select({ key: 'handoff-after', value: 'copy' })

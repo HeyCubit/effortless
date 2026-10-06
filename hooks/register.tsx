@@ -2058,9 +2058,9 @@ Saved to ${out}.md and .json` }
       const what = handoffWhat(choice, config.handoffSkill)
       return (
         // The art is a still image here: an animated one sits in a frame the app rebuilds on every redraw, and the bar
-        // redraws on every choice. Words and controls stay in the flow, so the words get all the room the controls leave;
-        // position="relative" lifts both above the absolutely placed art. The title over the line on what happens, on the left; the controls on the right, centred on both rows. Go is
-        // the one lit button: the picked kind is a quiet box, the other plain text.
+        // redraws on every choice. The title over the line on what happens, on the left; the controls on the right in
+        // their own absolute layer, drawn last: the app draws anything in the flow under the absolute art, where it takes
+        // no clicks. Go is the one lit button: the picked kind is a quiet box, the other plain text.
         <Box key="handoff-bar" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
@@ -2074,8 +2074,8 @@ Saved to ${out}.md and .json` }
               {choice.kind === 'full' && !fullReady ? 'Full needs a skill: pick one in ⚙ under Handoff.' : `${what.by}. ${what.then}`}
             </Text>
           </Box>
-          <Box flexGrow={1} minWidth={2} />
-          <Box key="handoff-actions" position="relative" flexShrink={0} flexDirection="row" gap={1} alignItems="center">
+          <Box flexGrow={1} minWidth={48} />
+          <Box key="handoff-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
             {choice.kind === 'quick' ? (
               <Button key="handoff-quick" hotkey="q" variant="secondary" label="Quick" onPress={setBar({ kind: 'quick' })} />
             ) : (
@@ -2116,9 +2116,11 @@ Saved to ${out}.md and .json` }
         <Button key="setup-close" plain role="dismiss" label="✕" onPress={() => update($, setupStep, () => null)} />,
       ]
       const nextButton = <Button key="setup-next" variant="primary" label="Next" onPress={go(setupNext(step))} />
-      // The same build as the handoff bar: the title over one line of words on the left, the controls on the right,
-      // both in the flow and lifted above the art by position="relative". The art is still: every click redraws the band.
-      const band = (words: string, controls: unknown[]) => (
+      // The title over one line of words on the left, the controls on the right. The controls are their own absolute
+      // layer, drawn last: the app draws anything in the flow under the absolute art, where it takes no clicks
+      // (position="relative" does not lift it). The spacer keeps the words clear of them; room is their width in
+      // columns. The art is still: every click redraws the band.
+      const band = (words: string, room: number, controls: unknown[]) => (
         <Box key="setup" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="setup-art" position="absolute" top={-1} right={0} bottom={-1}>
@@ -2130,14 +2132,14 @@ Saved to ${out}.md and .json` }
             </Text>
             <Text key="setup-what" wrap="truncate">{words}</Text>
           </Box>
-          <Box flexGrow={1} minWidth={2} />
-          <Box key="setup-actions" position="relative" flexShrink={0} flexDirection="row" gap={1} alignItems="center">
+          <Box flexGrow={1} minWidth={room} />
+          <Box key="setup-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
             {controls}
           </Box>
         </Box>
       )
       if (step === 'pick')
-        return band('Who picks the effort for each message?', [
+        return band('Who picks the effort for each message?', 54, [
           // Each mark sits tight against its own button; the pairs stand apart.
           <Box key="pick-jev" flexDirection="row" gap={1} alignItems="center">
             <Svg source={TYPESAFE_MARK} alt="TypeSafe" width={12} height={18} />
@@ -2156,7 +2158,7 @@ Saved to ${out}.md and .json` }
           ),
         ])
       if (step === 'jev')
-        return band('Paste a TypeSafe key from typesafe.ai.', [
+        return band('Paste a TypeSafe key from typesafe.ai.', 44, [
           <Box key="key-field" width={30} flexShrink={1}>
             <Input key="setup-key" placeholder="TypeSafe key" value={draft.key ?? ''} submitLabel="Save"
               onInput={(v: string) => update($, settingsDraft, d => ({ ...d, key: v }))}
@@ -2169,7 +2171,7 @@ Saved to ${out}.md and .json` }
           ...nav(<Button key="setup-skip" plain label="Skip" onPress={go('lean')} />),
         ])
       if (step === 'custom')
-        return band('Your judge: a chat completions URL and a model.', [
+        return band('Your judge: a chat completions URL and a model.', 62, [
           <Box key="url-field" width={28} flexShrink={1}>
             <Input key="setup-url" placeholder="URL" value={draft.customUrl ?? config.customUrl} submitLabel="ok"
               onInput={(v: string) => update($, settingsDraft, d => ({ ...d, customUrl: v }))}
@@ -2197,7 +2199,7 @@ Saved to ${out}.md and .json` }
           track.push(<Button key={`setup-bias${n + 2}`} plain label={n === config.bias ? '◉' : '○'}
             onPress={() => saveSetting($, 'bias', String(n))} />)
         }
-        return band('On close calls, lean cheaper or smarter?', [
+        return band('On close calls, lean cheaper or smarter?', 48, [
           <Text key="cheap" dimColor>Cheaper</Text>,
           <Box key="track" flexDirection="row" alignItems="center">
             {track}
@@ -2208,7 +2210,7 @@ Saved to ${out}.md and .json` }
       }
       if (step === 'handoff') {
         const skillNames = await read($, installedSkills)
-        return band('⇥ at the bottom moves the chat to a fresh one. Full handoff by:', [
+        return band('⇥ at the bottom moves the chat to a fresh one. Full handoff by:', 40, [
           <Select key="setup-skill" value={config.handoffSkill || '-'}
             options={[
               { value: '-', label: 'none, quick only' },
@@ -2233,9 +2235,9 @@ Saved to ${out}.md and .json` }
           const after = off ? config.hide.filter(h => h !== part) : [...config.hide, part]
           return <Button key={`setup-show-${part}`} plain label={`${off ? '○' : '●'} ${label}`} onPress={() => saveSetting($, 'hide', after.join(','))} />
         })
-        return band('Which alerts show? The minutes at the bottom are the cache timer.', [...toggles, ...nav(nextButton)])
+        return band('Which alerts show? The minutes at the bottom are the cache timer.', 60, [...toggles, ...nav(nextButton)])
       }
-      return band('⏻ at the bottom turns Auto on or off, ⚙ changes all this. Auto pauses on Fable.', [
+      return band('⏻ at the bottom turns Auto on or off, ⚙ changes all this. Auto pauses on Fable.', 18, [
         ...nav(<Button key="setup-done" variant="primary" autoFocus label="Done" onPress={() => finishSetup($)} />),
       ])
     }
