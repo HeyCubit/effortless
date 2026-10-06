@@ -2,7 +2,8 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter } from '../hooks/register'
-import { afterPrompt, currentStep, isBigPick, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
+import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
+import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
 
 const BAND = {
   component: 'AbovePrompt',
@@ -1195,20 +1196,40 @@ describe('setup guide', () => {
     return said
   }
 
-  test('the steps run judge, lean, handoff, footer, done; Back goes one step back', () => {
+  test('an app with no /config row for the plugin: the choices are kept in the store and come back next session', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    on('config.set', () => ({ deny: 'no /config row with key effortless.judge ($.config.list names them)' }) as never)
+    const said = toasts(on)
+    await start($, on)
+    const band = await $.ui.mount(DESK)
+    await band.press({ key: 'setup-haiku' })
+    await band.press({ key: 'setup-next' })
+    await band.press({ key: 'setup-next' })
+    await band.press({ key: 'setup-done' })
+    await band.unmount()
+    await mocked.advance(16_000)
+    expect(said.join(' ')).not.toContain('could not save')
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    await $.command.run({ command: 'effortless', args: 'settings' })
+    const panel = await $.ui.mount(DESK)
+    expect(await drawn(panel)).toContain('{"value":"custom","label":"custom"}],"value":"haiku"}')
+    await panel.unmount()
+  })
+
+  test('the steps run judge, lean, handoff, done; Back goes one step back', () => {
     expect(setupNext('pick')).toBe('lean')
     expect(setupNext('jev')).toBe('lean')
     expect(setupNext('custom')).toBe('lean')
     expect(setupNext('lean')).toBe('handoff')
-    expect(setupNext('handoff')).toBe('footer')
-    expect(setupNext('footer')).toBe('done')
+    expect(setupNext('handoff')).toBe('done')
     expect(setupNext('done')).toBeNull()
     expect(setupBack('pick')).toBeNull()
     expect(setupBack('jev')).toBe('pick')
     expect(setupBack('lean')).toBe('pick')
-    expect(setupBack('done')).toBe('footer')
-    expect(setupCounter('jev')).toBe('1/4')
-    expect(setupCounter('footer')).toBe('4/4')
+    expect(setupBack('done')).toBe('handoff')
+    expect(setupCounter('jev')).toBe('1/3')
+    expect(setupCounter('handoff')).toBe('3/3')
     expect(setupCounter('done')).toBe('')
   })
 
@@ -1225,7 +1246,7 @@ describe('setup guide', () => {
     await clickable(band, 'setup-actions')
     // Branded: the name in the footer's purple, the step counter beside it.
     expect(await drawn(band)).toContain('"color":"#a79cf7"')
-    expect(await drawn(band)).toContain('✦ effortless setup  1/4')
+    expect(await drawn(band)).toContain('✦ effortless setup  1/3')
     expect(await drawn(band)).toContain('Jev (API)')
     // The right side: a still SVG (every click redraws the band, and a redrawn animation flickers) with the gradient.
     const first = await drawn(band)
@@ -1237,37 +1258,29 @@ describe('setup guide', () => {
     expect(set).toEqual([])
     expect(said.join(' ')).toContain('Haiku judges')
 
-    // 2/4 the lean: each stop is named and says what it does; the track lights toward the marker.
-    expect(await drawn(band)).toContain('2/4')
+    // 2/3 the lean: each stop is named and says what it does; the track lights toward the marker.
+    expect(await drawn(band)).toContain('2/3')
     expect(await drawn(band)).toContain('Balanced: ')
     await band.press({ key: 'setup-bias4' })
     expect(await drawn(band)).toContain('Smartest: ')
     expect(await drawn(band)).toContain('{"color":"#a79cf7"},"children":["──"]')
     await band.press({ key: 'setup-next' })
 
-    // 3/4 the handoff: the installed skills to pick from.
-    expect(await drawn(band)).toContain('3/4')
+    // 3/3 the handoff: the installed skills to pick from.
+    expect(await drawn(band)).toContain('3/3')
     expect(await drawn(band)).toContain('/session-handoff')
     await band.select({ key: 'setup-skill', value: 'session-handoff' })
     await band.press({ key: 'setup-next' })
 
-    // 4/4 the footer: the cache timer and the handoff button, both ticked; a click unticks one.
-    expect(await drawn(band)).toContain('4/4')
-    expect(await drawn(band)).toContain('{"key":"setup-box-handoff","label":"✔︎","variant":"primary"}')
-    expect(await band.find({ key: 'setup-show-cold' })).toBeUndefined()
-    await band.press({ key: 'setup-box-timer' })
-    expect(await drawn(band)).toContain('{"key":"setup-box-timer","label":"✔︎","dimColor":true,"variant":"secondary"}')
-    await band.press({ key: 'setup-next' })
-
-    // The last word: the footer's buttons and Fable. Back goes to the footer step.
+    // The last word: the footer's buttons and Fable; no step of ticks. Back goes to the handoff step.
     expect(await drawn(band)).toContain('Auto pauses on Fable')
+    expect(await band.find({ key: 'setup-box-timer' })).toBeUndefined()
     await band.press({ key: 'setup-back' })
-    expect(await drawn(band)).toContain('4/4')
+    expect(await drawn(band)).toContain('3/3')
     await band.press({ key: 'setup-next' })
     expect(set).toEqual([])
     await band.press({ key: 'setup-done' })
     expect(set).toEqual([
-      { key: 'effortless.hide', value: 'timer' },
       { key: 'effortless.judge', value: 'haiku' },
       { key: 'effortless.effortBias', value: '2' },
       { key: 'effortless.handoffSkill', value: 'session-handoff' },
@@ -1329,7 +1342,7 @@ describe('setup guide', () => {
     const band = await $.ui.mount(DESK)
     await band.press({ key: 'setup-skip' })
     expect(set).toEqual([])
-    expect(await drawn(band)).toContain('2/4')
+    expect(await drawn(band)).toContain('2/3')
     await band.press({ key: 'setup-close' })
     await band.unmount()
     const footer = await $.ui.mount(FOOTER)
@@ -1347,7 +1360,7 @@ describe('setup guide', () => {
     const band = await $.ui.mount(DESK)
     await band.press({ key: 'setup-jev' })
     expect(said.join(' ')).toContain('Jev judges')
-    expect(await drawn(band)).toContain('2/4')
+    expect(await drawn(band)).toContain('2/3')
     await band.press({ key: 'setup-close' })
     await band.unmount()
     await expect($.ui.mount(DESK)).rejects.toThrow()
@@ -1642,6 +1655,38 @@ describe('handoff', () => {
     await footer.unmount()
   })
 
+  test('a handoff card hangs under the newest reply: handing off, then landed, gone after the next reply', async ($, on) => {
+    handoffEngine(on)
+    on('ui.copy', () => ({ value: { isCopied: true } }) as never)
+    on('ui.render', { component: 'AssistantMessage' }, (h, e) => {
+      const { Text } = h.ui.resolve(e)
+      return Text({ children: e.props.text } as never) as never
+    })
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const reply = (text: string) =>
+      ({ plugin: 'effortless', surface: 'desktop', component: 'AssistantMessage', props: { text, isFirstOfReply: true } }) as never
+    await $.turn.complete({ turnId: 't1', answer: 'Last reply.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    const footer = await $.ui.mount(FOOTER)
+    await footer.press({ key: 'handoff' })
+    const bar = await $.ui.mount(DESK_BAND)
+    await bar.select({ key: 'handoff-after', value: 'copy' })
+    await bar.press({ key: 'handoff-go' })
+    await bar.unmount()
+    const during = await $.ui.mount(reply('Last reply.'))
+    expect(await drawn(during)).toContain('Handing off')
+    await during.unmount()
+    await mocked.advance(2500)
+    const landed = await $.ui.mount(reply('Last reply.'))
+    expect(await drawn(landed)).toContain('Handoff copied')
+    await landed.unmount()
+    await $.turn.complete({ turnId: 't2', answer: 'Next reply.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    const after = await $.ui.mount(reply('Next reply.'))
+    expect(await after.find({ key: 'reply-handoff' })).toBeUndefined()
+    await after.unmount()
+    await footer.unmount()
+  })
+
   test('New chat & archive asks the model here to start the chat and archive this one', async ($, on) => {
     const { ran, submitted } = handoffEngine(on)
     const copied: string[] = []
@@ -1858,7 +1903,27 @@ describe('swamp band and setup entry', () => {
     await again.unmount()
   })
 
-  test('while compacting, the swamp band says so and its buttons step aside', async ($, on) => {
+  test('the swamp band waits while a turn runs and comes back when it ends', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    on('turn.complete', () => ({ text: '' }) as never)
+    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 300_000, percent: 67 } } }) as never)
+    await start($, on)
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await mocked.advance(16_000)
+    await $.prompt.submit({ text: '/status', wait: false, origin: { kind: 'composer' } })
+    const busy = await $.ui.mount(DESK_BAND).catch(() => null)
+    expect(busy ? await drawn(busy) : '').not.toContain('Chat is getting swamped')
+    await busy?.unmount()
+    await $.turn.complete({ turnId: 't1', answer: 'Done.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    const after = await $.ui.mount(DESK_BAND)
+    expect(await drawn(after)).toContain('Chat is getting swamped')
+    await after.unmount()
+  })
+
+  test('while compacting, the swamp band steps aside: the card under the reply says it', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
     let release = () => {}
@@ -1877,17 +1942,58 @@ describe('swamp band and setup entry', () => {
     const band = await $.ui.mount(DESK_BAND)
     const pressed = band.press({ key: 'swamp-compact' })
     await mocked.advance(100)
-    const during = await $.ui.mount(DESK_BAND)
-    expect(await drawn(during)).toContain('Compacting the chat')
-    expect(await during.find({ key: 'swamp-compact' })).toBeUndefined()
-    expect(await during.find({ key: 'swamp-handoff' })).toBeUndefined()
+    const during = await $.ui.mount(DESK_BAND).catch(() => null)
+    expect(during ? await drawn(during) : '').not.toContain('Chat is getting swamped')
+    expect(await during?.find({ key: 'swamp-compact' })).toBeUndefined()
     release()
     await pressed
-    await during.unmount()
+    await during?.unmount()
     await band.unmount()
   })
 
-  test('a swamp card hangs under the newest reply only, and goes when a new reply lands', async ($, on) => {
+  test('Compact puts a card under the newest reply: Compacting while it runs, then Compact complete in green', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    let release = () => {}
+    on('command.run', (_$, e) => {
+      if (e.command !== 'compact') return { text: 'ok' }
+      return new Promise(resolve => {
+        release = () => resolve({ text: 'ok' })
+      }) as never
+    })
+    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 300_000, percent: 67 } } }) as never)
+    on('turn.complete', (_$, e) => ({ text: e.answer }))
+    on('ui.render', { component: 'AssistantMessage' }, (h, e) => {
+      const { Text } = h.ui.resolve(e)
+      return Text({ children: e.props.text } as never) as never
+    })
+    await start($, on)
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await mocked.advance(16_000)
+    await $.turn.complete({ turnId: 't1', answer: 'Last reply.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    const reply = () => $.ui.mount({ plugin: 'effortless', surface: 'desktop', component: 'AssistantMessage', props: { text: 'Last reply.', isFirstOfReply: true } } as never)
+    const band = await $.ui.mount(DESK_BAND)
+    const pressed = band.press({ key: 'swamp-compact' })
+    await mocked.advance(100)
+    const during = await reply()
+    expect(await drawn(during)).toContain('Compacting…')
+    await during.unmount()
+    release()
+    await pressed
+    await band.unmount()
+    const after = await reply()
+    expect(await drawn(after)).toContain('Compact complete')
+    await after.unmount()
+    // Gone after a while with no reply.
+    await mocked.advance(3 * 60_000)
+    const later = await reply()
+    expect(await later.find({ key: 'reply-handoff' })).toBeUndefined()
+    await later.unmount()
+  })
+
+  test('a swamped chat draws no card under the reply: the band above the prompt says it', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
     on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 300_000, percent: 67 } } }) as never)
@@ -1902,37 +2008,14 @@ describe('swamp band and setup entry', () => {
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
     await mocked.advance(16_000)
-    const reply = (text: string) =>
-      ({ plugin: 'effortless', surface: 'desktop', component: 'AssistantMessage', props: { text, isFirstOfReply: true } }) as never
     await $.turn.complete({ turnId: 't1', answer: 'First answer.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
-    const first = await $.ui.mount(reply('First answer.'))
-    expect(await drawn(first)).toContain('Chat is getting swamped')
-    expect(await drawn(first)).toContain('/effortless panel')
-    await first.unmount()
-    await $.turn.complete({ turnId: 't2', answer: 'Second answer.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
-    const old = await $.ui.mount(reply('First answer.'))
-    expect(await old.find({ key: 'reply-warn' })).toBeUndefined()
-    await old.unmount()
-    const newest = await $.ui.mount(reply('Second answer.'))
-    expect(await newest.find({ key: 'reply-warn' })).toBeDefined()
-    await newest.unmount()
-  })
-
-  test('/effortless panel opens a side panel with the warning and its buttons', async ($, on) => {
-    engine(on)
-    const mocked = mock.clock(on)
-    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 300_000, percent: 67 } } }) as never)
-    on('ui.open', () => ({ value: { isPlaced: true } }) as never)
-    on('ui.close', () => ({ value: undefined }) as never)
-    await start($, on)
-    await mocked.advance(16_000)
-    expect(String((await $.command.run({ command: 'effortless', args: 'panel' })).text)).toContain('panel open')
-    const panel = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', component: 'Pane', requestId: 'effortless-panel', props: {} } as never)
-    expect(await drawn(panel)).toContain('Chat is getting swamped')
-    expect(await panel.find({ key: 'panel-compact' })).toBeDefined()
-    expect(await panel.find({ key: 'panel-handoff' })).toBeDefined()
-    await panel.unmount()
-    expect(String((await $.command.run({ command: 'effortless', args: 'panel' })).text)).toContain('panel closed')
+    const reply = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', component: 'AssistantMessage', props: { text: 'First answer.', isFirstOfReply: true } } as never)
+    expect(await reply.find({ key: 'reply-warn' })).toBeUndefined()
+    expect(await drawn(reply)).not.toContain('swamped')
+    await reply.unmount()
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('Chat is getting swamped')
+    await band.unmount()
   })
 
   test('/effortless save switches save mode on and off', async ($, on) => {
@@ -1941,6 +2024,22 @@ describe('swamp band and setup entry', () => {
     await start($, on)
     expect(String((await $.command.run({ command: 'effortless', args: 'save' })).text)).toContain('save mode on')
     expect(String((await $.command.run({ command: 'effortless', args: 'save' })).text)).toContain('save mode off')
+  })
+
+  test('save mode paints the footer level ember; off again, it is purple', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    await start($, on)
+    await $.command.run({ command: 'effortless', args: 'save' })
+    const footer = await $.ui.mount(FOOTER)
+    expect(await drawn(footer)).toContain('"color":"#f08a3c"')
+    await $.command.run({ command: 'effortless', args: 'save' })
+    await footer.unmount()
+    const again = await $.ui.mount(FOOTER)
+    const text = await drawn(again)
+    expect(text).not.toContain('"color":"#f08a3c"')
+    expect(text).toContain('"color":"#a79cf7"')
+    await again.unmount()
   })
 
   test('the setup can be closed with the cross; the footer then offers Setup, which opens it again', async ($, on) => {
@@ -2090,11 +2189,12 @@ describe('settings panel', () => {
     await panel.select({ key: 'settings-floor', value: 'medium' })
     await panel.input({ key: 'settings-key', text: ' tk-new ' })
     await panel.select({ key: 'settings-skill', value: 'session-handoff' })
-    await panel.press({ key: 'show-swamp' })
-    await panel.press({ key: 'show-handoff' })
+    await panel.press({ key: 'show-box-sounds' })
+    // Only the progress bar and its sounds can be switched off in the panel.
+    expect(await panel.find({ key: 'show-box-swamp' })).toBeUndefined()
     expect(set).toEqual([])
     await panel.press({ key: 'settings-save' })
-    expect(set).toContainEqual({ key: 'effortless.hide', value: 'swamp,handoff' })
+    expect(set).toContainEqual({ key: 'effortless.hide', value: 'sounds' })
     expect(set).toContainEqual({ key: 'effortless.handoffSkill', value: 'session-handoff' })
     expect(set).toContainEqual({ key: 'effortless.effortBias', value: '1' })
     expect(set).toContainEqual({ key: 'effortless.effortFloor', value: 'medium' })
@@ -2107,22 +2207,24 @@ describe('settings panel', () => {
 })
 
 describe('switching parts off', () => {
-  test('readConfig keeps only known parts', () => {
-    expect(readConfig({ hide: 'swamp, handoff,bogus' }).hide).toEqual(['swamp', 'handoff'])
+  test('readConfig keeps only parts that can be switched off; the alerts are not among them', () => {
+    expect(readConfig({ hide: 'swamp, handoff,bogus,down,progress' }).hide).toEqual(['handoff', 'progress'])
   })
 
-  test('a hidden handoff button is not in the footer; a hidden swamp band does not show', { options: { hide: 'handoff,swamp' } } as never, async ($, on) => {
+  test('a hidden handoff button is not in the footer; an old hide list cannot hide the swamp band', { options: { hide: 'handoff,swamp' } } as never, async ($, on) => {
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
     on('command.register', () => ({ value: undefined }) as never)
     engine(on)
     const mocked = mock.clock(on)
-    on('session.usage', () => ({ value: { context: { tokens: 180_000, window: 1_000_000, percent: 18 } } }) as never)
+    on('session.usage', () => ({ value: { context: { tokens: 600_000, window: 1_000_000, percent: 60 } } }) as never)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
     const guide = await $.ui.mount(DESK_BAND)
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
     await mocked.advance(16_000)
-    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('Chat is getting swamped')
+    await band.unmount()
     const footer = await $.ui.mount(FOOTER)
     expect(await footer.find({ key: 'handoff' })).toBeUndefined()
     await footer.unmount()
@@ -2224,9 +2326,6 @@ describe('progress bar', () => {
     expect(progressShows({ phase: 'working', steps: steps.slice(0, 2) }, null, 'active')).toBe(false)
     expect(progressTitle({ phase: 'asking', steps })).toBe('Waiting for your answer · step 2 of 3')
     expect(progressTitle({ phase: 'done', steps })).toBe('Done · all 3 steps')
-    expect(isBigPick({ model: 'opus', effort: 'high', why: '', by: 'jev' })).toBe(true)
-    expect(isBigPick({ model: 'opus', effort: 'high', why: '', by: 'manual' })).toBe(false)
-    expect(isBigPick({ model: 'opus', effort: 'medium', why: '', by: 'haiku' })).toBe(false)
   })
 
   test('Windows plays the chime with PowerShell; elsewhere the app plays it', () => {
@@ -2321,14 +2420,31 @@ describe('progress bar', () => {
     await back.unmount()
   })
 
-  test('a turn the judge calls big shows Planning until a list comes; with none it goes quietly', async ($, on) => {
+  test('a closed bar stays quiet: finishing its list plays no chime', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    const played = tools(on)
+    await start($, on)
+    await $.tool.call({ tool: 'TodoWrite', todos: todos(['in_progress', 'pending', 'pending']) } as never)
+    const band = await $.ui.mount(DESK_BAND)
+    await band.press({ key: 'progress-close' })
+    await band.unmount()
+    await $.tool.call({ tool: 'TodoWrite', todos: todos(['completed', 'completed', 'completed']) } as never)
+    await endTurn($, 'Done.')
+    await mocked.advance(1000)
+    expect(played).toEqual([])
+  })
+
+  test('a big turn alone shows no bar; plan mode shows Planning until a list comes, and with none it goes quietly', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
     const played = tools(on)
     judgeSays(on, '{"model":"opus","effort":"high","why":"big job"}')
     await start($, on)
-    await $.prompt.submit({ text: 'go through the whole repo and clean it up', wait: false, origin: { kind: 'composer' } })
-    await $.turn.start({ text: 'go through the whole repo', turnId: 't1' } as never)
+    await $.prompt.submit({ text: '/session-handoff', wait: false, origin: { kind: 'composer' } })
+    await $.turn.start({ text: '/session-handoff', turnId: 't1' } as never)
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    await $.tool.call({ tool: 'EnterPlanMode' } as never)
     const band = await $.ui.mount(DESK_BAND)
     expect(await drawn(band)).toContain('Planning a bigger task')
     expect(await band.find({ key: 'progress-thinking' })).toBeDefined()
@@ -2337,6 +2453,14 @@ describe('progress bar', () => {
     await mocked.advance(1000)
     await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
     expect(played).toEqual([])
+  })
+
+  test('the system prompt asks Claude to keep a step list for multi-step work, so the bar has steps', async ($, on) => {
+    engine(on)
+    on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'You are Claude.', scope: 'shared' }] }))
+    await start($, on)
+    const { sections } = await $.prompt.compose({ model: 'claude-opus-5-5', promptModel: 'claude-opus-5-5', surfaces: [], tools: [], outputStyle: null, traits: [] })
+    expect(sections.find(s => s.id === 'effortless-progress')?.text).toContain('three or more distinct steps')
   })
 
   test('/effortless progress shows the bar working, asking and done, then clears it', async ($, on) => {
@@ -2400,10 +2524,13 @@ describe('progress bar', () => {
       expect(await drawn(band)).toContain('Waiting for your answer')
       expect(Boolean(await band.find({ key: 'progress-track' }))).toBe(maxRows >= 4)
       expect(Boolean(await band.find({ key: 'progress-blocks' }))).toBe(maxRows < 4)
+      // The terminal's track is characters: its Svg draws nothing there.
+      if (maxRows >= 4) expect(await drawn(band)).toContain('⚑')
+      expect(await drawn(band)).not.toContain('"type":"Svg"')
       await band.unmount()
     }
   })
-  test('a finished task shows before the swamp band; the next message gives the band back', async ($, on) => {
+  test('a finished task shows before the swamp band; the next turn gives the band back', async ($, on) => {
     engine(on)
     mock.clock(on)
     tools(on)
@@ -2415,8 +2542,58 @@ describe('progress bar', () => {
     expect(await band.find({ key: 'progress-art' })).toBeDefined()
     await band.unmount()
     await $.prompt.submit({ text: 'thanks', wait: false, origin: { kind: 'composer' } })
+    await $.turn.complete({ turnId: 't1', answer: 'Glad to.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
     const after = await $.ui.mount(DESK_BAND)
     expect(await drawn(after)).toContain('swamped')
     await after.unmount()
   })
+})
+
+describe('terminal art', () => {
+  test('a frame is 16 by 2 cells of ▀, faded in from the left', () => {
+    // 32 cells of three 4-byte words: 384 bytes, 512 base64 characters.
+    expect(artFrame('swamp', 0)).toHaveLength(512)
+    for (const kind of ['cold', 'swamp', 'hot', 'down', 'brand', 'compacting', 'done'] as const) {
+      expect(artPixel(kind, 3, 0, 1)).toBe(artPixel(kind, 9, 0, 1))
+    }
+  })
+
+  test('moving kinds change over time; still ones do not', () => {
+    const frames = (kind: Parameters<typeof artFrame>[0]) => new Set(Array.from({ length: 30 }, (_, t) => artFrame(kind, t))).size
+    for (const kind of MOVING) expect(frames(kind)).toBeGreaterThan(1)
+    expect(frames('brand')).toBe(1)
+    expect(frames('done')).toBe(1)
+  })
+})
+
+describe('terminal bands', () => {
+  const start = async ($: Engine, on: On) => {
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    await $.session.start({ cwd: '.', surface: 'terminal', isInteractive: true } as never)
+  }
+  const at = (columns: number) =>
+    ({ plugin: 'effortless', surface: 'terminal', ...BAND, props: { ...BAND.props, bodyColumns: columns, maxRows: 14 } }) as never
+
+  for (const kind of ['swamp', 'cold', 'hot', 'down'] as const) {
+    test(`${kind}: art on the right when wide, none at 80 columns; the effort row stays under it`, async ($, on) => {
+      engine(on)
+      mock.clock(on)
+      await start($, on)
+      const guide = await $.ui.mount(at(120))
+      await guide.press({ key: 'setup-close' })
+      await guide.unmount()
+      await $.command.run({ command: 'effortless', args: kind } as never)
+      const wide = await $.ui.mount(at(120))
+      const text = await drawn(wide)
+      expect(text).toContain('"type":"Raster"')
+      expect(text).toContain('"children":["Effort"]')
+      await wide.unmount()
+      const narrow = await $.ui.mount(at(80))
+      const small = await drawn(narrow)
+      expect(small).not.toContain('"type":"Raster"')
+      expect(small).toContain('"children":["Effort"]')
+      await narrow.unmount()
+    })
+  }
 })

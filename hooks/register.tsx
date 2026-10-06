@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelForkResult, Register, RenderInput } from 'claude-code'
 
 import type { Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
+import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
 import { afterPrompt, atTurnEnd, demoProgress, drawProgress, progressShows, queueCue, registerProgress, soundArgv, stepsKey, takeCues } from './progress'
 
 // The ladders the two sliders walk, cheapest first.
@@ -78,10 +79,6 @@ const isCompacting = atom({ plugin: 'effortless', key: 'isCompacting' } as const
 // The person closed the cold band; it comes back the next time the cache goes cold.
 // The test pane of /effortless try pane.
 const TRY_PANE = 'effortless-try'
-// The side panel: the bands' facts and buttons where the app draws no bands (split view's right pane).
-const PANEL = 'effortless-panel'
-// The side panel's backdrop: the brand's glow from the top right, light streaks and sparkles fading downwards, grain.
-const PANEL_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="1800" viewBox="0 0 320 960" preserveAspectRatio="xMidYMin slice"><defs><radialGradient id="g" cx="230" cy="0" r="420" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#b3a6ff" stop-opacity=".42"/><stop offset=".45" stop-color="#7c6cf0" stop-opacity=".16"/><stop offset="1" stop-color="#7c6cf0" stop-opacity="0"/></radialGradient><radialGradient id="g2" cx="20" cy="900" r="320" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#7c6cf0" stop-opacity=".14"/><stop offset="1" stop-color="#7c6cf0" stop-opacity="0"/></radialGradient><linearGradient id="f" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset=".55" stop-color="#fff" stop-opacity=".25"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="m"><rect width="320" height="960" fill="url(#f)"/></mask><pattern id="n" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".06"/></pattern></defs><rect width="320" height="960" fill="url(#g)"/><rect width="320" height="960" fill="url(#g2)"/><g mask="url(#m)"><line x1="40" y1="-20" x2="180" y2="420" stroke="#fff" stroke-opacity="0.035" stroke-width="10"/><line x1="90" y1="-20" x2="230" y2="420" stroke="#fff" stroke-opacity="0.05" stroke-width="3"/><line x1="150" y1="-20" x2="290" y2="420" stroke="#fff" stroke-opacity="0.04" stroke-width="16"/><line x1="210" y1="-20" x2="350" y2="420" stroke="#fff" stroke-opacity="0.05" stroke-width="4"/><line x1="260" y1="-20" x2="400" y2="420" stroke="#fff" stroke-opacity="0.03" stroke-width="9"/><path fill="#fff" fill-opacity="0.20" d="M114.2 92.6 L114.8 94.8 L117.0 95.4 L114.8 96.0 L114.2 98.3 L113.6 96.0 L111.3 95.4 L113.6 94.8 Z"/><path fill="#fff" fill-opacity="0.34" d="M169.3 201.1 L169.7 202.5 L171.0 202.8 L169.7 203.2 L169.3 204.6 L169.0 203.2 L167.6 202.8 L169.0 202.5 Z"/><path fill="#fff" fill-opacity="0.21" d="M39.7 235.1 L40.1 236.4 L41.5 236.8 L40.1 237.2 L39.7 238.6 L39.4 237.2 L38.0 236.8 L39.4 236.4 Z"/><path fill="#fff" fill-opacity="0.25" d="M140.4 431.6 L140.8 433.0 L142.2 433.4 L140.8 433.8 L140.4 435.3 L140.0 433.8 L138.5 433.4 L140.0 433.0 Z"/><path fill="#fff" fill-opacity="0.31" d="M193.1 491.1 L193.7 493.3 L195.8 493.9 L193.7 494.4 L193.1 496.6 L192.5 494.4 L190.4 493.9 L192.5 493.3 Z"/><path fill="#fff" fill-opacity="0.27" d="M283.8 40.0 L284.5 42.6 L287.1 43.3 L284.5 44.0 L283.8 46.5 L283.1 44.0 L280.6 43.3 L283.1 42.6 Z"/><path fill="#fff" fill-opacity="0.44" d="M67.5 76.7 L68.0 78.4 L69.7 78.9 L68.0 79.4 L67.5 81.1 L67.0 79.4 L65.3 78.9 L67.0 78.4 Z"/><path fill="#fff" fill-opacity="0.30" d="M77.0 308.0 L77.6 310.2 L79.8 310.8 L77.6 311.4 L77.0 313.6 L76.4 311.4 L74.2 310.8 L76.4 310.2 Z"/><path fill="#fff" fill-opacity="0.25" d="M172.4 49.7 L172.8 51.0 L174.1 51.4 L172.8 51.8 L172.4 53.1 L172.0 51.8 L170.7 51.4 L172.0 51.0 Z"/><path fill="#fff" fill-opacity="0.37" d="M206.9 231.6 L207.4 233.3 L209.1 233.8 L207.4 234.3 L206.9 236.0 L206.4 234.3 L204.7 233.8 L206.4 233.3 Z"/><path fill="#fff" fill-opacity="0.40" d="M147.8 166.8 L148.5 169.2 L151.0 169.9 L148.5 170.6 L147.8 173.0 L147.1 170.6 L144.7 169.9 L147.1 169.2 Z"/><path fill="#fff" fill-opacity="0.46" d="M93.5 304.6 L94.0 306.6 L96.1 307.2 L94.0 307.8 L93.5 309.8 L92.9 307.8 L90.9 307.2 L92.9 306.6 Z"/><path fill="#fff" fill-opacity="0.22" d="M219.7 160.5 L220.4 163.2 L223.1 164.0 L220.4 164.7 L219.7 167.5 L218.9 164.7 L216.2 164.0 L218.9 163.2 Z"/><path fill="#fff" fill-opacity="0.34" d="M138.7 396.7 L139.1 398.2 L140.6 398.6 L139.1 399.0 L138.7 400.5 L138.3 399.0 L136.8 398.6 L138.3 398.2 Z"/><path fill="#fff" fill-opacity="0.36" d="M40.2 351.0 L40.9 353.4 L43.3 354.1 L40.9 354.8 L40.2 357.2 L39.5 354.8 L37.1 354.1 L39.5 353.4 Z"/><path fill="#fff" fill-opacity="0.37" d="M257.6 173.9 L258.3 176.2 L260.6 176.9 L258.3 177.5 L257.6 179.8 L257.0 177.5 L254.7 176.9 L257.0 176.2 Z"/><path fill="#fff" fill-opacity="0.48" d="M180.8 244.9 L181.5 247.4 L184.0 248.1 L181.5 248.8 L180.8 251.3 L180.1 248.8 L177.6 248.1 L180.1 247.4 Z"/><path fill="#fff" fill-opacity="0.40" d="M153.3 350.4 L153.6 351.7 L155.0 352.1 L153.6 352.5 L153.3 353.8 L152.9 352.5 L151.5 352.1 L152.9 351.7 Z"/></g><rect width="320" height="960" fill="url(#n)"/></svg>`
 // Where a handoff is: null idle, writing (the handoff turn runs), clearing (clear and resend).
 const handoffStage = atom({ plugin: 'effortless', key: 'handoffStage' } as const, null)
 // The handoff bar above the prompt, open with the choice shown in it, or null.
@@ -89,8 +86,29 @@ const handoffPick = atom({ plugin: 'effortless', key: 'handoffPick' } as const, 
 // The context is swamped: tokens read per request, or null below the line. Drives the swamp band.
 const swamped = atom({ plugin: 'effortless', key: 'swamped' } as const, null)
 // The swamp band was closed at this many tokens; it comes back once the context has grown well past it.
-// Whether this plugin's side panel is open (/effortless panel toggles it).
-let panelOpen = false
+// The handoff card under the newest reply: shown from the start of a handoff, and once it lands ('done' in the
+// cleared chat, 'copied', 'newchat'). It goes with the reply after it, or HANDOFF_CARD_MS after it was set.
+type HandoffCard = { kind: 'writing' | 'done' | 'copied' | 'newchat' | 'compacting' | 'compacted'; full: boolean; at: number; seen: boolean }
+// Kinds still under way: they stay until they land, with moving art. Compacting shares the card with the handoff.
+const cardRunning = (kind: HandoffCard['kind']) => kind === 'writing' || kind === 'compacting'
+// Kinds that landed well: the card turns green with a checkmark.
+const cardLanded = (kind: HandoffCard['kind']) => kind === 'done' || kind === 'compacted'
+const handoffCard = atom({ plugin: 'effortless', key: 'handoffCard' } as const, null)
+const HANDOFF_CARD_MS = 2 * 60_000
+// The handoff card's art while it is written: sparkles carried from left to right.
+const HANDOFF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.d{fill:#d9d1ff;opacity:0;animation-name:go;animation-timing-function:ease-in-out;animation-iteration-count:infinite}@keyframes go{0%{opacity:0;transform:translate(0,0)}15%{opacity:.9}85%{opacity:.7}100%{opacity:0;transform:translate(190px,0)}}.br{animation:br 2.4s ease-in-out infinite}@keyframes br{0%,100%{opacity:.75}50%{opacity:1}}</style><defs><linearGradient id="bg" x1="0" x2="1"><stop offset=".43" stop-color="#7c6cf0" stop-opacity="0"/><stop offset=".7" stop-color="#7c6cf0" stop-opacity=".2"/><stop offset="1" stop-color="#b3a6ff" stop-opacity=".46"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".07"/></pattern></defs><g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#bg)"/><circle class="d" cx="170" cy="9.2" r="0.83" style="animation-duration:2.7s;animation-delay:-2.2s"/><circle class="d" cx="170" cy="17.8" r="0.54" style="animation-duration:2.2s;animation-delay:-3.0s"/><circle class="d" cx="170" cy="9.7" r="0.64" style="animation-duration:3.6s;animation-delay:-1.7s"/><circle class="d" cx="170" cy="22.4" r="0.79" style="animation-duration:3.1s;animation-delay:-0.5s"/><circle class="d" cx="170" cy="18.0" r="1.02" style="animation-duration:2.9s;animation-delay:-2.7s"/><circle class="d" cx="170" cy="18.8" r="0.54" style="animation-duration:3.3s;animation-delay:-2.1s"/><circle class="d" cx="170" cy="10.6" r="0.52" style="animation-duration:3.4s;animation-delay:-1.7s"/><circle class="d" cx="170" cy="19.8" r="1.03" style="animation-duration:3.2s;animation-delay:-3.3s"/><circle class="d" cx="170" cy="12.7" r="0.98" style="animation-duration:2.8s;animation-delay:-3.4s"/><circle class="d" cx="170" cy="23.3" r="0.56" style="animation-duration:2.4s;animation-delay:-0.8s"/><circle class="d" cx="170" cy="25.2" r="0.76" style="animation-duration:3.1s;animation-delay:-1.1s"/><circle class="d" cx="170" cy="15.2" r="0.73" style="animation-duration:2.7s;animation-delay:-2.1s"/><circle class="d" cx="170" cy="16.9" r="1.04" style="animation-duration:3.2s;animation-delay:-3.3s"/><circle class="d" cx="170" cy="22.8" r="1.09" style="animation-duration:3.1s;animation-delay:-0.6s"/><rect width="360" height="30" fill="url(#grain)"/></g></svg>`
+
+async function setHandoffCard($: EngineInterface, kind: HandoffCard['kind'], full: boolean, seen = false) {
+  const at = await $.clock.now()
+  await update($, handoffCard, () => ({ kind, full, at, seen }))
+  // Gone after a while even with no reply; a timer that dies with its request leaves the next reply to clear it.
+  if (!cardRunning(kind)) {
+    try {
+      $.clock.after(HANDOFF_CARD_MS, () => void update($, handoffCard, card => (card && card.at === at ? null : card)))
+    } catch {}
+  }
+}
+
 // The newest reply's text, so the warning card goes under its last block and nowhere else.
 const lastAnswer = atom({ plugin: 'effortless', key: 'lastAnswer' } as const, '')
 const swampHiddenAt = atom({ plugin: 'effortless', key: 'swampHiddenAt' } as const, null)
@@ -140,6 +158,15 @@ const DOWN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64
 // faint light streaks and grain, a still star, and small sparkles that twinkle in and out here and there. One constant source, so the app never rebuilds its frame (a changing source flickers); the
 // motion is CSS inside it.
 const BRAND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.sp{fill:#fff;opacity:0;transform:scale(0);animation-name:gl;animation-timing-function:ease-in-out;animation-iteration-count:infinite}@keyframes gl{0%,72%,100%{opacity:0;transform:scale(0) rotate(0deg)}82%{opacity:.9;transform:scale(1) rotate(30deg)}92%{opacity:0;transform:scale(.2) rotate(60deg)}}.br{animation:br 6s ease-in-out infinite}@keyframes br{0%,100%{opacity:.85}50%{opacity:1}}</style><defs><linearGradient id="bg" x1="0" x2="1"><stop offset=".43" stop-color="#7c6cf0" stop-opacity="0"/><stop offset=".62" stop-color="#7c6cf0" stop-opacity=".16"/><stop offset=".85" stop-color="#8f7ff0" stop-opacity=".34"/><stop offset="1" stop-color="#b3a6ff" stop-opacity=".48"/></linearGradient><radialGradient id="glow" cx="320" cy="15" r="70" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#c9bdff" stop-opacity=".28"/><stop offset="1" stop-color="#9a86ff" stop-opacity="0"/></radialGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".07"/></pattern></defs><g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#bg)"/><rect width="360" height="30" fill="url(#glow)"/><rect width="360" height="30" fill="url(#grain)"/><line x1="186" y1="32" x2="198" y2="-2" stroke="#fff" stroke-opacity="0.04" stroke-width="3"/><line x1="204" y1="32" x2="216" y2="-2" stroke="#fff" stroke-opacity="0.05" stroke-width="1.2"/><line x1="226" y1="32" x2="238" y2="-2" stroke="#fff" stroke-opacity="0.05" stroke-width="4"/><line x1="262" y1="32" x2="274" y2="-2" stroke="#fff" stroke-opacity="0.04" stroke-width="1.5"/><line x1="290" y1="32" x2="302" y2="-2" stroke="#fff" stroke-opacity="0.05" stroke-width="3"/><line x1="320" y1="32" x2="332" y2="-2" stroke="#fff" stroke-opacity="0.04" stroke-width="1.2"/><path class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" d="M168 6.4 L168.34 7.66 L169.6 8 L168.34 8.34 L168 9.6 L167.66 8.34 L166.4 8 L167.66 7.66 Z"/><path class="sp" style="transform-origin:182px 22px;animation-duration:5.1s;animation-delay:2.1s" d="M182 20.7 L182.27 21.73 L183.3 22 L182.27 22.27 L182 23.3 L181.73 22.27 L180.7 22 L181.73 21.73 Z"/><path class="sp" style="transform-origin:196px 6px;animation-duration:3.8s;animation-delay:1.2s" d="M196 4.2 L196.38 5.62 L197.8 6 L196.38 6.38 L196 7.8 L195.62 6.38 L194.2 6 L195.62 5.62 Z"/><path class="sp" style="transform-origin:208px 19px;animation-duration:4.6s;animation-delay:3.4s" d="M208 17.8 L208.25 18.75 L209.2 19 L208.25 19.25 L208 20.2 L207.75 19.25 L206.8 19 L207.75 18.75 Z"/><path class="sp" style="transform-origin:221px 9px;animation-duration:5.4s;animation-delay:0.9s" d="M221 7.5 L221.31 8.69 L222.5 9 L221.31 9.31 L221 10.5 L220.69 9.31 L219.5 9 L220.69 8.69 Z"/><path class="sp" style="transform-origin:232px 23px;animation-duration:4.0s;animation-delay:2.7s" d="M232 21.9 L232.23 22.77 L233.1 23 L232.23 23.23 L232 24.1 L231.77 23.23 L230.9 23 L231.77 22.77 Z"/><path class="sp" style="transform-origin:244px 7px;animation-duration:4.8s;animation-delay:1.8s" d="M244 5.7 L244.27 6.73 L245.3 7 L244.27 7.27 L244 8.3 L243.73 7.27 L242.7 7 L243.73 6.73 Z"/><path class="sp" style="transform-origin:176px 15px;animation-duration:5.8s;animation-delay:4.0s" d="M176 14.0 L176.21 14.79 L177.0 15 L176.21 15.21 L176 16.0 L175.79 15.21 L175.0 15 L175.79 14.79 Z"/><path class="sp" style="transform-origin:214px 26px;animation-duration:4.4s;animation-delay:3.0s" d="M214 25.0 L214.21 25.79 L215.0 26 L214.21 26.21 L214 27.0 L213.79 26.21 L213.0 26 L213.79 25.79 Z"/><path class="sp" style="transform-origin:238px 15px;animation-duration:3.6s;animation-delay:0.1s" d="M238 14.0 L238.21 14.79 L239.0 15 L238.21 15.21 L238 16.0 L237.79 15.21 L237.0 15 L237.79 14.79 Z"/></g></svg>`
+
+// The handoff card once it has landed: the brand's art in green, with a big dark checkmark on the right.
+const DONE_SVG = BRAND_SVG
+  .replace(/#7c6cf0/g, '#2fae62').replace(/#8f7ff0/g, '#3cc472').replace(/#b3a6ff/g, '#7fe0a4')
+  .replace(/#c9bdff/g, '#b4f0c8').replace(/#9a86ff/g, '#4fd486')
+  .replace('</g></svg>', '<path d="M323 15.5 L330 22 L345 7.5" fill="none" stroke="#0c3a20" stroke-opacity=".8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g></svg>')
+const DONE_ACCENT = '#7fe0a4'
+const DONE_BG = '#0f1c15'
+const DONE_EDGE = '#2f7a4c'
 
 const JUDGE_SYSTEM = `You choose which Claude model and reasoning effort an agentic assistant (it reads files, runs tools and edits things, not only code) should use for the user's next message. Pick the cheapest pair that will still do the job well.
 
@@ -367,9 +394,13 @@ export type JudgeConfig = {
 /** The swamp thresholds the settings offer, in percent of the context window. */
 export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
 
-/** The parts of effortless a person can switch off in the settings. */
-export const HIDEABLE = ['handoff', 'timer', 'cold', 'swamp', 'hot', 'down', 'line', 'progress', 'sounds'] as const
+/** The parts of effortless a person can switch off: the footer's (setup) and the progress bar's (setup, settings).
+ * The alerts (cold, swamp, running hot, judge down) and the line under replies always show; each alert has its own ✕.
+ * An older hide list naming them is read without them. */
+export const HIDEABLE = ['handoff', 'timer', 'progress', 'sounds'] as const
 export type Hideable = (typeof HIDEABLE)[number]
+// What the app passed to register, so settings kept in the store can be laid over it at session start.
+let pluginOptions: Record<string, unknown> = {}
 let config: JudgeConfig = {
   judge: 'auto',
   typesafeKey: '',
@@ -860,13 +891,13 @@ async function toggleSave($: EngineInterface): Promise<string> {
   return saving ? 'save mode off' : 'save mode on, Auto stays at medium or below until the limit resets'
 }
 
-type TurnWarning = { kind: 'cold' | 'hot' | 'swamp'; title: string; line: string; color: string; bg: string; edge: string; art: string }
+type TurnWarning = { kind: 'cold' | 'hot'; title: string; line: string; color: string; bg: string; edge: string; art: string }
 
-/** What the bands would warn about now, as the card under the newest reply says it: the same order and the same
+/** What the cold and hot bands would warn about now, as the card under the newest reply says it: the same order and the same
  *  hiding (a part switched off, a band closed with ✕), with a command in place of the band's buttons. */
 async function turnWarning($: EngineInterface): Promise<TurnWarning | null> {
   if ((await read($, cacheLeft)) === 0 && !config.hide.includes('cold') && !(await read($, isColdHidden))) {
-    return { kind: 'cold', title: 'Chat went cold', line: 'Next message costs full price. Type /compact first, or open /effortless panel.', color: ICE, bg: ICE_BG, edge: ICE_EDGE, art: FROST_SVG }
+    return { kind: 'cold', title: 'Chat went cold', line: 'Next message costs full price. Type /compact first.', color: ICE, bg: ICE_BG, edge: ICE_EDGE, art: FROST_SVG }
   }
   const heat = await read($, hot)
   const heatHidden = await read($, hotHidden)
@@ -875,20 +906,11 @@ async function turnWarning($: EngineInterface): Promise<TurnWarning | null> {
     return {
       kind: 'hot',
       title: `Running hot · ${Math.round(heat.percent)}% of your ${window} limit`,
-      line: 'Save mode keeps Auto at medium or below: /effortless save, or open /effortless panel.',
+      line: 'Save mode keeps Auto at medium or below: /effortless save.',
       color: EMBER, bg: EMBER_BG, edge: EMBER_EDGE, art: EMBER_SVG,
     }
   }
-  const swampTokens = await read($, swamped)
-  const hiddenAt = await read($, swampHiddenAt)
-  if (swampTokens !== null && !config.hide.includes('swamp') && (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW)) {
-    return {
-      kind: 'swamp',
-      title: `Chat is getting swamped · ${Math.round(swampTokens / 1000)}k tokens`,
-      line: 'Every message re-reads all of it. /compact, /effortless handoff, or open /effortless panel.',
-      color: BOG, bg: BOG_BG, edge: BOG_EDGE, art: SWAMP_SVG,
-    }
-  }
+  // Swamped is said by the band above the prompt only: a card under every reply was noise in a long chat.
   return null
 }
 
@@ -965,6 +987,20 @@ export function capped(effort: Effort, saving: boolean): Effort {
   return saving && EFFORTS.indexOf(effort) > EFFORTS.indexOf('medium') ? 'medium' : effort
 }
 
+// A main-conversation turn is running: set when a prompt is sent and at each request, cleared when the turn ends (an
+// aborted one too). The swamp band and card wait for it: Compact or Handoff mid-turn would cut the reply off. A turn
+// with no request for TURN_STALE_MS counts as over, so a missed end never hides the band for good.
+let turnBusyAt: number | undefined
+const TURN_STALE_MS = 10 * 60_000
+function turnBusy(): boolean {
+  return turnBusyAt !== undefined && Date.now() - turnBusyAt < TURN_STALE_MS
+}
+async function setTurnBusy($: EngineInterface, busy: boolean) {
+  const was = turnBusyAt !== undefined
+  turnBusyAt = busy ? Date.now() : undefined
+  if (was !== busy) $.ui.invalidate('ui.render')
+}
+
 async function checkSwamp($: EngineInterface) {
   const { context, rateLimits } = await $.session.usage()
   lastContext = { tokens: context.tokens ?? 0, window: context.window ?? 0, percent: context.percent ?? 0 }
@@ -1023,18 +1059,24 @@ async function cacheTouched($: EngineInterface, usage: unknown) {
 async function compactCold($: EngineInterface) {
   if (await read($, isCompacting)) return
   await update($, isCompacting, () => true)
+  await setHandoffCard($, 'compacting', false)
+  let compacted = false
   try {
     // The app's own /compact, run as if typed: nothing lands in the prompt box, nothing to send. It waits for the
     // session to be idle, where a direct $.session.compact() is refused whenever the app counts a turn as running.
     await $.command.run({ command: 'compact', args: '' })
     cacheExpires = 0
     await update($, cacheLeft, () => null)
+    compacted = true
   } catch (error) {
     const why = error instanceof Error ? error.message : String(error)
     void proof($, `compact failed: ${why}`)
     $.ui.toast(`effortless: compact failed: ${why.slice(0, 140)}`)
   } finally {
     await update($, isCompacting, () => false)
+    // Complete, or gone when it failed (the toast says why).
+    if (compacted) await setHandoffCard($, 'compacted', false)
+    else await update($, handoffCard, card => (card?.kind === 'compacting' ? null : card))
   }
 }
 
@@ -1103,6 +1145,7 @@ async function startHandoff($: EngineInterface, full = false, after: HandoffAfte
   handoffFull = full && Boolean(config.handoffSkill)
   handoffThen = after
   handoffQueued = true
+  await setHandoffCard($, 'writing', handoffFull)
 }
 
 /** The choice the handoff bar opens on: the one made last, else quick and the configured after. */
@@ -1206,6 +1249,7 @@ export async function finishHandoff($: EngineInterface) {
       // The model here starts the new chat and archives this one; the clipboard keeps the handoff should it fail.
       const message = handoffMessage(text, 'continue')
       await $.ui.copy({ text: message }).catch(() => undefined)
+      await setHandoffCard($, 'newchat', handoffFull)
       await $.prompt.submit({ text: newChatPrompt(message) })
       return
     }
@@ -1214,6 +1258,8 @@ export async function finishHandoff($: EngineInterface) {
       // refuse, it goes in the prompt box instead, to cut from there.
       const message = handoffMessage(text, 'continue')
       const copied = await $.ui.copy({ text: message }).catch(() => ({ isCopied: false as const }))
+      // Under the reply already there, so the next reply takes it away.
+      await setHandoffCard($, 'copied', handoffFull, true)
       if (copied.isCopied) $.ui.toast('effortless: handoff copied. Paste it into a new chat.')
       else {
         await $.prompt.fill({ text: message, mode: 'replace' })
@@ -1223,8 +1269,11 @@ export async function finishHandoff($: EngineInterface) {
     }
     await update($, handoffStage, () => 'clearing')
     await $.command.run({ command: 'clear', args: '' })
+    // Under the first reply of the cleared chat, gone with the one after it.
+    await setHandoffCard($, 'done', handoffFull)
     await $.prompt.submit({ text: handoffMessage(text, handoffThen) })
   } catch (error) {
+    await update($, handoffCard, () => null)
     $.ui.toast(`effortless: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`)
   } finally {
     handoffDriving = false
@@ -1278,7 +1327,15 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
   const { deny } = await $.config
     .set({ key: `effortless.${SETTING_FIELDS[field]}`, value })
     .catch((error: unknown) => ({ deny: error instanceof Error ? error.message : String(error) }))
-  if (deny) $.ui.toast(`effortless: could not save ${field}: ${String(deny).slice(0, 120)}`)
+  // Some Claude Code builds have no /config row for a plugin's settings and refuse the write: the choice is kept in
+  // the mod's own store then, and read back at the next session start. A write that lands clears that copy.
+  const kept = ((await $.store.get('savedSettings').catch(() => null)) ?? {}) as Record<string, string>
+  const { [SETTING_FIELDS[field]]: _old, ...others } = kept
+  const stored = await $.store
+    .set('savedSettings', deny ? { ...kept, [SETTING_FIELDS[field]]: value } : others)
+    .then(() => true)
+    .catch(() => false)
+  if (deny && !stored) $.ui.toast(`effortless: could not save ${field}: ${String(deny).slice(0, 120)}`)
   const raw: Record<string, unknown> = {
     judge: config.judge,
     effortBias: String(config.bias),
@@ -1368,13 +1425,7 @@ async function typesafeKeyAnywhere($: EngineInterface): Promise<string | undefin
   return parseJevKey(typeof text === 'string' ? text : '')
 }
 
-export type SetupStep = 'pick' | 'jev' | 'custom' | 'lean' | 'handoff' | 'footer' | 'done'
-
-/** The footer parts the setup offers, as the part's hide key and its label. Progress bars or sound join here. */
-export const SETUP_FOOTER = [
-  ['timer', 'Cache timer'],
-  ['handoff', '⇥ Handoff'],
-] as const
+export type SetupStep = 'pick' | 'jev' | 'custom' | 'lean' | 'handoff' | 'done'
 
 /** The lean's five stops, cheaper to smarter: a name, and what it does to the judge's pick (see tipped). */
 export const LEAN_STOPS = [
@@ -1385,12 +1436,11 @@ export const LEAN_STOPS = [
   ['Smartest', 'more picks go higher'],
 ] as const
 
-/** The guide's step after this one: the judge (with its key or URL), the lean, the handoff, the footer, then done. */
+/** The guide's step after this one: the judge (with its key or URL), the lean, the handoff, then done. */
 export function setupNext(step: SetupStep): SetupStep | null {
   if (step === 'pick' || step === 'jev' || step === 'custom') return 'lean'
   if (step === 'lean') return 'handoff'
-  if (step === 'handoff') return 'footer'
-  if (step === 'footer') return 'done'
+  if (step === 'handoff') return 'done'
   return null
 }
 
@@ -1398,15 +1448,14 @@ export function setupNext(step: SetupStep): SetupStep | null {
 export function setupBack(step: SetupStep): SetupStep | null {
   if (step === 'jev' || step === 'custom' || step === 'lean') return 'pick'
   if (step === 'handoff') return 'lean'
-  if (step === 'footer') return 'handoff'
-  if (step === 'done') return 'footer'
+  if (step === 'done') return 'handoff'
   return null
 }
 
-/** "2/4" for the step shown; the closing step has no number. */
+/** "2/3" for the step shown; the closing step has no number. */
 export function setupCounter(step: SetupStep): string {
-  const n = { pick: 1, jev: 1, custom: 1, lean: 2, handoff: 3, footer: 4, done: 0 }[step]
-  return n ? `${n}/4` : ''
+  const n = { pick: 1, jev: 1, custom: 1, lean: 2, handoff: 3, done: 0 }[step]
+  return n ? `${n}/3` : ''
 }
 
 /** Shows a step of the guide; the handoff step needs the installed skills to pick from. */
@@ -1686,7 +1735,205 @@ async function progressAtTurnEnd($: EngineInterface, e: { agentId?: string; reas
   if (!p) return
   const { next, cue } = atTurnEnd(p, e, endsOnQuestion)
   await update($, progressState, () => next)
-  queueCue(config.hide, cue)
+  // A chime only with a bar to see: a list the person closed, or one too short to show, stays quiet.
+  if (progressShows(next, await read($, progressHiddenState), 'active')) queueCue(config.hide, cue)
+}
+
+// The moving art's timer: one at a time, blitting the next frame to the band that drew it. A blit the surface refuses
+// (the band went away, another drew instead) ends it, so nothing has to stop it from outside.
+let artTimer: { cancel(): void } | null = null
+let artShown: { requestId: string; kind: ArtKind } | null = null
+let artFrameCount = 0
+
+/** A band's art on the terminal: a Raster on the right, moving for alert kinds; null where it has no room. */
+function bandArt($: EngineInterface, e: RenderInput<'AbovePrompt'>, kind: ArtKind) {
+  const els = $.ui.resolve(e)
+  const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 0
+  if (e.surface !== 'terminal' || !('Raster' in els) || columns < ART_MIN_WIDTH) return null
+  const { Box, Raster } = els
+  artShown = { requestId: e.requestId, kind }
+  if (MOVING.has(kind) && !artTimer) {
+    artTimer = $.clock.every(ART_FRAME_MS, () => {
+      const shown = artShown
+      if (!shown || !MOVING.has(shown.kind)) {
+        artTimer?.cancel()
+        artTimer = null
+        return
+      }
+      artFrameCount++
+      void $.ui
+        .blit({ requestId: shown.requestId, key: 'art', cells: artFrame(shown.kind, artFrameCount) })
+        .then(r => {
+          if ('deny' in r && r.deny) {
+            artTimer?.cancel()
+            artTimer = null
+          }
+        })
+        .catch(() => undefined)
+    })
+  }
+  return (
+    <Box key="art-box" flexShrink={0}>
+      <Raster key="art" columns={ART_COLUMNS} rows={ART_ROWS} cells={artFrame(kind, artFrameCount)} />
+    </Box>
+  )
+}
+
+/** A bar on the terminal (setup, handoff): the title and words on the left with the brand's still art beside them,
+ * the controls on a row of their own that wraps, so nothing is cut at 80 columns. */
+function terminalPanel($: EngineInterface, e: RenderInput<'AbovePrompt'>, key: string, title: string, words: unknown, controls: unknown[]) {
+  const { Box, Text } = $.ui.resolve(e)
+  return (
+    <Box key={key} flexDirection="column" paddingX={1} backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
+      <Box flexDirection="row" gap={1} alignItems="center">
+        <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
+          <Text color={ACCENT} bold wrap="truncate">{title}</Text>
+          {typeof words === 'string' ? <Text key={`${key}-what`} dimColor wrap="truncate">{words}</Text> : words}
+        </Box>
+        {bandArt($, e, 'brand')}
+      </Box>
+      <Box key={`${key}-actions`} flexDirection="row" flexWrap="wrap" gap={1} alignItems="center">
+        {controls}
+      </Box>
+    </Box>
+  )
+}
+
+type TerminalBand = { key: string; kind: ArtKind; color: string; bg: string; edge: string; title: string; detail: string; buttons: unknown[] }
+
+/** An alert band on the terminal: title and buttons, the detail on a line of its own, art on the right, and the effort
+ * row under it, so effort stays in sight while a band shows. */
+async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b: TerminalBand) {
+  const { Box, Text } = $.ui.resolve(e)
+  const { rows } = await effortRows($, e)
+  return (
+    <Box key={`${b.key}-col`} flexDirection="column">
+      <Box key={b.key} flexDirection="row" gap={1} alignItems="center" paddingX={1} backgroundColor={b.bg} borderStyle="round" borderColor={b.edge}>
+        <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
+          <Box flexDirection="row" gap={1} alignItems="center">
+            <Box flexShrink={0}>
+              <Text color={b.color} bold>{`✦ ${b.title}`}</Text>
+            </Box>
+            <Box flexGrow={1} />
+            {b.buttons}
+          </Box>
+          <Text dimColor wrap="truncate">{b.detail}</Text>
+        </Box>
+        {bandArt($, e, b.kind)}
+      </Box>
+      {rows}
+    </Box>
+  )
+}
+
+/** The terminal's rows above the prompt (Effort steps, Auto, the model row when switched on) and, on any surface, the
+ * judge's question when it suggests another model. The rows also sit under an alert band, so effort never goes away. */
+async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
+  const { Box, Text, Button } = $.ui.resolve(e)
+  const v = await snap($)
+  const { auto, autoModel, current, judging, wanted, shownByApp } = v
+  const inUse = v.modelNow ?? (await sessionModel($))
+  const effortNow = effortOf(v, inUse)
+  // The model row is paused: effort first. EFFORTLESS_MODEL_UI=1 brings it back.
+  const showModel = (await envModelUi($)) === '1'
+
+  const setEffort = (level: Effort) => () => pickEffort($, level)
+  // Picking a model yourself turns off Auto for model alone; accepting a suggestion leaves it on.
+  const setModel = (model: ModelKey) => async () => {
+    await update($, isAutoModel, () => false)
+    await $.store.set('isAutoModel', false)
+    await changeModel(model)
+  }
+  // The person sends /model, so the app's own control moves too; with a draft in the box the mod runs it.
+  const changeModel = async (model: ModelKey) => {
+    if (await typeCommand($, `/model ${model}`)) return
+    await switchModel($, model)
+  }
+  const acceptSuggestion = (model: ModelKey) => () => changeModel(model)
+  const toggleAutoModel = async () => {
+    const turnOn = !(await read($, isAutoModel))
+    await update($, isAutoModel, () => turnOn)
+    await $.store.set('isAutoModel', turnOn)
+    if (!turnOn) await update($, suggestion, () => null)
+  }
+  const dismiss = async () => {
+    declined = wanted
+    await update($, suggestion, () => null)
+  }
+
+  const question = wanted ? (
+    <Box flexDirection="column">
+      <Box flexDirection="row" gap={1} alignItems="center">
+        <Text>Switch to {MODELS.find(m => m.key === wanted)?.label}? The context reloads.</Text>
+        <Button key="accept" variant="primary" label="Switch" onPress={acceptSuggestion(wanted)} />
+        <Button key="decline" label="Keep" onPress={dismiss} />
+      </Box>
+    </Box>
+  ) : null
+  if (e.surface !== 'terminal') return { question, rows: null }
+
+  const notAligned = current && inUse !== 'haiku' && shownByApp && shownByApp !== current.effort
+  const note = judging
+    ? 'Deciding…'
+    : notAligned
+      ? `/effort shows ${EFFORT_LABELS[shownByApp as Effort] ?? shownByApp}`
+      : current
+        ? `${current.by === 'manual' ? 'You' : current.by === 'jev' ? 'Jev' : current.by === 'custom' ? 'Judge' : 'Haiku'}: ${current.why}`
+        : auto
+          ? 'Picks the effort at the next prompt'
+          : 'Pick an effort'
+  const modelRow = (
+    <Box flexDirection="row" alignItems="center" gap={1}>
+      {MODELS.map(m =>
+        m.key === inUse ? (
+          <Button key={`m-${m.key}`} variant="primary" label={m.label} onPress={setModel(m.key)} />
+        ) : (
+          <Button key={`m-${m.key}`} plain dimColor label={m.label} onPress={setModel(m.key)} />
+        ),
+      )}
+      <Box flexGrow={1} />
+      <Button
+        key="auto-model"
+        hotkey="m"
+        variant={autoModel ? 'primary' : undefined}
+        label={autoModel ? 'Auto on' : 'Auto off'}
+        onPress={toggleAutoModel}
+      />
+    </Box>
+  )
+  const rows = (
+    <Box flexDirection="column">
+      {question}
+      {showModel ? modelRow : null}
+      <Box flexDirection="row" gap={1} alignItems="center">
+        {/* The word never breaks: the note at the end gives way first. */}
+        <Box flexShrink={0}>
+          <Text dimColor>Effort</Text>
+        </Box>
+        {EFFORTS.map(level =>
+          level === effortNow ? (
+            <Button key={`e-${level}`} variant="primary" label={level} onPress={setEffort(level)} />
+          ) : (
+            <Button key={`e-${level}`} plain dimColor label={level} onPress={setEffort(level)} />
+          ),
+        )}
+        <Box flexGrow={1} />
+        <Button
+          key="auto"
+          hotkey="a"
+          variant={auto ? 'primary' : undefined}
+          label={auto ? 'Auto on' : 'Auto off'}
+          onPress={() => toggleAutoEffort($)}
+        />
+        <Box flexShrink={1} minWidth={0}>
+          <Text dimColor wrap="truncate-end">
+            {note}
+          </Text>
+        </Box>
+      </Box>
+    </Box>
+  )
+  return { question, rows }
 }
 
 /** The progress bar for one of its two places above the prompt, or null. */
@@ -1696,8 +1943,9 @@ async function progressBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, w
   if (!progressShows(p, await read($, progressHiddenState), when)) return null
   const els = $.ui.resolve(e)
   const { Box, Text, Button } = els
-  // The desktop draws the track as a still image; the terminal has no Svg.
-  const Svg = 'Svg' in els ? els.Svg : undefined
+  // The desktop draws the track as a still image. The terminal's table has an Svg that draws nothing, so the surface
+  // decides, not the table: there the track is a row of characters.
+  const Svg = e.surface !== 'terminal' && 'Svg' in els ? els.Svg : undefined
   // ✕ ends a finished or planning bar; a running one hides until Claude writes another list.
   const onClose = async () => {
     const cur = await read($, progressState)
@@ -1710,10 +1958,14 @@ async function progressBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, w
 
 export const register: Register = (on, options) => {
   config = readConfig(options)
+  pluginOptions = options
   // The progress bar's two hooks of its own (hooks/progress.tsx); the rest of its glue is in this file.
   registerProgress(on, () => config.hide)
   on('session.start', async ($, e, next) => {
     sessionStarted = Date.now()
+    // Settings the app had no /config row for (see saveSetting), over the ones it passed in.
+    const kept = await $.store.get('savedSettings').catch(() => null)
+    if (kept && typeof kept === 'object' && Object.keys(kept).length) config = readConfig({ ...pluginOptions, ...kept })
     // The command file lists /effortless before the session starts; registering it here makes plain /effortless the
     // mod's own command afterwards, instead of the file run as a skill.
     await $.command.register({ name: 'effortless', description: 'effortless: settings, debug, handoff, setup, bench, auto, stats.' }).catch(() => undefined)
@@ -1752,9 +2004,14 @@ export const register: Register = (on, options) => {
   // The handoff turn ended: keep its text; the session's timer clears the chat and sends it.
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
+    if (!e.agentId) await setTurnBusy($, false)
     await progressAtTurnEnd($, e).catch(() => undefined)
     // The newest reply's text: its last block carries the warning card (see AssistantMessage).
     if (!e.agentId && e.reason === 'answer') await update($, lastAnswer, () => e.answer.trim())
+    // A landed handoff card stays under the first reply after it, and goes with the next.
+    if (!e.agentId) {
+      await update($, handoffCard, card => (!card || cardRunning(card.kind) ? card : card.seen ? null : { ...card, seen: true }))
+    }
     if (!e.agentId && (await read($, handoffStage)) === 'writing') {
       if (e.reason === 'answer' && e.answer.trim()) handoffText = e.answer
       else {
@@ -1831,16 +2088,6 @@ export const register: Register = (on, options) => {
       return { text: 'The swamp band is showing now (a test). It goes away at the next check unless the chat really is swamped.' }
     }
     if (arg === 'save') return { text: await toggleSave($) }
-    if (arg === 'panel') {
-      if (panelOpen) {
-        await $.ui.close({ id: PANEL }).catch(() => undefined)
-        panelOpen = false
-        return { text: 'panel closed' }
-      }
-      const opened = await $.ui.open({ id: PANEL, title: 'effortless' })
-      panelOpen = opened.isPlaced
-      return { text: opened.isPlaced ? 'panel open' : `the app did not place the panel: ${'reason' in opened ? opened.reason : 'no reason given'}` }
-    }
     if (arg === 'handoff' || arg === 'handoff full') {
       const full = arg === 'handoff full'
       if (full && !config.handoffSkill) return { text: 'No skill is set for the full handoff. Pick one in /effortless settings, under Handoff.' }
@@ -1913,6 +2160,7 @@ Saved to ${out}.md and .json` }
   })
 
   on('prompt.submit', async ($, e, next) => {
+    await setTurnBusy($, true)
     if (!config.hide.includes('progress')) {
       const was = await read($, progressState)
       if (afterPrompt(was, e) !== was) await update($, progressState, p => afterPrompt(p, e))
@@ -2001,6 +2249,7 @@ Saved to ${out}.md and .json` }
       if (e.agentId === undefined && answer?.usage) await cacheTouched($, answer.usage).catch(() => undefined)
       return answer
     }
+    if (e.agentId === undefined) await setTurnBusy($, true)
     if (e.agentId === undefined) await modelIs($, e.model)
     if (e.agentId === undefined && typeof e.effort === 'string') {
       const seen = e.effort
@@ -2044,6 +2293,8 @@ Saved to ${out}.md and .json` }
     const handoffNow = (await read($, handoffStage)) !== null
     const needsSetup = await read($, setupPending)
     const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
+    // Save mode paints the level in the running-hot band's ember until the limit resets.
+    const saving = (await read($, saveUntil)) !== null
     const label = v.judging
       ? 'Deciding…'
       : v.switchedNow
@@ -2062,7 +2313,7 @@ Saved to ${out}.md and .json` }
             {' Paused '}
           </Text>
         ) : v.auto ? (
-          <Text color={ACCENT} bold hover={{ scope: 'effort', backgroundColor: HOVER_BOX }}>
+          <Text color={saving ? EMBER : ACCENT} bold hover={{ scope: 'effort', backgroundColor: HOVER_BOX }}>
             {` ${label} `}
           </Text>
         ) : (
@@ -2181,8 +2432,43 @@ Saved to ${out}.md and .json` }
     const answer = await read($, lastAnswer)
     const text = e.props.text.trim()
     if (!answer || !text || !answer.endsWith(text)) return next(e)
+    const card = await read($, handoffCard)
+    const fresh = card && (cardRunning(card.kind) || (await $.clock.now()) - card.at < HANDOFF_CARD_MS) ? card : null
+    if (fresh) {
+      const { Box, Text, Svg } = $.ui.resolve(e)
+      const drawn = await next(e)
+      const by = fresh.full ? 'Full' : 'Quick'
+      const words = {
+        writing: ['✦ Handing off…', `${by} handoff being written. ${fresh.full ? 'Your skill takes a little while.' : 'A few seconds.'}`],
+        done: ['✦ Handoff complete', 'Carried on from the last chat. The old one is cleared.'],
+        copied: ['✦ Handoff copied', 'Paste it into a new chat. This one stays.'],
+        newchat: ['✦ Handoff sent on', 'A new chat starts from it; this one gets archived.'],
+        compacting: ['✦ Compacting…', 'The chat is being summed up. Takes a minute or so.'],
+        compacted: ['✦ Compact complete', 'The chat is summed up; the next message reads far less.'],
+      }[fresh.kind]
+      return (
+        <Box key="reply" flexDirection="column" gap={1}>
+          {drawn}
+          <Box key="reply-handoff" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
+            backgroundColor={cardLanded(fresh.kind) ? DONE_BG : BRAND_BG} borderStyle="round" borderColor={cardLanded(fresh.kind) ? DONE_EDGE : BRAND_EDGE}>
+            {/* Moving while it runs, still once it has landed; green with a checkmark once it is complete. */}
+            <Box key="reply-handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
+              {cardRunning(fresh.kind) ? (
+                <Svg source={HANDOFF_SVG} alt={fresh.kind === 'compacting' ? 'compacting' : 'handing off'} width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} isInteractive />
+              ) : (
+                <Svg source={cardLanded(fresh.kind) ? DONE_SVG : BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+              )}
+            </Box>
+            <Box key="reply-handoff-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
+              <Text color={cardLanded(fresh.kind) ? DONE_ACCENT : ACCENT} bold wrap="truncate">{words[0]}</Text>
+              <Text wrap="truncate">{words[1]}</Text>
+            </Box>
+          </Box>
+        </Box>
+      )
+    }
     const warn = await turnWarning($)
-    if (!warn) return next(e)
+    if (!warn || turnBusy()) return next(e)
     const { Box, Text, Svg } = $.ui.resolve(e)
     const drawn = await next(e)
     return (
@@ -2198,77 +2484,6 @@ Saved to ${out}.md and .json` }
             <Text color={warn.color} bold wrap="truncate">{`✦ ${warn.title}`}</Text>
             <Text wrap="truncate">{warn.line}</Text>
           </Box>
-        </Box>
-      </Box>
-    )
-  })
-
-  // The side panel (/effortless panel): what the footer and the bands say, with their buttons, for split view's right
-  // pane, where the app draws neither. Each press says so in a toast for now: a test of whether a pane takes clicks.
-  on('ui.render', { component: 'Pane', requestId: PANEL }, async ($, e) => {
-    const { Box, Text, Button, Svg } = $.ui.resolve(e)
-    const v = await snap($)
-    const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
-    const warn = await turnWarning($)
-    const compacting = await read($, isCompacting)
-    const saving = (await read($, saveUntil)) !== null
-    const handing = (await read($, handoffStage)) !== null
-    const press = (what: string, act: () => Promise<unknown>) => async () => {
-      $.ui.toast(`panel button pressed: ${what}`)
-      await act()
-    }
-    const tint = warn ?? { color: ACCENT, bg: BRAND_HEAD, edge: BRAND_EDGE, art: BRAND_SVG, title: 'All good', line: 'Nothing needs you right now.' }
-    const cacheText = v.cacheNow === null ? 'not started' : v.cacheNow <= 0 ? 'cold' : `${cacheLabel(v.cacheNow)} warm`
-    // One fact per row: a dim label on the left, the value in its colour on the right.
-    const fact = (key: string, label: string, value: string, color?: string, extra?: unknown) => (
-      <Box key={key} flexDirection="row" alignItems="center" gap={1}>
-        <Box width={9} flexShrink={0}>
-          <Text dimColor>{label}</Text>
-        </Box>
-        {extra as never}
-        <Text color={color} bold={Boolean(color)} wrap="truncate">{value}</Text>
-      </Box>
-    )
-    return (
-      // The whole body in the brand: its background, and a tall backdrop clipped to the panel.
-      <Box key="panel" position="relative" flexDirection="column" gap={1} paddingX={1} paddingY={1} overflow="hidden"
-        backgroundColor={BRAND_BG} minHeight={e.props.scroll?.bodyRows ?? 0}>
-        <Box key="panel-backdrop" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={PANEL_SVG} alt="" width={600} height={1800} />
-        </Box>
-        <Box key="panel-title" position="relative" flexDirection="column">
-          <Text color={ACCENT} bold>✦ effortless</Text>
-          <Text dimColor wrap="truncate">This chat, at a glance.</Text>
-        </Box>
-        <Box key="panel-status" position="relative" flexDirection="column" paddingX={1} overflow="hidden"
-          backgroundColor={tint.bg} borderStyle="round" borderColor={tint.edge}>
-          <Box key="panel-status-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={tint.art} alt="" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
-          </Box>
-          <Box key="panel-status-words" position="relative" flexDirection="column" minWidth={0}>
-            <Text color={tint.color} bold wrap="truncate">{`✦ ${tint.title}`}</Text>
-            <Text wrap="wrap">{tint.line.replace(/,? or open \/effortless panel\.?$/, '.')}</Text>
-          </Box>
-        </Box>
-        <Box key="panel-facts" position="relative" flexDirection="column" paddingX={1}>
-          {fact('panel-effort', 'Effort', `✦ ${effortNow ? EFFORT_LABELS[effortNow] : 'Auto'}`, ACCENT)}
-          {fact('panel-cache', 'Cache', cacheText, v.cacheNow === null ? undefined : (cacheColor(v.cacheNow) ?? '#d6d1f5'))}
-          {lastContext && lastContext.window
-            ? fact('panel-context', 'Context', `${lastContext.percent}% full`, lastContext.percent >= config.swampAt ? BOG : '#d6d1f5',
-                <Svg key="panel-ring" source={ringSvg(lastContext.percent, lastContext.percent >= config.swampAt ? BOG : ACCENT)} alt="" width={14} height={14} />)
-            : null}
-          {saving ? fact('panel-saving', 'Save mode', 'on', EMBER) : null}
-        </Box>
-        <Box key="panel-actions" position="relative" flexDirection="column" gap={1}>
-          <Button key="panel-compact" variant="primary" label={compacting ? 'Compacting…' : 'Compact'} onPress={press('Compact', () => compactCold($))} />
-          <Button key="panel-handoff" variant="secondary" label={handing ? 'Handing off…' : 'Handoff'} onPress={press('Handoff', async () => {
-            const choice = await lastHandoffChoice($)
-            await startHandoff($, choice.kind === 'full', choice.after)
-          })} />
-          <Button key="panel-save" variant="secondary" label={saving ? 'Save mode on' : 'Save mode'} onPress={press('Save mode', async () => $.ui.toast(`effortless: ${await toggleSave($)}`))} />
-        </Box>
-        <Box key="panel-foot" position="relative" paddingX={1}>
-          <Text dimColor wrap="wrap">/effortless settings for all of it. /effortless panel closes this.</Text>
         </Box>
       </Box>
     )
@@ -2350,23 +2565,20 @@ Saved to ${out}.md and .json` }
       }
       const dirty = Object.keys(draft).length > 0
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
-      // One toggle per part that can be switched off: filled dot shown, hollow dot hidden.
+      // Only the progress bar and its sounds can be switched off here: the alerts each have their own ✕, and the
+      // rest is the mod itself. A ticked box in plain text, dim when off: lighter than a row of white buttons.
       const toggles = (
         [
-          ['handoff', '⇥ Handoff button'],
-          ['timer', 'Cache timer'],
-          ['cold', 'Cold'],
-          ['swamp', 'Swamped'],
-          ['hot', 'Running hot'],
-          ['down', 'Judge down'],
-          ['line', 'Line under replies'],
           ['progress', 'Progress'],
           ['sounds', 'Sounds'],
         ] as const
       ).map(([part, label]) => {
         const off = hidden.includes(part)
         const after = off ? hidden.filter(h => h !== part) : [...hidden, part]
-        return <Button key={`show-${part}`} plain label={`${off ? '○' : '●'} ${label}`} onPress={() => set('hide')(after.join(','))} />
+        return (
+          <Button key={`show-box-${part}`} plain dimColor={off} label={`${off ? '☐' : '☑'}︎ ${label}`}
+            onPress={() => set('hide')(after.join(','))} />
+        )
       })
       // The slider: five stops, the marker on the one in force. No animation, a click moves it.
       const track: unknown[] = []
@@ -2382,7 +2594,7 @@ Saved to ${out}.md and .json` }
             </Box>
             <Text dimColor>{label}</Text>
           </Box>
-          <Box flexDirection="row" gap={1} alignItems="center" flexShrink={1}>
+          <Box flexDirection="row" flexWrap="wrap" gap={1} alignItems="center" flexShrink={1}>
             {children}
           </Box>
         </Box>
@@ -2404,9 +2616,11 @@ Saved to ${out}.md and .json` }
       }
       // Probe 2 keeps only the frame and header; probe 3 keeps the rows of buttons and text, no pickers or fields.
       const frameOnly = probeLevel === 2
+      // The terminal has no art in the header bar and few rows: no gaps, one row under the title.
+      const term = e.surface === 'terminal'
       const bare = probeLevel === 3
       return (
-        <Box key="settings" position="relative" flexDirection="column" gap={roomy ? 1 : 0} paddingX={2} overflow="hidden"
+        <Box key="settings" position="relative" flexDirection="column" gap={roomy && !term ? 1 : 0} paddingX={term ? 1 : 2} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={3} overflow="hidden" backgroundColor={BRAND_HEAD}>
             <Box key="settings-art" position="absolute" top={0} right={0} bottom={0}>
@@ -2420,10 +2634,10 @@ Saved to ${out}.md and .json` }
             {dirty ? <Text dimColor> · unsaved changes</Text> : null}
           </Box>
           <Box key="settings-actions" position="absolute" top={0} right={1} height={2} flexDirection="row" gap={2} alignItems="center">
-            <Button key="settings-save" variant="primary" label="Save" onPress={() => saveDraft($)} />
+            <Button key="settings-save" variant="primary" hotkey="s" label="Save" onPress={() => saveDraft($)} />
             <Button key="settings-close" plain label="✕" onPress={close} />
           </Box>
-          <Box key="settings-spacer" height={roomy ? 2 : 1} />
+          <Box key="settings-spacer" height={roomy && !term ? 2 : 1} />
           {frameOnly ? null : row('settings-bias', 'Effort', ICON_EFFORT, [
             <Text key="cheap" dimColor>Cheaper</Text>,
             <Box key="track" flexDirection="row" alignItems="center">
@@ -2479,11 +2693,36 @@ Saved to ${out}.md and .json` }
       const { Select } = $.ui.resolve(e)
       const fullReady = Boolean(config.handoffSkill)
       const what = handoffWhat(choice, config.handoffSkill)
+      // Go is the one lit button: the picked kind is a quiet box, the other plain text.
+      const controls = [
+        choice.kind === 'quick' ? (
+          <Button key="handoff-quick" hotkey="q" variant="secondary" label="Quick" onPress={setBar({ kind: 'quick' })} />
+        ) : (
+          <Button key="handoff-quick" hotkey="q" plain dimColor label="Quick" onPress={setBar({ kind: 'quick' })} />
+        ),
+        choice.kind === 'full' ? (
+          <Button key="handoff-full" hotkey="f" variant="secondary" label="Full" onPress={setBar({ kind: 'full' })} />
+        ) : (
+          <Button key="handoff-full" hotkey="f" plain dimColor label="Full" onPress={setBar({ kind: 'full' })} />
+        ),
+        <Select key="handoff-after" value={choice.after}
+          options={[
+            { value: 'continue', label: 'Clear & carry on' },
+            { value: 'confirm', label: 'Clear & wait' },
+            { value: 'copy', label: 'Keep chat & copy' },
+            { value: 'newchat', label: 'New chat & archive' },
+          ]}
+          onSelect={v => setBar({ after: v as HandoffAfter })()} />,
+        <Button key="handoff-go" variant="primary" autoFocus hotkey="g" label="Go" onPress={() => goHandoff($, choice)} />,
+        <Button key="handoff-close" plain role="dismiss" label="✕" onPress={() => closeHandoffBar($)} />,
+      ]
+      const line = choice.kind === 'full' && !fullReady ? 'Full needs a skill: pick one in ⚙ under Handoff.' : `${what.by}. ${what.then}`
+      if (e.surface === 'terminal') return terminalPanel($, e, 'handoff-bar', '⇥ Handoff', line, controls)
       return (
         // The art is a still image here: an animated one sits in a frame the app rebuilds on every redraw, and the bar
         // redraws on every choice. The title over the line on what happens, on the left; the controls on the right in
         // their own absolute layer, drawn last: the app draws anything in the flow under the absolute art, where it takes
-        // no clicks. Go is the one lit button: the picked kind is a quiet box, the other plain text.
+        // no clicks.
         <Box key="handoff-bar" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
@@ -2494,31 +2733,12 @@ Saved to ${out}.md and .json` }
               ⇥ Handoff
             </Text>
             <Text key="handoff-what" dimColor wrap="truncate">
-              {choice.kind === 'full' && !fullReady ? 'Full needs a skill: pick one in ⚙ under Handoff.' : `${what.by}. ${what.then}`}
+              {line}
             </Text>
           </Box>
           <Box flexGrow={1} minWidth={48} />
           <Box key="handoff-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
-            {choice.kind === 'quick' ? (
-              <Button key="handoff-quick" hotkey="q" variant="secondary" label="Quick" onPress={setBar({ kind: 'quick' })} />
-            ) : (
-              <Button key="handoff-quick" hotkey="q" plain dimColor label="Quick" onPress={setBar({ kind: 'quick' })} />
-            )}
-            {choice.kind === 'full' ? (
-              <Button key="handoff-full" hotkey="f" variant="secondary" label="Full" onPress={setBar({ kind: 'full' })} />
-            ) : (
-              <Button key="handoff-full" hotkey="f" plain dimColor label="Full" onPress={setBar({ kind: 'full' })} />
-            )}
-            <Select key="handoff-after" value={choice.after}
-              options={[
-                { value: 'continue', label: 'Clear & carry on' },
-                { value: 'confirm', label: 'Clear & wait' },
-                { value: 'copy', label: 'Keep chat & copy' },
-                { value: 'newchat', label: 'New chat & archive' },
-              ]}
-              onSelect={v => setBar({ after: v as HandoffAfter })()} />
-            <Button key="handoff-go" variant="primary" autoFocus label="Go" onPress={() => goHandoff($, choice)} />
-            <Button key="handoff-close" plain role="dismiss" label="✕" onPress={() => closeHandoffBar($)} />
+            {controls}
           </Box>
         </Box>
       )
@@ -2545,7 +2765,9 @@ Saved to ${out}.md and .json` }
       // layer, drawn last: the app draws anything in the flow under the absolute art, where it takes no clicks
       // (position="relative" does not lift it). The spacer keeps the words clear of them; room is their width in
       // columns. The art is still: every click redraws the band.
-      const band = (words: unknown, room: number, controls: unknown[]) => (
+      const band = (words: unknown, room: number, controls: unknown[]) => e.surface === 'terminal' ? (
+        terminalPanel($, e, 'setup', counter ? `✦ effortless setup  ${counter}` : '✦ effortless setup', words, controls)
+      ) : (
         <Box key="setup" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="setup-art" position="absolute" top={-1} right={0} bottom={-1}>
@@ -2655,28 +2877,6 @@ Saved to ${out}.md and .json` }
           ...nav(nextButton),
         ])
       }
-      if (step === 'footer') {
-        // What sits in the footer, ticked when it shows. The alert bands are left on; ⚙ switches them off.
-        const toggles = SETUP_FOOTER.map(([part, label]) => {
-          const off = shown.hide.includes(part)
-          const after = off ? shown.hide.filter(h => h !== part) : [...shown.hide, part]
-          // A checkbox of its own beside the name: on is a primary button (white, a heavy black tick), off a secondary
-          // one holding the same tick, dimmed: the same label is the only sure way to the same size (blanks of any width
-          // drew a pill or a wider box). The name toggles it too.
-          const toggle = () => pick('hide', after.join(','))
-          return (
-            <Box key={`setup-show-${part}`} flexDirection="row" alignItems="center">
-              {off ? (
-                <Button key={`setup-box-${part}`} variant="secondary" dimColor label={'\u2714\ufe0e'} onPress={toggle} />
-              ) : (
-                <Button key={`setup-box-${part}`} variant="primary" label={'\u2714\ufe0e'} onPress={toggle} />
-              )}
-              <Button key={`setup-name-${part}`} plain dimColor={off} label={label} onPress={toggle} />
-            </Box>
-          )
-        })
-        return band('Show at the bottom (both recommended):', 58, [...toggles, ...nav(nextButton)])
-      }
       return band('⏻ Auto on or off. ⚙ all settings. Auto pauses on Fable.', 24, [
         ...nav(<Button key="setup-done" variant="primary" autoFocus label="Done" onPress={() => finishSetup($)} />),
       ])
@@ -2687,6 +2887,15 @@ Saved to ${out}.md and .json` }
     // The judge the person picked is failing: Haiku stands in until it works again.
     const downReason = await read($, judgeDown)
     if (downReason && !config.hide.includes('down') && downReason !== (await read($, judgeDownHidden))) {
+      if (e.surface === 'terminal')
+        return terminalBand($, e, {
+          key: 'down', kind: 'down', color: SLATE, bg: SLATE_BG, edge: SLATE_EDGE, title: 'Judge down',
+          detail: `${downReason}. Haiku stands in.`,
+          buttons: [
+            <Button key="down-settings" variant="primary" hotkey="s" label="Settings" onPress={() => openPluginSettings($)} />,
+            <Button key="down-close" plain role="dismiss" label="✕" onPress={() => update($, judgeDownHidden, () => downReason)} />,
+          ],
+        })
       return (
         <Box key="down" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={SLATE_BG} borderStyle="round" borderColor={SLATE_EDGE}>
@@ -2714,6 +2923,16 @@ Saved to ${out}.md and .json` }
       const saving = (await read($, saveUntil)) !== null
       const window = heat.kind === 'five_hour' ? '5h' : 'weekly'
       const resets = resetLabel(heat.resetsAt, await $.clock.now())
+      if (e.surface === 'terminal')
+        return terminalBand($, e, {
+          key: 'hot', kind: 'hot', color: EMBER, bg: EMBER_BG, edge: EMBER_EDGE, title: 'Running hot',
+          detail: `${Math.round(heat.percent)}% of your ${window} limit used${resets ? ` · resets ${resets}` : ''}`,
+          buttons: [
+            <Button key="hot-save" variant="primary" hotkey="s" label={saving ? 'Save mode on' : 'Save mode'}
+              onPress={async () => { $.ui.toast(`effortless: ${await toggleSave($)}`) }} />,
+            <Button key="hot-close" plain role="dismiss" label="✕" onPress={() => update($, hotHidden, () => heat.percent)} />,
+          ],
+        })
       return (
         <Box key="hot" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={EMBER_BG} borderStyle="round" borderColor={EMBER_EDGE}>
@@ -2742,8 +2961,18 @@ Saved to ${out}.md and .json` }
       )
     }
     // The cache went cold: the next message writes the whole chat again at full price. Said where it cannot be missed.
-    if ((await read($, cacheLeft)) === 0 && !config.hide.includes('cold') && !(await read($, isColdHidden))) {
-      const compacting = await read($, isCompacting)
+    // While compacting, the card under the newest reply says so and the bands step aside.
+    const compacting = await read($, isCompacting)
+    if ((await read($, cacheLeft)) === 0 && !config.hide.includes('cold') && !(await read($, isColdHidden)) && !compacting) {
+      if (e.surface === 'terminal')
+        return terminalBand($, e, {
+          key: 'cold', kind: 'cold', color: ICE, bg: ICE_BG, edge: ICE_EDGE, title: 'Chat went cold',
+          detail: 'The next message costs full price. Compact first.',
+          buttons: [
+            <Button key="cold-hide" plain hotkey="n" label="Not now" onPress={() => update($, isColdHidden, () => true)} />,
+            <Button key="cold-compact" variant="primary" hotkey="c" label="Compact" onPress={() => compactCold($)} />,
+          ],
+        })
       // The art is a backdrop: an absolutely placed layer behind the right side, so the words and Compact sit on it.
       return (
         <Box
@@ -2764,15 +2993,15 @@ Saved to ${out}.md and .json` }
           </Box>
           <Box flexShrink={0}>
             <Text color={ICE} bold wrap="truncate">
-              {compacting ? '✦ Compacting the chat…' : '✦ Chat went cold'}
+              ✦ Chat went cold
             </Text>
           </Box>
-          <Text wrap="truncate">{compacting ? 'Summing it up. The band goes when it is done.' : 'Next message costs full price. Compact first.'}</Text>
+          <Text wrap="truncate">Next message costs full price. Compact first.</Text>
           {/* Room for the buttons, which sit in their own layer after the frost so they are drawn on top of it. */}
           <Box flexGrow={1} minWidth={22} />
           <Box key="cold-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
-            {compacting ? null : <Button key="cold-hide" plain label="Not now" onPress={() => update($, isColdHidden, () => true)} />}
-            {compacting ? null : <Button key="cold-compact" variant="primary" label="Compact" onPress={() => compactCold($)} />}
+            <Button key="cold-hide" plain label="Not now" onPress={() => update($, isColdHidden, () => true)} />
+            <Button key="cold-compact" variant="primary" label="Compact" onPress={() => compactCold($)} />
           </Box>
         </Box>
       )
@@ -2780,9 +3009,18 @@ Saved to ${out}.md and .json` }
     // The context is swamped: every message re-reads all of it. Compact or hand off, right here.
     const swampTokens = await read($, swamped)
     const hiddenAt = await read($, swampHiddenAt)
-    if (swampTokens !== null && !config.hide.includes('swamp') && (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW)) {
-      const compacting = await read($, isCompacting)
+    if (swampTokens !== null && !config.hide.includes('swamp') && !turnBusy() && !compacting && (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW)) {
       const handing = (await read($, handoffStage)) !== null
+      if (e.surface === 'terminal')
+        return terminalBand($, e, {
+          key: 'swamp', kind: 'swamp', color: BOG, bg: BOG_BG, edge: BOG_EDGE, title: 'Chat is getting swamped',
+          detail: `${Math.round(swampTokens / 1000)}k tokens${lastContext && lastContext.window ? ` (${lastContext.percent}% of context)` : ''} re-read every message.`,
+          buttons: [
+            <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => compactCold($)} />,
+            <Button key="swamp-handoff" hotkey="h" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />,
+            <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />,
+          ],
+        })
       return (
         <Box
           key="swamp"
@@ -2801,7 +3039,7 @@ Saved to ${out}.md and .json` }
           </Box>
           <Box flexShrink={0}>
             <Text color={BOG} bold wrap="truncate">
-              {compacting ? '✦ Compacting the chat…' : '✦ Chat is getting swamped'}
+              ✦ Chat is getting swamped
             </Text>
           </Box>
           {/* How full the context is, as a ring and a figure: the tokens alone do not say how close the limit is. */}
@@ -2812,19 +3050,12 @@ Saved to ${out}.md and .json` }
             </Box>
           ) : null}
           <Text wrap="truncate">
-            {compacting
-              ? `Summing up ${Math.round(swampTokens / 1000)}k tokens. The band goes when it is done.`
-              : `${Math.round(swampTokens / 1000)}k tokens re-read every message.`}
+            {`${Math.round(swampTokens / 1000)}k tokens re-read every message.`}
           </Text>
           <Box flexGrow={1} minWidth={34} />
           <Box key="swamp-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
-            {/* While compacting, the title and line say so and the buttons step aside: nothing to press until it ends. */}
-            {compacting ? null : (
-              <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => compactCold($)} />
-            )}
-            {compacting ? null : (
-              <Button key="swamp-handoff" hotkey="h" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />
-            )}
+            <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => compactCold($)} />
+            <Button key="swamp-handoff" hotkey="h" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />
             <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />
           </Box>
         </Box>
@@ -2833,104 +3064,9 @@ Saved to ${out}.md and .json` }
     // A finished or paused task: its bar after the alerts.
     const restingProgress = await progressBand($, e, 'resting')
     if (restingProgress) return restingProgress
-    const v = await snap($)
-    const { auto, autoModel, current, judging, wanted, shownByApp } = v
-    const inUse = v.modelNow ?? (await sessionModel($))
-    const effortNow = effortOf(v, inUse)
-    // The model row is paused: effort first. EFFORTLESS_MODEL_UI=1 brings it back.
-    const showModel = (await envModelUi($)) === '1'
-
-    const setEffort = (level: Effort) => () => pickEffort($, level)
-    // Picking a model yourself turns off Auto for model alone; accepting a suggestion leaves it on.
-    const setModel = (model: ModelKey) => async () => {
-      await update($, isAutoModel, () => false)
-      await $.store.set('isAutoModel', false)
-      await changeModel(model)
-    }
-    // The person sends /model, so the app's own control moves too; with a draft in the box the mod runs it.
-    const changeModel = async (model: ModelKey) => {
-      if (await typeCommand($, `/model ${model}`)) return
-      await switchModel($, model)
-    }
-    const acceptSuggestion = (model: ModelKey) => () => changeModel(model)
-    const toggleAutoModel = async () => {
-      const turnOn = !(await read($, isAutoModel))
-      await update($, isAutoModel, () => turnOn)
-      await $.store.set('isAutoModel', turnOn)
-      if (!turnOn) await update($, suggestion, () => null)
-    }
-    const dismiss = async () => {
-      declined = wanted
-      await update($, suggestion, () => null)
-    }
-
-    const question = wanted ? (
-      <Box flexDirection="column">
-        <Box flexDirection="row" gap={1} alignItems="center">
-          <Text>Switch to {MODELS.find(m => m.key === wanted)?.label}? The context reloads.</Text>
-          <Button key="accept" variant="primary" label="Switch" onPress={acceptSuggestion(wanted)} />
-          <Button key="decline" label="Keep" onPress={dismiss} />
-        </Box>
-      </Box>
-    ) : null
+    const { question, rows } = await effortRows($, e)
     if (e.surface !== 'terminal') return question ?? next(e)
-
-    const notAligned = current && inUse !== 'haiku' && shownByApp && shownByApp !== current.effort
-    const note = judging
-      ? 'Deciding…'
-      : notAligned
-        ? `The app's control shows ${EFFORT_LABELS[shownByApp as Effort] ?? shownByApp}`
-        : current
-          ? `${current.by === 'manual' ? 'You' : current.by === 'jev' ? 'Jev' : current.by === 'custom' ? 'Judge' : 'Haiku'}: ${current.why}`
-          : auto
-            ? 'Picks the effort at the next prompt'
-            : 'Pick an effort'
-    const modelRow = (
-      <Box flexDirection="row" alignItems="center" gap={1}>
-        {MODELS.map(m =>
-          m.key === inUse ? (
-            <Button key={`m-${m.key}`} variant="primary" label={m.label} onPress={setModel(m.key)} />
-          ) : (
-            <Button key={`m-${m.key}`} plain dimColor label={m.label} onPress={setModel(m.key)} />
-          ),
-        )}
-        <Box flexGrow={1} />
-        <Button
-          key="auto-model"
-          hotkey="m"
-          variant={autoModel ? 'primary' : undefined}
-          label={autoModel ? 'Auto on' : 'Auto off'}
-          onPress={toggleAutoModel}
-        />
-      </Box>
-    )
-    return (
-      <Box flexDirection="column">
-        {question}
-        {showModel ? modelRow : null}
-        <Box flexDirection="row" gap={1} alignItems="center">
-          <Text dimColor>Effort</Text>
-          {EFFORTS.map(level =>
-            level === effortNow ? (
-              <Button key={`e-${level}`} variant="primary" label={level} onPress={setEffort(level)} />
-            ) : (
-              <Button key={`e-${level}`} plain dimColor label={level} onPress={setEffort(level)} />
-            ),
-          )}
-          <Box flexGrow={1} />
-          <Button
-            key="auto"
-            hotkey="a"
-            variant={auto ? 'primary' : undefined}
-            label={auto ? 'Auto on' : 'Auto off'}
-            onPress={() => toggleAutoEffort($)}
-          />
-          <Text dimColor wrap="truncate-end">
-            {note}
-          </Text>
-        </Box>
-      </Box>
-    )
+    return rows
     } catch (error) {
       lastRenderError = (error instanceof Error ? error.message : String(error)).slice(0, 300)
       return next(e)

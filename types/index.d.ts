@@ -105,6 +105,10 @@ declare module 'claude-code' {
       handoffStage: 'writing' | 'clearing' | null
       /** The handoff bar above the prompt, open with the choice shown in it, or null. */
       handoffPick: HandoffChoice | null
+      /** The newest reply's text: the reply card hangs under its last block. */
+      lastAnswer: string
+      /** The handoff card under the newest reply, from the start of a handoff until the reply after it lands. */
+      handoffCard: { kind: 'writing' | 'done' | 'copied' | 'newchat'; full: boolean; at: number; seen: boolean } | null
       /** The setup guide's step, or null when it is closed. */
       setupStep: 'pick' | 'jev' | 'custom' | 'lean' | 'handoff' | 'footer' | 'done' | null
       /** Choices made in the setup guide, saved together at Done or the cross. */

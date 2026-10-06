@@ -19,9 +19,21 @@ Type these two lines in Claude Code's chat box, no terminal needed:
 /plugin install effortless@effortless
 ```
 
-Restart Claude Code. A short setup opens above the prompt the first time: pick **Jev** (API key needed, about 4x faster than Haiku), **Haiku** (one click, no key, runs on your own Claude login) or **your own AI**, and it asks only for what that choice needs. Then three short steps: lean cheaper or smarter, which skill writes a full handoff, and what shows at the bottom (cache timer, ⇥ handoff). Back on every step; your choices are saved when you press Done or close it. Run `/effortless setup` to go through it again, or change any of it in ⚙.
+Restart Claude Code. A short setup opens above the prompt the first time: pick **Jev** (API key needed, about 4x faster than Haiku), **Haiku** (one click, no key, runs on your own Claude login) or **your own AI**, and it asks only for what that choice needs. Then two short steps: lean cheaper or smarter, and which skill writes a full handoff. Back on every step; your choices are saved when you press Done or close it. Run `/effortless setup` to go through it again, or change any of it in ⚙.
 
 From a terminal it is the same without the slashes: `claude plugin marketplace add HeyCubit/effortless`, then `claude plugin install effortless@effortless`.
+
+### In the terminal
+
+effortless draws in the terminal CLI too, with moving pixel art in its bands. Claude Code may not load a plugin's code
+there yet: if `/effortless` says the mod is not loaded after a restart, add this to `~/.claude/settings.json` and
+restart:
+
+```json
+{ "env": { "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1" } }
+```
+
+Tested on Claude Code 2.1.286 and 2.1.288 at 80 and 120 columns. Below 90 columns the bands leave their art out.
 
 ## Pick your judge
 
@@ -56,7 +68,7 @@ Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and 
 
 ## Progress bar
 
-When Claude works through a bigger task, a bar above the prompt follows it. It appears once Claude writes a step list of 3 or more steps (or, before that, as "Planning" when the judge picked high effort or above), fills one segment per step toward the flag at the end, and names the step in progress.
+When Claude works through a bigger task, a bar above the prompt follows it. It appears once Claude writes a step list of 3 or more steps (or, before that, as "Planning" while Claude is in plan mode). A line in the system prompt asks Claude to keep such a list for work of three or more steps, fills one segment per step toward the flag at the end, and names the step in progress.
 
 - **Yellow**, with a chime: Claude asks you something (a question card, or a reply that ends on a question).
 - **Green**, with a chime: every step is done. It stays until your next message or ✕.
