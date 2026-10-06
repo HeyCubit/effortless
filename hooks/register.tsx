@@ -399,6 +399,8 @@ export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
  * An older hide list naming them is read without them. */
 export const HIDEABLE = ['handoff', 'timer', 'progress', 'sounds'] as const
 export type Hideable = (typeof HIDEABLE)[number]
+// What the app passed to register, so settings kept in the store can be laid over it at session start.
+let pluginOptions: Record<string, unknown> = {}
 let config: JudgeConfig = {
   judge: 'auto',
   typesafeKey: '',
@@ -1325,7 +1327,15 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
   const { deny } = await $.config
     .set({ key: `effortless.${SETTING_FIELDS[field]}`, value })
     .catch((error: unknown) => ({ deny: error instanceof Error ? error.message : String(error) }))
-  if (deny) $.ui.toast(`effortless: could not save ${field}: ${String(deny).slice(0, 120)}`)
+  // Some Claude Code builds have no /config row for a plugin's settings and refuse the write: the choice is kept in
+  // the mod's own store then, and read back at the next session start. A write that lands clears that copy.
+  const kept = ((await $.store.get('savedSettings').catch(() => null)) ?? {}) as Record<string, string>
+  const { [SETTING_FIELDS[field]]: _old, ...others } = kept
+  const stored = await $.store
+    .set('savedSettings', deny ? { ...kept, [SETTING_FIELDS[field]]: value } : others)
+    .then(() => true)
+    .catch(() => false)
+  if (deny && !stored) $.ui.toast(`effortless: could not save ${field}: ${String(deny).slice(0, 120)}`)
   const raw: Record<string, unknown> = {
     judge: config.judge,
     effortBias: String(config.bias),
@@ -1948,10 +1958,14 @@ async function progressBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, w
 
 export const register: Register = (on, options) => {
   config = readConfig(options)
+  pluginOptions = options
   // The progress bar's two hooks of its own (hooks/progress.tsx); the rest of its glue is in this file.
   registerProgress(on, () => config.hide)
   on('session.start', async ($, e, next) => {
     sessionStarted = Date.now()
+    // Settings the app had no /config row for (see saveSetting), over the ones it passed in.
+    const kept = await $.store.get('savedSettings').catch(() => null)
+    if (kept && typeof kept === 'object' && Object.keys(kept).length) config = readConfig({ ...pluginOptions, ...kept })
     // The command file lists /effortless before the session starts; registering it here makes plain /effortless the
     // mod's own command afterwards, instead of the file run as a skill.
     await $.command.register({ name: 'effortless', description: 'effortless: settings, debug, handoff, setup, bench, auto, stats.' }).catch(() => undefined)
