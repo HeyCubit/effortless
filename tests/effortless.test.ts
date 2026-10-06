@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText } from '../hooks/register'
+import { HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText } from '../hooks/register'
 
 const BAND = {
   component: 'AbovePrompt',
@@ -336,7 +336,8 @@ describe('footer text', () => {
     expect(text).toContain(`"color":"${PURPLE}"`)
     expect(text).toContain('"children":[" Auto "]')
     // The only button is the small switch for Auto: no label other than the power glyph, not the lit look.
-    expect(text.match(/"type":"Button"/g)?.length).toBe(1)
+    // The Auto switch and the handoff symbol.
+    expect(text.match(/"type":"Button"/g)?.length).toBe(2)
     expect(text).toContain('"label":" ⏻ "')
     // No frame of its own (it drew wide and cut off): plain, with the same grey box as the level on hover.
     expect(text).toContain('"plain":true')
@@ -973,6 +974,12 @@ describe('judge choice (plugin settings)', () => {
       customUrl: 'http://x/v1/chat/completions',
       customModel: '',
       customKey: '',
+      handoffSkill: '',
+      handoffAfter: 'continue',
+    })
+    expect(readConfig({ handoffSkill: '/session-handoff', handoffAfter: 'confirm' })).toMatchObject({
+      handoffSkill: 'session-handoff',
+      handoffAfter: 'confirm',
     })
     expect(parseChatCompletion(chat('{"model":"opus","effort":"high","why":"x"}'))?.effort).toBe('high')
     expect(parseChatCompletion('nope')).toBeUndefined()
@@ -1356,5 +1363,46 @@ describe('cold band', () => {
     await band.press({ key: 'cold-hide' })
     await band.unmount()
     await expect($.ui.mount(DESK)).rejects.toThrow()
+  })
+})
+
+describe('handoff', () => {
+  test('the first message carries the handoff and what to do next', () => {
+    expect(handoffMessage(' the plan ', 'continue')).toBe('Handoff from the previous chat:\n\nthe plan\n\nContinue with the next step.')
+    expect(handoffMessage('x', 'confirm')).toContain('then wait for me')
+  })
+
+  test('one click: the handoff is asked for, then the chat is cleared and the handoff sent into it', async ($, on) => {
+    // engine() without its prompt.submit, so this test can see what the mod sends.
+    mock.store(on)
+    mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
+    on('ui.status', () => ({ value: undefined }))
+    on('session.messages', () => ({ value: [] }) as never)
+    on('session.model', () => ({ value: 'claude-opus-5-5' }))
+    on('command.list', () => ({ value: [{ name: 'model' }, { name: 'effort' }] as never }))
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    const ran: string[] = []
+    on('command.run', (_$, e) => {
+      ran.push(e.command)
+      return { text: 'ok' }
+    })
+    const submitted: string[] = []
+    on('prompt.submit', (_$, e) => {
+      submitted.push(e.text)
+      return { text: e.text }
+    })
+    on('turn.complete', (_$, e) => ({ text: e.answer }))
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const footer = await $.ui.mount(FOOTER)
+    await footer.press({ key: 'handoff' })
+    expect(submitted.at(-1)).toBe(HANDOFF_PROMPT)
+    await $.turn.complete({ turnId: 't9', answer: 'Goal: ship it. Next: tests.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    await mocked.advance(1500)
+    expect(ran).toContain('clear')
+    expect(submitted.at(-1)).toContain('Goal: ship it. Next: tests.')
+    expect(submitted.at(-1)).toContain('Continue with the next step.')
+    await footer.unmount()
   })
 })

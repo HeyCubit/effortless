@@ -64,6 +64,8 @@ const paused = atom({ plugin: 'effortless', key: 'paused' } as const, false)
 const cacheLeft = atom({ plugin: 'effortless', key: 'cacheLeft' } as const, null)
 const isCompacting = atom({ plugin: 'effortless', key: 'isCompacting' } as const, false)
 // The person closed the cold band; it comes back the next time the cache goes cold.
+// Where a handoff is: null idle, writing (the handoff turn runs), clearing (clear and resend).
+const handoffStage = atom({ plugin: 'effortless', key: 'handoffStage' } as const, null)
 const isColdHidden = atom({ plugin: 'effortless', key: 'isColdHidden' } as const, false)
 // The setup guide above the prompt: which step it shows, or null when it is closed.
 const setupStep = atom({ plugin: 'effortless', key: 'setupStep' } as const, null)
@@ -282,8 +284,20 @@ export type JudgeConfig = {
   customUrl: string
   customModel: string
   customKey: string
+  /** A skill or slash command that writes the handoff instead of the built-in prompt, e.g. "session-handoff". */
+  handoffSkill: string
+  /** After the handoff lands in the fresh chat: carry on with the next step, or only confirm and wait. */
+  handoffAfter: 'continue' | 'confirm'
 }
-let config: JudgeConfig = { judge: 'auto', typesafeKey: '', customUrl: '', customModel: '', customKey: '' }
+let config: JudgeConfig = {
+  judge: 'auto',
+  typesafeKey: '',
+  customUrl: '',
+  customModel: '',
+  customKey: '',
+  handoffSkill: '',
+  handoffAfter: 'continue',
+}
 
 /** The settings as the engine hands them over (defaults filled in), cleaned to the shape the judge reads. */
 export function readConfig(options: unknown): JudgeConfig {
@@ -296,6 +310,8 @@ export function readConfig(options: unknown): JudgeConfig {
     customUrl: str(o.customUrl),
     customModel: str(o.customModel),
     customKey: str(o.customKey),
+    handoffSkill: str(o.handoffSkill).replace(/^\//, ''),
+    handoffAfter: str(o.handoffAfter) === 'confirm' ? 'confirm' : 'continue',
   }
 }
 
@@ -815,6 +831,56 @@ async function compactCold($: EngineInterface) {
   }
 }
 
+// The handoff: one click writes a handoff, clears the chat and sends the handoff into it as the first message.
+export const HANDOFF_PROMPT =
+  'Write a handoff so this work can continue in a fresh chat that has no other context. Cover: the goal; what is ' +
+  'done, with file paths; what is half done; the exact next steps; decisions made and why; and anything that must ' +
+  'not be redone or broken. Be concrete and complete. Reply with the handoff only, no preamble.'
+
+/** The first message of the fresh chat: the handoff, then what to do with it. */
+export function handoffMessage(handoff: string, after: 'continue' | 'confirm'): string {
+  const ask =
+    after === 'continue'
+      ? 'Continue with the next step.'
+      : 'Read this, say in two lines where things stand and what is next, then wait for me.'
+  return `Handoff from the previous chat:\n\n${handoff.trim()}\n\n${ask}`
+}
+
+// The handoff's text once its turn has ended, waiting for the chat to go idle so it can be cleared and resent.
+let handoffText: string | undefined
+let handoffDriving = false
+
+/** Starts a handoff: asks for it (built-in prompt or the person's own skill); the rest follows when it is written. */
+async function startHandoff($: EngineInterface) {
+  if ((await read($, handoffStage)) !== null) return
+  await update($, handoffStage, () => 'writing')
+  try {
+    if (config.handoffSkill) await $.command.run({ command: config.handoffSkill, args: '' })
+    else await $.prompt.submit({ text: HANDOFF_PROMPT })
+  } catch (error) {
+    await update($, handoffStage, () => null)
+    $.ui.toast(`effortless: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`)
+  }
+}
+
+/** Clears the chat and sends the written handoff into it. Runs from the session's timer, when nothing waits on it. */
+export async function finishHandoff($: EngineInterface) {
+  if (handoffText === undefined || handoffDriving) return
+  handoffDriving = true
+  const text = handoffText
+  handoffText = undefined
+  try {
+    await update($, handoffStage, () => 'clearing')
+    await $.command.run({ command: 'clear', args: '' })
+    await $.prompt.submit({ text: handoffMessage(text, config.handoffAfter) })
+  } catch (error) {
+    $.ui.toast(`effortless: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`)
+  } finally {
+    handoffDriving = false
+    await update($, handoffStage, () => null)
+  }
+}
+
 /** A TypeSafe key the jev judge would use: the settings, TYPESAFE_API_KEY, or ~/.config/jev/.env (Jev was picked). */
 async function findTypesafeKey($: EngineInterface): Promise<boolean> {
   return Boolean(await typesafeKeyAnywhere($))
@@ -942,6 +1008,9 @@ function effortOf(v: Snap, inUse: ModelKey): Effort | undefined {
   return EFFORTS.includes(v.shownByApp as Effort) ? (v.shownByApp as Effort) : undefined
 }
 
+let handoffTimer: { cancel: () => void } | undefined
+const HANDOFF_POLL_MS = 1000
+
 export const register: Register = (on, options) => {
   config = readConfig(options)
   on('session.start', async ($, e, next) => {
@@ -956,6 +1025,9 @@ export const register: Register = (on, options) => {
     }
     // The cache countdown's clock. A timer started inside a request ends with that request, so it lives here.
     $.clock.every(CACHE_TICK_MS, () => void showCache($).catch(() => undefined))
+    // A written handoff is cleared and resent from here: a hook the turn waits on may not run commands.
+    handoffTimer?.cancel()
+    handoffTimer = $.clock.every(HANDOFF_POLL_MS, () => void finishHandoff($).catch(() => undefined))
     // The first time the mod runs, the setup guide opens above the prompt.
     if ((await $.store.get('setupDone')) !== true) await update($, setupStep, () => 'pick')
     // Clear the status entry older versions set.
@@ -963,9 +1035,22 @@ export const register: Register = (on, options) => {
     await modelIs($, await $.session.model()).catch(() => undefined)
     await $.command.register({
       name: 'effortless',
-      description: 'Setup: /effortless setup. Judge test: /effortless bench. Auto on/off: /effortless auto. What Auto cost: /effortless stats. Try Compact: /effortless cold.',
+      description: 'Handoff to a fresh chat: /effortless handoff. Setup: /effortless setup. Judge test: /effortless bench. Auto on/off: /effortless auto. What Auto cost: /effortless stats. Try Compact: /effortless cold.',
     })
     return next(e)
+  })
+
+  // The handoff turn ended: keep its text; the session's timer clears the chat and sends it.
+  on('turn.complete', async ($, e, next) => {
+    const result = await next(e)
+    if (!e.agentId && (await read($, handoffStage)) === 'writing') {
+      if (e.reason === 'answer' && e.answer.trim()) handoffText = e.answer
+      else {
+        await update($, handoffStage, () => null)
+        $.ui.toast('effortless: the handoff was not written, nothing was cleared')
+      }
+    }
+    return result
   })
 
   on('command.run', { command: 'effortless' }, async ($, e) => {
@@ -976,6 +1061,10 @@ export const register: Register = (on, options) => {
       return { text: (await read($, isAuto)) ? 'Auto on: effort is picked for every prompt.' : 'Auto off: the effort is yours.' }
     }
     // A test aid: marks the cache cold now, so the Compact button can be tried without waiting out the hour.
+    if (arg === 'handoff') {
+      await startHandoff($)
+      return { text: 'Writing the handoff. The chat is cleared and continues from it when it is done.' }
+    }
     if (arg === 'setup') {
       await update($, setupStep, () => 'pick')
       $.ui.invalidate('ui.render')
@@ -1131,6 +1220,7 @@ Saved to ${out}.md and .json` }
     if (e.surface !== 'desktop') return next(e)
     const { Box, Text, Button } = $.ui.resolve(e)
     const v = await snap($)
+    const handoffNow = (await read($, handoffStage)) !== null
     const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
     const label = v.judging
       ? 'Deciding…'
@@ -1160,6 +1250,15 @@ Saved to ${out}.md and .json` }
         )}
         {/* The one thing to click: it switches Auto off and on. Text cannot be clicked, so it is a small button. */}
         <Button key="auto" plain dimColor label=" ⏻ " hover={{ scope: 'power', backgroundColor: HOVER_BOX }} onPress={() => toggleAutoEffort($)} />
+        {/* Hand off: write a handoff, clear the chat, continue from it. One symbol, so it takes little room. */}
+        <Button
+          key="handoff"
+          plain
+          dimColor
+          label={handoffNow ? ' … ' : ' ⇥ '}
+          hover={{ scope: 'handoff', backgroundColor: HOVER_BOX }}
+          onPress={() => startHandoff($)}
+        />
         {/* How long the prompt cache stays warm: grey, yellow from 20 minutes, red from 5, then "cold" (the next message
             writes the whole context again). Nothing before the first response. */}
         {/* Cold: the band above the prompt says it and holds Compact; the footer only shows the state, in ice blue. */}
