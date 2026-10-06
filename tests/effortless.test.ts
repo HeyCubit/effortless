@@ -1059,3 +1059,31 @@ describe('context for the judge', () => {
     expect(seen[0].system).toContain('should I archive this?')
   })
 })
+
+describe('model-aware effort', () => {
+  test('the judge is told which model runs and that effort is relative to it', async ($, on) => {
+    engine(on, {}, 'claude-sonnet-5-5')
+    mock.clock(on)
+    const seen: { system?: string; prompt: string }[] = []
+    on('model.complete', (_$, e) => {
+      seen.push({ system: e.system, prompt: e.prompt })
+      return { value: { isAnswered: true as const, text: '{"model":"sonnet","effort":"high","why":"x"}', usage: USAGE } }
+    })
+    await $.prompt.submit({ text: 'refactor the parser', wait: false, origin: { kind: 'composer' } })
+    expect(seen[0].prompt).toContain('Current: sonnet')
+    expect(seen[0].system).toContain('Opus at medium does about what Sonnet does at high')
+  })
+
+  test('Jev gets the model in use and the same rule', async ($, on) => {
+    engine(on, { TYPESAFE_API_KEY: 'k' }, 'claude-opus-5-5')
+    mock.clock(on)
+    const bodies: Record<string, any>[] = []
+    on('http.fetch', (_$, e) => {
+      bodies.push(JSON.parse(String(e.init?.body)))
+      return { value: { status: 200, ok: true, headers: {}, text: jevReply('medium') } }
+    })
+    await $.prompt.submit({ text: 'refactor the parser', wait: false, origin: { kind: 'composer' } })
+    expect(bodies[0].state.current_model).toBe('opus')
+    expect(bodies[0].state.task).toContain('Opus at medium does about what')
+  })
+})
