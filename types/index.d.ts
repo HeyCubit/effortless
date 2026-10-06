@@ -40,6 +40,12 @@ declare module 'claude-code' {
       isCompacting: boolean
       /** The cold band was closed until the cache goes cold again. */
       isColdHidden: boolean
+      /** Context tokens read per request once the chat is swamped, else null. */
+      swamped: number | null
+      /** Tokens at which the swamp band was closed; it returns once the context grows well past it. */
+      swampHiddenAt: number | null
+      /** The first-run setup is not done yet. */
+      setupPending: boolean
       /** Where a handoff is: null idle, writing, or clearing and resending. */
       handoffStage: 'writing' | 'clearing' | null
       /** The setup guide's step, or null when it is closed. */
