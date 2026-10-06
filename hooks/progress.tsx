@@ -251,7 +251,8 @@ export type ProgressDraw = {
  */
 export function progressShows(p: Progress | null, hiddenKey: string | null, when: 'active' | 'resting'): p is Progress {
   if (!p) return false
-  const active = p.phase === 'planning' || p.phase === 'working' || p.phase === 'asking'
+  // A finished task comes before the alerts too: it is news, and it lasts only until the next message.
+  const active = p.phase === 'planning' || p.phase === 'working' || p.phase === 'asking' || p.phase === 'done'
   if ((when === 'active') !== active) return false
   if (p.phase === 'planning') return true
   return p.steps.length >= MIN_STEPS && hiddenKey !== stepsKey(p.steps)
@@ -302,9 +303,12 @@ export function progressTrackSvg(p: Progress): string {
     parts.push(groove(0, room), lit(0, fill, 0))
     if (!finished && fill > 0) parts.push(current(0, fill))
   }
+  // The finish line: a small flag, a ticked circle once the task is done.
   const dot = finished
-    ? `<circle class="pulse" cx="${W - 9}" cy="8" r="5.5" fill="${look.color}"/>`
-    : `<circle cx="${W - 9}" cy="8" r="5" fill="none" stroke="${look.color}" stroke-opacity=".55" stroke-width="1.6"/>`
+    ? `<g class="pulse"><circle cx="${W - 9}" cy="8" r="7" fill="${look.color}"/>` +
+      `<path d="M${W - 12.5} 8.2L${W - 10} 10.6L${W - 5.6} 5.6" fill="none" stroke="${look.bg}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>`
+    : `<path d="M${W - 15} 15V1.5" stroke="${look.color}" stroke-opacity=".7" stroke-width="1.4" stroke-linecap="round"/>` +
+      `<path d="M${W - 14.3} 2L${W - 3} 5L${W - 14.3} 8.4Z" fill="${look.color}" fill-opacity=".7"/>`
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
     '<style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}' +
@@ -319,6 +323,50 @@ export function progressTrackSvg(p: Progress): string {
     `<filter id="glow-${id}" x="-10%" y="-200%" width="120%" height="500%"><feGaussianBlur stdDeviation="2.5" result="b"/>` +
     '<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>' +
     parts.join('') + dot + '</svg>'
+  )
+}
+
+/**
+ * The art behind the right side of the band, in the band's colour, fading in from the left like the other bands:
+ * sparkles twinkling while it works, question marks rising while it waits for an answer, checkmarks rising when it is
+ * done. One source per state, so the frame is rebuilt only when the state changes.
+ */
+export function progressArtSvg(phase: Progress['phase']): string {
+  const c = LOOKS[phase].color
+  const spark = (x: number, y: number, s: number, delay: number) =>
+    `<path class="sp" style="transform-origin:${x}px ${y}px;animation-delay:${delay}s" d="M${x} ${y - s}L${x + s * 0.28} ${y - s * 0.28}L${x + s} ${y}` +
+    `L${x + s * 0.28} ${y + s * 0.28}L${x} ${y + s}L${x - s * 0.28} ${y + s * 0.28}L${x - s} ${y}L${x - s * 0.28} ${y - s * 0.28}Z" fill="#fff"/>`
+  const check = (x: number, delay: number, dur: number) =>
+    `<path class="up" style="animation-delay:${delay}s;animation-duration:${dur}s" d="M${x - 3} 31L${x - 1} 33.2L${x + 3.2} 28.6" ` +
+    `fill="none" stroke="${c}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>`
+  const ask = (x: number, delay: number, dur: number) =>
+    `<text class="up" style="animation-delay:${delay}s;animation-duration:${dur}s" x="${x}" y="34" font-size="7" font-family="sans-serif" ` +
+    `font-weight="700" fill="${c}">?</text>`
+  const sparks = [
+    [190, 8, 1.4, 0.3], [214, 22, 1.1, 2.1], [238, 6, 1.6, 1.2], [262, 19, 1, 3.4], [286, 9, 1.3, 0.9], [310, 24, 1.1, 2.7],
+    [334, 7, 1.5, 1.8], [350, 17, 1, 0.1],
+  ]
+    .map(([x, y, s, d]) => spark(x!, y!, s!, d!))
+    .join('')
+  const rising =
+    phase === 'done'
+      ? [[200, 0, 3.2], [228, 1.1, 3.6], [256, 0.5, 3], [284, 1.8, 3.4], [312, 0.9, 3.1], [340, 2.3, 3.5]].map(([x, d, t]) => check(x!, d!, t!)).join('')
+      : phase === 'asking'
+        ? [[214, 0, 3.6], [262, 1.4, 4], [310, 0.7, 3.4], [346, 2.2, 3.8]].map(([x, d, t]) => ask(x!, d!, t!)).join('')
+        : ''
+  return (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice">' +
+    '<style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}' +
+    '.sp{opacity:0;transform:scale(0);animation:tw 4.2s ease-in-out infinite}' +
+    '@keyframes tw{0%,70%,100%{opacity:0;transform:scale(0) rotate(0)}82%{opacity:.85;transform:scale(1) rotate(30deg)}92%{opacity:0;transform:scale(.2) rotate(60deg)}}' +
+    '.up{opacity:0;animation-name:up;animation-timing-function:ease-out;animation-iteration-count:infinite}' +
+    '@keyframes up{0%{opacity:0;transform:translateY(0)}20%{opacity:.9}100%{opacity:0;transform:translateY(-30px)}}' +
+    '.br{animation:br 6s ease-in-out infinite}@keyframes br{0%,100%{opacity:.8}50%{opacity:1}}</style>' +
+    `<defs><linearGradient id="wash" x1="0" x2="1"><stop offset=".45" stop-color="${c}" stop-opacity="0"/>` +
+    `<stop offset=".75" stop-color="${c}" stop-opacity=".12"/><stop offset="1" stop-color="${c}" stop-opacity=".3"/></linearGradient>` +
+    '<linearGradient id="fade" x1="0" x2="1"><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient>' +
+    '<mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask></defs>' +
+    `<g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#wash)"/>${sparks}${rising}</g></svg>`
   )
 }
 
@@ -346,7 +394,7 @@ export function drawProgress(p: Progress, d: ProgressDraw) {
   const title = progressTitle(p)
   const words = p.phase === 'done' || p.phase === 'planning' ? '' : ((p.phase === 'paused' ? step?.label : step?.doing) ?? '')
   const name = (
-    <Box key="progress-name" flexShrink={0}>
+    <Box key="progress-name" position="relative" flexShrink={0}>
       <Text color={look.color} bold>
         ✦ effortless
       </Text>
@@ -359,14 +407,19 @@ export function drawProgress(p: Progress, d: ProgressDraw) {
     return (
       <Box key="progress-bar" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
         backgroundColor={look.bg} borderStyle="round" borderColor={look.edge}>
+        {d.Svg ? (
+          <Box key="progress-art" position="absolute" top={-1} right={0} bottom={-1}>
+            <d.Svg key={`art-${p.phase}`} source={progressArtSvg(p.phase)} alt="" width={440} height={64} isInteractive />
+          </Box>
+        ) : null}
         {name}
         {p.phase === 'planning' ? null : (
-          <Box key="progress-blocks" flexShrink={0} flexDirection="row">
+          <Box key="progress-blocks" position="relative" flexShrink={0} flexDirection="row">
             <Text color={look.color}>{'▰'.repeat(blocks)}</Text>
             <Text dimColor>{'▱'.repeat(10 - blocks)}</Text>
           </Box>
         )}
-        <Box key="progress-words" flexShrink={1} minWidth={0}>
+        <Box key="progress-words" position="relative" flexShrink={1} minWidth={0}>
           <Text wrap="truncate">{words ? `${title} · ${words}` : title}</Text>
         </Box>
         <Box flexGrow={1} />
@@ -401,7 +454,12 @@ export function drawProgress(p: Progress, d: ProgressDraw) {
   return (
     <Box key="progress-bar" position="relative" flexDirection="column" paddingX={1} overflow="hidden"
       backgroundColor={look.bg} borderStyle="round" borderColor={look.edge}>
-      <Box key="progress-head" flexDirection="row" gap={1} alignItems="center">
+      {d.Svg ? (
+        <Box key="progress-art" position="absolute" top={-1} right={0} bottom={-1}>
+          <d.Svg key={`art-${p.phase}`} source={progressArtSvg(p.phase)} alt="" width={440} height={64} isInteractive />
+        </Box>
+      ) : null}
+      <Box key="progress-head" position="relative" flexDirection="row" gap={1} alignItems="center">
         {name}
         <Box key="progress-words" flexShrink={1} minWidth={0} flexDirection="row" gap={1}>
           <Text color={look.color} wrap="truncate">
@@ -413,7 +471,7 @@ export function drawProgress(p: Progress, d: ProgressDraw) {
         {closeButton}
       </Box>
       {d.Svg ? (
-        <Box key="progress-track" flexDirection="row">
+        <Box key="progress-track" position="relative" flexDirection="row">
           <d.Svg source={progressTrackSvg(p)} alt={title} isInteractive />
         </Box>
       ) : (
