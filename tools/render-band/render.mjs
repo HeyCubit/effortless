@@ -42,6 +42,8 @@ const params = {
   working: flag('working'),
   auto: opt('auto', 'on') !== 'off',
   bodyColumns: 100,
+  press: (opt('press', '') || '').split(',').filter(Boolean),
+  command: opt('command', '') || '',
   options: Object.fromEntries((opt('options', '') || '').split(',').filter(Boolean).map((kv) => kv.split('='))),
 }
 const width = Number(opt('width', '768')) // CSS px of the band slot (the composer column; 768 at a wide window)
@@ -173,7 +175,14 @@ function freeze(node, seconds) {
   if (typeof node !== 'object' || node === null) return node
   const hold = `<style>*{animation-delay:-${seconds}s !important;animation-play-state:paused !important}</style>`
   const props = node.type === 'Svg' && typeof node.props?.source === 'string'
-    ? { ...node.props, source: node.props.source.replace(/(<svg\s[^>]*>)/, (m) => m + hold) }
+    ? {
+        ...node.props,
+        // An element's own delay (a frame of the countdown starts at its second) is kept, shifted by the held time: an
+        // inline !important beats the stylesheet's.
+        source: node.props.source
+          .replace(/(<svg\s[^>]*>)/, (m) => m + hold)
+          .replace(/animation-delay:\s*(-?[\d.]+)s/g, (_m, d) => `animation-delay:${(Number(d) - seconds).toFixed(3)}s !important`),
+      }
     : node.props
   return { ...node, props, ...(node.children ? { children: node.children.map((c) => freeze(c, seconds)) } : {}) }
 }

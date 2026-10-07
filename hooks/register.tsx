@@ -975,6 +975,24 @@ export function cacheClock(msLeft: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
+/** How many seconds the countdown image carries: the band is redrawn once a minute, with some slack. */
+const CLOCK_FRAMES = 75
+/** The dashboard's countdown as an image that ticks by itself: one frame per second, each shown for its second by a
+ * CSS animation. The band is redrawn only once a minute: every redraw rebuilds the band, which restarts every image's
+ * animation (the Handoff glow restarted each second while the band was redrawn for the seconds). The app sets the
+ * image's font and colour to the band's, so the digits match the text around them. */
+export function cacheClockSvg(msLeft: number, color: string): string {
+  const start = Math.max(0, Math.ceil(msLeft / 1000))
+  const frames: string[] = []
+  for (let j = 0; j < CLOCK_FRAMES && start - j > 0; j++) {
+    const left = start - j
+    const label = `cache ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`
+    frames.push(`<text x="0" y="12.5" style="animation-delay:${j}s">${label}</text>`)
+  }
+  frames.push(`<text x="0" y="12.5" style="animation-delay:${frames.length}s;animation-duration:100000s">❄ Cold</text>`)
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="84" height="17" viewBox="0 0 84 17"><style>text{font-size:13px;fill:${color};opacity:0;animation:f 1s step-end 1}@keyframes f{0%{opacity:1}100%{opacity:0}}</style>${frames.join('')}</svg>`
+}
+
 let cacheTtl: keyof typeof CACHE_TTL = '1h'
 let cacheExpires = 0
 /** Writes the minutes left when they changed; the session's one timer (started in session.start) calls it. */
@@ -1085,6 +1103,8 @@ async function checkSwamp($: EngineInterface) {
 // Redraws still owed after a chat was opened again: the app may draw the band before it is ready for one, so the
 // session's 1 s timer asks again a few times (see redrawSoon).
 let redrawsOwed = 0
+// The countdown's minute the band was last redrawn for (see cacheClockSvg).
+let clockMinute = -1
 function redrawSoon(times = 5) {
   redrawsOwed = Math.max(redrawsOwed, times)
 }
@@ -1735,6 +1755,28 @@ export function settingsSvg(color: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.3" stroke-linejoin="round" shape-rendering="geometricPrecision"><path d="M${pts.join('L')}Z"/><circle cx="7" cy="7" r="2"/></g></svg>`
 }
 
+/** The settings rows' icons, drawn in the cog's outline style (14 px, 1.3 stroke) rather than font glyphs, which
+ * differ per font. */
+export function rowIconSvg(kind: 'effort' | 'judge' | 'handoff' | 'show', color: string): string {
+  const shapes = {
+    // A gauge: an open arc with a needle.
+    effort: '<path d="M2.6 10.4A5 5 0 1 1 11.4 10.4"/><path d="M7 8.2L9.6 5.2"/><circle cx="7" cy="8.6" r=".9"/>',
+    // Scales: a beam on a post, two pans.
+    judge: '<path d="M7 2.4V11.6M4.4 11.6H9.6M2.6 4.2H11.4"/><path d="M2.6 4.2L1.2 7.6A1.5 1.5 0 0 0 4 7.6Z"/><path d="M11.4 4.2L10 7.6A1.5 1.5 0 0 0 12.8 7.6Z"/>',
+    // An arrow into a bar: hand off.
+    handoff: '<path d="M1.8 7H9.4M6.6 4.2L9.4 7L6.6 9.8"/><path d="M11.8 2.6V11.4"/>',
+    // An eye.
+    show: '<path d="M1.2 7C2.6 4.4 4.6 3.1 7 3.1S11.4 4.4 12.8 7C11.4 9.6 9.4 10.9 7 10.9S2.6 9.6 1.2 7Z"/><circle cx="7" cy="7" r="1.8"/>',
+  }[kind]
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision">${shapes}</g></svg>`
+}
+
+/** A band's entrance: a soft violet wash that fades and a light sweep passing left to right, once, as the band
+ * appears. The app has no transitions for a band (its tree is swapped at once), but a plain Svg's CSS animation starts
+ * when the image is first drawn and is not restarted by a redraw with the same source. Stretched to the band
+ * (preserveAspectRatio none: the app scales a Svg down to its box's width but keeps its height), behind the content. */
+export const INTRO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="240" viewBox="0 0 1600 240" preserveAspectRatio="none"><style>.w{animation:w .7s ease-out forwards}.s{animation:s 1.1s cubic-bezier(.2,.7,.2,1) forwards}@keyframes w{from{opacity:.16}to{opacity:0}}@keyframes s{from{transform:translateX(-520px);opacity:1}80%{opacity:1}to{transform:translateX(1700px);opacity:0}}</style><defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".55" stop-color="#b9a7ff" stop-opacity=".16"/><stop offset=".7" stop-color="#fff" stop-opacity=".1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs><rect class="w" width="1600" height="240" fill="#8b6cff"/><rect class="s" width="480" height="240" fill="url(#g)"/></svg>`
+
 /** k/M for token counts: 420000 -> "420k", 1000000 -> "1.0M". */
 function kTokens(n: number): string {
   return n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : `${Math.round(n / 1000)}k`
@@ -2212,7 +2254,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
             <Box width={0} height={1} />
             {cacheShown !== null ? (
               <Box key="dash-cache-time" width={11} flexShrink={0} hover={{ scope: 'dash-cache', backgroundColor: HOVER_BOX }}>
-                <Text color={cacheShown === 0 ? ICE : (cacheColor(cacheShown) ?? DASH_DIM)} wrap="truncate">{`cache ${cacheClock(cacheExpires - (await $.clock.now()))}`}</Text>
+                <Svg source={cacheClockSvg(cacheExpires - (await $.clock.now()), cacheShown === 0 ? ICE : (cacheColor(cacheShown) ?? DASH_DIM))}
+                  alt={`cache ${cacheClock(cacheExpires - (await $.clock.now()))}`} width={84} height={17} />
               </Box>
             ) : null}
             {detail ? (
@@ -2424,9 +2467,15 @@ export const register: Register = (on, options) => {
       }
       // Right after a start the app may not have the usage yet: ask each second until it has, so the ring shows.
       if (!lastContext || !lastContext.window) void checkSwamp($).then(() => lastContext?.window && $.ui.invalidate('ui.render')).catch(() => undefined)
-      // The dashboard's cache countdown ticks by the second while the cache is warm.
+      // The dashboard's countdown ticks inside its own image; the band is redrawn once a minute to start the next one.
       if (cacheExpires > 0 && !config.hide.includes('timer'))
-        void $.clock.now().then(now => (now < cacheExpires + HANDOFF_POLL_MS ? $.ui.invalidate('ui.render') : undefined))
+        void $.clock.now().then(now => {
+          const minute = Math.floor((cacheExpires - now) / 60_000)
+          if (now < cacheExpires + HANDOFF_POLL_MS && minute !== clockMinute) {
+            clockMinute = minute
+            $.ui.invalidate('ui.render')
+          }
+        })
       void finishHandoff($).catch(() => undefined)
       void playProgressCues($).catch(() => undefined)
     })
@@ -3031,11 +3080,18 @@ Saved to ${out}.md and .json` }
         if (n > -2) track.push(<Text key={`t${n}`} dimColor>──</Text>)
         track.push(<Button key={`bias${n + 2}`} plain label={n === shown.bias ? '◉' : '○'} onPress={() => set('bias')(String(n))} />)
       }
+      // The terminal has no art and few rows: no gaps, one row under the title.
+      const term = e.surface === 'terminal'
+      const iconKind = { [ICON_EFFORT]: 'effort', [ICON_JUDGE]: 'judge', [ICON_HANDOFF]: 'handoff', [ICON_SHOW]: 'show' } as const
       const row = (key: string, label: string, icon: string, children: unknown[]) => (
         <Box key={key} flexDirection="row" gap={1} alignItems="center">
           <Box width={13} flexShrink={0} flexDirection="row" gap={1} alignItems="center">
-            <Box flexShrink={0} width={2}>
-              <Text color={ACCENT}>{icon}</Text>
+            <Box flexShrink={0} width={2} alignItems="center">
+              {Svg && !term ? (
+                <Svg source={rowIconSvg(iconKind[icon as keyof typeof iconKind], DASH_DIM)} alt={label} width={14} height={14} />
+              ) : (
+                <Text color={ACCENT}>{icon}</Text>
+              )}
             </Box>
             <Text dimColor>{label}</Text>
           </Box>
@@ -3061,24 +3117,28 @@ Saved to ${out}.md and .json` }
       }
       // Probe 2 keeps only the frame and header; probe 3 keeps the rows of buttons and text, no pickers or fields.
       const frameOnly = probeLevel === 2
-      // The terminal has no art in the header bar and few rows: no gaps, one row under the title.
-      const term = e.surface === 'terminal'
       const bare = probeLevel === 3
       return (
+        // The dashboard's look: the neutral band, its quiet edge and grey art, purple only on the star. The entrance
+        // sweep plays once, behind everything, as the panel opens.
         <Box key="settings" position="relative" flexDirection="column" gap={roomy && !term ? 1 : 0} paddingX={term ? 1 : 2} overflow="hidden"
-          backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
-          <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={3} overflow="hidden" backgroundColor={BRAND_HEAD}>
-            <Box key="settings-art" position="absolute" top={0} right={0} bottom={0}>
-              <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
+          backgroundColor={DASH_BG} borderStyle="round" borderColor={DASH_EDGE}>
+          {Svg && !term ? (
+            <Box key="settings-art" position="absolute" top={-1} right={0} bottom={-1}>
+              <Svg source={DASH_SVG} alt="effortless" width={FROST_WIDTH * 3} height={FROST_HEIGHT * 5} />
             </Box>
-          </Box>
-          <Box key="settings-title" position="absolute" top={0} left={1} height={2} flexDirection="row" alignItems="center">
-            <Text color={ACCENT} bold>
-              ✦ effortless settings
-            </Text>
+          ) : null}
+          {Svg && !term ? (
+            <Box key="settings-intro" position="absolute" top={-1} left={0} right={0} bottom={-1}>
+              <Svg source={INTRO_SVG} alt="" width={1600} height={240} />
+            </Box>
+          ) : null}
+          <Box key="settings-title" position="absolute" top={0} left={2} height={2} flexDirection="row" alignItems="center">
+            <Text color={ACCENT} bold>✦ </Text>
+            <Text color={DASH_TEXT} bold>Settings</Text>
             {dirty ? <Text dimColor> · unsaved changes</Text> : null}
           </Box>
-          <Box key="settings-actions" position="absolute" top={0} right={1} height={2} flexDirection="row" gap={2} alignItems="center">
+          <Box key="settings-actions" position="absolute" top={0} right={2} height={2} flexDirection="row" gap={2} alignItems="center">
             <Button key="settings-save" variant="primary" hotkey="s" label="Save" onPress={() => saveDraft($)} />
             <Button key="settings-close" plain label="✕" onPress={close} />
           </Box>
@@ -3461,6 +3521,9 @@ Saved to ${out}.md and .json` }
           {/* Taller than the band and clipped by it, so the frost reaches every edge on the right. */}
           <Box key="frost" position="absolute" top={-1} right={0} bottom={-1}>
             <Svg source={FROST_SVG} alt="frost" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
+          </Box>
+          <Box key="cold-intro" position="absolute" top={-1} left={0} right={0} bottom={-1}>
+            <Svg source={INTRO_SVG.replace('#8b6cff', ICE).replace('#b9a7ff', '#cfeeff')} alt="" width={1600} height={240} />
           </Box>
           <Box flexShrink={0}>
             <Text color={ICE} bold wrap="truncate">
