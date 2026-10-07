@@ -2164,7 +2164,9 @@ async function effortFlash($: EngineInterface, what: string, judging: boolean, e
 let flashSince: number | null = null
 
 /** How wide the effort word's image is: room for the longest word, transparent past it. */
-const WORD_W = 120
+const WORD_W = 110
+/** Cells of the box that holds it: at 13px a cell is about 7.5px, so this is wider than WORD_W. */
+const WORD_CELLS = 16
 /** The effort word as it changes, drawn as an image (a Text cannot animate): it rises into place in violet with a soft
  * glow, holds, then fades to the band's white, all inside the image, so the band redraws only once, at the end, to put
  * the plain word back. `sinceMs` places a redraw inside the animation. */
@@ -2459,7 +2461,9 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
             // Changing: the word keeps its place in the flow, unseen, and its image is laid over it.
             <Box key="dash-level-anim" flexDirection="row">
               <Text key="dash-level" color="#00000000" bold>{what}</Text>
-              <Box position="absolute" top={0} left={0}>
+              {/* A width of its own, wider than the image: the app scales an image down to its box, and a box with no
+                  width squeezed the word into a speck. */}
+              <Box position="absolute" top={0} left={0} width={WORD_CELLS} height={1}>
                 <Svg source={effortWordSvg(what, flashSince)} alt={what} width={WORD_W} height={19} />
               </Box>
             </Box>
