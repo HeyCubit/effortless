@@ -8,7 +8,7 @@ import { PILL_H, thinkingSvg, THINK_W } from './progress'
 
 // The ladders the two sliders walk, cheapest first.
 export const MODELS: { key: ModelKey; label: string; long: string; id: string }[] = [
-  { key: 'haiku', label: 'Haiku', long: 'Haiku 4.5', id: 'claude-haiku-4-5-20251001' },
+  { key: 'haiku', label: 'Haiku', long: 'Haiku 5.5', id: 'claude-haiku-5-5' },
   { key: 'sonnet', label: 'Sonnet', long: 'Sonnet 5.5', id: 'claude-sonnet-5-5' },
   { key: 'opus', label: 'Opus', long: 'Opus 5.5', id: 'claude-opus-5-5' },
   { key: 'fable', label: 'Fable', long: 'Fable 5.1', id: 'claude-fable-5-1' },
