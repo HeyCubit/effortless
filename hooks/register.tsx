@@ -2655,7 +2655,7 @@ const pluginId = ($: EngineInterface) => `effortless@${$.plugin.root.match(/cach
  * The rise ends at full and holds there (forwards); the fade starts at full. The fade waits for the rise to finish, so
  * a quick verdict never fades from half-way. */
 export const JUDGE_RISE_MS = 500
-export const JUDGE_FADE_MS = 900
+export const JUDGE_FADE_MS = 450
 const JUDGE_GLOW_MAX = 0.85
 /** CSS's ease-in-out, cubic-bezier(.42,0,.58,1): the progress at time t (0 to 1), by bisection on the curve's x. */
 export function easeInOut(t: number): number {

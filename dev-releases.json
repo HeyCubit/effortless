@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.36.18",
+    "date": "2026-10-07",
+    "note": "Fade ends before the app's stale redraw"
+  },
+  {
     "version": "1.36.17",
     "date": "2026-10-07",
     "note": "Glow fade without stair steps"
