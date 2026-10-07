@@ -2319,7 +2319,7 @@ let lastUpdateCheck = 'not checked yet'
 /** The newest release: releases.json on main over the web, else the marketplace's own copy of the repo after `claude
  * plugin marketplace update` (git, so it works where the host's web fetch is refused or cached). */
 async function latestAvailable($: EngineInterface): Promise<{ latest?: { version: string; note: string }; how: string }> {
-  const res = await $.http.fetch(RELEASES_URL, { headers: { accept: 'application/vnd.github.raw', 'user-agent': 'effortless' } }).catch((error: unknown) => ({ ok: false, status: 0, text: String(error) }))
+  const res = await $.http.fetch(`${RELEASES_URL}&t=${Date.now()}`, { headers: { accept: 'application/vnd.github.raw', 'user-agent': 'effortless' } }).catch((error: unknown) => ({ ok: false, status: 0, text: String(error) }))
   const fromWeb = res.ok ? latestRelease(res.text) : undefined
   const web = res.ok ? (fromWeb ? `web ${fromWeb.version}` : 'web: unreadable') : `web refused (${res.status || res.text.slice(0, 80)})`
   const marketplace = `${$.plugin.root.replace(/[\\/]cache[\\/].*$/, '')}/marketplaces/effortless/releases.json`
@@ -2327,11 +2327,9 @@ async function latestAvailable($: EngineInterface): Promise<{ latest?: { version
     const text = await $.fs.read(marketplace).catch(() => '')
     return latestRelease(typeof text === 'string' ? text : '')
   }
-  let local = await readLocal()
-  if (!local || !fromWeb || isNewer(fromWeb.version, local.version)) {
-    await $.process.run(['claude', 'plugin', 'marketplace', 'update', 'effortless'], { timeoutMs: 120_000 }).catch(() => null)
-    local = await readLocal()
-  }
+  // Always refreshed: the host's web fetch can answer from its own cache, git does not.
+  await $.process.run(['claude', 'plugin', 'marketplace', 'update', 'effortless'], { timeoutMs: 120_000 }).catch(() => null)
+  const local = await readLocal()
   const best = fromWeb && (!local || !isNewer(local.version, fromWeb.version)) ? fromWeb : local
   return { latest: best, how: `${web}; marketplace ${local?.version ?? 'unreadable'}` }
 }
