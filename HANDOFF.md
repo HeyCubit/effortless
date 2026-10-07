@@ -3,43 +3,49 @@
 ## Branch and PRs
 - `main` on HeyCubit/effortless, version 1.35.103, pushed and installed. Direct pushes, no open PRs. Several chats push
   to main: `git pull --rebase --autostash` before every push, and read the version after the pull.
-- Release: `tools/release.sh "<subject>" "<body>"` runs the tests (149 pass) and stops on any failure, then bumps
-  the version here and in `.claude-plugin/plugin.json`, commits, pushes and installs. Isac restarts the app to load
-  it. Use `py`, not `python`.
-- Showcase site: https://heycubit.github.io/effortless/ (`gh-pages` = `main:site`).
+- Release: `tools/release.sh [--no-install] "<subject>" "<body>"` runs the tests (155 pass) and stops on any failure,
+  bumps the version here and in `.claude-plugin/plugin.json`, adds the subject to `releases.json`, commits, pushes and
+  installs. `--no-install` leaves this machine a version behind so the update card can be tried. Use `py`, not `python`.
+- Showcase site: https://heycubit.github.io/effortless/ (`gh-pages` = `main:site`). The redesign (bar-first, a
+  /whats-new/ page built from releases.json) is on branch `site-story`, not live: waits for Isac's OK in the site chat.
+  After it merges, add `node site/src/build.mjs` + republish to `tools/release.sh`.
 
-## Where things stand (desktop band, 1.35.4x-1.35.61)
-- Dashboard: effort word, ring, cache clock (self-ticking image, redraw once a minute), judge line in the middle,
-  Auto switch + Handoff + settings cog right. Auto on: thin violet edge line fades in and out (no glow on off).
-- Settings open on four cards (Effort, Judge, Handoff, Show) with summaries; a card opens its controls with Back and
-  one line on what it does. Save in the top bar. Judge card has Test (confirmed working in the app with Jev).
-- Handoff: setting reads "Handoff skill", default "effortless (built in)". Full without a skill submits
-  `HANDOFF_FULL_PROMPT` as a turn (checks git, rewrites HANDOFF.md in the project, replies). New chat & archive removed.
-- Redraws: every redraw rebuilds the band (images restart, hover drops, clicks can be lost). Animated images go
-  through `inPhase()`; a click causes one redraw. Real redraws are logged to `~/.claude/effortless-renders.log`.
+## Where things stand
+- Dashboard bar is the default look; Minimal stays as a setting (Settings → Appearance).
+- Update card (1.35.80-1.35.92): reads releases.json from the effortless marketplace after `claude plugin marketplace
+  update` (git; the host's web fetch was cached), offers Update/Later (Later = a day), runs `claude plugin update`, then
+  `/reload-plugins` via `$.command.run`; the new load shows "Updated to X" + What's new → /whats-new/. Checked on the
+  band's first draw after any load (reload fires no session.start) and every 6 h. Confirmed working end to end in the app.
+- Handoff bar: Quick/Full is one sliding switch (drawn track, solid bolt/pen icons, SMIL slide stamped per click).
+- Compact (cold and swamp bands) opens a one-line bar: ✦ Compact, Summary (optional) field, drawn Compact pill with
+  Claude's Enter mark; the note goes to `/compact <note>`. The field's own submit hint is clipped (window anchored
+  right). Opening it fades the swamp green out over the violet, plus the entrance sweep.
+- Settings: Appearance (was Show) has Uninstall (bin, red on hover, two presses). Panel keeps one height in every part.
+- Effort: a message typed mid-turn never lowers the running turn's effort (held until the turn ends); Auto off/on
+  mid-turn changes nothing.
+- Startup: session.start reads its settings in one batch (25 ms). The ~3 s before the first draw is the app's; an
+  empty chat is never asked for the band (app side, not fixable in the mod).
+- Per-chat render log `~/.claude/effortless-render-<chat>.log`: session start, first-draw timing, draw times.
 
 ## Not done / unverified in the app
-- 1.35.61, rig only: Handoff drawn as a pill that gains its box a step per percent (none at 0, grey at 15, white at
-  30 where the glow starts, `handoffLook`), H on a clipped hidden button; effort change: plain text, violet then white (image animation dropped,
-  looked cheap); drawn Back button; the mark, small and upright, replaces the ✦.
-- Settings cards and built-in Full handoff (1.35.59): rig and tests only. Cards light whole on hover (1.35.60), two blank buttons cover both lines.
-- Auto line corners (1.35.58), no flash after Handoff (1.35.54).
-- Open question to Isac: should built-in Full write HANDOFF.md into users' projects, or only reply?
-- Older: cold band on resume, Compact complete card, terminal bands on CLI 2.1.285.
-- Idea parked: one bar that changes state (cold, swamp) with transitions instead of separate bands.
+- Compact bar layout + fade (1.35.102-103), Quick/Full solid icons and per-click slide (1.35.101): rig only.
+- Open question: after Auto off, later turns keep Auto's last effort rather than the app's own setting. Isac to decide.
+- Logo animation on effort change / Auto on: proposed, not built.
 
 ## Next
-1. Isac restarts and checks the settings cards, then a Full handoff without a skill. Fix what he reports, check it in
-   the rig first: `node tools/render-band/render.mjs --press dash-settings,settings-card-judge`.
-2. If he answers the HANDOFF.md question, adjust `HANDOFF_FULL_PROMPT` in `hooks/register.tsx`.
+1. Agent panel: a background agent is writing `docs/agent-panel/` (PLAN.md + mockups) for a right-side project
+   overview pane that shows subagents and picks their model and effort. Review it with Isac before building.
+2. Isac checks the Compact bar and the Quick/Full switch; fix what he reports in the rig first.
 
 ## Decided, do not redo
-- No `clipPath` in band Svgs (invisible in the app). No short-tick redraws; step animations inside images.
-- Glow only on Auto on, thin line, radius 8.25 inside the 10 px band border.
-- Settings star 140 px. Cards over rows (first look was overwhelming). Built-in default handoff, not a third-party skill.
+- No `clipPath` in band Svgs. No short-tick redraws; animate inside images (`inPhase`, SMIL).
+- Controls over the art need an empty absolute child; each hoverable control in its own small box (shared boxes
+  light up together). Buttons are one line and text only: draw icons/pills as Svg with a blank button over them.
+- Svg needs alt text and a sized box, or the app may draw nothing.
 
 ## Pointers
-- Render rig `tools/render-band/` (README): `--press`, `--trace MS` (replays every redraw after a click as frames),
-  `--at`, `--wait`, `--command`. Output in `tools/render-band/out/` (gitignored).
-- Tests `tests/effortless.test.ts`. Memories (ai-setup): `mod_band_styling.md`, `modellval_mod.md`,
-  `mod_engine_module_rules.md`.
+- Render rig `tools/render-band/` (README): `--press`, `--command`, `--tree file.json`, `--trace MS`, `--at`, `--wait`,
+  `--serve`. Dump a tree from a test with `console.log(JSON.stringify(await band.drawn()))` to render states the rig
+  cannot reach.
+- Tests `tests/effortless.test.ts`. Showcase brief `docs/showcase/`. Memories (ai-setup): `mod_band_styling.md`,
+  `modellval_mod.md`, `mod_engine_module_rules.md`.
