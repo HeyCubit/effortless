@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.90",
+    "date": "2026-10-07",
+    "note": "Update card buttons take clicks"
+  },
+  {
     "version": "1.35.89",
     "date": "2026-10-07",
     "note": "A version for the update card to offer"
