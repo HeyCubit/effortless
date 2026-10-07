@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.115",
+    "date": "2026-10-07",
+    "note": "Back to the bar with its own edge"
+  },
+  {
     "version": "1.35.114",
     "date": "2026-10-07",
     "note": "Routed model named in the judge line"
