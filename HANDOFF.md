@@ -1,14 +1,14 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.35.59, pushed and installed. Direct pushes, no open PRs. Several chats push
+- `main` on HeyCubit/effortless, version 1.35.60, pushed and installed. Direct pushes, no open PRs. Several chats push
   to main: `git pull --rebase --autostash` before every push, and read the version after the pull.
 - Release: bump `version` in `.claude-plugin/plugin.json` and this file, `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude
   plugin test .` (145 pass), commit, push, `claude plugin marketplace update effortless`, `claude plugin update
   effortless@effortless`. Isac restarts the app to load it. Use `py`, not `python`.
 - Showcase site: https://heycubit.github.io/effortless/ (`gh-pages` = `main:site`).
 
-## Where things stand (desktop band, 1.35.4x-1.35.59)
+## Where things stand (desktop band, 1.35.4x-1.35.60)
 - Dashboard: effort word, ring, cache clock (self-ticking image, redraw once a minute), judge line in the middle,
   Auto switch + Handoff + settings cog right. Auto on: thin violet edge line fades in and out (no glow on off).
 - Settings open on four cards (Effort, Judge, Handoff, Show) with summaries; a card opens its controls with Back and
@@ -19,7 +19,7 @@
   through `inPhase()`; a click causes one redraw. Real redraws are logged to `~/.claude/effortless-renders.log`.
 
 ## Not done / unverified in the app
-- Settings cards and built-in Full handoff (1.35.59): rig and tests only. Card click strip covers the title row.
+- Settings cards and built-in Full handoff (1.35.59): rig and tests only. Cards light whole on hover (1.35.60), two blank buttons cover both lines.
 - Auto line corners (1.35.58), no flash after Handoff (1.35.54).
 - Open question to Isac: should built-in Full write HANDOFF.md into users' projects, or only reply?
 - Older: cold band on resume, Compact complete card, terminal bands on CLI 2.1.285.

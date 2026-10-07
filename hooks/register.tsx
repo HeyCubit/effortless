@@ -189,6 +189,10 @@ const DASH_EDGE = '#2a2a2f'
 const SETTINGS_TITLE = `<svg xmlns="http://www.w3.org/2000/svg" width="92" height="28" viewBox="0 0 92 28"><defs><radialGradient id="c" cx="1" cy="1" r=".75" gradientTransform="matrix(.7 0 0 2.3 .3 -1.3)"><stop offset=".2" stop-color="#000"/><stop offset=".9" stop-color="#fff"/></radialGradient><radialGradient id="s" cx=".9" cy=".85" r=".55" gradientTransform="matrix(.7 0 0 2.3 .27 -1.1)"><stop offset=".25" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient><mask id="mc"><rect width="92" height="28" fill="url(#c)"/></mask><mask id="ms"><rect width="92" height="28" fill="url(#s)"/></mask><filter id="g" x="-20%" y="-40%" width="140%" height="180%"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="1" seed="7" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G" result="moved"/><feGaussianBlur in="moved" stdDeviation="1.1" result="soft"/><feComponentTransfer in="noise" result="dots"><feFuncA type="discrete" tableValues="0 0 1 1 1"/></feComponentTransfer><feComposite in="soft" in2="dots" operator="in"/></filter></defs><g font-size="21" font-weight="600" letter-spacing="-.5"><text x="1" y="20" fill="#f4f2ff" mask="url(#mc)">effortless</text><g mask="url(#ms)"><text x="1" y="20" fill="#f4f2ff" filter="url(#g)">effortless</text></g></g></svg>`
 /** The mark as the settings bar shows it: big, tilted and faint, cut off by the bar. */
 const SETTINGS_MARK = MARK_SVG.replace('<g mask=', '<g opacity=".2" transform="rotate(9 50 50)" mask=')
+// The dashboard's mark (see dash-mark): its size, the cells the word keeps clear of it, and its look with Auto off.
+const DASH_MARK_SIZE = 140
+const DASH_MARK_ROOM = 8
+const DASH_MARK_OFF = MARK_SVG.replace('<g mask=', '<g opacity=".1" transform="rotate(9 50 50)" mask=')
 /** How long a band's entrance runs: it is drawn only this long after the band appears, since every redraw of the band
  * (a choice, the minute tick) would replay it. */
 const INTRO_MS = 1300
@@ -231,6 +235,9 @@ const DASH_HEAD = '#202024'
 const DASH_TEXT = '#d4d4d8'
 /** The dashboard's quieter figures: the cache countdown while it has time left. */
 const DASH_DIM = '#8b8b93'
+// A settings card under the pointer: a shade up from the band, its edge a shade up from that.
+const CARD_HOVER = '#1c1c20'
+const CARD_HOVER_EDGE = '#3b3b42'
 const DONE_SVG = BRAND_SVG
   .replace(/#7c6cf0/g, '#2fae62').replace(/#8f7ff0/g, '#3cc472').replace(/#b3a6ff/g, '#7fe0a4')
   .replace(/#c9bdff/g, '#b4f0c8').replace(/#9a86ff/g, '#4fd486')
@@ -2140,7 +2147,8 @@ async function effortFlash($: EngineInterface, what: string, judging: boolean, e
     flashAt = null
   }
   if (!judging) {
-    if (flashWord !== null && flashWord !== what) flashAt = now
+    // Auto switched off or on is not a new verdict: the switch says it, so the word changes without the flash.
+    if (flashWord !== null && flashWord !== what) flashAt = what === 'Off' || flashWord === 'Off' ? null : now
     flashWord = what
   }
   const since = flashAt === null ? null : now - flashAt
@@ -2373,6 +2381,13 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           </Box>
         ) : null
       ) : null}
+      {Svg ? (
+        // The mark on the left, big, tilted and cut off by the band's edges, as in the settings bar; it stands in for the
+        // ✦. Fainter while Auto is off.
+        <Box key="dash-mark" position="absolute" top={-3} left={-6}>
+          <Svg source={v.auto ? SETTINGS_MARK : DASH_MARK_OFF} alt="effortless mark" width={DASH_MARK_SIZE} height={DASH_MARK_SIZE} />
+        </Box>
+      ) : null}
       {Svg && v.auto && nowMs - autoOnAt < AUTO_GLOW_MS && renderLog.push(`glow ${v.auto ? 'on' : 'off'} at ${nowMs - autoOnAt} ms`) ? (
         <Box key="dash-auto-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
           <Svg source={inPhase(autoGlowSvg(v.auto), nowMs - autoOnAt)} alt="auto glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
@@ -2383,7 +2398,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           rather than run under the buttons. Siblings, not nested: a shrunk parent let the word spill under the ring. */}
       <Box key="dash-words" position="relative" flexDirection="row" flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
         <Box flexShrink={0} flexDirection="row">
-          <Text color={v.auto ? ACCENT : DASH_DIM} bold>✦ </Text>
+          {Svg ? <Text>{' '.repeat(DASH_MARK_ROOM)}</Text> : <Text color={v.auto ? ACCENT : DASH_DIM} bold>✦ </Text>}
           <Text key="dash-level" color={wordColor} bold>{v.judging && Svg ? 'Deciding' : what}</Text>
           {/* While the judge decides: the progress bar's thinking dots, as a plain image (its CSS still runs, and a
               redraw does not restart it the way an interactive frame does). */}
@@ -3238,7 +3253,13 @@ Saved to ${out}.md and .json` }
         swampAt: draft.swampAt ?? String(config.swampAt),
         layout: draft.layout ?? config.layout,
       }
-      const dirty = Object.keys(draft).length > 0
+      // Dirty only while the draft differs from what is saved: a control set back to its saved value is no change.
+      const sameSet = (a: string, b: string) => a.split(',').filter(Boolean).sort().join() === b.split(',').filter(Boolean).sort().join()
+      const dirty = Object.entries(draft).some(([field, value]) =>
+        value === undefined ? false
+        : field === 'key' ? Boolean(value.trim())
+        : field === 'hide' ? !sameSet(value, config.hide.join(','))
+        : value !== String(config[field as Exclude<keyof SettingsDraft, 'key' | 'hide'>] ?? ''))
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
       const judgeName = shown.judge === 'custom' ? 'Your endpoint' : shown.judge === 'auto' ? `Auto · ${hasKey ? 'Jev' : 'Haiku'}` : shown.judge === 'jev' ? 'Jev' : 'Haiku'
       const summaries: Record<SettingsCard, string> = {
@@ -3337,7 +3358,12 @@ Saved to ${out}.md and .json` }
             {dirty ? <Text dimColor> · unsaved changes</Text> : null}
           </Box>
           <Box key="settings-actions" position="absolute" top={0} right={2} height={term ? 2 : 2.5} flexDirection="row" gap={2} alignItems="center">
-            <Button key="settings-save" variant="primary" hotkey="s" label="Save" onPress={() => saveDraft($)} />
+            {/* Grey and inert until something changed: there is nothing to save. */}
+            {dirty ? (
+              <Button key="settings-save" variant="primary" hotkey="s" label="Save" onPress={() => saveDraft($)} />
+            ) : (
+              <Button key="settings-save" variant="secondary" dimColor label="Save" onPress={() => {}} />
+            )}
             <Button key="settings-close" plain label="✕" onPress={close} />
           </Box>
           <Box key="settings-spacer" height={roomy && !term ? 2 : 1} />
@@ -3346,16 +3372,17 @@ Saved to ${out}.md and .json` }
             <Box key="settings-cards" flexDirection="row" flexWrap="wrap" gap={1}>
               {CARDS.map(c => (
                 <Box key={`card-${c.id}`} position="relative" flexDirection="column" flexGrow={1} width={0} minWidth={18}
-                  paddingX={1} borderStyle="round" borderColor={DASH_EDGE}>
+                  paddingX={1} borderStyle="round" borderColor={DASH_EDGE} hover={{ backgroundColor: CARD_HOVER, borderColor: CARD_HOVER_EDGE }}>
                   <Box flexDirection="row" gap={1} alignItems="center">
                     {Svg && !term ? <Svg source={rowIconSvg(c.id, DASH_TEXT)} alt={c.title} width={14} height={14} /> : null}
-                    <Text color={DASH_TEXT} bold>{c.title}</Text>
+                    <Text color={DASH_TEXT} bold hover={{ color: '#ffffff' }}>{c.title}</Text>
                   </Box>
-                  <Text dimColor wrap="truncate">{summaries[c.id]}</Text>
-                  {/* The click takes the title row, card wide: a button is one line high, and across both lines its hover
-                      box would cut through the words. */}
-                  <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="column" paddingTop={0.5}>
-                    <Button key={`settings-card-${c.id}`} plain label={'\u00a0'.repeat(60)} onPress={openCard(c.id)} />
+                  <Text dimColor wrap="truncate" hover={{ dimColor: false, color: DASH_TEXT }}>{summaries[c.id]}</Text>
+                  {/* The click takes the whole card: a button is one line high and centred in its box, whatever the box,
+                      so two blank ones are laid over it, one per line. The card itself lights as a whole (its own hover). */}
+                  <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="column" justifyContent="space-around">
+                    <Button key={`settings-card-${c.id}`} plain hover={{ backgroundColor: '#00000000' }} label={'\u00a0'.repeat(60)} onPress={openCard(c.id)} />
+                    <Button key={`settings-card-${c.id}-2`} plain hover={{ backgroundColor: '#00000000' }} label={'\u00a0'.repeat(60)} onPress={openCard(c.id)} />
                   </Box>
                 </Box>
               ))}
