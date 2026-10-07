@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.36.8",
+    "date": "2026-10-07",
+    "note": "Deciding glow is one fixed sequence"
+  },
+  {
     "version": "1.36.7",
     "date": "2026-10-07",
     "note": "Deciding glow fades without a jump"

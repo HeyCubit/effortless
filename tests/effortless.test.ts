@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, compactTranscript, judgeBrightness, judgeFadeMs, judgeCoverSvg } from '../hooks/register'
+import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, compactTranscript, judgeGlowSvg, JUDGE_SEQUENCE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
@@ -1606,20 +1606,14 @@ describe('compaction by Haiku', () => {
 })
 
 describe('deciding glow', () => {
-  test('the fade starts from the brightness the breathing had, read off the same curve as the browser draws it', () => {
-    // Measured in Chrome: opacity at these points of one breath (.25 up to .85 and back, each half ease-in-out).
-    const measured: [number, number][] = [[0, 0.25], [0.1, 0.299], [0.2, 0.449], [0.3, 0.651], [0.4, 0.801], [0.5, 0.85], [0.6, 0.801], [0.8, 0.449], [0.97, 0.254]]
-    for (const [phase, opacity] of measured) expect(Math.abs(judgeBrightness(phase) - opacity)).toBeLessThan(0.005)
-    expect(Math.abs(judgeBrightness(1.3) - judgeBrightness(0.3))).toBeLessThan(1e-6)
-  })
-  test('once the verdict is in the breathing image is kept and a ring in the bar colour fades in over it, after the peak when rising', () => {
-    // Verdict on the dim part (32 ms into a 1600 ms breath): the cover waits for the peak at 800 ms, then fades in.
-    expect(judgeFadeMs(32)).toBe(768 + 1100)
-    expect(judgeFadeMs(1120)).toBe(1100)
-    const cover = judgeCoverSvg(32)
-    expect(cover).toContain('animation:c 1.868s linear')
-    expect(cover).toContain('0%{opacity:0}41.11%{opacity:0')
-    expect(cover).toContain('stroke="#141416"')
+  test('one fixed sequence of two breaths that ends dark and plays once, whatever the verdict', () => {
+    const svg = judgeGlowSvg()
+    expect(JUDGE_SEQUENCE_MS).toBe(3200)
+    expect(svg).toContain('animation:r 3.2s ease-in-out forwards')
+    expect(svg).toContain('0%{opacity:0}25%{opacity:.85}50%{opacity:.15}75%{opacity:.85}100%{opacity:0}')
+    // Nothing in it depends on time, the model or the effort: the same source every call.
+    expect(judgeGlowSvg()).toBe(svg)
+    expect(svg).not.toContain('animation-delay')
   })
 })
 

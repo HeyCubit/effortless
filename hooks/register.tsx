@@ -2648,53 +2648,18 @@ const COLD_GLOW_MS = 4200
  * cache path (…/plugins/cache/<marketplace>/effortless/<version>). */
 const pluginId = ($: EngineInterface) => `effortless@${$.plugin.root.match(/cache[\\/]([^\\/]+)[\\/]/)?.[1] ?? 'effortless'}`
 
-/** The bar's rim lit in the brand's violet while the judge decides: a slow breath, placed by the clock. */
-const JUDGE_GLOW_MS = 1600
+/** The rim lit in the brand's violet when the judge starts: two slow breaths, then dark. One fixed sequence that is
+ * started with the judge and neither waits for nor reacts to the verdict, the model or the effort, so there is nothing
+ * to swap or restart and nothing that can jump. The source never changes while it plays, so the app keeps one image
+ * running and a redraw leaves it alone. Longer decisions end dark; shorter ones play out. */
+export const JUDGE_SEQUENCE_MS = 3200
 export function judgeGlowSvg(): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:.25;animation:r ${JUDGE_GLOW_MS / 1000}s ease-in-out infinite}@keyframes r{0%,100%{opacity:.25}50%{opacity:.85}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ACCENT}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#b9a7ff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${JUDGE_SEQUENCE_MS / 1000}s ease-in-out forwards}@keyframes r{0%{opacity:0}25%{opacity:.85}50%{opacity:.15}75%{opacity:.85}100%{opacity:0}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ACCENT}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#b9a7ff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
 }
-/** CSS's ease-in-out, cubic-bezier(.42,0,.58,1): the progress at time t (0 to 1), by bisection on the curve's x. */
-export function easeInOut(t: number): number {
-  const at = (a: number, b: number, u: number) => 3 * (1 - u) * (1 - u) * u * a + 3 * (1 - u) * u * u * b + u * u * u
-  let lo = 0, hi = 1
-  for (let i = 0; i < 30; i++) {
-    const mid = (lo + hi) / 2
-    if (at(0.42, 0.58, mid) < t) lo = mid
-    else hi = mid
-  }
-  return at(0, 1, (lo + hi) / 2)
-}
-/** How bright the breathing rim is `phase` (0 to 1) of the way round its breath. The keyframes go .25 to .85 and back,
- * each half eased by the browser's ease-in-out, so this follows that curve exactly (a sine was a little off, and the
- * fade then began from a slightly different brightness: a visible hop). */
-export const judgeBrightness = (phase: number) => {
-  const p = ((phase % 1) + 1) % 1
-  return p < 0.5 ? 0.25 + 0.6 * easeInOut(p / 0.5) : 0.85 - 0.6 * easeInOut((p - 0.5) / 0.5)
-}
-/** The rim once the verdict is in. The breathing image stays exactly as it was (the same source, so the app keeps the
- * same <img> running) and a ring in the bar's own colour fades in over it. Swapping in a new image made the breath jump:
- * a new image starts a little late, once the app has decoded it, so its breath was out of step with the old one. The
- * cover starts invisible, so starting late cannot show. While the breath is still rising the cover waits for the peak,
- * so the fade is seen even when the verdict lands on the dim part of the breath. */
-const JUDGE_FADE_OUT_MS = 1100
-export const judgeFadeMs = (endedAt: number) => {
-  const p = (((endedAt % JUDGE_GLOW_MS) + JUDGE_GLOW_MS) % JUDGE_GLOW_MS) / JUDGE_GLOW_MS
-  return (p < 0.5 ? (0.5 - p) * JUDGE_GLOW_MS : 0) + JUDGE_FADE_OUT_MS
-}
-export function judgeCoverSvg(endedAt: number): string {
-  const W = AUTO_GLOW_W, H = AUTO_GLOW_H
-  const total = judgeFadeMs(endedAt)
-  const hold = ((total - JUDGE_FADE_OUT_MS) / total) * 100
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.c{opacity:1;animation:c ${total / 1000}s linear}@keyframes c{0%{opacity:0}${hold.toFixed(2)}%{opacity:0;animation-timing-function:cubic-bezier(.5,0,.7,1)}100%{opacity:1}}</style><rect class="c" x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${DASH_BG}" stroke-width="12"/></svg>`
-}
-// The breathing image, made once per decision (judgeGlowFor is the verdict before it), and the cover for the last verdict:
-// kept so every redraw hands the app the same sources and no image restarts.
-let judgeGlowSource: string | null = null
-let judgeGlowFor = -1
-let judgeCover: { at: number; source: string } | null = null
-// When the judge last finished, for the fade.
-let judgeEndedAt = 0
+// When the sequence last started (the judge starting); the source is built once per start.
+let judgeStartedAt = -JUDGE_SEQUENCE_MS
+let judgeSource = ''
 
 export function coldGlowSvg(): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
@@ -2838,16 +2803,10 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           <Svg source={inPhase(autoGlowSvg(v.auto), nowMs - autoOnAt)} alt="auto glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
-      {/* While the judge decides, the rim breathes violet; once the verdict is in it fades out. */}
-      {Svg && (v.judging || (judgeGlowSource && nowMs - judgeEndedAt < judgeFadeMs(judgeEndedAt))) ? (
-        // The same slot while deciding and while fading, and the same source once the verdict is in: the image keeps running.
+      {/* The judge started: the violet rim plays its two breaths, whatever the verdict. */}
+      {Svg && judgeSource && nowMs - judgeStartedAt >= 0 && nowMs - judgeStartedAt < JUDGE_SEQUENCE_MS ? (
         <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={v.judging && judgeGlowFor !== judgeEndedAt ? ((judgeGlowFor = judgeEndedAt), (judgeGlowSource = inPhase(judgeGlowSvg(), nowMs % JUDGE_GLOW_MS))) : judgeGlowSource!} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
-        </Box>
-      ) : null}
-      {Svg && !v.judging && judgeGlowSource && nowMs - judgeEndedAt < judgeFadeMs(judgeEndedAt) ? (
-        <Box key="dash-judge-cover" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={(judgeCover?.at === judgeEndedAt ? judgeCover : (judgeCover = { at: judgeEndedAt, source: judgeCoverSvg(judgeEndedAt) })).source} alt="" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+          <Svg source={judgeSource} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
       {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
@@ -3451,6 +3410,9 @@ Saved to ${out}.md and .json` }
       return next(e)
     }
 
+    judgeStartedAt = await $.clock.now().catch(() => Date.now())
+    judgeSource = judgeGlowSvg().replace("</svg>", `<!--${judgeStartedAt}--></svg>`)
+    $.clock.after(JUDGE_SEQUENCE_MS + 100, () => $.ui.invalidate('ui.render'))
     await update($, isJudging, () => true)
     try {
       const inUse = await sessionModel($)
@@ -3506,7 +3468,6 @@ Saved to ${out}.md and .json` }
         }
       }
     } finally {
-      judgeEndedAt = await $.clock.now().catch(() => Date.now())
       await update($, isJudging, () => false)
     }
     return next(e)
