@@ -80,6 +80,8 @@ declare module 'claude-code' {
       cacheLeft: number | null
       /** A compaction started from the footer's Compact button is running. */
       isCompacting: boolean
+      /** The compact bar is open, asking for an optional note. */
+      compactAsk: boolean
       /** The cold band was closed until the cache goes cold again. */
       isColdHidden: boolean
       /** Why the picked judge is failing, or null. */

@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.97",
+    "date": "2026-10-07",
+    "note": "Compact asks for an optional note first"
+  },
+  {
     "version": "1.35.96",
     "date": "2026-10-07",
     "note": "Faster start: session start reads its settings at once"

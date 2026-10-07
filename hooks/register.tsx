@@ -77,6 +77,10 @@ const paused = atom({ plugin: 'effortless', key: 'paused' } as const, false)
 // 0 once it has gone cold. Updated only when the minute changes, so the footer redraws once a minute at most.
 const cacheLeft = atom({ plugin: 'effortless', key: 'cacheLeft' } as const, null)
 const isCompacting = atom({ plugin: 'effortless', key: 'isCompacting' } as const, false)
+// The compact bar: open after Compact is pressed, with a field for what the summary should keep.
+const compactAsk = atom({ plugin: 'effortless', key: 'compactAsk' } as const, false)
+// What is typed in that field. Kept here, not in state: a write per key would redraw the bar under the cursor.
+let compactNote = ''
 // The person closed the cold band; it comes back the next time the cache goes cold.
 // The test pane of /effortless try pane.
 const TRY_PANE = 'effortless-try'
@@ -1276,15 +1280,17 @@ async function cacheTouched($: EngineInterface, usage: unknown) {
  * Compacts the conversation from the footer once the cache has gone cold: the next message would write the whole
  * context to the cache again, so a summary makes it small first. The countdown hides until the next response.
  */
-async function compactCold($: EngineInterface) {
+async function compactCold($: EngineInterface, note = '') {
   if (await read($, isCompacting)) return
+  await update($, compactAsk, () => false)
   await update($, isCompacting, () => true)
   await setHandoffCard($, 'compacting', false)
   let compacted = false
   try {
     // The app's own /compact, run as if typed: nothing lands in the prompt box, nothing to send. It waits for the
     // session to be idle, where a direct $.session.compact() is refused whenever the app counts a turn as running.
-    await $.command.run({ command: 'compact', args: '' })
+    // A note goes after /compact as the app's own instructions for the summary.
+    await $.command.run({ command: 'compact', args: note.trim() })
     cacheExpires = 0
     await update($, cacheLeft, () => null)
     compacted = true
@@ -1391,6 +1397,12 @@ async function openHandoffBar($: EngineInterface) {
   $.ui.invalidate('ui.render')
 }
 
+/** Compact pressed: on desktop a bar asks for an optional note first; the terminal compacts at once. */
+async function openCompact($: EngineInterface, e: { surface: string }) {
+  if (e.surface === 'terminal') return compactCold($)
+  compactNote = ''
+  await update($, compactAsk, () => true)
+}
 async function closeHandoffBar($: EngineInterface) {
   await update($, handoffPick, () => null)
   $.ui.invalidate('ui.render')
@@ -3860,6 +3872,38 @@ Saved to ${out}.md and .json` }
     }
     // The handoff bar: quick or full, then what follows, and a line saying what that does. Opened by ⇥ or the swamp
     // band's Handoff; Go keeps the choice for next time. Enter presses Go once the bar holds the keyboard.
+    // The compact bar: an optional note for the summary, then Compact (or Enter).
+    if (e.surface !== 'terminal' && (await read($, compactAsk))) {
+      const { Input } = $.ui.resolve(e)
+      const go = () => compactCold($, compactNote)
+      return (
+        <Box key="compact-bar" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
+          backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
+          <Box key="compact-art" position="absolute" top={-1} right={0} bottom={-1}>
+            <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+          </Box>
+          <Box key="compact-words" position="relative" flexDirection="column" flexShrink={0}>
+            <Text color={ACCENT} bold>Compact</Text>
+            <Text dimColor>What should the summary keep? Optional.</Text>
+          </Box>
+          <Box key="compact-controls" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end" alignItems="center" gap={1}>
+            <Box position="absolute" top={0} left={0} />
+            <Box key="compact-field" width={44} flexShrink={1} minWidth={20}>
+              <Input key="compact-note" autoFocus placeholder="e.g. keep the API decisions and open bugs" submitLabel="↵"
+                onInput={v => { compactNote = v }} onSubmit={v => { compactNote = v; void go() }} />
+            </Box>
+            <Box key="compact-go-box" position="relative" flexShrink={0}>
+              <Box position="absolute" top={0} left={0} />
+              <Button key="compact-go" variant="primary" label="Compact" onPress={go} />
+            </Box>
+            <Box key="compact-close-box" position="relative" flexShrink={0}>
+              <Box position="absolute" top={0} left={0} />
+              <Button key="compact-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={() => update($, compactAsk, () => false)} />
+            </Box>
+          </Box>
+        </Box>
+      )
+    }
     const choice = await read($, handoffPick)
     if (choice) {
       const setBar = (change: Partial<HandoffChoice>) => async () => {
@@ -4186,7 +4230,7 @@ Saved to ${out}.md and .json` }
           detail: `${line} Hand off or compact first.`,
           buttons: [
             <Button key="cold-hide" plain hotkey="n" label="Not now" onPress={() => update($, isColdHidden, () => true)} />,
-            <Button key="cold-compact" hotkey="c" label="Compact" onPress={() => compactCold($)} />,
+            <Button key="cold-compact" hotkey="c" label="Compact" onPress={() => openCompact($, e)} />,
             <Button key="cold-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />,
           ],
         })
@@ -4219,7 +4263,7 @@ Saved to ${out}.md and .json` }
           <Box flexGrow={1} minWidth={34} />
           <Box key="cold-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
             <Button key="cold-hide" plain label="Not now" onPress={() => update($, isColdHidden, () => true)} />
-            <Button key="cold-compact" variant="secondary" label="Compact" onPress={() => compactCold($)} />
+            <Button key="cold-compact" variant="secondary" label="Compact" onPress={() => openCompact($, e)} />
             <Button key="cold-handoff" variant="primary" label="Handoff" onPress={() => openHandoffBar($)} />
           </Box>
         </Box>
@@ -4235,7 +4279,7 @@ Saved to ${out}.md and .json` }
           key: 'swamp', kind: 'swamp', color: BOG, bg: BOG_BG, edge: BOG_EDGE, title: 'Chat is getting swamped',
           detail: `${Math.round(swampTokens / 1000)}k tokens${lastContext && lastContext.window ? ` (${lastContext.percent}% of context)` : ''} re-read every message.`,
           buttons: [
-            <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => compactCold($)} />,
+            <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => openCompact($, e)} />,
             <Button key="swamp-handoff" hotkey="h" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />,
             <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />,
           ],
@@ -4274,7 +4318,7 @@ Saved to ${out}.md and .json` }
           </Text>
           <Box flexGrow={1} minWidth={34} />
           <Box key="swamp-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
-            <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => compactCold($)} />
+            <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => openCompact($, e)} />
             <Button key="swamp-handoff" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />
             <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />
           </Box>
