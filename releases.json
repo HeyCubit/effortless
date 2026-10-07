@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.81",
+    "date": "2026-10-07",
+    "note": "Settings say Compact alert at, not Swamped at"
+  },
+  {
     "version": "1.35.80",
     "date": "2026-10-07",
     "note": "Update card: new versions are offered and installed from the bar"

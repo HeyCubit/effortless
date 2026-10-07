@@ -1,7 +1,7 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.35.80, pushed and installed. Direct pushes, no open PRs. Several chats push
+- `main` on HeyCubit/effortless, version 1.35.81, pushed and installed. Direct pushes, no open PRs. Several chats push
   to main: `git pull --rebase --autostash` before every push, and read the version after the pull.
 - Release: `tools/release.sh "<subject>" "<body>"` runs the tests (149 pass) and stops on any failure, then bumps
   the version here and in `.claude-plugin/plugin.json`, commits, pushes and installs. Isac restarts the app to load

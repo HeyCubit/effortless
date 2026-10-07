@@ -2237,7 +2237,7 @@ describe('settings panel', () => {
     await panel.press({ key: 'settings-back' })
     // The cards say what is set, unsaved changes included.
     expect(await drawn(panel)).toContain('Smarter · medium to max')
-    expect(await drawn(panel)).toContain('/session-handoff · swamped at')
+    expect(await drawn(panel)).toContain('/session-handoff · compact alert at')
     await panel.press({ key: 'settings-card-show' })
     await panel.press({ key: 'show-box-sounds' })
     await panel.press({ key: 'show-box-reason' })
