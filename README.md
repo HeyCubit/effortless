@@ -1,39 +1,95 @@
-# effortless
+<p align="center">
+  <img src="docs/brand/readme-banner-1600x400.png" alt="effortless: auto-picks the reasoning effort for every prompt in Claude Code" width="100%">
+</p>
 
-A Claude Code mod that picks the reasoning effort for every prompt, so easy questions run on low and hard jobs get high, without you touching the Effort control. It also shows how long the prompt cache stays warm, with one-click Compact when it goes cold.
+<p align="center">
+  <a href="https://heycubit.github.io/effortless/"><b>Website</b></a> ·
+  <a href="#install"><b>Install</b></a> ·
+  <a href="#what-the-bar-shows"><b>What it shows</b></a> ·
+  <a href="#pick-your-judge"><b>Judges</b></a>
+  <br><br>
+  <img alt="version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FHeyCubit%2Feffortless%2Fmain%2F.claude-plugin%2Fplugin.json&query=%24.version&label=version&color=7c6cf0">
+  <img alt="Claude Code plugin" src="https://img.shields.io/badge/Claude%20Code-plugin-a79cf7">
+  <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-3d3a4d">
+</p>
 
-```
-⏻  Medium  42m
-```
+A Claude Code mod that picks the reasoning effort for every prompt. Easy questions run on **Low**, hard jobs get
+**High**, and you never touch the Effort control. One bar above the prompt also shows how full the chat is, how long
+the prompt cache stays warm, and hands off or compacts in one click when a chat gets heavy.
 
-- **Medium**: the effort Auto picked for this prompt (purple). `Deciding…` while it judges, `Low → High` for a moment after a switch, `Off` when Auto is off.
-- **⏻**: turns Auto on and off. Changing effort in the app yourself also turns Auto off: you always win.
-- **42m**: time until the prompt cache goes cold. Grey, yellow from 20 minutes, red from 5. Then `Cold` with a **Compact** button: the next message would otherwise write the whole context to the cache again.
+<p align="center">
+  <img src="docs/readme/story.gif" alt="effortless in a Claude Code chat: effort per prompt, Handoff, cold cache, heavy chat, limits and settings" width="100%">
+</p>
 
 ## Install
 
-Type these two lines in Claude Code's chat box, no terminal needed:
+Two ways. Both take a minute and need no terminal.
 
+**1. Ask Claude** (easiest). Paste this into Claude Code and press Enter:
+
+```text
+Install the effortless plugin for me: run `claude plugin marketplace add HeyCubit/effortless` and then `claude plugin install effortless@effortless`. When both succeed, tell me to run /reload-plugins.
 ```
+
+**2. Commands.** Type these two lines in Claude Code's chat box:
+
+```text
 /plugin marketplace add HeyCubit/effortless
+```
+
+```text
 /plugin install effortless@effortless
 ```
 
-Restart Claude Code. A short setup opens above the prompt the first time: pick **Jev** (API key needed, about 4x faster than Haiku), **Haiku** (one click, no key, runs on your own Claude login) or **your own AI**, and it asks only for what that choice needs. Then two short steps: lean cheaper or smarter, and which skill writes a full handoff. Back on every step; your choices are saved when you press Done or close it. Run `/effortless setup` to go through it again, or change any of it in ⚙.
+Or in a terminal, in one line:
 
-From a terminal it is the same without the slashes: `claude plugin marketplace add HeyCubit/effortless`, then `claude plugin install effortless@effortless`.
-
-### In the terminal
-
-effortless draws in the terminal CLI too, with moving pixel art in its bands. Claude Code may not load a plugin's code
-there yet: if `/effortless` says the mod is not loaded after a restart, add this to `~/.claude/settings.json` and
-restart:
-
-```json
-{ "env": { "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1" } }
+```bash
+claude plugin marketplace add HeyCubit/effortless; claude plugin install effortless@effortless
 ```
 
-Tested on Claude Code 2.1.285 (stable), 2.1.286 and 2.1.288 at 80 and 120 columns. Below 90 columns the bands leave their art out.
+Then run `/reload-plugins` (or restart Claude Code). A short setup opens above the prompt: pick **Haiku** (one click,
+no key, runs on your own Claude login), **Jev** (a TypeSafe key, about 4x faster) or **your own AI**, lean cheaper or
+smarter, and pick how handoffs are written. Run `/effortless setup` to go through it again, or change any of it in ⚙.
+
+Updates come to you: when a new version is out, a card above the prompt offers **Update** or **Later**.
+
+## What the bar shows
+
+<p align="center"><img src="docs/readme/hero.gif" alt="The bar: Deciding, then Low for a quick question, then High for a refactor" width="100%"></p>
+
+| On the bar | Means |
+|---|---|
+| **High** | the effort Auto picked for this prompt. `Deciding` while the judge thinks; a switch flashes violet and fades to white |
+| **◔ 38%** | how full the chat's context is |
+| **cache 59:00** | time until the prompt cache goes cold, after which the next message pays full price to re-read the chat |
+| *Haiku: a refactor…* | who judged and why |
+| **Auto** | switches the judge on and off. Changing effort in the app yourself also turns Auto off: you always win |
+| **Handoff** | appears as the chat fills: a grey box from 15%, white from 30%, with a glow that grows to 80% |
+| **⚙** | settings |
+
+Prefer it quiet? Settings → Appearance has a **Minimal** look with no bar.
+
+### When a chat gets heavy
+
+When the cache has gone cold on a big chat, the bar turns to ice with **Compact** and **Handoff**:
+
+<p align="center"><img src="docs/readme/cold.gif" alt="The Chat went cold bar, breathing" width="100%"></p>
+
+**Handoff** writes a summary of the chat and carries on in a clean one. **Quick** takes a few seconds; **Full** checks
+git and saves `HANDOFF.md` (or runs your own skill). Then clear and carry on, clear and wait, or keep the chat and copy.
+
+<p align="center"><img src="docs/readme/handoff.png" alt="The Handoff bar with Quick and Full" width="100%"></p>
+
+**Compact** takes an optional note for what the summary should keep, passed to `/compact`:
+
+<p align="center"><img src="docs/readme/compact.png" alt="The Compact bar with an optional summary field" width="100%"></p>
+
+The bar also warns when a chat is getting swamped (each message re-reads a lot of context), when a 5-hour or weekly
+limit passes 80% (with a Save mode that caps effort at Medium), and when your judge stops answering.
+
+### Settings
+
+<p align="center"><img src="docs/readme/settings.png" alt="The settings panel: Effort, Judge, Handoff, Appearance" width="100%"></p>
 
 ## Pick your judge
 
@@ -65,20 +121,6 @@ Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and 
 - A key is only needed for `jev` or `custom`. Enter it with `/plugin configure`, never on the command line, so it stays out of your shell history. Claude Code keeps it in its secure storage, not in a file.
 - A key is sent only to the judge you picked (TypeSafe, or the custom URL you entered), and to nothing else. Use a key with a spending limit if your provider offers one.
 - Like any Claude Code plugin, this mod runs code on your machine. Its code is in [`hooks/`](hooks/): read it before you install if you do not know the author. The only program it starts is `claude` itself, to update or uninstall the mod when you press those buttons.
-
-## Commands
-
-| Command | Does |
-|---|---|
-| `/effortless setup` | run the setup again |
-| `/effortless auto` | Auto on or off |
-| `/effortless stats` | what the prompts Auto steered cost this session, per effort, and what the judge took |
-| `⇥` in the footer | opens the handoff bar: **Quick** (a fork writes it in seconds) or **Full** (slower: checks git and saves HANDOFF.md, or runs your own skill if you pick one under Settings → Handoff, setting `handoffSkill`), then **Clear & carry on**, **Clear & wait** or **Keep chat & copy**. A line in the bar says what will happen; it remembers your last choice. The swamp band's Handoff opens the same bar |
-| `/effortless handoff` / `handoff full` | the same without the bar, with the last choice of what follows |
-| `/effortless hot`, `/effortless down` | show the running-hot band (a 5h or weekly limit past 80%, with Save mode) or the judge-down band now, to try them |
-| `/effortless swamp` | shows the swamp band now, to try it (it appears by itself once each message re-reads 150k+ tokens) |
-| `/effortless cold` | shows the cache as cold now, to try the Compact button |
-| `/effortless bench` | runs the 75 labelled prompts (20 held out) in `bench/judge-cases.json` through each judge you have (Haiku, plus Jev and your own if set up) and saves a score table next to fixed medium/high |
 
 ## What it saves, honestly
 
@@ -117,7 +159,40 @@ Effort only changes on Opus 5.5 and Sonnet 5.5. On Fable 5.1 and older models a 
 
 ## Split view
 
-In the desktop app's split view, Claude Code draws plugin bars and the footer only in the left pane. The right pane still draws replies, so when the chat went cold, is getting swamped or runs hot, a small card in the band's colours hangs under the newest reply, naming the command that does what the band's button would: `/compact`, `/effortless handoff` or `/effortless save`. Chat cards cannot hold buttons, so it is a command there. In the terminal the line under each reply also shows the effort and the cache. Switch both off in ⚙ under what shows.
+In the desktop app's split view, Claude Code draws plugin bars only in the left pane. The right pane still draws
+replies, so when a chat went cold, is getting swamped or runs hot, a small card in the bar's colours hangs under the
+newest reply, naming the command that does what the bar's button would: `/compact`, `/effortless handoff` or
+`/effortless save`.
+
+## In the terminal
+
+effortless draws in the terminal CLI too, with moving pixel art in its bands. Claude Code may not load a plugin's code
+there yet: if `/effortless` says the mod is not loaded after a restart, add this to `~/.claude/settings.json` and
+restart:
+
+```json
+{ "env": { "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1" } }
+```
+
+Tested on Claude Code 2.1.285 (stable), 2.1.286 and 2.1.288 at 80 and 120 columns. Below 90 columns the bands leave their art out.
+
+## Commands
+
+| Command | Does |
+|---|---|
+| `/effortless settings` | opens the settings panel |
+| `/effortless setup` | runs the setup again |
+| `/effortless auto` | Auto on or off |
+| `/effortless handoff` / `handoff full` | hands off without the bar, with your last choice of what follows |
+| `/effortless stats` | what the prompts Auto steered cost this session, per effort, and what the judge took |
+| `/effortless cold`, `swamp`, `hot`, `down` | shows that bar now, to try it |
+| `/effortless bench` | scores each judge you have on the labelled prompts in [`bench/judge-cases.json`](bench/judge-cases.json) |
+| `/effortless update` | checks for a new version now |
+
+## Open source
+
+effortless is MIT licensed. Like any Claude Code plugin it runs code on your machine, so the whole mod is here to read:
+[`hooks/`](hooks/). It sends nothing anywhere except your prompt to the judge you picked.
 
 ## Develop
 
@@ -127,6 +202,8 @@ claude plugin test .
 claude --plugin-dir .
 ```
 
+`tools/render-band` draws the bar the way the desktop app does, without opening it; the images in this README come from it.
+
 ## License
 
-MIT
+[MIT](LICENSE)
