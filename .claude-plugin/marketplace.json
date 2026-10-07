@@ -10,7 +10,11 @@
     {
       "name": "effortless",
       "description": "Sets the reasoning effort for every prompt automatically and shows a prompt-cache countdown with one-click Compact.",
-      "source": "./",
+      "source": {
+        "source": "github",
+        "repo": "HeyCubit/effortless",
+        "ref": "stable"
+      },
       "category": "productivity"
     }
   ]
