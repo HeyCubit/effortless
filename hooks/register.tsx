@@ -2258,6 +2258,7 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
       </Box>
       {onDismiss ? (
         <Box key="reply-handoff-close" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end">
+          <Box position="absolute" top={0} left={0} />
           <Button key="card-close" plain role="dismiss" label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={onDismiss} />
         </Box>
       ) : null}
@@ -2420,6 +2421,8 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
         <Text wrap="truncate">{words[1]}</Text>
       </Box>
       <Box key="update-controls" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end" alignItems="center" gap={1}>
+        {/* Positioned by an empty absolute child, so it paints over the art and takes the clicks. */}
+        <Box position="absolute" top={0} left={0} />
         {controls}
         {card.stage === 'updating' ? null : <Button key="update-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={hide} />}
       </Box>
