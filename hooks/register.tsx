@@ -2968,29 +2968,36 @@ export const register: Register = (on, options) => {
   registerProgress(on, () => config.hide)
   on('session.start', async ($, e, next) => {
     sessionStarted = Date.now()
-    // Which chat this load serves, and when it started: the render log is one file for every chat.
-    loadedSession = String(await $.session.id().catch(() => '?')).slice(0, 8)
-    renderLog.push(`${new Date().toISOString()} ${loadedSession} session.start (${e.surface ?? '?'})`)
-    void writeRenderLog($).catch(() => undefined)
+    // Everything the first draw needs, asked for at once: one after the other they held the start (and with it the
+    // band) for a second or more. What the draw does not need runs after, unawaited.
+    const [sid, kept, kff, storedAuto, storedAutoModel, storedPick, setupDone] = await Promise.all([
+      $.session.id().catch(() => '?'),
+      $.store.get('savedSettings').catch(() => null),
+      $.store.get('keyFromFile').catch(() => null),
+      $.store.get('isAuto').catch(() => null),
+      $.store.get('isAutoModel').catch(() => null),
+      $.store.get('pick').catch(() => null) as Promise<Pick | null>,
+      $.store.get('setupDone').catch(() => null),
+    ])
+    // Which chat this load serves, and when it started: each chat has its own render log.
+    loadedSession = String(sid).slice(0, 8)
     // Settings the app had no /config row for (see saveSetting), over the ones it passed in.
-    const kept = await $.store.get('savedSettings').catch(() => null)
     if (kept && typeof kept === 'object' && Object.keys(kept).length) config = readConfig({ ...pluginOptions, ...kept })
+    keyFromFile = kff === true
+    await Promise.all([
+      typeof storedAuto === 'boolean' ? update($, isAuto, () => storedAuto) : null,
+      typeof storedAutoModel === 'boolean' ? update($, isAutoModel, () => storedAutoModel) : null,
+      // Auto off means the effort you chose should still be the one in force.
+      storedAuto === false && storedPick && EFFORTS.includes(storedPick.effort) ? update($, pick, () => storedPick) : null,
+      // The first time the mod runs, the setup guide opens above the prompt.
+      setupDone !== true ? update($, setupStep, () => 'pick').then(() => update($, setupPending, () => true)) : null,
+    ])
     // The command file lists /effortless before the session starts; registering it here makes plain /effortless the
     // mod's own command afterwards, instead of the file run as a skill.
-    await $.command.register({ name: 'effortless', description: 'effortless: settings, debug, handoff, setup, bench, auto, stats.' }).catch(() => undefined)
-    keyFromFile = (await $.store.get('keyFromFile')) === true
+    void $.command.register({ name: 'effortless', description: 'effortless: settings, debug, handoff, setup, bench, auto, stats.' }).catch(() => undefined)
     void afterLoad($).catch(() => undefined)
     $.clock.every(UPDATE_CHECK_MS, () => void checkUpdate($).catch(() => undefined))
     void drainSetupSave($).catch(() => undefined)
-    const storedAuto = await $.store.get('isAuto')
-    if (typeof storedAuto === 'boolean') await update($, isAuto, () => storedAuto)
-    const storedAutoModel = await $.store.get('isAutoModel')
-    if (typeof storedAutoModel === 'boolean') await update($, isAutoModel, () => storedAutoModel)
-    // Auto off means the effort you chose should still be the one in force.
-    const storedPick = (await $.store.get('pick')) as Pick | null
-    if (storedAuto === false && storedPick && EFFORTS.includes(storedPick.effort)) {
-      await update($, pick, () => storedPick)
-    }
     // The cache countdown's clock. A timer started inside a request ends with that request, so it lives here.
     $.clock.every(CACHE_TICK_MS, () => void showCache($).catch(() => undefined))
     $.clock.every(CACHE_TICK_MS, () => void checkSwamp($).catch(() => undefined))
@@ -3019,14 +3026,11 @@ export const register: Register = (on, options) => {
       void finishHandoff($).catch(() => undefined)
       void playProgressCues($).catch(() => undefined)
     })
-    // The first time the mod runs, the setup guide opens above the prompt.
-    if ((await $.store.get('setupDone')) !== true) {
-      await update($, setupStep, () => 'pick')
-      await update($, setupPending, () => true)
-    }
     // Clear the status entry older versions set.
     $.ui.status(undefined)
-    await modelIs($, await $.session.model()).catch(() => undefined)
+    void $.session.model().then(m => modelIs($, m)).catch(() => undefined)
+    renderLog.push(`${new Date().toISOString()} ${loadedSession} session.start (${e.surface ?? '?'}), ready in ${Date.now() - sessionStarted} ms`)
+    void writeRenderLog($).catch(() => undefined)
     return next(e)
   })
 
