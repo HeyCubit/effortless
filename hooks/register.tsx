@@ -1966,6 +1966,11 @@ async function writeRenderLog($: EngineInterface) {
   if (home) await $.fs.write(`${home}/.claude/effortless-renders.log`, renderLog.slice(-300).join('\n') + '\n').catch(() => undefined)
 }
 let lastRenderAt = 0
+let loadedSession = '-'
+// When this module loaded, for the render log's "first draw" line.
+let loadedAt = Date.now()
+let firstDrawLogged = false
+let drawsTimed = 0
 let lastRenderError = ''
 let sessionStarted = 0
 // When the app's SessionStart came and what it said, for /effortless debug: a cold band that shows late is either a
@@ -2259,7 +2264,11 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
       {onDismiss ? (
         <Box key="reply-handoff-close" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end">
           <Box position="absolute" top={0} left={0} />
-          <Button key="card-close" plain role="dismiss" label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={onDismiss} />
+          {/* A box just the ✕'s size: in the wide one its hover lit up anywhere on the card's right half. */}
+          <Box key="card-close-box" position="relative" flexShrink={0}>
+            <Box position="absolute" top={0} left={0} />
+            <Button key="card-close" plain role="dismiss" label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={onDismiss} />
+          </Box>
         </Box>
       ) : null}
     </Box>
@@ -2949,12 +2958,19 @@ async function progressBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, w
 }
 
 export const register: Register = (on, options) => {
+  loadedAt = Date.now()
+  firstDrawLogged = false
+  drawsTimed = 0
   config = readConfig(options)
   pluginOptions = options
   // The progress bar's two hooks of its own (hooks/progress.tsx); the rest of its glue is in this file.
   registerProgress(on, () => config.hide)
   on('session.start', async ($, e, next) => {
     sessionStarted = Date.now()
+    // Which chat this load serves, and when it started: the render log is one file for every chat.
+    loadedSession = String(await $.session.id().catch(() => '?')).slice(0, 8)
+    renderLog.push(`${new Date().toISOString()} ${loadedSession} session.start (${e.surface ?? '?'})`)
+    void writeRenderLog($).catch(() => undefined)
     // Settings the app had no /config row for (see saveSetting), over the ones it passed in.
     const kept = await $.store.get('savedSettings').catch(() => null)
     if (kept && typeof kept === 'object' && Object.keys(kept).length) config = readConfig({ ...pluginOptions, ...kept })
@@ -3552,7 +3568,12 @@ Saved to ${out}.md and .json` }
     renderCalls++
     lastRenderAt = Date.now()
     lastRenderProps = JSON.stringify(e.props).slice(0, 200)
-    renderLog.push(`${new Date(lastRenderAt).toISOString()} ${lastRenderProps}`)
+    renderLog.push(`${new Date(lastRenderAt).toISOString()} ${loadedSession} ${lastRenderProps}`)
+    if (!firstDrawLogged) {
+      firstDrawLogged = true
+      renderLog.push(`${new Date().toISOString()} ${loadedSession} first draw asked ${lastRenderAt - loadedAt} ms after load`)
+      void writeRenderLog($).catch(() => undefined)
+    }
     try {
     if (e.props.hasSurvey) {
       lastRenderBranch = 'stepped aside: the app has a survey in this spot'
@@ -4278,6 +4299,12 @@ Saved to ${out}.md and .json` }
     } catch (error) {
       lastRenderError = (error instanceof Error ? error.message : String(error)).slice(0, 300)
       return next(e)
+    } finally {
+      // How long the draws take, for the first few after a load: the render log says where a slow start goes.
+      if (drawsTimed < 5) {
+        drawsTimed++
+        renderLog.push(`${new Date().toISOString()} ${loadedSession} draw took ${Date.now() - lastRenderAt} ms`)
+      }
     }
   })
 }
