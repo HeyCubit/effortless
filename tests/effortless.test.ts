@@ -744,6 +744,7 @@ describe('cache countdown', () => {
 
   test('Compact appears only once the cache is cold, and a click compacts', async ($, on) => {
     engine(on)
+    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 1_000_000, percent: 20 } } }) as never)
     const mocked = mock.clock(on)
     answer(on, { ephemeral_1h_input_tokens: 500, ephemeral_5m_input_tokens: 0 })
     let compacted = 0
@@ -789,6 +790,7 @@ describe('cache countdown', () => {
 
   test('a compact that fails says why in a toast, nothing breaks', async ($, on) => {
     engine(on)
+    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 1_000_000, percent: 20 } } }) as never)
     const mocked = mock.clock(on)
     answer(on, { ephemeral_5m_input_tokens: 500 })
     on('command.run', (_$, e) => {
@@ -1974,7 +1976,7 @@ describe('swamp band and setup entry', () => {
     await band.unmount()
   })
 
-  test('Compact puts a card under the newest reply: Compacting while it runs, then Compact complete in green', async ($, on) => {
+  test('Compact shows its card above the prompt at once: Compacting while it runs, then Compact complete until the next reply', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
     let release = () => {}
@@ -2000,19 +2002,19 @@ describe('swamp band and setup entry', () => {
     const band = await $.ui.mount(DESK_BAND)
     const pressed = band.press({ key: 'swamp-compact' })
     await mocked.advance(100)
+    expect(await drawn(band)).toContain('Compacting…')
+    // Not under the old reply: after a compact no reply sits past the boundary.
     const during = await reply()
-    expect(await drawn(during)).toContain('Compacting…')
+    expect(await during.find({ key: 'reply-handoff' })).toBeUndefined()
     await during.unmount()
     release()
     await pressed
+    expect(await drawn(band)).toContain('Compact complete')
     await band.unmount()
-    const after = await reply()
-    expect(await drawn(after)).toContain('Compact complete')
-    await after.unmount()
-    // Gone after a while with no reply.
-    await mocked.advance(3 * 60_000)
-    const later = await reply()
-    expect(await later.find({ key: 'reply-handoff' })).toBeUndefined()
+    // The first reply after it takes it away.
+    await $.turn.complete({ turnId: 't2', answer: 'Next reply.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    const later = await $.ui.mount(DESK_BAND)
+    expect(await drawn(later)).not.toContain('Compact complete')
     await later.unmount()
   })
 
@@ -2771,6 +2773,7 @@ describe('a chat opened again', () => {
 
   test('two hours after its last response: the cache shows cold at once', async ($, on) => {
     engine(on)
+    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 1_000_000, percent: 20 } } }) as never)
     mock.clock(on)
     await start($, on)
     await closeSetup($)
@@ -2778,6 +2781,16 @@ describe('a chat opened again', () => {
     const band = await $.ui.mount(DESK_BAND)
     expect(await drawn(band)).toContain('Chat went cold')
     await band.unmount()
+  })
+
+  test('a small chat that went cold shows no band: rereading it costs too little', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    on('session.usage', () => ({ value: { context: { tokens: 30_000, window: 1_000_000, percent: 3 } } }) as never)
+    await start($, on)
+    await closeSetup($)
+    await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: 7200, prompt_cache_likely_expired: true } as never)
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
   })
 
   test('ten minutes after: the countdown goes on from where it was, no cold band', async ($, on) => {

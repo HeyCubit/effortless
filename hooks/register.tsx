@@ -915,13 +915,26 @@ async function toggleSave($: EngineInterface): Promise<string> {
   return saving ? 'save mode off' : 'save mode on, Auto stays at medium or below until the limit resets'
 }
 
+/** Below this a cold cache costs too little to warn about: the next message rereads the chat at full price once. */
+const COLD_MIN_TOKENS = 60_000
+
+/** The context's tokens when the cold band is worth showing: the cache is cold, the band not closed, and the chat big
+ * enough that rereading it matters. Null otherwise, and while the size is not known yet. */
+async function coldWorth($: EngineInterface): Promise<number | null> {
+  if ((await read($, cacheLeft)) !== 0 || config.hide.includes('cold') || (await read($, isColdHidden))) return null
+  const tokens = lastContext?.tokens
+  if (coldForced) return tokens ?? 0
+  return tokens !== undefined && tokens >= COLD_MIN_TOKENS ? tokens : null
+}
+
 type TurnWarning = { kind: 'cold' | 'hot'; title: string; line: string; color: string; bg: string; edge: string; art: string }
 
 /** What the cold and hot bands would warn about now, as the card under the newest reply says it: the same order and the same
  *  hiding (a part switched off, a band closed with ✕), with a command in place of the band's buttons. */
 async function turnWarning($: EngineInterface): Promise<TurnWarning | null> {
-  if ((await read($, cacheLeft)) === 0 && !config.hide.includes('cold') && !(await read($, isColdHidden))) {
-    return { kind: 'cold', title: 'Chat went cold', line: 'Next message costs full price. Type /compact first.', color: ICE, bg: ICE_BG, edge: ICE_EDGE, art: FROST_SVG }
+  const coldTokens = await coldWorth($)
+  if (coldTokens !== null) {
+    return { kind: 'cold', title: 'Chat went cold', line: `Next message rereads ${kTokens(coldTokens)} tokens at full price. Hand off or /compact first.`, color: ICE, bg: ICE_BG, edge: ICE_EDGE, art: FROST_SVG }
   }
   const heat = await read($, hot)
   const heatHidden = await read($, hotHidden)
@@ -1075,6 +1088,7 @@ async function cacheTouched($: EngineInterface, usage: unknown) {
   // When the response does not say, the cache tells by itself: read back after more than 5 minutes means 1 hour.
   const ttl = cacheTtlOf(usage) ?? (lastResponseAt !== undefined && now - lastResponseAt > CACHE_TTL['5m'] && mostlyCached(usage) ? '1h' : undefined)
   lastResponseAt = now
+  coldForced = false
   if (ttl && ttl !== cacheTtl) {
     cacheTtl = ttl
     void proof($, `cache lifetime ${ttl}`)
@@ -1755,6 +1769,8 @@ let sessionStarted = 0
 // When the app's SessionStart came and what it said, for /effortless debug: a cold band that shows late is either a
 // late signal or a redraw the app did not take.
 let classicStart: { at: number; said: string } | null = null
+// /effortless cold shows the band whatever the chat's size, until the next response (a test of the band itself).
+let coldForced = false
 let handoffTimer: { cancel: () => void } | undefined
 const HANDOFF_POLL_MS = 1000
 // For /effortless debug: how the last progress chime went.
@@ -1953,6 +1969,52 @@ async function effortFlash($: EngineInterface, what: string, judging: boolean): 
     })
   }
   return flashColor(since)
+}
+
+/** The handoff or compact card: words, the moving art while it runs, green with a check once it has landed. `above` is
+ * what sits over it (the reply it hangs under), or nothing for the band above the prompt. */
+function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> | RenderInput<'AbovePrompt'>, fresh: HandoffCard, above: unknown) {
+  const { Box, Text, Svg } = $.ui.resolve(e)
+  const by = fresh.full ? 'Full' : 'Quick'
+  const words = {
+    writing: ['✦ Handing off…', `${by} handoff being written. ${fresh.full ? 'Your skill takes a little while.' : 'A few seconds.'}`],
+    done: ['✦ Handoff complete', 'Carried on from the last chat. The old one is cleared.'],
+    copied: ['✦ Handoff copied', 'Paste it into a new chat. This one stays.'],
+    newchat: ['✦ Handoff sent on', 'A new chat starts from it; this one gets archived.'],
+    compacting: ['✦ Compacting…', 'The chat is being summed up. Takes a minute or so.'],
+    compacted: ['✦ Compact complete', 'The chat is summed up; the next message reads far less.'],
+  }[fresh.kind]
+  const card = (
+    <Box key="reply-handoff" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
+      backgroundColor={cardLanded(fresh.kind) ? DONE_BG : BRAND_BG} borderStyle="round" borderColor={cardLanded(fresh.kind) ? DONE_EDGE : BRAND_EDGE}>
+      <Box key="reply-handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
+        {cardRunning(fresh.kind) ? (
+          <Svg source={HANDOFF_SVG} alt={fresh.kind === 'compacting' ? 'compacting' : 'handing off'} width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} isInteractive />
+        ) : (
+          <Svg source={cardLanded(fresh.kind) ? DONE_SVG : BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+        )}
+      </Box>
+      <Box key="reply-handoff-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
+        <Text color={cardLanded(fresh.kind) ? DONE_ACCENT : ACCENT} bold wrap="truncate">{words[0]}</Text>
+        <Text wrap="truncate">{words[1]}</Text>
+      </Box>
+    </Box>
+  )
+  if (above === undefined) return card
+  return (
+    <Box key="reply" flexDirection="column" gap={1}>
+      {above as never}
+      {card}
+    </Box>
+  )
+}
+
+/** A compact's card for the band above the prompt: while it runs, and once done until the first reply after it. */
+async function compactCard($: EngineInterface) {
+  const card = await read($, handoffCard)
+  if (!card || (card.kind !== 'compacting' && card.kind !== 'compacted')) return null
+  if (card.kind === 'compacted' && (card.seen || (await $.clock.now()) - card.at >= HANDOFF_CARD_MS)) return null
+  return card
 }
 
 /** The dashboard: what effortless is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
@@ -2245,6 +2307,7 @@ export const register: Register = (on, options) => {
       lastResponseAt = now - r.seconds_since_last_response * 1000
       const left = lastResponseAt + CACHE_TTL[cacheTtl]
       cacheExpires = r.prompt_cache_likely_expired || left <= now ? now - 1 : left
+      await checkSwamp($).catch(() => undefined)
       await showCache($).catch(() => undefined)
       // The app opens the chat and draws its band while this runs; a redraw asked now can land before the band is
       // there, and the next came only with the 15 s cache tick. Ask again over the next seconds.
@@ -2399,6 +2462,7 @@ export const register: Register = (on, options) => {
 Saved to ${out}.md and .json` }
     }
     if (arg === 'cold') {
+      coldForced = true
       cacheExpires = await $.clock.now()
       await update($, cacheLeft, () => 0)
       $.ui.invalidate('ui.render')
@@ -2693,38 +2757,11 @@ Saved to ${out}.md and .json` }
     if (!answer || !text || !answer.endsWith(text)) return next(e)
     const card = await read($, handoffCard)
     const fresh = card && (cardRunning(card.kind) || (await $.clock.now()) - card.at < HANDOFF_CARD_MS) ? card : null
-    if (fresh) {
-      const { Box, Text, Svg } = $.ui.resolve(e)
+    // A compact's card goes above the prompt (see compactCard): after a compact no reply sits past the boundary to hang
+    // it under, so here it came only with the next answer.
+    if (fresh && fresh.kind !== 'compacting' && fresh.kind !== 'compacted') {
       const drawn = await next(e)
-      const by = fresh.full ? 'Full' : 'Quick'
-      const words = {
-        writing: ['✦ Handing off…', `${by} handoff being written. ${fresh.full ? 'Your skill takes a little while.' : 'A few seconds.'}`],
-        done: ['✦ Handoff complete', 'Carried on from the last chat. The old one is cleared.'],
-        copied: ['✦ Handoff copied', 'Paste it into a new chat. This one stays.'],
-        newchat: ['✦ Handoff sent on', 'A new chat starts from it; this one gets archived.'],
-        compacting: ['✦ Compacting…', 'The chat is being summed up. Takes a minute or so.'],
-        compacted: ['✦ Compact complete', 'The chat is summed up; the next message reads far less.'],
-      }[fresh.kind]
-      return (
-        <Box key="reply" flexDirection="column" gap={1}>
-          {drawn}
-          <Box key="reply-handoff" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
-            backgroundColor={cardLanded(fresh.kind) ? DONE_BG : BRAND_BG} borderStyle="round" borderColor={cardLanded(fresh.kind) ? DONE_EDGE : BRAND_EDGE}>
-            {/* Moving while it runs, still once it has landed; green with a checkmark once it is complete. */}
-            <Box key="reply-handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
-              {cardRunning(fresh.kind) ? (
-                <Svg source={HANDOFF_SVG} alt={fresh.kind === 'compacting' ? 'compacting' : 'handing off'} width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} isInteractive />
-              ) : (
-                <Svg source={cardLanded(fresh.kind) ? DONE_SVG : BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
-              )}
-            </Box>
-            <Box key="reply-handoff-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
-              <Text color={cardLanded(fresh.kind) ? DONE_ACCENT : ACCENT} bold wrap="truncate">{words[0]}</Text>
-              <Text wrap="truncate">{words[1]}</Text>
-            </Box>
-          </Box>
-        </Box>
-      )
+      return handoffCardTree($, e, fresh, drawn)
     }
     const warn = await turnWarning($)
     if (!warn || turnBusy()) return next(e)
@@ -3239,20 +3276,25 @@ Saved to ${out}.md and .json` }
         </Box>
       )
     }
-    // The cache went cold: the next message writes the whole chat again at full price. Said where it cannot be missed.
-    // While compacting, the card under the newest reply says so and the bands step aside.
+    // A compact running or just done: said above the prompt, where it is seen at once.
+    const compactNow = e.surface === 'terminal' ? null : await compactCard($)
+    if (compactNow) return handoffCardTree($, e, compactNow, undefined)
+    // The cache went cold: the next message rereads the whole chat at full price. Only worth a band on a big chat.
     const compacting = await read($, isCompacting)
-    if ((await read($, cacheLeft)) === 0 && !config.hide.includes('cold') && !(await read($, isColdHidden)) && !compacting) {
+    const coldTokens = compacting ? null : await coldWorth($)
+    if (coldTokens !== null) {
+      const line = `Next message rereads ${kTokens(coldTokens)} tokens at full price.`
       if (e.surface === 'terminal')
         return terminalBand($, e, {
           key: 'cold', kind: 'cold', color: ICE, bg: ICE_BG, edge: ICE_EDGE, title: 'Chat went cold',
-          detail: 'The next message costs full price. Compact first.',
+          detail: `${line} Hand off or compact first.`,
           buttons: [
             <Button key="cold-hide" plain hotkey="n" label="Not now" onPress={() => update($, isColdHidden, () => true)} />,
-            <Button key="cold-compact" variant="primary" hotkey="c" label="Compact" onPress={() => compactCold($)} />,
+            <Button key="cold-compact" hotkey="c" label="Compact" onPress={() => compactCold($)} />,
+            <Button key="cold-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />,
           ],
         })
-      // The art is a backdrop: an absolutely placed layer behind the right side, so the words and Compact sit on it.
+      // The art is a backdrop: an absolutely placed layer behind the right side, so the words and buttons sit on it.
       return (
         <Box
           key="cold"
@@ -3275,12 +3317,13 @@ Saved to ${out}.md and .json` }
               ✦ Chat went cold
             </Text>
           </Box>
-          <Text wrap="truncate">Next message costs full price. Compact first.</Text>
+          <Text wrap="truncate">{line}</Text>
           {/* Room for the buttons, which sit in their own layer after the frost so they are drawn on top of it. */}
-          <Box flexGrow={1} minWidth={22} />
+          <Box flexGrow={1} minWidth={34} />
           <Box key="cold-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
             <Button key="cold-hide" plain label="Not now" onPress={() => update($, isColdHidden, () => true)} />
-            <Button key="cold-compact" variant="primary" label="Compact" onPress={() => compactCold($)} />
+            <Button key="cold-compact" variant="secondary" label="Compact" onPress={() => compactCold($)} />
+            <Button key="cold-handoff" variant="primary" label="Handoff" onPress={() => openHandoffBar($)} />
           </Box>
         </Box>
       )
