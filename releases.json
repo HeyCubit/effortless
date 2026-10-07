@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.36.3",
+    "date": "2026-10-07",
+    "note": "Report a bug link carries this version"
+  },
+  {
     "version": "1.36.2",
     "date": "2026-10-07",
     "note": "Haiku first in the setup, Report a bug, softer fade"
