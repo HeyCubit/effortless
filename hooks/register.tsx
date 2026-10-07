@@ -2216,6 +2216,10 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
 
 /** How long "Compact complete" stays above the prompt when nothing else clears it. */
 const COMPACT_CARD_MS = 20_000
+/** A settings part's body on desktop is as tall as the overview's row of cards, so the panel keeps its height going in
+ * and out of a part. In lines (a Box height is a number of lines or a percentage) at the app's 19 px line: 56 px makes
+ * the band 121.5 px tall in every part, as with the cards, measured on tools/render-band.
+const SETTINGS_BODY_H = 56 / 19
 /** The card ✕'s hover: the app's ghost fill is lost on the green and violet cards, so a darker wash of the card itself. */
 const CARD_CLOSE_HOVER = '#00000040'
 /** A compact's card for the band above the prompt: while it runs, and once done until the next message is sent, the
@@ -3505,7 +3509,7 @@ Saved to ${out}.md and .json` }
             </Box>
           ) : (
             // One part: Back, its name and what it does, then its controls.
-            <Box key={`settings-${card}`} flexDirection="column" gap={roomy && !term ? 1 : 0}>
+            <Box key={`settings-${card}`} flexDirection="column" gap={roomy && !term ? 1 : 0} minHeight={term ? undefined : SETTINGS_BODY_H}>
               {/* An empty absolute child makes the box positioned, so its rows paint, and take clicks, over the
                   entrance sweep and the art (absolute layers cover every plain box, and the sweep stays until the next
                   redraw). */}
