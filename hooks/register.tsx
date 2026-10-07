@@ -2313,6 +2313,8 @@ const RELEASES_URL = 'https://api.github.com/repos/HeyCubit/effortless/contents/
 const WHATS_NEW_URL = 'https://heycubit.github.io/effortless/whats-new/'
 /** Where a bug is reported: a page on the site that opens a prefilled GitHub issue. */
 const REPORT_BUG_URL = 'https://heycubit.github.io/effortless/report/'
+/** This install's version, read from its plugin.json at session start: the report page fills it in. */
+let ownVersion = ''
 /** How often a session looks for a new version, and how long ✕ on the offer keeps it away. */
 const UPDATE_CHECK_MS = 6 * 3600_000
 const UPDATE_SNOOZE_MS = 24 * 3600_000
@@ -3146,6 +3148,7 @@ export const register: Register = (on, options) => {
     // The command file lists /effortless before the session starts; registering it here makes plain /effortless the
     // mod's own command afterwards, instead of the file run as a skill.
     void $.command.register({ name: 'effortless', description: 'effortless: settings, debug, handoff, setup, bench, auto, stats.' }).catch(() => undefined)
+    void $.fs.read(`${$.plugin.root}/.claude-plugin/plugin.json`).then(t => { ownVersion = String(JSON.parse(String(t)).version ?? '') }).catch(() => undefined)
     void afterLoad($).catch(() => undefined)
     $.clock.every(UPDATE_CHECK_MS, () => void checkUpdate($).catch(() => undefined))
     void drainSetupSave($).catch(() => undefined)
@@ -3895,7 +3898,7 @@ Saved to ${out}.md and .json` }
             {dirty ? <Text dimColor> · unsaved changes</Text> : null}
           </Box>
           <Box key="settings-actions" position="absolute" top={0} right={2} height={term ? 2 : 2.5} flexDirection="row" gap={2} alignItems="center">
-            <Text color="#9a9aa3"><Link href={REPORT_BUG_URL} label="Report a bug" /></Text>
+            <Text color="#9a9aa3"><Link href={ownVersion ? `${REPORT_BUG_URL}?effortless=${encodeURIComponent(ownVersion)}` : REPORT_BUG_URL} label="Report a bug" /></Text>
             {/* Grey and inert until something changed: there is nothing to save. */}
             {dirty ? (
               <Button key="settings-save" variant="primary" hotkey="s" label="Save" onPress={() => saveDraft($)} />
