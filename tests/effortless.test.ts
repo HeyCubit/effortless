@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, weighted } from '../hooks/register'
+import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
 
@@ -2731,7 +2731,18 @@ describe('dashboard', () => {
     await mocked.advance(16_000)
     band = await $.ui.mount(DESK_BAND)
     expect((await band.find({ key: 'dash-handoff' }))?.props).toMatchObject({ variant: 'primary', hotkey: 'h' })
+    expect(await band.find({ key: 'dash-glow' })).toBeDefined()
     await band.unmount()
+    // A fresh chat has no glow.
+    percent = 10
+    await mocked.advance(16_000)
+    band = await $.ui.mount(DESK_BAND)
+    expect(await band.find({ key: 'dash-glow' })).toBeUndefined()
+    await band.unmount()
+  })
+
+  test('the Handoff glow steps up every 10% from 30%', () => {
+    expect([0, 29, 30, 39, 40, 55, 69, 70, 95].map(handoffGlowStep)).toEqual([0, 0, 1, 1, 2, 3, 4, 5, 5])
   })
 
   test("an alert takes the dashboard's place, and the dashboard comes back after it", DASH, async ($, on) => {
