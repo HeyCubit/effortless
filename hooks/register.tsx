@@ -194,8 +194,8 @@ const BRAND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="6
 // art is the brand's, in grey and at 40% of its strength; only the ✦ keeps the accent.
 const DASH_SVG = BRAND_SVG.replace(/stop-opacity="([0-9.]+)"/g, (_m, v: string) => `stop-opacity="${(Number(v) * 0.4).toFixed(3)}"`)
   .replace(/#(7c6cf0|8f7ff0|b3a6ff|c9bdff|9a86ff)/g, '#9a9aa2')
-const DASH_BG = '#141416'
-const DASH_EDGE = '#2a2a2f'
+const DASH_BG = '#212121'
+const DASH_EDGE = '#212121'
 /** The settings title's word in the website hero's style: crisp, going soft and grainy at its bottom right (a radial
  * mask fades the crisp copy out there and a copy through the site's #grainy filter takes over). The app gives the image
  * the band's font. */
