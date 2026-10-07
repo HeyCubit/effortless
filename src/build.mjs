@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 const repo = fileURLToPath(new URL('../../', import.meta.url))
 const src = fs.readFileSync(repo + '/hooks/register.tsx', 'utf8')
@@ -20,7 +21,32 @@ const still = [[505,110,4,.35],[585,280,3,.3],[655,140,5,.45],[705,370,4,.4],[77
 const star4 = (x, y, s) => { const i = s * .21; return `M${x} ${y-s} L${x+i} ${y-i} L${x+s} ${y} L${x+i} ${y+i} L${x} ${y+s} L${x-i} ${y+i} L${x-s} ${y} L${x-i} ${y-i} Z` }
 const streaks = [[600,38,.04],[680,14,.05],[770,46,.05],[880,18,.04],[960,36,.05],[1040,14,.04]].map(([x,w,o]) => `<line x1="${x-70}" y1="420" x2="${x+70}" y2="-20" stroke="#fff" stroke-opacity="${o}" stroke-width="${w}"/>`).join("")
 const heroArt = `<svg class="stars" viewBox="0 0 1000 600" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><style>.h-sp{fill:#fff;opacity:0;transform-box:fill-box;transform-origin:center;animation:h-gl 4s ease-in-out infinite}@keyframes h-gl{0%,50%,100%{opacity:0;transform:scale(0) rotate(0deg)}70%{opacity:.95;transform:scale(1) rotate(30deg)}90%{opacity:0;transform:scale(.2) rotate(60deg)}}</style>${sp.map(([x,y,s,d,dl]) => `<path class="h-sp" style="animation-duration:${d}s;animation-delay:${dl}s" d="${star4(x,y*1.5,s*1.1)}"/>`).join("")}${still.map(([x,y,s,o]) => `<path fill="#fff" fill-opacity="${o}" d="${star4(x,y*1.5,s)}"/>`).join("")}</svg>`
+// What's new: releases.json at the repo root, newest first. Test releases made to try the update card are left out
+// (their notes start with "A version "). The latest 10 show; the rest wait behind "Show all".
+const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+const TEST_NOTES = ["Releases can skip the local install"]
+const releases = JSON.parse(fs.readFileSync(repo + "/releases.json", "utf8")).filter(r => !/^A version /.test(r.note) && !TEST_NOTES.includes(r.note))
+const row = r => `<li>__SPARK__<b class="v">${esc(r.version)}</b><span class="n">${esc(r.note)}</span><time datetime="${esc(r.date)}">${esc(r.date)}</time></li>`
+const news = `<ol class="rel">${releases.slice(0, 10).map(row).join("")}</ol>` + (releases.length > 10 ? `<details class="more"><summary>Show all</summary><ol class="rel">${releases.slice(10).map(row).join("")}</ol></details>` : "")
+// The star count, read once at build time so the page never calls the GitHub API (it is rate limited per visitor IP).
+// gh is signed in and allowed far more calls; without it the plain API is tried. No count, or zero, shows no badge.
+let stars = 0
+try { stars = Number(execSync('gh api repos/HeyCubit/effortless --jq .stargazers_count', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()) || 0 } catch {
+  try { const r = await fetch('https://api.github.com/repos/HeyCubit/effortless'); if (r.ok) stars = (await r.json()).stargazers_count || 0 } catch {}
+}
+const starsBadge = stars > 0 ? `<span class="stars">${stars >= 1000 ? (stars / 1000).toFixed(1) + 'k' : stars}</span>` : ''
+// The two ways in, shown in the install section and the install popover. "Ask Claude" copies a request Claude Code runs
+// for you; "Commands" has the two chat commands and one terminal line (with ; so it also runs in PowerShell 5).
+const copyIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>'
+const cmd = c => `<div class="cmd"><code>${c}</code><button type="button" class="copy" data-copy="${c}" aria-label="Copy ${c}">${copyIcon}<span>Copy</span></button></div>`
+const ask = 'Install the effortless plugin for me: run `claude plugin marketplace add HeyCubit/effortless` and then `claude plugin install effortless@effortless`. When both succeed, tell me to run /reload-plugins.'
+const install = '<div class="ways"><div class="tabs" role="tablist" aria-label="How to install"><button type="button" role="tab" aria-selected="true" data-tab="0">Ask Claude<small>Recommended</small></button><button type="button" role="tab" aria-selected="false" data-tab="1">Commands</button></div>'
+  + `<div class="pane" data-pane="0"><div class="ask"><p data-sel>${ask.replace(/\`([^\`]+)\`/g, '<code>$1</code>')}</p><button type="button" class="copy main" data-copy="${ask}" aria-label="Copy the install request for Claude">${copyIcon}<span>Copy for Claude</span></button></div><p class="help">Paste into Claude Code and press Enter. Claude runs the two commands for you.</p></div>`
+  + `<div class="pane" data-pane="1" hidden><p class="way-label">In Claude Code's chat box:</p><div class="cmds">${cmd('/plugin marketplace add HeyCubit/effortless')}${cmd('/plugin install effortless@effortless')}</div><p class="way-label">Or in a terminal:</p><div class="cmds">${cmd('claude plugin marketplace add HeyCubit/effortless; claude plugin install effortless@effortless')}</div></div>`
+  + '<p class="then">Then run <code>/reload-plugins</code> (or restart Claude Code). A short setup opens above the prompt.</p></div>'
 const map = {
+  __INSTALL__: install,
+  __STARS_BADGE__: starsBadge,
   __STARS__: heroArt, 
   __ART_BRAND__: uri(grab('BRAND_SVG')), __ART_FROST__: uri(grab('FROST_SVG')), __ART_SWAMP__: uri(grab('SWAMP_SVG')),
   __ART_EMBER__: uri(grab('EMBER_SVG')), __ART_DOWN__: uri(grab('DOWN_SVG')),
@@ -33,4 +59,9 @@ for (const [k, v] of Object.entries(map)) out = out.split(k).join(v)
 if (/__[A-Z_]+__/.test(out)) throw Error('left: ' + out.match(/__[A-Z_]+__/)[0])
 fs.mkdirSync(repo + '/site', { recursive: true })
 fs.writeFileSync(repo + '/site/index.html', out)
+// What's new has its own page, at whats-new/. The main page forwards old #whats-new links there.
+let page = fs.readFileSync(new URL('./whats-new.html', import.meta.url), 'utf8').split('__WHATSNEW__').join(news).replace(/__SPARK__/g, mark).split('__ICON__').join(map.__ICON__)
+if (/__[A-Z_]+__/.test(page)) throw Error('left: ' + page.match(/__[A-Z_]+__/)[0])
+fs.mkdirSync(repo + '/site/whats-new', { recursive: true })
+fs.writeFileSync(repo + '/site/whats-new/index.html', page)
 console.log('bytes', out.length)

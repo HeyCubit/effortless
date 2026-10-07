@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
-<script>document.documentElement.classList.add('js')</script>
+<script>document.documentElement.classList.add('js');if(location.hash==='#whats-new')location.replace('whats-new/')</script>
 <style>
 /* The band art below is the plugin's own SVG, copied unchanged from hooks/register.tsx. */
 :root{
@@ -32,7 +32,13 @@
   --display:Outfit,Inter,"Segoe UI",system-ui,sans-serif;
   --ease:cubic-bezier(.16,1,.3,1);
   color-scheme:dark;
+  /* One frame for the whole page: the story's width. The top bar, the opening, the story, the install section and the
+     footer all start and end on it. It grows to 75% of the window on big screens. */
+  --frame:max(32px,calc((100vw - max(1536px,75vw))/2));
+  /* The top bar's type size. The bar is 4.6 of these tall, and the story starts below it. */
+  --bar:clamp(15px,1.05vw,26px);
 }
+@media (max-width:960px){:root{--frame:16px}}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--page);color:var(--text);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
@@ -40,7 +46,12 @@ a{color:inherit}
 .wrap{max-width:920px;margin:0 auto;padding:0 24px}
 
 /* ---------- Stage: the full-screen opening ---------- */
-.stage{--gut:max(48px,calc((100vw - 1280px)/2 + 48px));position:relative;min-height:min(100vh,920px);min-height:min(100svh,920px);display:flex;flex-direction:column;overflow:hidden;isolation:isolate}
+.stage{--hz:1;--gut:calc(var(--frame) / var(--hz));zoom:var(--hz);position:relative;min-height:min(calc(100vh / var(--hz)),920px);min-height:min(calc(100svh / var(--hz)),920px);display:flex;flex-direction:column;overflow:hidden;isolation:isolate}
+/* The opening is laid out for a 1280 wide window. Bigger windows zoom it as a whole, in steps; the frame is divided by
+   the zoom so its left edge still lines up with the rest of the page. */
+@media (min-width:1800px){.stage{--hz:1.15}}
+@media (min-width:2200px){.stage{--hz:1.35}}
+@media (min-width:2500px){.stage{--hz:1.5}}
 .stage{background:radial-gradient(55% 75% at 88% 52%,#1d1934 0%,#16141f 45%,transparent 75%),var(--page)}
 .stage:before{content:"";position:absolute;inset:0;z-index:-2;pointer-events:none;background-image:radial-gradient(#2a2733 1.1px,transparent 1.5px);background-size:22px 22px;-webkit-mask-image:radial-gradient(60% 70% at 22% 50%,#000,transparent);mask-image:radial-gradient(60% 70% at 22% 50%,#000,transparent)}
 .demo{margin-top:48px;width:min(440px,100%)}
@@ -51,8 +62,8 @@ a{color:inherit}
 .demo-send{position:absolute;right:12px;bottom:10px;width:26px;height:26px;display:grid;place-items:center;color:#6f6c7a;transition:color .2s}
 .demo-send.on{color:#f4f3f7}
 .demo-send svg{width:16px;height:16px}
-/* The bar under the box, as Claude Code draws it: attach, voice and mode on the left; the mod's buttons, effort, cache,
-   model, native effort and the context ring on the right. */
+/* The footer under the box, as Claude Code draws it: attach, voice and mode on the left; the model and the context ring
+   on the right. The dashboard look leaves this footer to the app. */
 .demo-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 4px 0;font-size:13.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .demo-foot .fl,.demo-foot .fr{display:flex;align-items:center;gap:6px}
 .demo-foot .fl{gap:13px;color:#b4b1bf;font-size:15px}
@@ -61,7 +72,7 @@ a{color:inherit}
 .demo-foot .k{display:grid;place-items:center;width:22px;height:20px;border-radius:5px;background:#27262c;color:#8d8a99;font-size:11px;transition:box-shadow .2s}
 .demo-foot .lvl{margin-left:6px;padding:1px 3px;border-radius:5px;color:var(--accent);font-weight:700;transition:box-shadow .2s}
 .demo-foot .m{margin-left:8px;color:#ebe9f1}
-.demo-foot .ring{width:15px;height:15px;margin-left:8px;border-radius:50%;background:conic-gradient(#5e8fe6 0 62%,#34333b 0);-webkit-mask:radial-gradient(closest-side,transparent 64%,#000 68%);mask:radial-gradient(closest-side,transparent 64%,#000 68%)}
+.demo-foot .ring{width:15px;height:15px;margin-left:8px;border-radius:50%;background:conic-gradient(#5e8fe6 0 22%,#34333b 0);-webkit-mask:radial-gradient(closest-side,transparent 64%,#000 68%);mask:radial-gradient(closest-side,transparent 64%,#000 68%)}
 .demo .demo-foot .opt{display:none}
 .stage:after{content:"";position:absolute;left:0;right:0;bottom:0;height:22%;z-index:-1;background:linear-gradient(transparent,var(--page));pointer-events:none}
 
@@ -160,56 +171,76 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 @keyframes blink{50%{opacity:0}}
 
 /* ---------- The install bar: appears once the opening has scrolled away ---------- */
-.topbar{position:fixed;top:0;left:0;right:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px max(24px,calc((100vw - 1180px)/2));background:#121214e0;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transform:translateY(-110%);transition:transform .4s var(--ease)}
+.topbar{position:fixed;top:0;left:0;right:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:.9em var(--frame);font-size:var(--bar);background:#121214e0;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transform:translateY(-110%);transition:transform .4s var(--ease)}
 .topbar.on{transform:none}
-.topbar .name{display:inline-flex;align-items:center;gap:8px;color:var(--text);font:500 17px var(--display);text-decoration:none}
-.topbar .name svg{width:32px;height:32px;margin:-6px -2px -6px -6px}
-.inst{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:9px;border:0;background:#f4f3f8;color:#141218;font:600 14px var(--sans);cursor:pointer}
+.topbar .name{display:inline-flex;align-items:center;gap:10px;color:var(--text);font:500 1.5em var(--display);letter-spacing:-.01em;text-decoration:none}
+.topbar .name svg{width:1.9em;height:1.9em;margin:-.35em -.12em -.35em -.35em}
+.inst{display:inline-flex;align-items:center;gap:9px;height:2.8em;padding:0 1.15em;border-radius:.65em;border:0;background:#f4f3f8;color:#141218;font:600 1em var(--sans);cursor:pointer}
 .inst:hover{background:#fff}
 .inst:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .inst svg{width:12px;height:12px;transition:transform .25s}
 .inst[aria-expanded="true"] svg{transform:rotate(180deg)}
-.pop{position:absolute;right:max(24px,calc((100vw - 1180px)/2));top:calc(100% + 8px);width:min(540px,calc(100vw - 32px));padding:18px;border-radius:14px;background:#17161c;box-shadow:0 30px 60px -20px #000;display:none}
+.pop{position:absolute;right:var(--frame);top:calc(100% + 8px);width:min(540px,calc(100vw - 32px));padding:18px;border-radius:14px;background:#17161c;box-shadow:0 30px 60px -20px #000;display:none}
 .pop.open{display:block}
 .pop p{margin:0;color:var(--muted);font-size:14px}
 .pop .cmds{margin-top:12px}
 
 /* ---------- The story: one big chat box, one feature at a time ---------- */
-.story{position:relative;height:calc(var(--n) * 90vh + 10vh)}
-.pin{--sc:var(--accent);position:sticky;isolation:isolate;top:0;height:100vh;display:flex;flex-direction:column;gap:20px;width:min(1240px,100%);margin:0 auto;padding:96px 32px 22px}
+.story{position:relative;height:calc(var(--n) * 90vh + 10vh);overflow-y:clip}
+.pin{--sc:var(--accent);position:sticky;isolation:isolate;top:0;height:100vh;display:flex;flex-direction:column;gap:20px;width:100%;margin:0;padding:calc(var(--bar) * 4.6 + 28px) var(--frame) 0;--z:clamp(15px,1.5vw,30px)}
 .pin:before{content:"";position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:-1;pointer-events:none;background:radial-gradient(45% 40% at 50% 86%,color-mix(in srgb,var(--sc) 12%,transparent),transparent 72%),radial-gradient(#2a2733 1.1px,transparent 1.5px) 0 0/22px 22px;-webkit-mask-image:radial-gradient(60% 75% at 50% 60%,#000 35%,transparent);mask-image:radial-gradient(60% 75% at 50% 60%,#000 35%,transparent);transition:background .6s}
-.head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px}
-.caps{position:relative;flex:1;min-height:56px}
+.head{display:flex;flex-direction:column;gap:clamp(16px,2.4vh,28px)}
+.caps{position:relative;min-height:1.2em;font-size:clamp(28px,2.9vw,56px)}
 .say{position:absolute;left:0;right:0;bottom:0;opacity:0;transform:translateX(-32px);transition:opacity .45s var(--ease),transform .8s var(--ease);pointer-events:none}
 .say.on{opacity:1;transform:none;pointer-events:auto}
-.say h3{margin:0;font:500 clamp(28px,3.4vw,44px)/1.1 var(--display);letter-spacing:-.02em;color:#f4f2ff;text-wrap:balance}
+/* The first time the story scrolls into view it plays in: the heading slides in from the left, then the step numbers,
+   the bar and the box rise in one after another. */
+.story:not(.in) .say.on{opacity:0;transform:translateX(-64px)}
+.story .go,.story .slot,.story .win .demo-box{transition:opacity .7s var(--ease),transform 1s var(--ease)}
+.story:not(.in) .go{opacity:0;transform:translateY(12px)}
+.story:not(.in) .slot{opacity:0;transform:translateY(36px)}
+.story:not(.in) .win .demo-box{opacity:0;transform:translateY(56px)}
+.story.in .say.on{transition-duration:.6s,1.1s}
+.story.in .go{transition-delay:.25s}
+.story.in .slot{transition-delay:.4s}
+.story.in .win .demo-box{transition-delay:.55s}
+.say h3{margin:0;font:500 clamp(28px,2.9vw,56px)/1.08 var(--display);letter-spacing:-.02em;color:#f4f2ff;text-wrap:balance}
 .say p{margin:0;color:#c3bfd2;font-size:17px;line-height:1.55;max-width:34em}
 .say kbd{font:inherit;padding:1px 6px;border-radius:5px;background:#2a2930;color:var(--text)}
-.go{display:flex;gap:2px;margin-right:-10px;flex-shrink:0}
-.go button{font:500 15px var(--display);color:var(--dim);background:none;border:0;padding:6px 10px;cursor:pointer;font-variant-numeric:tabular-nums;transition:color .3s}
-.go button:hover{color:var(--text)}
-.go button[aria-current="step"]{color:var(--sc)}
-.go button:focus-visible{outline:2px solid var(--sc);outline-offset:1px;border-radius:6px}
+/* The steps: one line each that fills as the page scrolls through it, with its name under it, so it is clear there is
+   more to scroll through and where you are. */
+.go{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.go button{display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-width:0;padding:6px 0;background:none;border:0;cursor:pointer;color:var(--dim);font:500 clamp(13px,.8vw,17px)/1.2 var(--sans);text-align:left;transition:color .3s}
+.go i{position:relative;display:block;width:100%;height:2px;border-radius:2px;background:#2b2b31;overflow:hidden}
+.go i:after{content:"";position:absolute;inset:0;background:var(--sc);transform-origin:0 50%;transform:scaleX(var(--f,0));transition:background .6s}
+.go span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.go button:hover,.go button[aria-current="step"]{color:var(--text)}
+.go button:focus-visible{outline:2px solid var(--sc);outline-offset:4px;border-radius:4px}
 
 /* The chat takes whatever height is left, so the box and its bar sit just above the bottom edge. */
 .win{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
 .chat{flex:1;min-height:0;overflow:hidden;padding:0 6px 16px;display:flex;flex-direction:column;justify-content:flex-end;gap:12px;-webkit-mask-image:linear-gradient(transparent,#000 50%);mask-image:linear-gradient(transparent,#000 50%)}
-.msg{max-width:72%;font-size:17px;line-height:1.5;color:#cfccd9;animation:msg-in .45s var(--ease) both}
-.msg.me{align-self:flex-end;background:#232229;border-radius:14px;padding:10px 16px;color:var(--text)}
-.msg.sys{align-self:center;color:var(--sc);font-size:15px;font-weight:500}
+.msg{max-width:72%;font-size:calc(var(--z) * 1.02);line-height:1.5;color:#cfccd9;animation:msg-in .45s var(--ease) both}
+.msg.me{align-self:flex-end;background:#232229;border-radius:.8em;padding:.55em .95em;color:var(--text)}
+.msg.sys{align-self:center;color:var(--sc);font-size:calc(var(--z) * .9);font-weight:500}
 .msg.sys:before{content:"✦ "}
 .msg.gone{animation:msg-out .4s var(--ease) both}
 @keyframes msg-in{from{opacity:0;transform:translateY(8px)}}
 @keyframes msg-out{to{opacity:0;transform:translateY(-10px)}}
 .slot{min-height:86px;display:flex;flex-direction:column;justify-content:flex-end}
-.slot .band{margin-bottom:14px;min-height:72px;padding:14px 16px 14px 22px;gap:14px;border-radius:14px;font-size:17.5px;box-shadow:0 22px 50px -28px var(--c);animation:msg-in .5s var(--ease) both}
+.slot .band{margin-bottom:.8em;min-height:3.9em;padding:.75em .9em .75em 1.2em;gap:.8em;border-radius:.8em;font-size:var(--z);box-shadow:0 22px 50px -28px var(--c);animation:msg-in .5s var(--ease) both}
 /* A wide band would show where its art starts; the art fades in from the left instead. */
 .slot .band:before{width:min(640px,70%);-webkit-mask-image:linear-gradient(90deg,transparent,#000 55%);mask-image:linear-gradient(90deg,transparent,#000 55%)}
-.slot .band .btn{font-size:15px;padding:7px 14px}
+.slot .band .btn{font-size:.86em;padding:.45em .85em}
+.slot .qf span{font-size:.8em;padding:.45em .8em;min-width:4.6em}
+.slot .qf svg{width:1em;height:1em}
 .slot .band.gone{animation:msg-out .35s var(--ease) both}
-.win .demo-box{min-height:clamp(150px,22vh,220px);padding:26px 70px 26px 30px;border-radius:24px;background:#1b1a20;box-shadow:0 50px 100px -50px color-mix(in srgb,var(--sc) 50%,#000);transition:box-shadow .6s}
-.win .demo-in{font-size:22px;min-height:34px}
-.win .demo-in .caret{height:25px;vertical-align:-5px}
+.win .demo-box{min-height:calc(var(--z) * 9);margin-bottom:calc(var(--z) * -4.5);padding:calc(var(--z) * 1.1) 70px 0 calc(var(--z) * 1.25);border-radius:calc(var(--z) * 1.1);background:#1b1a20;box-shadow:0 50px 100px -50px color-mix(in srgb,var(--sc) 50%,#000);transition:box-shadow .6s}
+/* The box fades out toward its bottom, so it never ends on a hard edge when the story scrolls away. */
+.win .demo-box{-webkit-mask-image:linear-gradient(#000 12%,transparent 50%);mask-image:linear-gradient(#000 12%,transparent 50%)}
+.win .demo-in{font-size:calc(var(--z) * 1.3);min-height:1.5em}
+.win .demo-send,.win .demo-foot{display:none}
+.win .demo-in .caret{height:1.1em;vertical-align:-.2em}
 .win .demo-send{right:22px;bottom:20px;width:32px;height:32px}
 .win .demo-send svg{width:22px;height:22px}
 .win .demo-foot{margin:14px 6px 0;font-size:17px;gap:14px}
@@ -221,25 +252,124 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .win .demo-foot .lvl{margin-left:8px}
 .win .demo-foot .m{margin-left:10px}
 .win .demo-foot .ring{width:19px;height:19px;margin-left:10px}
-/* What a scene is about: that footer item stays lit while the rest of the bar dims, and it swells when it changes. */
-.win .demo-foot .fl,.win .demo-foot .fr>*{transition:opacity .4s,transform .45s var(--ease),text-shadow .4s,box-shadow .2s}
-.win .demo-foot.aim .fl,.win .demo-foot.aim .fr>:not(.lit){opacity:.42}
-.win .demo-foot .lit{position:relative;z-index:1;transform-origin:50% 100%;text-shadow:0 0 18px color-mix(in srgb,var(--sc) 70%,transparent)}
-.win .demo-foot .lit.swell{transform:scale(1.7) translateY(-3px)}
-.demo-foot .warn{color:var(--yellow)}
-.demo-foot .bad{color:var(--red);font-weight:600}
 .press{animation:press .55s var(--ease)}
 @keyframes press{35%{transform:scale(.9);box-shadow:0 0 0 5px #a79cf766}}
 .hl{box-shadow:0 0 0 2px var(--accent)}
 
+@property --p{syntax:"<number>";inherits:true;initial-value:0}
+/* ---------- The dashboard: the one bar above the prompt, rebuilt from the mod's own render (docs/showcase/bar) ---------- */
+.dash{position:relative;overflow:hidden;display:flex;align-items:center;gap:.95em;min-height:2.85em;padding:0 .75em 0 .8em;border-radius:10px;background:#141416;border:1px solid #2a2a2f;color:#d4d4d8;font-size:14px;font-weight:500;line-height:1.3;white-space:nowrap;font-variant-numeric:tabular-nums}
+/* The grey art on the right: a soft wash, grain, faint streaks, fading in from the middle. */
+.dash:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(30% 140% at 89% 50%,#9a9aa21d,transparent),linear-gradient(90deg,transparent 43%,#9a9aa210 62%,#9a9aa223 85%,#9a9aa231),repeating-linear-gradient(110deg,transparent 0 46px,#ffffff09 46px 49px,transparent 49px 88px),radial-gradient(#ffffff12 .5px,transparent .7px) 0 0/4px 4px;-webkit-mask-image:linear-gradient(90deg,transparent 40%,#000 75%);mask-image:linear-gradient(90deg,transparent 40%,#000 75%)}
+.dash>*{position:relative;flex-shrink:0}
+.dash .spark{width:1.3em;height:1.3em;margin:0 -.35em 0 -.15em;transition:opacity .3s}
+.dash.off .spark{opacity:.35}
+.dash .w{font-weight:650;color:#d4d4d8;transition:color .8s ease}
+.dash .w.flash{color:#9b7bff;transition:none}
+.dash .w.deciding{background:linear-gradient(90deg,#77777f 0%,#e4e4ea 45%,#77777f 90%) 0 0/200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shim 1.3s linear infinite}
+@keyframes shim{to{background-position:-200% 0}}
+.dash .pc{display:inline-flex;align-items:center;gap:.5em;margin-left:.15em}
+.dash .pc i{width:1.05em;height:1.05em;border-radius:50%;background:conic-gradient(#d4d4d8 0 calc(var(--p,0)*1%),#4a4a52 0);-webkit-mask:radial-gradient(closest-side,transparent 60%,#000 64%);mask:radial-gradient(closest-side,transparent 60%,#000 64%);transition:--p .6s}
+.dash .cache{color:#8b8b93;margin-left:.1em}
+.dash .cache.low{color:#e5534b}
+.dash .why{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:#8b8b93;margin-left:.9em}
+.dash .end{margin-left:auto;display:flex;align-items:center;gap:1.15em}
+.dash .auto{display:inline-flex;align-items:center;gap:.55em}
+.dash .sw{position:relative;width:2.5em;height:1.4em;border-radius:1em;background:#9d8df2;transition:background .25s}
+.dash .sw:after{content:"";position:absolute;top:.2em;right:.2em;width:1em;height:1em;border-radius:50%;background:#fff;transition:right .26s cubic-bezier(.3,.7,.2,1)}
+.dash.off .sw{background:#3c3c43}
+.dash.off .sw:after{right:1.3em}
+/* Handoff: no box on a fresh chat, a grey box fading in by 15%, white from 30%, then a violet glow that grows and
+   pulses faster every 10% (GLOW_LEVELS in hooks/register.tsx). */
+.dash .ho{position:relative;padding:.12em .5em;border-radius:6px;color:#b4b4bc}
+.dash .ho:before{content:"";position:absolute;inset:0;border-radius:inherit;background:#9b7bff;opacity:0;inset:calc(var(--ge,0) * -1px);filter:blur(var(--gb,0));pointer-events:none}
+.dash .ho.glow:before{animation:glow var(--gt,3s) ease-in-out infinite}
+@keyframes glow{0%,100%{opacity:var(--gl)}50%{opacity:var(--gp)}}
+.dash .ho:after{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--hb,transparent);border:1px solid var(--he,transparent);opacity:var(--ha,0);transition:background .6s,border-color .6s,opacity .6s}
+.dash .ho span{position:relative;z-index:1;color:var(--ht,#b4b4bc);transition:color .6s}
+.dash .gear{width:1.15em;height:1.15em;display:block;color:#c4c4cc}
+/* What a scene is about: that part stays lit while the rest dims, and it swells when it changes. */
+.dash.aim>:not(.lit),.dash.aim .end>:not(.lit){opacity:.72}
+.dash>*,.dash .end>*{transition:opacity .4s,transform .45s var(--ease),filter .4s}
+.dash .lit{z-index:2;transform-origin:50% 60%}
+.dash .lit.swell{transform:scale(1.28)}
+.dash .end.lit{transform:none}
+.dash.gone,.sett.gone{animation:msg-out .35s var(--ease) both}
+
+/* The bar where it sits on the page: in the stack, in the story's slot, under the hero's words. */
+.chip .dash{--fadew:calc(300px / var(--k,1));min-height:64px;padding:0 calc(18px + var(--fadew)) 0 18px;border-radius:12px;font-size:14px;box-shadow:0 18px 40px -26px #000;transition:transform .45s var(--ease),border-color .3s,box-shadow .45s var(--ease)}
+.stack .chip:hover .dash,.stack .chip.auto .dash{transform:translateX(-10px);border-color:#4a4a52;box-shadow:0 18px 40px -26px #000,0 0 0 1px #4a4a52}
+.demo .dash{margin-bottom:10px;font-size:13px}
+/* In the stack the bar runs off the edge like the bands, but keeps its buttons clear of the fade. */
+@media (max-width:1500px){.chip .dash .cache{display:none}}
+@media (max-width:1080px){.chip .dash{--fadew:200px}}
+@media (max-width:720px){.chip .dash{--fadew:110px}.chip .dash .why{display:none}}
+@media (max-width:560px){.demo .dash .cache,.chip .dash .al{display:none}}
+.slot .dash,.slot .sett{margin-bottom:.8em;font-size:var(--z);border-radius:.8em;box-shadow:0 22px 50px -28px #000}
+.slot .dash{min-height:3.6em;padding:0 1.05em 0 1.15em}
+/* The judge's reason only fits when the bar is small, so the story and the hero leave it out and keep the cache. */
+.slot .dash .why,.demo .dash .why,.chip .dash .why{display:none}
+.slot .dash .end,.demo .dash .end,.chip .dash .end{margin-left:auto}
+.slot .away{display:none}
+.slot .back{animation:msg-in .5s var(--ease) both}
+.slot .sett{animation:msg-in .5s var(--ease) both}
+
+/* The settings the gear opens: four cards that light as a whole on hover. */
+.sett{position:relative;overflow:hidden;border-radius:10px;background:#141416;border:1px solid #2a2a2f;color:#d4d4d8;font-size:14px}
+.sett-h{display:flex;align-items:center;gap:.9em;padding:.7em .8em .7em 1em;border-bottom:1px solid #26262b}
+.sett-h b{font:600 1.3em var(--display);letter-spacing:-.01em;color:#f2f2f5}
+.sett-h .sub{color:#8b8b93}
+.sett-h .save{margin-left:auto;padding:.25em .6em;border-radius:6px;background:#2e2e33;color:#d4d4d8;font-size:.95em}
+.sett-h .x{color:#c4c4cc;padding:0 .3em}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.6em;padding:.7em}
+.card{padding:.6em .75em;border-radius:8px;border:1px solid #2a2a2f;transition:background .3s,border-color .3s}
+.card.on,.card:hover{background:#1c1c20;border-color:#3b3b42}
+.card b{display:flex;align-items:center;gap:.45em;font-weight:600;color:#ececf0}
+.card b svg{width:1em;height:1em}
+.card span{display:block;margin-top:.2em;color:#8b8b93;font-size:.93em}
+
+/* The Handoff bar's Quick/Full switch: a dark track, a light knob under the picked word. */
+.qf{position:relative;display:inline-grid;grid-auto-flow:column;grid-auto-columns:1fr;padding:0;border-radius:7px;background:#00000052;border:1px solid #ffffff1f}
+.qf:before{content:"";position:absolute;top:0;bottom:0;left:0;width:50%;border-radius:5px;background:#ececf0;transition:transform .3s cubic-bezier(.3,.7,.2,1) .07s}
+.qf.full:before{transform:translateX(100%)}
+.qf span{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:68px;padding:6px 10px;font:500 13px/1 var(--sans);color:var(--muted);transition:color .3s .07s}
+.qf svg{width:13px;height:13px}
+.qf:not(.full) span:first-child,.qf.full span:last-child{color:#141416;font-weight:650}
+.btn.pick{border:1px solid #ffffff26;background:#00000030;gap:8px}
+.btn.pick:after{content:"";width:5px;height:5px;margin:-3px 1px 0 2px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg)}
+
 /* ---------- Install ---------- */
-.inst-sec{max-width:1080px;margin:0 auto;padding:120px 24px 40px;scroll-margin-top:40px}
+.inst-sec{padding:120px var(--frame) 40px;scroll-margin-top:40px}
 .inst-sec h2{margin:0;font:500 clamp(30px,3.8vw,46px)/1.1 var(--display);letter-spacing:-.02em;color:#f4f2ff}
 .inst-sec .lead{margin:14px 0 0;max-width:34em;color:var(--muted);font-size:17px;line-height:1.55}
 .inst-sec .fine{margin:22px 0 0;color:var(--dim);font-size:14px}
 .inst-sec .cta{margin-top:28px}
 .inst-sec code.f{font:13.5px ui-monospace,"Cascadia Code",Consolas,monospace;color:#d8d4ee;background:#1c1b22;padding:2px 6px;border-radius:5px}
-.cmds{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-top:32px;max-width:640px}
+.cmds{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;max-width:640px}
+/* The two ways in: tabs, then the Ask Claude card or the commands, then what happens next. */
+.ways{margin-top:28px;max-width:680px}
+.tabs{display:inline-flex;gap:4px;padding:4px;border-radius:11px;background:#1b1a21}
+.tabs button{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border:0;border-radius:8px;background:none;color:var(--muted);font:500 14px var(--sans);cursor:pointer;transition:background .2s,color .2s}
+.tabs button:hover{color:var(--text)}
+.tabs button[aria-selected="true"]{background:#2e2d36;color:var(--text)}
+.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tabs small{padding:2px 7px;border-radius:999px;background:#a79cf72e;color:#cfc7ff;font-size:11.5px;font-weight:600}
+.pane{margin-top:14px}
+.ask{display:flex;align-items:center;gap:16px;padding:14px 14px 14px 18px;border-radius:12px;background:#1b1a21}
+.ask p{flex:1;min-width:0;margin:0;color:var(--text);font-size:14.5px;line-height:1.55}
+.ask code,.then code,.way-label code{font:13.5px ui-monospace,"Cascadia Code",Consolas,monospace;color:#d8d4ee;background:#26252d;padding:1px 6px;border-radius:5px}
+.copy.main{background:#f4f3f8;color:#141218;font-weight:600;white-space:nowrap}
+.copy.main:hover{background:#fff}
+.help,.way-label{margin:10px 0 0;color:var(--muted);font-size:14px}
+.way-label{margin:0 0 8px}
+.way-label+.cmds{margin-top:0}
+.cmds+.way-label{margin-top:18px}
+.then{margin:16px 0 0;color:var(--muted);font-size:14px}
+.pop .ways{margin-top:0}
+.pop .help,.pop .then{margin:10px 0 0;line-height:1.5}
+.pop .ask{flex-direction:column;align-items:stretch}
+.pop .copy.main{align-self:flex-start}
+@media (max-width:560px){.ask{flex-direction:column;align-items:stretch}.copy.main{align-self:flex-start}.tabs small{display:none}}
 .cmd{display:flex;align-items:center;gap:12px;background:#1b1a21;border-radius:12px;padding:8px 8px 8px 18px}
 .cmd code{flex:1;min-width:0;overflow-x:auto;white-space:nowrap;background:none;padding:6px 0;font:14.5px ui-monospace,"Cascadia Code",Consolas,monospace;color:var(--text)}
 .cmd code:before{content:"›";color:var(--accent);margin-right:10px;user-select:none}
@@ -251,32 +381,36 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 /* ---------- Narrow screens ---------- */
 @media (max-width:960px){
   .pin{gap:18px;padding:64px 16px 20px}
-  .head{flex-direction:column;align-items:stretch;gap:6px}
+  .head{gap:14px}
   .caps{min-height:66px}
-  .go{order:-1;margin:0 0 0 -10px}
+  .go{gap:6px}
+  .go span{display:none}
+  .go button{padding:8px 0}
   .say h3{font-size:26px;margin-bottom:8px}
   .say p{font-size:15px}
   .chat{gap:9px}
-  .msg{font-size:14px;max-width:84%}
-  .msg.me{padding:8px 12px}
-  .msg.sys{font-size:13px}
+  .pin{--z:14px}
+  .msg{max-width:84%}
   .slot{min-height:60px}
-  .slot .band{font-size:13.5px;min-height:50px;padding:9px 10px 9px 14px;gap:8px;border-radius:10px;margin-bottom:10px}
-  .slot .band .btn{font-size:12.5px;padding:5px 10px}
-  .win .demo-box{min-height:110px;padding:16px 50px 16px 18px;border-radius:18px}
-  .win .demo-in{font-size:16px}
-  .win .demo-in .caret{height:18px;vertical-align:-3px}
+  .slot .band{flex-wrap:wrap}
   .win .demo-send{right:12px;bottom:12px}
   .win .demo-foot{font-size:13.5px;gap:8px;margin:10px 2px 0}
   .win .demo-foot .fl{gap:12px;font-size:15px}
   .win .demo-foot .k{width:22px;height:20px;font-size:11px}
+  .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:700px){
+  .dash .why{display:none}
+  .slot .dash .cache,.slot .dash .al{display:none}
+  .slot .dash{gap:.75em}
+  .slot .dash .lit.swell{transform:scale(1.12)}
 }
 @media (max-width:560px){
   .demo-foot .opt{display:none}
 }
 @media (max-width:560px){
-  .topbar{padding:8px 16px}
-  .inst-sec{padding:88px 16px 24px}
+  .topbar{padding:8px var(--frame)}
+  .inst-sec{padding:88px var(--frame) 24px}
   .cmd{padding-left:12px}.cmd code{font-size:12.5px}
   .copy span{display:none}
 }
@@ -284,7 +418,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 /* ---------- Footer: the name, huge, sinking into a purple haze at the bottom of the page ---------- */
 .site-foot{position:relative;isolation:isolate;overflow:hidden;margin-top:140px;padding-top:28px}
 .site-foot:before{content:"";position:absolute;left:50%;bottom:-30%;width:120%;height:110%;transform:translateX(-50%);z-index:-1;pointer-events:none;background:radial-gradient(50% 55% at 50% 100%,#6d5fd666,#3a2f7a33 45%,transparent 75%)}
-.foot-row{max-width:1180px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.foot-row{padding:0 var(--frame);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .foot-row .name{display:inline-flex;align-items:center;gap:8px;color:var(--text);font:500 17px var(--display)}
 .foot-row .name svg{width:32px;height:32px;margin:-6px -2px -6px -6px}
 .foot-row .name small{margin-left:6px;color:var(--dim);font:400 14px var(--sans)}
@@ -301,18 +435,18 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 /* ---------- Narrow screens: the deck stands below the words ---------- */
 @media (max-width:1080px){
   .stage-inner{grid-template-columns:minmax(0,1fr);gap:56px}
-  .stage-inner{padding:72px 0 40px 32px}
-  .stack{position:relative;left:auto;top:auto;bottom:auto;padding:0 0 88px 32px}
+  .stage-inner{padding:72px 0 40px var(--frame)}
+  .stack{position:relative;left:auto;top:auto;bottom:auto;padding:0 0 88px var(--frame)}
   .stack-in{position:relative;top:auto;left:0;width:auto;margin-right:-90px;transform:none}
   .stack{--from:calc(100% - 200px)}
   .chip{margin-left:calc(var(--i)*24px)}
-  .intro{padding-right:32px}
+  .intro{padding-right:var(--frame)}
 }
 @media (max-width:720px){
   .wrap{padding:0 16px}
-  .stage-inner{padding:56px 0 32px 16px}
-  .stack{padding:0 0 72px 16px}
-  .intro{padding-right:16px}
+  .stage-inner{padding:56px 0 32px var(--frame)}
+  .stack{padding:0 0 72px var(--frame)}
+  .intro{padding-right:var(--frame)}
   .demo{margin-top:32px}
   .chip{margin-left:calc(var(--i)*14px)}
   .stack{--from:calc(100% - 110px)}
@@ -356,36 +490,38 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
     <div class="intro">
       <h1>__SPARK__<span class="word" aria-label="effortless"><span class="crisp" aria-hidden="true">effortless</span><span class="soft" aria-hidden="true">effortless</span></span></h1>
       <p class="kind"><img src="__CLAUDE__" alt="" width="22" height="22">A Claude Code mod</p>
-      <p class="lede">Picks the reasoning effort for every prompt, and tells you when the prompt cache is about to go cold.</p>
+      <p class="lede">One bar above the prompt. It picks the reasoning effort for every prompt, and tells you when the cache goes cold or the chat gets heavy.</p>
       <div class="cta">
-        <a class="gh" href="https://github.com/HeyCubit/effortless">__GITHUB__<span>Star on GitHub</span><span class="stars" id="stars" hidden></span></a>
+        <a class="gh" href="https://github.com/HeyCubit/effortless">__GITHUB__<span>Star on GitHub</span>__STARS_BADGE__</a>
         <a class="ghost" href="#install">Install<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
       </div>
       <div class="demo" aria-hidden="true">
+        <div class="dash-host" id="demo-dash"></div>
         <div class="demo-box">
           <div class="demo-in"><span id="demo-text"></span><span class="caret"></span><span class="demo-ph" id="demo-ph">Reply to Claude</span></div>
           <span class="demo-send" id="demo-send"><svg viewBox="0 0 16 16"><path d="M13 3.5v4.5a2 2 0 01-2 2H3.5M6.5 7L3.5 10l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         </div>
-        <div class="demo-foot"><span class="fl"><span>+</span><span class="opt"><svg viewBox="0 0 16 16"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 7.5a5 5 0 0010 0M8 12.5v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span class="opt"><svg viewBox="0 0 16 16"><path d="M4.5 6.5L8 10l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="mode opt">Auto</span></span><span class="fr"><span class="k">⏻</span><span class="k">⚙</span><span class="k">⇥</span><span class="lvl" id="demo-lvl">Medium</span><span id="demo-cache">42m</span><span class="m">Opus 5.5</span><span class="m opt" id="demo-eff">Medium</span><span class="ring opt"></span></span></div>
+        <div class="demo-foot"><span class="fl"><span>+</span><span class="opt"><svg viewBox="0 0 16 16"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 7.5a5 5 0 0010 0M8 12.5v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span class="opt"><svg viewBox="0 0 16 16"><path d="M4.5 6.5L8 10l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="mode opt">Auto</span></span><span class="fr"><span class="m">Opus 5.5</span><span class="ring"></span></span></div>
       </div>
     </div>
 
-    <div class="stack" id="stack" aria-label="The bands effortless shows in Claude Code"><div class="stack-in" id="stack-in">
-      <div class="chip" style="--i:0;--d:.6"><div class="band ice"><span class="t">✦ Chat went cold</span><span class="d">Compact first.</span><span class="acts"><span class="btn">Not now</span><span class="btn primary">Compact</span></span></div></div>
-      <div class="chip" style="--i:1;--d:1"><div class="band bog"><span class="t">✦ Chat is getting swamped</span><span class="ring"><img src="__RING__" alt="">72%</span><span class="acts"><span class="btn primary">Compact</span></span></div></div>
-      <div class="chip" style="--i:2;--d:.45"><div class="band ember"><span class="t">✦ Running hot</span><span class="d">84% of 5h limit</span><span class="acts"><span class="btn primary">Save mode</span></span></div></div>
-      <div class="chip" style="--i:3;--d:.8"><div class="band brand"><span class="t">✦ effortless</span><span class="acts"><span class="mark"><img src="__TYPESAFE__" alt="" width="12" height="18"><span class="btn primary">Jev (API)</span></span><span class="mark"><img src="__CLAUDE__" alt="" width="16" height="16"><span class="btn primary">Haiku (no key)</span></span></span></div></div>
-      <div class="chip" style="--i:4;--d:.55"><div class="band brand handoff"><span class="words"><span class="t">⇥ Handoff</span><span class="what">Done in seconds.</span></span><span class="acts"><span class="btn secondary">Quick</span><span class="btn dim">Full</span><span class="btn primary">Go</span></span></div></div>
+    <div class="stack" id="stack" aria-label="The bar effortless shows above the prompt, and what it turns into"><div class="stack-in" id="stack-in">
+      <div class="chip" style="--i:0;--d:.7"><div class="dash-host" data-dash="stack"></div></div>
+      <div class="chip" style="--i:1;--d:.6"><div class="band ice"><span class="t">✦ Chat went cold</span><span class="d">Compact first.</span><span class="acts"><span class="btn">Not now</span><span class="btn primary">Compact</span></span></div></div>
+      <div class="chip" style="--i:2;--d:1"><div class="band bog"><span class="t">✦ Chat is getting swamped</span><span class="ring"><img src="__RING__" alt="">72%</span><span class="acts"><span class="btn primary">Compact</span></span></div></div>
+      <div class="chip" style="--i:3;--d:.45"><div class="band ember"><span class="t">✦ Running hot</span><span class="d">84% of 5h limit</span><span class="acts"><span class="btn primary">Save mode</span></span></div></div>
+      <div class="chip" style="--i:4;--d:.55"><div class="band brand handoff"><span class="words"><span class="t">⇥ Handoff</span><span class="what">Done in seconds.</span></span><span class="acts"><span class="qf"><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.5L3.5 9H8l-1 5.5L12.5 7H8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Quick</span><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5l3 3L6 13l-3.5.5L3 10z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Full</span></span><span class="btn primary">Go</span></span></div></div>
     </div></div>
   </div>
 </section>
+
+<template id="dash-tpl"><div class="dash">__SPARK__<span class="w">Medium</span><span class="pc"><i></i><b>22%</b></span><span class="cache">cache 59:00</span><span class="why">Haiku: a small fix in one file</span><span class="end"><span class="auto"><span class="sw"></span><span class="al">Auto</span></span><span class="ho"><span>Handoff</span></span><svg class="gear" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" d="M12.91 6.63L14.44 6.56 14.44 9.44 12.91 9.37 12.44 10.5 13.57 11.54 11.54 13.57 10.5 12.44 9.37 12.91 9.44 14.44 6.56 14.44 6.63 12.91 5.5 12.44 4.46 13.57 2.43 11.54 3.56 10.5 3.09 9.37 1.56 9.44 1.56 6.56 3.09 6.63 3.56 5.5 2.43 4.46 4.46 2.43 5.5 3.56 6.63 3.09 6.56 1.56 9.44 1.56 9.37 3.09 10.5 3.56 11.54 2.43 13.57 4.46 12.44 5.5Z"/><circle cx="8" cy="8" r="2.1" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></span></div></template>
 
 <header class="topbar" id="topbar">
   <a class="name" href="#top">__SPARK__effortless</a>
   <button type="button" class="inst" id="inst" aria-label="Show install commands" aria-expanded="false" aria-controls="pop">Install<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   <div class="pop" id="pop" role="dialog" aria-label="Install effortless">
-    <p>Paste both into Claude Code's chat box, then restart.</p>
-    <div class="cmds"><div class="cmd"><code>/plugin marketplace add HeyCubit/effortless</code><button type="button" class="copy" data-copy="/plugin marketplace add HeyCubit/effortless" aria-label="Copy /plugin marketplace add HeyCubit/effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Copy</span></button></div><div class="cmd"><code>/plugin install effortless@effortless</code><button type="button" class="copy" data-copy="/plugin install effortless@effortless" aria-label="Copy /plugin install effortless@effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Copy</span></button></div></div>
+    __INSTALL__
   </div>
 </header>
 
@@ -393,41 +529,43 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   <section class="story" id="how" style="--n:6" aria-label="What effortless does">
     <div class="pin">
       <div class="head">
+        <div class="go" aria-label="Steps"><button type="button" data-go="0" aria-label="Effort"><i></i><span>Effort</span></button><button type="button" data-go="1" aria-label="Cold cache"><i></i><span>Cold cache</span></button><button type="button" data-go="2" aria-label="Swamped"><i></i><span>Heavy chat</span></button><button type="button" data-go="3" aria-label="Running hot"><i></i><span>Near the limit</span></button><button type="button" data-go="4" aria-label="Handoff"><i></i><span>Handoff</span></button><button type="button" data-go="5" aria-label="Settings"><i></i><span>Settings</span></button></div>
         <div class="caps">
-          <div class="say" data-i="0"><h3>Every prompt gets the effort it needs.</h3></div>
+          <div class="say" data-i="0"><h3>One bar. Every prompt gets the effort it needs.</h3></div>
           <div class="say" data-i="1"><h3>It tells you when the cache goes cold.</h3></div>
           <div class="say" data-i="2"><h3>And when the chat gets heavy.</h3></div>
           <div class="say" data-i="3"><h3>It eases off before you hit the limit.</h3></div>
-          <div class="say" data-i="4"><h3>A fresh chat, nothing lost.</h3></div>
-          <div class="say" data-i="5"><h3>Set up in one click.</h3></div>
+          <div class="say" data-i="4"><h3>Handoff glows when a fresh chat pays off.</h3></div>
+          <div class="say" data-i="5"><h3>Everything else sits behind the gear.</h3></div>
         </div>
-        <div class="go"><button type="button" data-go="0" aria-label="Effort">1</button><button type="button" data-go="1" aria-label="Cold cache">2</button><button type="button" data-go="2" aria-label="Swamped">3</button><button type="button" data-go="3" aria-label="Running hot">4</button><button type="button" data-go="4" aria-label="Handoff">5</button><button type="button" data-go="5" aria-label="Setup">6</button></div>
       </div>
       <div class="win" aria-hidden="true">
         <div class="chat" id="w-chat"></div>
-        <div class="slot" id="w-slot"></div>
+        <div class="slot" id="w-slot"><div class="dash-host" id="w-dash"></div></div>
         <div class="demo-box">
           <div class="demo-in"><span id="w-text"></span><span class="caret"></span><span class="demo-ph" id="w-ph">Reply to Claude</span></div>
           <span class="demo-send" id="w-send"><svg viewBox="0 0 16 16"><path d="M13 3.5v4.5a2 2 0 01-2 2H3.5M6.5 7L3.5 10l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         </div>
-        <div class="demo-foot"><span class="fl"><span>+</span><span class="opt"><svg viewBox="0 0 16 16"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 7.5a5 5 0 0010 0M8 12.5v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span class="opt"><svg viewBox="0 0 16 16"><path d="M4.5 6.5L8 10l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="mode opt">Auto</span></span><span class="fr"><span class="k">⏻</span><span class="k">⚙</span><span class="k" id="w-ho">⇥</span><span class="lvl" id="w-lvl">Medium</span><span id="w-cache">42m</span><span class="m">Opus 5.5</span><span class="m opt" id="w-eff">Medium</span><span class="ring opt"></span></span></div>
+        <div class="demo-foot"><span class="fl"><span>+</span><span class="opt"><svg viewBox="0 0 16 16"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 7.5a5 5 0 0010 0M8 12.5v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span class="opt"><svg viewBox="0 0 16 16"><path d="M4.5 6.5L8 10l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="mode opt">Auto</span></span><span class="fr"><span class="m">Opus 5.5</span><span class="ring"></span></span></div>
       </div>
     </div>
   </section>
 
   <section class="inst-sec" id="install">
-    <h2>Two lines in the chat box.</h2>
-    <p class="lead">No terminal. Paste both into Claude Code, restart, and pick who judges your prompts. Haiku needs no key.</p>
-    <div class="cmds"><div class="cmd"><code>/plugin marketplace add HeyCubit/effortless</code><button type="button" class="copy" data-copy="/plugin marketplace add HeyCubit/effortless" aria-label="Copy /plugin marketplace add HeyCubit/effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Copy</span></button></div><div class="cmd"><code>/plugin install effortless@effortless</code><button type="button" class="copy" data-copy="/plugin install effortless@effortless" aria-label="Copy /plugin install effortless@effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Copy</span></button></div></div>
+    <h2>Two ways in.</h2>
+    <p class="lead">Let Claude install it for you, or paste the commands yourself. Haiku judges your prompts by default, so no key is needed.</p>
+    __INSTALL__
     <p class="fine">The whole mod is one file, <code class="f">hooks/register.tsx</code>. A key, if you use one, goes only to the judge you pick. Runs on Opus 5.5 and Sonnet 5.5.</p>
+    <p class="fine">Prefer it quiet? Settings → Appearance → Minimal puts effortless back in the footer.</p>
     <div class="cta"><a class="gh" href="https://github.com/HeyCubit/effortless">__GITHUB__<span>Star on GitHub</span></a></div>
   </section>
+
 </main>
 
 <footer class="site-foot">
   <div class="foot-row">
     <span class="name">__SPARK__effortless<small>A Claude Code mod</small></span>
-    <nav><a href="#how">How it works</a><a href="#install">Install</a><a href="https://github.com/HeyCubit/effortless">__GITHUB__GitHub</a></nav>
+    <nav><a href="#how">How it works</a><a href="#install">Install</a><a href="whats-new/">What's new</a><a href="https://github.com/HeyCubit/effortless">__GITHUB__GitHub</a></nav>
   </div>
   <div class="foot-word" aria-hidden="true"><span class="soft">effortless</span><span class="crisp">effortless</span></div>
 </footer>
@@ -435,12 +573,14 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 <script>
 // The copy buttons put their command on the clipboard and say so for a moment. Where the browser refuses the clipboard,
 // the command is selected and copied the old way, or left selected with a hint to press Ctrl+C.
+// Every copy button remembers its own label, so a reset puts back "Copy for Claude", not "Copy".
+document.querySelectorAll('[data-copy] span').forEach(function(s){s.dataset.label=s.textContent});
 document.addEventListener('click',function(e){
   var b=e.target.closest('[data-copy]');if(!b)return;
-  var s=b.querySelector('span'),code=b.parentNode.querySelector('code');
+  var s=b.querySelector('span'),code=b.parentNode.querySelector('[data-sel]')||b.parentNode.querySelector('code');if(!s.dataset.label)s.dataset.label=s.textContent;
   // Only one button says Copied at a time.
-  document.querySelectorAll('[data-copy]').forEach(function(o){if(o!==b){clearTimeout(o.t);o.classList.remove('ok');o.querySelector('span').textContent='Copy';}});
-  function say(t,ok){b.classList.toggle('ok',ok);s.textContent=t;clearTimeout(b.t);b.t=setTimeout(function(){b.classList.remove('ok');s.textContent='Copy'},ok?1400:3000);}
+  document.querySelectorAll('[data-copy]').forEach(function(o){if(o!==b){clearTimeout(o.t);o.classList.remove('ok');var os=o.querySelector('span');os.textContent=os.dataset.label||'Copy';}});
+  function say(t,ok){b.classList.toggle('ok',ok);s.textContent=t;clearTimeout(b.t);b.t=setTimeout(function(){b.classList.remove('ok');s.textContent=s.dataset.label},ok?1400:3000);}
   function fallback(){
     var r=document.createRange();r.selectNodeContents(code);var sel=getSelection();sel.removeAllRanges();sel.addRange(r);
     var done=false;try{done=document.execCommand('copy')}catch(err){}
@@ -448,6 +588,13 @@ document.addEventListener('click',function(e){
   }
   if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(b.dataset.copy).then(function(){say('Copied',true)},fallback);
   else fallback();
+});
+
+// The two ways in: one tab shows at a time. Each copy of the block (the section and the popover) switches on its own.
+document.addEventListener('click',function(e){
+  var t=e.target.closest('[data-tab]');if(!t)return;var w=t.closest('.ways'),k=t.dataset.tab;
+  w.querySelectorAll('[data-tab]').forEach(function(b){b.setAttribute('aria-selected',String(b===t))});
+  w.querySelectorAll('[data-pane]').forEach(function(p){p.hidden=p.dataset.pane!==k});
 });
 
 // The install bar slides in once the opening has scrolled away; its button opens the two commands.
@@ -461,64 +608,133 @@ document.addEventListener('click',function(e){
   addEventListener('scroll',check,{passive:true});check();
 })();
 
+// The dashboard bar, cloned from its template. Each copy renames its mark's mask ids, so no two copies share one.
+var Dash=(function(){
+  var tpl=document.getElementById('dash-tpl'),made=0,all=[];
+  // GLOW_LEVELS from hooks/register.tsx: spread, blur, peak, low, period.
+  var GLOW=[null,[1.5,1.2,.55,.2,3.4],[2,1.5,.65,.25,2.8],[2.5,1.8,.75,.3,2.3],[3,2.1,.85,.35,1.9],[3.5,2.4,.95,.4,1.5]];
+  function draw(d){var c=d.cache;c.hidden=d.left==null;if(d.left==null)return;
+    c.textContent=d.left<=0?'Cold':'cache '+Math.floor(d.left/60)+':'+('0'+d.left%60).slice(-2);c.classList.toggle('low',d.left<300);}
+  function make(host){
+    var el=tpl.content.firstElementChild.cloneNode(true),mk=el.querySelector('svg.spark'),k='d'+(made++);
+    mk.innerHTML=mk.innerHTML.replace(/id="([^"]+)"/g,'id="$1'+k+'"').replace(/url\(#([^)]+)\)/g,'url(#$1'+k+')');
+    host.appendChild(el);
+    var q=function(s){return el.querySelector(s)},w=q('.w'),ring=q('.pc i'),num=q('.pc b'),ho=q('.ho'),ft=0;
+    var d={el:el,w:w,pc:q('.pc'),cache:q('.cache'),why:q('.why'),ho:ho,gear:q('.gear'),auto:q('.auto'),end:q('.end'),left:null,p:0,
+      // A new verdict turns the word violet, holds it a second, then fades it back to white.
+      word:function(v,flash){w.classList.remove('deciding');clearTimeout(ft);
+        if(w.textContent!==v&&flash){w.classList.add('flash');ft=setTimeout(function(){w.classList.remove('flash')},1000);}else w.classList.remove('flash');
+        w.textContent=v;},
+      deciding:function(){clearTimeout(ft);w.classList.remove('flash');w.textContent='Deciding';w.classList.add('deciding');},
+      reason:function(t){d.why.textContent=t;},
+      secs:function(s){d.left=s;draw(d);},
+      auto:function(on){el.classList.toggle('off',!on);},
+      // Handoff: no box on a fresh chat, a grey box fading in by 15%, white from 30%, then a glow a step every 10%.
+      pct:function(p){d.p=p;ring.style.setProperty('--p',p);num.textContent=Math.round(p)+'%';
+        var a=Math.max(0,Math.min(1,(p-5)/10)),white=p>=30,st=white?Math.min(5,Math.floor((p-30)/10)+1):0,S=ho.style;
+        S.setProperty('--ha',a);S.setProperty('--hb',white?'#ececf0':'#2b2b2f');S.setProperty('--he',white?'#f5f5f8':'#3c3c42');
+        S.setProperty('--ht',white?'#141416':a>.5?'#d4d4d8':'#b4b4bc');ho.classList.toggle('glow',st>0);
+        if(st){var g=GLOW[st];S.setProperty('--ge',g[0]);S.setProperty('--gb',g[1]+'px');S.setProperty('--gp',g[2]);S.setProperty('--gl',g[3]);S.setProperty('--gt',g[4]+'s');}}
+    };
+    all.push(d);return d;
+  }
+  // The cache countdown ticks by the second, as the mod's does.
+  setInterval(function(){all.forEach(function(d){if(d.left>0){d.left--;draw(d);}})},1000);
+  return make;
+})();
+
+// The bar at the top of the stack: High, a refactor, Handoff already glowing.
+(function(){
+  var host=document.querySelector('[data-dash="stack"]');if(!host)return;
+  var d=Dash(host);d.word('High');d.pct(38);d.secs(3539);d.reason('Haiku: a refactor');
+})();
+
+// The story plays in the first time it scrolls into view.
+(function(){
+  var story=document.getElementById('how');if(!story)return;
+  function check(){if(story.getBoundingClientRect().top<innerHeight*.7){story.classList.add('in');removeEventListener('scroll',check);}}
+  addEventListener('scroll',check,{passive:true});check();
+})();
+
+// The headings sit on the bottom of their row; the row is as tall as the tallest of them, so a heading that wraps onto
+// two lines grows down into its own space instead of up under the top bar.
+(function(){
+  var caps=document.querySelector('#how .caps');if(!caps)return;
+  function fit(){var h=0;caps.querySelectorAll('.say').forEach(function(s){h=Math.max(h,s.offsetHeight)});caps.style.minHeight=h+'px';}
+  fit();addEventListener('resize',fit);if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fit);
+})();
+
 // The story: one window stays put while the page scrolls, and each step plays one feature in it.
 (function(){
   var story=document.getElementById('how');if(!story)return;
   var says=story.querySelectorAll('.say'),gos=story.querySelectorAll('[data-go]'),n=says.length;
-  var chat=document.getElementById('w-chat'),slot=document.getElementById('w-slot'),lvl=document.getElementById('w-lvl'),cache=document.getElementById('w-cache');
-  var text=document.getElementById('w-text'),ph=document.getElementById('w-ph'),send=document.getElementById('w-send'),ho=document.getElementById('w-ho'),eff=document.getElementById('w-eff');
+  var chat=document.getElementById('w-chat'),slot=document.getElementById('w-slot'),host=document.getElementById('w-dash'),d=Dash(host);
+  var text=document.getElementById('w-text'),ph=document.getElementById('w-ph'),send=document.getElementById('w-send');
   var still=matchMedia('(prefers-reduced-motion: reduce)').matches,timers=[],cur=-1;
   function later(ms,f){timers.push(setTimeout(f,still?0:ms));}
   function stop(){timers.forEach(clearTimeout);timers=[];}
   function msg(kind,html){var m=document.createElement('div');m.className='msg '+kind;m.innerHTML=html;chat.appendChild(m);while(chat.children.length>2)chat.removeChild(chat.firstChild);return m;}
   function wipe(){Array.prototype.forEach.call(chat.children,function(m){m.classList.add('gone')});later(380,function(){chat.innerHTML=''});}
-  function band(html){slot.innerHTML=html;return slot.firstChild;}
-  function unband(){var b=slot.firstChild;if(!b)return;b.classList.add('gone');later(330,function(){slot.innerHTML=''});}
-  function foot(level,mins,cls){lvl.textContent=level;eff.textContent=level==='Off'?'High':level;cache.textContent=mins;cache.classList.remove('warn','bad');if(cls)cache.classList.add(cls);}
+  // The bar steps aside for whatever needs the slot (an alert, the Handoff bar, settings) and comes back after.
+  function band(html){clear();host.classList.add('away');slot.insertAdjacentHTML('beforeend',html);return slot.lastElementChild;}
+  function clear(){Array.prototype.forEach.call(slot.children,function(c){if(c!==host)slot.removeChild(c)});}
+  function unband(done){var b=slot.lastElementChild;if(b===host)return done&&done();b.classList.add('gone');
+    later(330,function(){clear();host.classList.remove('away');d.el.classList.remove('back');void d.el.offsetWidth;d.el.classList.add('back');done&&done();});}
   function input(s){text.textContent=s;ph.hidden=!!s;send.classList.toggle('on',!!s);}
   function type(s,done){if(still){input(s);return later(0,done);}var k=0;(function step(){input(s.slice(0,++k));if(k<s.length)later(28+Math.random()*30,step);else later(380,done);})();}
-  function press(el,done){if(!el)return done&&done();el.classList.remove('press');void el.offsetWidth;el.classList.add('press');later(420,done||function(){});}
-  function ask(s,level,reply,done){type(s,function(){input('');msg('me',s);var prev=lvl.textContent;lvl.textContent='Deciding…';
-    later(650,function(){lvl.textContent=prev===level?level:prev+' → '+level;lvl.classList.add('hl');msg('ai',reply);later(1300,function(){lvl.textContent=eff.textContent=level;lvl.classList.remove('hl');done&&done();});});});}
-  function base(){chat.innerHTML='';slot.innerHTML='';input('');ho.classList.remove('hl');lvl.classList.remove('hl');foot('Medium','42m');}
+  function press(el,done){if(!el)return done&&done();el.classList.remove('press');void el.getBoundingClientRect();el.classList.add('press');later(420,done||function(){});}
+  function ask(s,level,why,reply,done){type(s,function(){input('');msg('me',s);d.deciding();
+    later(700,function(){d.word(level,true);d.reason('Haiku: '+why);d.secs(3599);d.pct(Math.min(d.p+3,99));msg('ai',reply);later(1900,function(){done&&done();});});});}
+  function ramp(to,ms,done){var from=d.p,t0=0,steps=Math.max(1,Math.round(ms/80));
+    (function step(i){d.pct(from+(to-from)*i/steps);if(i<steps)later(80,function(){step(i+1)});else done&&done();})(still?steps:1);}
+  function base(){chat.innerHTML='';clear();host.classList.remove('away');input('');d.auto(true);d.word('Medium');d.pct(22);d.secs(3540);d.reason('Haiku: a small fix in one file');}
   function again(f,ms){if(!still)later(ms||2600,f);}
 
-  // A scene names the footer item it is about; that item stays lit and swells for a moment each time it changes.
-  var bar=story.querySelector('.win .demo-foot'),aimed=null,swellT=0;
-  function aim(el){if(aimed)aimed.classList.remove('lit','swell');aimed=el;bar.classList.toggle('aim',!!el);if(el){el.classList.add('lit','swell');clearTimeout(swellT);swellT=setTimeout(function(){aimed&&aimed.classList.remove('swell')},1400);}}
-  new MutationObserver(function(){if(!aimed)return;aimed.classList.add('swell');clearTimeout(swellT);swellT=setTimeout(function(){aimed&&aimed.classList.remove('swell')},1400);})
-    .observe(bar,{subtree:true,childList:true,characterData:true});
+  // A scene names the parts of the bar it is about; they stay lit while the rest dims, and swell when they change.
+  var aimed=[],swellT=0;
+  function swell(){aimed.forEach(function(e){if(e!==d.end)e.classList.add('swell')});clearTimeout(swellT);swellT=setTimeout(function(){aimed.forEach(function(e){e.classList.remove('swell')})},1300);}
+  function aim(els){aimed.forEach(function(e){e.classList.remove('lit','swell')});aimed=[];
+    (els||[]).forEach(function(e){aimed.push(e);if(e.parentNode===d.end&&aimed.indexOf(d.end)<0)aimed.push(d.end);});
+    d.el.classList.toggle('aim',aimed.length>0);aimed.forEach(function(e){e.classList.add('lit')});if(aimed.length)swell();}
+  new MutationObserver(function(){if(aimed.length)swell();}).observe(d.el,{subtree:true,childList:true,characterData:true});
 
   var COLD='<div class="band ice"><span class="t">✦ Chat went cold</span><span class="d">Next message costs full price. Compact first.</span><span class="acts"><span class="btn">Not now</span><span class="btn primary">Compact</span></span></div>';
   var SWAMP='<div class="band bog"><span class="t">✦ Chat is getting swamped</span><span class="ring"><img src="__RING__" alt="">72%</span><span class="d">180k tokens re-read every message.</span><span class="acts"><span class="btn primary">Compact <span class="k">C</span></span><span class="btn">Handoff <span class="k">H</span></span></span></div>';
   var HOT='<div class="band ember"><span class="t">✦ Running hot</span><span class="d">84% of your 5h limit used · resets 16:20</span><span class="acts"><span class="btn primary">Save mode</span></span></div>';
-  var HANDOFF='<div class="band brand handoff"><span class="words"><span class="t">⇥ Handoff</span><span class="what">Done in seconds. Clears chat, carries on.</span></span><span class="acts"><span class="btn secondary">Quick <span class="k">Q</span></span><span class="btn dim">Full <span class="k">F</span></span><span class="btn primary">Go</span></span></div>';
-  var SETUP='<div class="band brand"><span class="t">✦ effortless</span><span class="d">Who picks the effort?</span><span class="acts"><span class="mark"><img src="__TYPESAFE__" alt="" width="12" height="18"><span class="btn primary">Jev (API)</span></span><span class="mark"><img src="__CLAUDE__" alt="" width="16" height="16"><span class="btn primary" data-pick>Haiku (no key)</span></span></span></div>';
+  var HANDOFF='<div class="band brand handoff"><span class="words"><span class="t">⇥ Handoff</span><span class="what">Done in seconds. Clears chat, carries on.</span></span><span class="acts"><span class="qf"><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.5L3.5 9H8l-1 5.5L12.5 7H8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Quick</span><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5l3 3L6 13l-3.5.5L3 10z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Full</span></span><span class="btn pick">Clear &amp; carry on</span><span class="btn primary">Go <span class="k">G</span></span><span class="btn x">✕</span></span></div>';
+  var SETT='<div class="sett"><div class="sett-h"><b>effortless</b><span class="sub">Settings</span><span class="save">Save</span><span class="x">✕</span></div><div class="cards">'+
+    '<div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 11.5a5.5 5.5 0 1111 0M8 11.5l2.6-3.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Effort</b><span>Balanced · low to max</span></div><div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v11M4.5 13.5h7M3 4.5h10M3 4.5L1.5 9h3zM13 4.5L11.5 9h3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Judge</b><span>Auto · Haiku</span></div>'+
+    '<div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h8.5M7.5 5l3 3-3 3M13.5 3.5v9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Handoff</b><span>Built in · swamped at 50%</span></div><div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8s-2.4 4.5-6.5 4.5S1.5 8 1.5 8zM8 9.8a1.8 1.8 0 100-3.6 1.8 1.8 0 000 3.6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Appearance</b><span>Dashboard look</span></div></div></div>';
 
-  // Every scene sets up its band at once, so someone scrolling past still sees it, and only then plays it out.
+  // Every scene shows what it is about at once, so someone scrolling past still sees it, and only then plays it out.
   var scenes=[
-    function effort(){base();aim(lvl);
-      later(900,function(){ask('rename this variable to userId','Low','Renamed in 4 files.',function(){
-        ask('plan the billing migration, all services','XHigh','Here is a plan in five stages, starting with the read path…',function(){
-          ask('add a test for the date parser','Medium','Added 6 cases, including leap days.',function(){again(effort);});});});});},
-    function cold(){base();aim(cache);msg('me','the login test fails about one run in five');foot('Medium','Cold','bad');var b=band(COLD);
-      later(3000,function(){press(b.querySelector('.primary'),function(){unband();wipe();
-        later(450,function(){msg('sys','Chat compacted');foot('Medium','59m');again(cold,2200);});});});},
-    function swamp(){base();aim(null);msg('me','now the retry logic');var b=band(SWAMP);
-      later(3000,function(){press(b.querySelector('.primary'),function(){unband();wipe();
-        later(450,function(){msg('sys','Chat compacted');again(swamp,2200);});});});},
-    function hot(){base();aim(lvl);msg('me','now split the auth module into two');var b=band(HOT);
-      later(3000,function(){press(b.querySelector('.primary'),function(){unband();msg('sys','Save mode on until 16:20');
-        later(700,function(){ask('plan the billing migration, all services','Medium','Here is a plan in five stages…',function(){again(hot,2400);});});});});},
-    function handoff(){base();aim(ho);msg('me','nice, now the retry logic');ho.classList.add('hl');var b=band(HANDOFF);
-      later(3000,function(){ho.classList.remove('hl');press(b.querySelector('.primary'),function(){b.querySelector('.what').textContent='Writing the handoff note…';
-        later(1600,function(){unband();wipe();
-          later(450,function(){foot('Medium','59m');msg('sys','Handoff note loaded');
-            later(500,function(){msg('ai','Picking up from the note: next, log each attempt.');again(handoff,3200);});});});});});},
-    function setup(){base();aim(lvl);foot('Off','60m');msg('sys','effortless installed');var b=band(SETUP);
-      later(3000,function(){press(b.querySelector('[data-pick]'),function(){
-        b.querySelector('.d').textContent='Haiku judges your prompts. No key needed.';b.querySelector('.acts').remove();foot('Medium','60m');
-        later(2400,function(){unband();later(400,function(){ask('add a test for the date parser','Medium','Added 6 cases, including leap days.',function(){again(setup,2400);});});});});});}
+    function effort(){base();aim([d.w]);
+      later(900,function(){ask('rename this variable to userId','Low','a rename in one place','Renamed in 4 files.',function(){
+        ask('plan the billing migration, all services','XHigh','a plan across every service','Here is a plan in five stages, starting with the read path…',function(){
+          ask('add a test for the date parser','Medium','a small fix in one file','Added 6 cases, including leap days.',function(){again(effort);});});});});},
+    function cold(){base();aim([d.cache]);msg('me','the login test fails about one run in five');d.secs(1);
+      later(1100,function(){var b=band(COLD);
+        later(2600,function(){press(b.querySelector('.primary'),function(){unband(function(){wipe();
+          later(420,function(){msg('sys','Chat compacted');d.pct(4);d.secs(3600);again(cold,2600);});});});});});},
+    function swamp(){base();aim([d.pc,d.ho]);d.pct(58);msg('me','now the retry logic');
+      later(150,function(){ramp(72,700,function(){later(250,function(){var b=band(SWAMP);
+        later(2600,function(){press(b.querySelector('.primary'),function(){unband(function(){wipe();
+          later(420,function(){msg('sys','Chat compacted');d.pct(5);again(swamp,2400);});});});});});});});},
+    function hot(){base();aim([d.w]);msg('me','now split the auth module into two');var b=band(HOT);
+      later(3000,function(){press(b.querySelector('.primary'),function(){unband(function(){msg('sys','Save mode on until 16:20');
+        later(700,function(){ask('plan the billing migration, all services','Medium','capped by save mode','Here is a plan in five stages…',function(){again(hot,2400);});});});});});},
+    function handoff(){base();aim([d.ho]);d.pct(48);msg('me','nice, now the retry logic');
+      later(700,function(){press(d.ho,function(){var b=band(HANDOFF),qf=b.querySelector('.qf');
+        later(1100,function(){qf.classList.add('full');b.querySelector('.what').textContent='A thorough note first. Clears chat, carries on.';
+          later(1300,function(){qf.classList.remove('full');b.querySelector('.what').textContent='Done in seconds. Clears chat, carries on.';
+            later(1100,function(){press(b.querySelector('.primary'),function(){b.querySelector('.what').textContent='Writing the handoff note…';
+              later(1500,function(){unband(function(){wipe();d.pct(3);d.secs(null);d.word('Auto');d.reason('Auto picks the effort at the next prompt');
+                later(420,function(){msg('sys','Handoff note loaded');
+                  later(500,function(){msg('ai','Picking up from the note: next, log each attempt.');again(handoff,3200);});});});});});});});});});});},
+    function settings(){base();aim([d.gear]);
+      later(500,function(){press(d.gear,function(){var b=band(SETT),cards=b.querySelectorAll('.card');
+        [0,1,2,3].forEach(function(k){later(500+k*650,function(){cards.forEach(function(c,j){c.classList.toggle('on',j===k)});});});
+        later(3500,function(){press(b.querySelector('.x'),function(){unband(function(){again(settings,2600);});});});});});}
   ];
 
   function show(i){if(i===cur)return;cur=i;stop();
@@ -527,6 +743,7 @@ document.addEventListener('click',function(e){
     gos.forEach(function(b,k){b.setAttribute('aria-current',k===i?'step':'false')});
     scenes[i]();}
   function onScroll(){var r=story.getBoundingClientRect(),span=story.offsetHeight-innerHeight,p=span>0?-r.top/span:0;
+    gos.forEach(function(b,k){b.style.setProperty('--f',Math.max(0,Math.min(1,p*n-k)).toFixed(3))});
     show(Math.max(0,Math.min(n-1,Math.floor(p*n))));}
   gos.forEach(function(b,k){b.addEventListener('click',function(){var span=story.offsetHeight-innerHeight;
     scrollTo(0,story.offsetTop+span*(k+.5)/n);});});
@@ -535,33 +752,30 @@ document.addEventListener('click',function(e){
   addEventListener('scroll',onScroll,{passive:true});addEventListener('resize',onScroll);onScroll();
 })();
 
-// The star count, live from GitHub. Hidden until there is at least one.
-fetch('https://api.github.com/repos/HeyCubit/effortless').then(function(r){return r.ok?r.json():null}).then(function(d){var n=d&&d.stargazers_count;if(n>0){var s=document.getElementById('stars');s.textContent=n>=1000?(n/1000).toFixed(1)+'k':String(n);s.hidden=false;}}).catch(function(){});
 
-// The little prompt box: a prompt is typed, the judge decides, the footer shows the effort it picked.
+// The little prompt box: a prompt is typed, the bar says Deciding, then flashes the effort it picked. The chat fills up
+// prompt by prompt, Handoff's box comes in and starts to glow, and a handoff starts it fresh.
 (function(){
-  var text=document.getElementById('demo-text'),lvl=document.getElementById('demo-lvl'),cache=document.getElementById('demo-cache'),eff=document.getElementById('demo-eff');
-  var runs=[['rename this variable to userId','Low'],['why does the token refresh fail after a deploy?','High'],['thanks','High'],['add a test for the date parser','Medium'],['plan the billing migration, all services','XHigh']];
-  var prev='Medium',i=0,mins=42;
-  if(matchMedia('(prefers-reduced-motion: reduce)').matches){show(runs[1][0]);lvl.textContent=eff.textContent='High';return;}
-  var ph=document.getElementById('demo-ph'),send=document.getElementById('demo-send');
+  var host=document.getElementById('demo-dash');if(!host)return;
+  var d=Dash(host),text=document.getElementById('demo-text'),ph=document.getElementById('demo-ph'),send=document.getElementById('demo-send');
+  var runs=[['rename this variable to userId','Low','a rename in one place'],['why does the token refresh fail after a deploy?','High','a bug across services'],['thanks','Low','a short reply'],['add a test for the date parser','Medium','a small fix in one file'],['plan the billing migration, all services','XHigh','a plan across every service']];
+  function fresh(){d.word('Auto');d.pct(3);d.secs(null);d.reason('Auto picks the effort at the next prompt');}
   function show(s){text.textContent=s;ph.hidden=!!s;send.classList.toggle('on',!!s);}
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){show(runs[1][0]);d.word('High');d.pct(38);d.secs(3539);d.reason('Haiku: '+runs[1][2]);return;}
+  fresh();
+  var i=0;
   function type(s,k,done){show(s.slice(0,k));if(k<s.length)setTimeout(function(){type(s,k+1,done)},32+Math.random()*40);else setTimeout(done,450);}
   // It only plays while the opening is on screen.
   var seen=true;if('IntersectionObserver' in window)new IntersectionObserver(function(es){seen=es[0].isIntersecting}).observe(document.getElementById('top'));
   function run(){
     if(!seen){setTimeout(run,500);return;}
+    if(d.p>=75){fresh();setTimeout(run,2600);return;}
     var r=runs[i%runs.length];i++;
     type(r[0],0,function(){
-      show('');lvl.textContent='Deciding…';
-      setTimeout(function(){
-        lvl.textContent=r[1]===prev?r[1]:prev+' → '+r[1];cache.textContent='59m';mins=59;
-        setTimeout(function(){lvl.textContent=eff.textContent=r[1];prev=r[1];},1600);
-        setTimeout(run,3600);
-      },650);
+      show('');d.deciding();
+      setTimeout(function(){d.word(r[1],true);d.reason('Haiku: '+r[2]);d.secs(3599);d.pct(d.p+12);setTimeout(run,3600);},700);
     });
   }
-  setInterval(function(){if(seen&&mins>1){mins--;cache.textContent=mins+'m';}},900);
   setTimeout(run,1400);
 })();
 
