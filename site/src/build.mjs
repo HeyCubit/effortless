@@ -48,9 +48,9 @@ const install = solo + '<div class="ways">'
   + `<div class="way way-claude"><p class="way-k"><img src="__CLAUDE_ORANGE__" alt="" width="20" height="20">Ask Claude</p><p class="way-t">Claude installs it for you.</p><button type="button" class="big claude" data-copy="${ask}" aria-label="Copy the install request for Claude"><img src="__CLAUDE_DARK__" alt="" width="20" height="20"><span>Copy for Claude</span></button><p class="way-h">Paste into Claude Code, press Enter.</p></div>`
   + `<div class="way way-cmd"><p class="way-k">${termIcon}Terminal</p><p class="way-t">Run one command.</p><button type="button" class="big term" data-copy="${term}" aria-label="Copy the install command">${copyIcon}<span>Copy command</span></button><p class="way-h"><code>${term}</code></p></div>`
   + '</div><p class="then">Then run <code>/reload-plugins</code> in Claude Code.</p>'
-// The opening's background: the brand's own star, huge, dim and cropped at the left edge. One calm shape; the
-// wordmark's grainy dissolve is applied to it in CSS (#grainy).
-const waves = () => `<div class="bgmark" aria-hidden="true">${mark()}</div>`
+// The opening's background: the dot grid, with slight movement. Two bright layers sit on the dots; which one moves and
+// how depends on html[data-bg] (sweep, shimmer or band), picked with ?bg= on the link while we compare them.
+const waves = () => '<div class="dots" aria-hidden="true"><i class="lit a"></i><i class="lit b"></i></div>'
 const map = {
   __INSTALL__: install,
   __WAVES__: waves(),
