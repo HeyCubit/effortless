@@ -84,6 +84,7 @@ declare module 'claude-code' {
       isColdHidden: boolean
       /** Why the picked judge is failing, or null. */
       judgeDown: string | null
+      judgeTest: { ok: boolean | null; text: string } | null
       /** The reason the judge-down band was closed for. */
       judgeDownHidden: string | null
       /** The effortless settings panel is open above the prompt. */

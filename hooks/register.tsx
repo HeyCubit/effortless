@@ -126,6 +126,8 @@ const settingsOpen = atom({ plugin: 'effortless', key: 'settingsOpen' } as const
 const installedSkills = atom({ plugin: 'effortless', key: 'installedSkills' } as const, [])
 const settingsDraft = atom({ plugin: 'effortless', key: 'settingsDraft' } as const, {})
 const judgeDown = atom({ plugin: 'effortless', key: 'judgeDown' } as const, null)
+// The settings panel's judge test: running, or what it found. Null before a test and once the panel closes.
+const judgeTest = atom({ plugin: 'effortless', key: 'judgeTest' } as const, null)
 // The judge-down band was closed for this reason; a new reason shows it again.
 const judgeDownHidden = atom({ plugin: 'effortless', key: 'judgeDownHidden' } as const, null)
 // A usage limit is close: which window, how much is used, when it resets. Null below the line.
@@ -415,6 +417,11 @@ export function judgeFailure(name: string, status: number | 'timeout'): string {
 const warned = new Set<string>()
 /** Tells the person once per session and reason that their judge failed and Haiku stands in. */
 function warnJudge($: EngineInterface, reason: string) {
+  // A test from the settings panel takes the reason for its own line, with no toast and no judge-down band.
+  if (judgeTesting) {
+    judgeTesting.reason = reason
+    return
+  }
   void proof($, `judge fallback: ${reason}`)
   void update($, judgeDown, () => reason).then(() => $.ui.invalidate('ui.render'))
   if (warned.has(reason)) return
@@ -634,6 +641,51 @@ async function askJev($: EngineInterface, key: string, prompt: string, current: 
     warnJudge($, String(error).includes('timeout') ? judgeFailure('Jev', 'timeout') : 'Jev could not be reached')
   }
   return undefined
+}
+
+// Set while the settings panel tests a judge: warnJudge leaves its reason here instead of warning.
+let judgeTesting: { reason?: string } | null = null
+/** The prompt a judge test sends: small and plain, so any working judge answers it. */
+const JUDGE_TEST_PROMPT = 'rename one variable in a single file'
+
+/** Asks the judge picked in the panel (its unsaved key, URL and model included) one sample prompt, and says in a line
+ * whether it answered, with what and how fast, or why not. Never falls back to Haiku: the point is the judge itself. */
+async function testJudge($: EngineInterface, judgeKind: string, draftKey: string, url: string, model: string): Promise<{ ok: boolean; text: string }> {
+  const start = await $.clock.now()
+  const took = async () => `${(((await $.clock.now()) - start) / 1000).toFixed(1)} s`
+  const said = (name: string, j: Judged | undefined) =>
+    j?.verdict?.why === UNSURE ? `${name} answered, unsure on the sample` : `${name} answered: ${j?.verdict?.effort}`
+  judgeTesting = {}
+  try {
+    if (judgeKind === 'custom') {
+      if (!url) return { ok: false, text: 'No URL set' }
+      const saved = { url: config.customUrl, model: config.customModel }
+      config.customUrl = url
+      config.customModel = model
+      try {
+        const j = await askCustom($, JUDGE_TEST_PROMPT, null, '')
+        return j?.verdict ? { ok: true, text: `${said('Your judge', j)} in ${await took()}` } : { ok: false, text: judgeTesting.reason ?? 'Your judge gave no usable answer' }
+      } finally {
+        config.customUrl = saved.url
+        config.customModel = saved.model
+      }
+    }
+    if (judgeKind === 'jev' || judgeKind === 'auto') {
+      const key = parseJevKey(draftKey) ?? (draftKey.trim() || undefined) ?? (await jevKey($).catch(() => undefined)) ?? (await typesafeKeyAnywhere($).catch(() => undefined))
+      if (!key && judgeKind === 'jev') return { ok: false, text: 'No TypeSafe key found' }
+      if (key) {
+        const j = await askJev($, key, JUDGE_TEST_PROMPT, null, '')
+        if (j?.verdict) return { ok: true, text: `${said('Jev', j)} in ${await took()}` }
+        return { ok: false, text: judgeTesting.reason ?? 'Jev gave no usable answer' }
+      }
+    }
+    const h = await askHaiku($, JUDGE_TEST_PROMPT, null, '')
+    return h.verdict ? { ok: true, text: `${said('Haiku', h)} in ${await took()}` } : { ok: false, text: 'Haiku gave no answer' }
+  } catch (error) {
+    return { ok: false, text: String(error).slice(0, 80) }
+  } finally {
+    judgeTesting = null
+  }
 }
 
 /** Haiku through the session's own login: the judge that needs no key, and the fallback for the others. */
@@ -2178,7 +2230,7 @@ export function autoGlowSvg(on: boolean): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
   const rim = `x="0" y="0" width="${W}" height="${H}" rx="8"`
   const [wash, line, strength] = on ? [ACCENT, '#c9bfff', 1] : ['#8b8b93', '#c8c8d0', 0.6]
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${AUTO_GLOW_MS / 1000}s ease-in-out}@keyframes r{0%{opacity:0}15%{opacity:${strength}}45%{opacity:${(strength * 0.85).toFixed(2)}}100%{opacity:0}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="2.8"/></filter><filter id="s" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation=".8"/></filter></defs><g class="r"><rect ${rim} fill="none" stroke="${wash}" stroke-width="8" opacity=".7" filter="url(#b)"/><rect ${rim} fill="none" stroke="${line}" stroke-width="1.8" opacity=".8" filter="url(#s)"/></g></svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${AUTO_GLOW_MS / 1000}s ease-in-out}@keyframes r{0%{opacity:0}15%{opacity:${strength}}45%{opacity:${(strength * 0.85).toFixed(2)}}100%{opacity:0}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="2.8"/></filter><filter id="s" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation=".8"/></filter></defs><g class="r"><rect ${rim} fill="none" stroke="${wash}" stroke-width="7" opacity=".45" filter="url(#b)"/><rect ${rim} fill="none" stroke="${line}" stroke-width="1.4" opacity=".5" filter="url(#s)"/></g></svg>`
 }
 // When the bar last saw Auto off or on, when Auto came on (for the edge glow), and when it last changed (for the slide).
 let autoSeen: boolean | undefined
@@ -2280,7 +2332,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           </Box>
         ) : null
       ) : null}
-      {Svg && nowMs - autoOnAt < AUTO_GLOW_MS && renderLog.push(`glow ${v.auto ? 'on' : 'off'} at ${nowMs - autoOnAt} ms`) ? (
+      {Svg && v.auto && nowMs - autoOnAt < AUTO_GLOW_MS && renderLog.push(`glow ${v.auto ? 'on' : 'off'} at ${nowMs - autoOnAt} ms`) ? (
         <Box key="dash-auto-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
           <Svg source={inPhase(autoGlowSvg(v.auto), nowMs - autoOnAt)} alt="auto glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
@@ -3116,11 +3168,13 @@ Saved to ${out}.md and .json` }
       // A plain button with its own handler: a dismiss-role button may be taken by the app before onPress runs.
       const close = async () => {
         await update($, settingsDraft, () => ({}))
+        await update($, judgeTest, () => null)
         await update($, settingsOpen, () => false)
         $.ui.invalidate('ui.render')
       }
       // The panel shows the draft over the saved settings; every control writes to the draft only.
       const draft = await read($, settingsDraft)
+      const tested = await read($, judgeTest)
       const set = (field: keyof SettingsDraft) => async (value: string) => {
         await update($, settingsDraft, d => ({ ...d, [field]: value }))
         $.ui.invalidate('ui.render')
@@ -3261,6 +3315,18 @@ Saved to ${out}.md and .json` }
                   field('model-field', <Input key="settings-model" placeholder="Model" value={shown.customModel} submitLabel="ok"
                     onInput={set('customModel')} onSubmit={set('customModel')} />, 16),
                 ]
+              : []),
+            <Button key="settings-judge-test" plain dimColor={tested?.ok === null} label={tested?.ok === null ? 'Testing…' : 'Test'}
+              onPress={async () => {
+                if (tested?.ok === null) return
+                await update($, judgeTest, () => ({ ok: null, text: '' }))
+                $.ui.invalidate('ui.render')
+                const result = await testJudge($, shown.judge, draft.key ?? '', shown.customUrl, shown.customModel)
+                await update($, judgeTest, () => result)
+                $.ui.invalidate('ui.render')
+              }} />,
+            ...(tested && tested.ok !== null
+              ? [<Text key="settings-judge-result" color={tested.ok ? '#7fd49b' : '#ff8a80'}>{`${tested.ok ? '✓' : '✗'} ${tested.text}`}</Text>]
               : []),
           ])}
           {frameOnly || bare ? null : row('settings-handoff', 'Handoff', ICON_HANDOFF, [
