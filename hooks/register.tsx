@@ -2093,7 +2093,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     // Desktop draws the context as a ring and a figure (as the swamp band does); the terminal says it in words.
     contextPercent: e.surface === 'terminal' && lastContext && lastContext.window ? lastContext.percent : null,
     reason: config.hide.includes('reason') ? '' : reason,
-    last: await read($, lastTurn),
+    // The last reply's cost is left out of the bar: it was noise there. lastTurn still records it.
+    last: null,
   })
   const toggleSettings = async () => {
     if (await read($, settingsOpen)) {
