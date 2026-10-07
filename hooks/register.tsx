@@ -2176,7 +2176,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
       {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
           when room runs out the reason goes first (it shrinks a hundred times faster), then the cache, and the row clips
           rather than run under the buttons. Siblings, not nested: a shrunk parent let the word spill under the ring. */}
-      <Box key="dash-words" position="relative" flexDirection="row" flexShrink={1} minWidth={0} overflow="hidden">
+      <Box key="dash-words" position="relative" flexDirection="row" flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
         <Box flexShrink={0} flexDirection="row">
           <Text color={ACCENT} bold>✦ </Text>
           <Text key="dash-level" color={wordColor} bold>{v.judging && Svg ? 'Deciding' : what}</Text>
@@ -2203,34 +2203,39 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
             <Text color={DASH_TEXT}>{`${Math.round(lastContext.percent)}%`}</Text>
           </Box>
         ) : null}
-        {Svg && cacheShown !== null ? (
-          // A fixed width, so the ticking seconds never shift the row. It gives way before the effort and the context,
-          // whole: the slot wraps, one row high, behind an empty first item, so a timer that no longer fits drops to
-          // the hidden second row instead of showing cut off.
-          <Box key="dash-cache-slot" width={13} flexShrink={10} minWidth={0} height={1} overflow="hidden" flexDirection="row" flexWrap="wrap">
+        {/* The tail: the cache, then the judge's reason, on one wrapping row one line high. The reason has no width of
+            its own (it only takes what is left, truncated), so it always fits the first row and goes first; the cache
+            keeps its fixed width (the ticking seconds never shift the row) and, once it no longer fits, wraps to the
+            hidden second row whole, taking the reason with it. */}
+        {Svg && (cacheShown !== null || detail) ? (
+          <Box key="dash-tail" flexGrow={1} flexShrink={1} minWidth={0} height={1} overflow="hidden" flexDirection="row" flexWrap="wrap" marginLeft={2}>
             <Box width={0} height={1} />
-            <Box key="dash-cache-time" width={13} flexShrink={0} hover={{ scope: 'dash-cache', backgroundColor: HOVER_BOX }}>
-              <Text color={cacheShown === 0 ? ICE : (cacheColor(cacheShown) ?? DASH_DIM)} wrap="truncate">{` cache ${cacheClock(cacheExpires - (await $.clock.now()))}`}</Text>
-            </Box>
-          </Box>
-        ) : null}
-        {/* The reason, and over it (shown only while the ring or cache is hovered) what they mean: a hover can only
-            reveal, so the tip is a layer on the band's colour that covers the reason. */}
-        {detail ? (
-          <Box key="dash-detail" position="relative" flexShrink={1000} minWidth={0} marginLeft={2}>
-            <Text dimColor wrap="truncate">{detail}</Text>
-            {drawn ? (
-              <Box key="dash-cache-tip" position="absolute" top={0} left={0} right={0} bottom={0} backgroundColor={DASH_BG}
-                display="none" hover={{ scope: 'dash-cache', display: 'flex' }}>
-                <Text dimColor wrap="truncate">{hoverTips(v).cache.replace(/^Prompt cache/, 'Cache')}</Text>
+            {cacheShown !== null ? (
+              <Box key="dash-cache-time" width={11} flexShrink={0} hover={{ scope: 'dash-cache', backgroundColor: HOVER_BOX }}>
+                <Text color={cacheShown === 0 ? ICE : (cacheColor(cacheShown) ?? DASH_DIM)} wrap="truncate">{`cache ${cacheClock(cacheExpires - (await $.clock.now()))}`}</Text>
               </Box>
             ) : null}
+            {detail ? (
+              // Over the reason, shown only while the ring or cache is hovered, what they mean: a hover can only
+              // reveal, so the tip is a layer on the band's colour that covers the reason.
+              <Box key="dash-detail" position="relative" width={0} flexGrow={1} flexShrink={1} minWidth={10} marginLeft={cacheShown !== null ? 2 : 0}>
+                <Text dimColor wrap="truncate">{detail}</Text>
+                <Box key="dash-cache-tip" position="absolute" top={0} left={0} right={0} bottom={0} backgroundColor={DASH_BG}
+                  display="none" hover={{ scope: 'dash-cache', display: 'flex' }}>
+                  <Text dimColor wrap="truncate">{hoverTips(v).cache.replace(/^Prompt cache/, 'Cache')}</Text>
+                </Box>
+              </Box>
+            ) : null}
+          </Box>
+        ) : detail ? (
+          <Box key="dash-detail" flexShrink={1000} minWidth={0} marginLeft={2}>
+            <Text dimColor wrap="truncate">{detail}</Text>
           </Box>
         ) : null}
       </Box>
       {/* The buttons in the flow, their real width and no more, so the words get all the rest. An empty absolute child
           makes the box positioned, which paints it over the art (a plain flow box sits under it and loses clicks). */}
-      <Box flexGrow={1} minWidth={1} />
+      <Box minWidth={1} />
       <Box key="dash-actions" flexShrink={0} flexDirection="row" gap={1} alignItems="center" marginLeft={1}>
         <Box position="absolute" top={0} left={0} />
         {Svg ? buttons.slice(0, -1) : buttons}
