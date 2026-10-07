@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, compactTranscript, judgeGlowSvg, judgeGlowAt, JUDGE_RISE_MS, JUDGE_FADE_MS } from '../hooks/register'
+import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
@@ -1623,6 +1623,18 @@ describe('deciding glow', () => {
     expect(at(1100, 1300)).toContain('@keyframes r{from{opacity:0}')
     expect(at(1100, 1000 + JUDGE_RISE_MS)).toContain('@keyframes r{from{opacity:0.85}to{opacity:0}}')
     expect(at(1100, 1000 + JUDGE_RISE_MS + JUDGE_FADE_MS)).toBeNull()
+  })
+  test('every image is drawn with its base opacity already at the value of that moment, so its first frame is right', () => {
+    expect(Math.abs(judgeBrightnessAt('rise', 0) - 0)).toBeLessThan(1e-6)
+    expect(Math.abs(judgeBrightnessAt('rise', JUDGE_RISE_MS) - 0.85)).toBeLessThan(1e-6)
+    expect(Math.abs(judgeBrightnessAt('fade', 0) - 0.85)).toBeLessThan(1e-6)
+    expect(Math.abs(judgeBrightnessAt('fade', JUDGE_FADE_MS) - 0)).toBeLessThan(1e-6)
+    expect(Math.abs(judgeBrightnessAt('fade', JUDGE_FADE_MS / 2) - 0.425)).toBeLessThan(0.001)
+    // Measured in Chrome earlier: the curve is the browser's ease-in-out.
+    expect(judgeGlowSvg('fade', 450)).toContain('.r{opacity:0.425;animation:r 0.9s')
+    expect(judgeGlowSvg('rise', 250)).toContain('.r{opacity:0.425;animation:r 0.5s')
+    const placed = judgeGlowAt(1000, 3000, 3300)!
+    expect(placed).toContain('.r{opacity:' + judgeBrightnessAt('fade', 300).toFixed(3))
   })
 })
 

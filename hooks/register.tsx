@@ -2657,11 +2657,31 @@ const pluginId = ($: EngineInterface) => `effortless@${$.plugin.root.match(/cach
 export const JUDGE_RISE_MS = 500
 export const JUDGE_FADE_MS = 900
 const JUDGE_GLOW_MAX = 0.85
-export function judgeGlowSvg(kind: 'rise' | 'fade'): string {
+/** CSS's ease-in-out, cubic-bezier(.42,0,.58,1): the progress at time t (0 to 1), by bisection on the curve's x. */
+export function easeInOut(t: number): number {
+  const at = (a: number, b: number, u: number) => 3 * (1 - u) * (1 - u) * u * a + 3 * (1 - u) * u * u * b + u * u * u
+  let lo = 0, hi = 1
+  for (let i = 0; i < 30; i++) {
+    const mid = (lo + hi) / 2
+    if (at(0.42, 0.58, mid) < t) lo = mid
+    else hi = mid
+  }
+  return at(0, 1, (lo + hi) / 2)
+}
+/** The rim's brightness `elapsedMs` into its rise or fade, read off the same curve the browser draws. */
+export function judgeBrightnessAt(kind: 'rise' | 'fade', elapsedMs: number): number {
+  const p = Math.min(1, Math.max(0, elapsedMs / (kind === 'rise' ? JUDGE_RISE_MS : JUDGE_FADE_MS)))
+  return kind === 'rise' ? JUDGE_GLOW_MAX * easeInOut(p) : JUDGE_GLOW_MAX * (1 - easeInOut(p))
+}
+/** The base opacity is the brightness at this very moment, not the start or the end: a newly drawn image paints one
+ * frame before its animation takes over, and that frame must already be right, or each redraw flashes (it showed the
+ * full 0.85 at every redraw of a fade). The animation, placed by the clock, then carries on from the same value. */
+export function judgeGlowSvg(kind: 'rise' | 'fade', elapsedMs = 0): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
+  const base = judgeBrightnessAt(kind, elapsedMs).toFixed(3)
   const css = kind === 'rise'
-    ? `.r{opacity:0;animation:r ${JUDGE_RISE_MS / 1000}s ease-in-out forwards}@keyframes r{from{opacity:0}to{opacity:${JUDGE_GLOW_MAX}}}`
-    : `.r{opacity:${JUDGE_GLOW_MAX};animation:r ${JUDGE_FADE_MS / 1000}s ease-in-out forwards}@keyframes r{from{opacity:${JUDGE_GLOW_MAX}}to{opacity:0}}`
+    ? `.r{opacity:${base};animation:r ${JUDGE_RISE_MS / 1000}s ease-in-out forwards}@keyframes r{from{opacity:0}to{opacity:${JUDGE_GLOW_MAX}}}`
+    : `.r{opacity:${base};animation:r ${JUDGE_FADE_MS / 1000}s ease-in-out forwards}@keyframes r{from{opacity:${JUDGE_GLOW_MAX}}to{opacity:0}}`
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>${css}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ACCENT}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#b9a7ff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
 }
 /** What the glow is at `now`: nothing, rising or holding (the rise image, placed), or fading (the fade image, placed).
@@ -2669,8 +2689,8 @@ export function judgeGlowSvg(kind: 'rise' | 'fade'): string {
 export function judgeGlowAt(startedAt: number, endedAt: number | null, now: number): string | null {
   if (now < startedAt) return null
   const fadeFrom = endedAt === null ? Infinity : Math.max(endedAt, startedAt + JUDGE_RISE_MS)
-  if (now < fadeFrom) return inPhase(judgeGlowSvg('rise'), now - startedAt)
-  if (now < fadeFrom + JUDGE_FADE_MS) return inPhase(judgeGlowSvg('fade'), now - fadeFrom)
+  if (now < fadeFrom) return inPhase(judgeGlowSvg('rise', now - startedAt), now - startedAt)
+  if (now < fadeFrom + JUDGE_FADE_MS) return inPhase(judgeGlowSvg('fade', now - fadeFrom), now - fadeFrom)
   return null
 }
 // The glow's clock is read as late as the draw allows, and set ahead by how long the rest of a draw takes (measured,
