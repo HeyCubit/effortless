@@ -3031,6 +3031,7 @@ describe('updates', () => {
     await settle()
     const ui = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
     await pastSetup(ui)
+    w.ran.length = 0
     await ui.press({ key: 'update-go' })
     await settle()
     expect(w.ran).toEqual(['claude plugin marketplace update effortless', 'claude plugin update effortless@effortless'])
@@ -3056,6 +3057,7 @@ describe('updates', () => {
     await ui.press({ key: 'dash-settings' })
     await ui.press({ key: 'settings-card-show' })
     expect(await drawn(ui)).toContain('Appearance')
+    w.ran.length = 0
     await ui.press({ key: 'settings-uninstall' })
     expect(w.ran).toEqual([])
     expect(await drawn(ui)).toContain('Press again to uninstall')
