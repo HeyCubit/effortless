@@ -2733,6 +2733,12 @@ describe('dashboard', () => {
     expect((await band.find({ key: 'dash-handoff' }))?.props).toMatchObject({ variant: 'primary', hotkey: 'h' })
     expect(await band.find({ key: 'dash-glow' })).toBeDefined()
     await band.unmount()
+    // While a reply runs the band redraws often: no glow then, so it cannot flicker.
+    const working = { ...(DESK_BAND as object), props: { ...BAND.props, isWorking: true } } as never
+    band = await $.ui.mount(working)
+    expect(await band.find({ key: 'dash-glow' })).toBeUndefined()
+    expect(await band.find({ key: 'dash-handoff' })).toBeDefined()
+    await band.unmount()
     // A fresh chat has no glow.
     percent = 10
     await mocked.advance(16_000)
