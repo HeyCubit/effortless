@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.113",
+    "date": "2026-10-07",
+    "note": "Seamless dashboard bar"
+  },
+  {
     "version": "1.35.112",
     "date": "2026-10-07",
     "note": "Simple prompts run on Haiku 5.5"
