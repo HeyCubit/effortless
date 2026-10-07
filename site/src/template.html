@@ -70,6 +70,8 @@ a{color:inherit}
 .demo-send svg{width:16px;height:16px}
 /* The footer under the box, as Claude Code draws it: attach, voice and mode on the left; the model and the context ring
    on the right. The dashboard look leaves this footer to the app. */
+.demo-foot .judge{margin-right:14px;color:var(--dim)}
+@media (max-width:560px){.demo-foot .judge{display:none}}
 .demo-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 4px 0;font-size:13.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .demo-foot .fl,.demo-foot .fr{display:flex;align-items:center;gap:6px}
 .demo-foot .fl{gap:13px;color:#b4b1bf;font-size:15px}
@@ -513,7 +515,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
           <div class="demo-in"><span id="demo-text"></span><span class="caret"></span><span class="demo-ph" id="demo-ph">Reply to Claude</span></div>
           <span class="demo-send" id="demo-send"><svg viewBox="0 0 16 16"><path d="M13 3.5v4.5a2 2 0 01-2 2H3.5M6.5 7L3.5 10l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         </div>
-        <div class="demo-foot"><span class="fl"><span>+</span><span class="opt"><svg viewBox="0 0 16 16"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 7.5a5 5 0 0010 0M8 12.5v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span class="opt"><svg viewBox="0 0 16 16"><path d="M4.5 6.5L8 10l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="mode opt">Auto</span></span><span class="fr"><span class="m">Opus 5.5</span><span class="ring"></span></span></div>
+        <div class="demo-foot"><span class="fl"><span>+</span><span class="opt"><svg viewBox="0 0 16 16"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 7.5a5 5 0 0010 0M8 12.5v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span class="opt"><svg viewBox="0 0 16 16"><path d="M4.5 6.5L8 10l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="mode opt">Auto</span></span><span class="fr"><span class="judge">Judged by Haiku 5.5</span><span class="m">Opus 5.5</span><span class="ring"></span></span></div>
       </div>
     </div>
 
@@ -527,7 +529,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   </div>
 </section>
 
-<template id="dash-tpl"><div class="dash">__SPARK__<span class="w">Medium</span><span class="pc"><i></i><b>22%</b></span><span class="cache">cache 59:00</span><span class="why">Haiku: a small fix in one file</span><span class="end"><span class="auto"><span class="sw"></span><span class="al">Auto</span></span><span class="ho"><span>Handoff</span></span><svg class="gear" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" d="M12.91 6.63L14.44 6.56 14.44 9.44 12.91 9.37 12.44 10.5 13.57 11.54 11.54 13.57 10.5 12.44 9.37 12.91 9.44 14.44 6.56 14.44 6.63 12.91 5.5 12.44 4.46 13.57 2.43 11.54 3.56 10.5 3.09 9.37 1.56 9.44 1.56 6.56 3.09 6.63 3.56 5.5 2.43 4.46 4.46 2.43 5.5 3.56 6.63 3.09 6.56 1.56 9.44 1.56 9.37 3.09 10.5 3.56 11.54 2.43 13.57 4.46 12.44 5.5Z"/><circle cx="8" cy="8" r="2.1" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></span></div></template>
+<template id="dash-tpl"><div class="dash">__SPARK__<span class="w">Medium</span><span class="pc"><i></i><b>22%</b></span><span class="cache">cache 59:00</span><span class="why">Haiku 5.5: a small fix in one file</span><span class="end"><span class="auto"><span class="sw"></span><span class="al">Auto</span></span><span class="ho"><span>Handoff</span></span><svg class="gear" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" d="M12.91 6.63L14.44 6.56 14.44 9.44 12.91 9.37 12.44 10.5 13.57 11.54 11.54 13.57 10.5 12.44 9.37 12.91 9.44 14.44 6.56 14.44 6.63 12.91 5.5 12.44 4.46 13.57 2.43 11.54 3.56 10.5 3.09 9.37 1.56 9.44 1.56 6.56 3.09 6.63 3.56 5.5 2.43 4.46 4.46 2.43 5.5 3.56 6.63 3.09 6.56 1.56 9.44 1.56 9.37 3.09 10.5 3.56 11.54 2.43 13.57 4.46 12.44 5.5Z"/><circle cx="8" cy="8" r="2.1" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></span></div></template>
 
 <header class="topbar" id="topbar">
   <a class="name" href="#top">__SPARK__effortless<span class="tag">Beta</span></a>
@@ -558,14 +560,14 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
           <div class="demo-in"><span id="w-text"></span><span class="caret"></span><span class="demo-ph" id="w-ph">Reply to Claude</span></div>
           <span class="demo-send" id="w-send"><svg viewBox="0 0 16 16"><path d="M13 3.5v4.5a2 2 0 01-2 2H3.5M6.5 7L3.5 10l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         </div>
-        <div class="demo-foot"><span class="fl"><span>+</span><span class="opt"><svg viewBox="0 0 16 16"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 7.5a5 5 0 0010 0M8 12.5v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span class="opt"><svg viewBox="0 0 16 16"><path d="M4.5 6.5L8 10l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="mode opt">Auto</span></span><span class="fr"><span class="m">Opus 5.5</span><span class="ring"></span></span></div>
+        <div class="demo-foot"><span class="fl"><span>+</span><span class="opt"><svg viewBox="0 0 16 16"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 7.5a5 5 0 0010 0M8 12.5v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span class="opt"><svg viewBox="0 0 16 16"><path d="M4.5 6.5L8 10l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="mode opt">Auto</span></span><span class="fr"><span class="judge">Judged by Haiku 5.5</span><span class="m">Opus 5.5</span><span class="ring"></span></span></div>
       </div>
     </div>
   </section>
 
   <section class="inst-sec" id="install">
     <h2>Two ways in.</h2>
-    <p class="lead">Pick one. No API key needed.</p>
+    <p class="lead">Haiku 5.5 judges every prompt. No API key needed.</p>
     __INSTALL__
     <div class="cta"><a class="gh" href="https://github.com/HeyCubit/effortless">__GITHUB__<span>Star on GitHub</span></a></div>
   </section>
@@ -653,7 +655,7 @@ var Dash=(function(){
 // The bar at the top of the stack: High, a refactor, Handoff already glowing.
 (function(){
   var host=document.querySelector('[data-dash="stack"]');if(!host)return;
-  var d=Dash(host);d.word('High');d.pct(38);d.secs(3539);d.reason('Haiku: a refactor');
+  var d=Dash(host);d.word('High');d.pct(38);d.secs(3539);d.reason('Haiku 5.5: a refactor');
 })();
 
 // The story plays in the first time it scrolls into view.
@@ -691,10 +693,10 @@ var Dash=(function(){
   function type(s,done){if(still){input(s);return later(0,done);}var k=0;(function step(){input(s.slice(0,++k));if(k<s.length)later(28+Math.random()*30,step);else later(380,done);})();}
   function press(el,done){if(!el)return done&&done();el.classList.remove('press');void el.getBoundingClientRect();el.classList.add('press');later(420,done||function(){});}
   function ask(s,level,why,reply,done){type(s,function(){input('');msg('me',s);d.deciding();
-    later(700,function(){d.word(level,true);d.reason('Haiku: '+why);d.secs(3599);d.pct(Math.min(d.p+3,99));msg('ai',reply);later(1900,function(){done&&done();});});});}
+    later(700,function(){d.word(level,true);d.reason('Haiku 5.5: '+why);d.secs(3599);d.pct(Math.min(d.p+3,99));msg('ai',reply);later(1900,function(){done&&done();});});});}
   function ramp(to,ms,done){var from=d.p,t0=0,steps=Math.max(1,Math.round(ms/80));
     (function step(i){d.pct(from+(to-from)*i/steps);if(i<steps)later(80,function(){step(i+1)});else done&&done();})(still?steps:1);}
-  function base(){chat.innerHTML='';clear();host.classList.remove('away');input('');d.auto(true);d.word('Medium');d.pct(22);d.secs(3540);d.reason('Haiku: a small fix in one file');}
+  function base(){chat.innerHTML='';clear();host.classList.remove('away');input('');d.auto(true);d.word('Medium');d.pct(22);d.secs(3540);d.reason('Haiku 5.5: a small fix in one file');}
   function again(f,ms){if(!still)later(ms||2600,f);}
 
   // A scene names the parts of the bar it is about; they stay lit while the rest dims, and swell when they change.
@@ -710,7 +712,7 @@ var Dash=(function(){
   var HOT='<div class="band ember"><span class="t">✦ Running hot</span><span class="d">84% of your 5h limit used · resets 16:20</span><span class="acts"><span class="btn primary">Save mode</span></span></div>';
   var HANDOFF='<div class="band brand handoff"><span class="words"><span class="t">⇥ Handoff</span><span class="what">Done in seconds. Clears chat, carries on.</span></span><span class="acts"><span class="qf"><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.5L3.5 9H8l-1 5.5L12.5 7H8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Quick</span><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5l3 3L6 13l-3.5.5L3 10z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Full</span></span><span class="btn pick">Clear &amp; carry on</span><span class="btn primary">Go <span class="k">G</span></span><span class="btn x">✕</span></span></div>';
   var SETT='<div class="sett"><div class="sett-h"><b>effortless</b><span class="sub">Settings</span><span class="save">Save</span><span class="x">✕</span></div><div class="cards">'+
-    '<div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 11.5a5.5 5.5 0 1111 0M8 11.5l2.6-3.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Effort</b><span>Balanced · low to max</span></div><div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v11M4.5 13.5h7M3 4.5h10M3 4.5L1.5 9h3zM13 4.5L11.5 9h3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Judge</b><span>Auto · Haiku</span></div>'+
+    '<div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 11.5a5.5 5.5 0 1111 0M8 11.5l2.6-3.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Effort</b><span>Balanced · low to max</span></div><div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v11M4.5 13.5h7M3 4.5h10M3 4.5L1.5 9h3zM13 4.5L11.5 9h3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Judge</b><span>Auto · Haiku 5.5</span></div>'+
     '<div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h8.5M7.5 5l3 3-3 3M13.5 3.5v9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Handoff</b><span>Built in · swamped at 50%</span></div><div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8s-2.4 4.5-6.5 4.5S1.5 8 1.5 8zM8 9.8a1.8 1.8 0 100-3.6 1.8 1.8 0 000 3.6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Appearance</b><span>Dashboard look</span></div></div></div>';
 
   // Each step swaps the bar for its own band the moment it scrolls in; nothing is typed or pressed first. Only the
@@ -753,7 +755,7 @@ var Dash=(function(){
   var runs=[['rename this variable to userId','Low','a rename in one place'],['why does the token refresh fail after a deploy?','High','a bug across services'],['thanks','Low','a short reply'],['add a test for the date parser','Medium','a small fix in one file'],['plan the billing migration, all services','XHigh','a plan across every service']];
   function fresh(){d.word('Auto');d.pct(3);d.secs(null);d.reason('Auto picks the effort at the next prompt');}
   function show(s){text.textContent=s;ph.hidden=!!s;send.classList.toggle('on',!!s);}
-  if(matchMedia('(prefers-reduced-motion: reduce)').matches){show(runs[1][0]);d.word('High');d.pct(38);d.secs(3539);d.reason('Haiku: '+runs[1][2]);return;}
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){show(runs[1][0]);d.word('High');d.pct(38);d.secs(3539);d.reason('Haiku 5.5: '+runs[1][2]);return;}
   fresh();
   var i=0;
   function type(s,k,done){show(s.slice(0,k));if(k<s.length)setTimeout(function(){type(s,k+1,done)},32+Math.random()*40);else setTimeout(done,450);}
@@ -765,7 +767,7 @@ var Dash=(function(){
     var r=runs[i%runs.length];i++;
     type(r[0],0,function(){
       show('');d.deciding();
-      setTimeout(function(){d.word(r[1],true);d.reason('Haiku: '+r[2]);d.secs(3599);d.pct(d.p+12);setTimeout(run,3600);},700);
+      setTimeout(function(){d.word(r[1],true);d.reason('Haiku 5.5: '+r[2]);d.secs(3599);d.pct(d.p+12);setTimeout(run,3600);},700);
     });
   }
   setTimeout(run,1400);
