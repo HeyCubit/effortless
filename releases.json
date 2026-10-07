@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.95",
+    "date": "2026-10-07",
+    "note": "Render log: one file per chat"
+  },
+  {
     "version": "1.35.94",
     "date": "2026-10-07",
     "note": "Timing lines in the render log; the compact card's X hovers alone"
