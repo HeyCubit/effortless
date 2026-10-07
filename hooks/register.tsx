@@ -3927,10 +3927,14 @@ Saved to ${out}.md and .json` }
             {/* The field shows through a window anchored right: its own Enter hint (a submit button 12 px wide, 6 px
                 after the field) is pushed past the window's right edge and clipped, whatever width the app gives the
                 field. Three cells out, one cell of padding back: the field ends 2 px inside, the hint starts 4 px out. */}
-            <Box key="compact-field" position="relative" width={48} height={1} flexShrink={0} overflow="hidden">
-              <Box position="absolute" top={0} right={-3} width={60} flexDirection="row" justifyContent="flex-end" paddingRight={1}>
-                <Input key="compact-note" placeholder="Summary (optional)" submitLabel={'​'}
-                  onInput={v => { compactNote = v }} onSubmit={v => { compactNote = v; void go() }} />
+            {/* The window reaches a row above and below the field (absolutely, so the bar stays one line): one line tall,
+                it cut the field's focus ring off at the top and bottom. */}
+            <Box key="compact-field" position="relative" width={48} height={1} flexShrink={0}>
+              <Box position="absolute" top={-1} bottom={-1} left={0} right={0} overflow="hidden">
+                <Box position="absolute" top={0} bottom={0} right={-3} width={60} flexDirection="row" alignItems="center" justifyContent="flex-end" paddingRight={1}>
+                  <Input key="compact-note" placeholder="Summary (optional)" submitLabel={'​'}
+                    onInput={v => { compactNote = v }} onSubmit={v => { compactNote = v; void go() }} />
+                </Box>
               </Box>
             </Box>
             {/* Compact with the Enter mark in it: a white pill drawn, the word in the app's font, the mark as Claude's prompt
@@ -4031,7 +4035,8 @@ Saved to ${out}.md and .json` }
           </Box>
           {/* The entrance as the bar opens, only then: a choice redraws the bar. */}
           {introLayer({ Box, Svg }, 'handoff', await introShows($, 'handoff'))}
-          <Box key="handoff-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
+          {/* One line: the name, then what the picked kind does, dim. */}
+          <Box key="handoff-words" position="relative" flexDirection="row" gap={1} flexShrink={1} minWidth={0}>
             <Text color={ACCENT} bold wrap="truncate">
               ⇥ Handoff
             </Text>
