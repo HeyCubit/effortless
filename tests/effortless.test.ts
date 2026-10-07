@@ -1264,9 +1264,9 @@ describe('setup guide', () => {
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
     await $.command.run({ command: 'effortless', args: 'settings' })
     const panel = await $.ui.mount(DESK)
-    expect(await drawn(panel)).toContain('"Haiku"')
+    expect(await drawn(panel)).toContain('Auto · Haiku')
     await panel.press({ key: 'settings-card-judge' })
-    expect(await drawn(panel)).toContain('{"value":"custom","label":"custom"}],"value":"haiku"}')
+    expect(await drawn(panel)).toContain('{"value":"custom","label":"custom"}],"value":"auto"}')
     await panel.unmount()
   })
 
@@ -1300,7 +1300,7 @@ describe('setup guide', () => {
     // Branded: the name in the footer's purple, the step counter beside it.
     expect(await drawn(band)).toContain('"color":"#a79cf7"')
     expect(await drawn(band)).toContain('✦ effortless setup  1/3')
-    expect(await drawn(band)).toContain('Jev (API)')
+    expect(await drawn(band)).toContain('Haiku 5.5 (no key)')
     // The right side: a still SVG (every click redraws the band, and a redrawn animation flickers) with the gradient.
     const first = await drawn(band)
     expect(first).toContain('"type":"Svg"')
@@ -1309,7 +1309,7 @@ describe('setup guide', () => {
     await band.press({ key: 'setup-haiku' })
     // Nothing is saved yet: each saved setting reloads the plugin and puts a notice in the chat.
     expect(set).toEqual([])
-    expect(said.join(' ')).toContain('Haiku judges')
+    expect(said.join(' ')).toContain('Haiku 5.5 judges')
 
     // 2/3 the lean: each stop is named and says what it does; the track lights toward the marker.
     expect(await drawn(band)).toContain('2/3')
@@ -1334,7 +1334,6 @@ describe('setup guide', () => {
     expect(set).toEqual([])
     await band.press({ key: 'setup-done' })
     expect(set).toEqual([
-      { key: 'effortless.judge', value: 'haiku' },
       { key: 'effortless.effortBias', value: '2' },
       { key: 'effortless.handoffSkill', value: 'session-handoff' },
     ])

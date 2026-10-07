@@ -1800,10 +1800,11 @@ async function closeSetup($: EngineInterface) {
 
 /** The person picked a judge in the guide: then the judge's key or URL, or the next step. Saved at the end. */
 async function pickJudge($: EngineInterface, choice: 'haiku' | 'jev' | 'custom') {
-  await update($, setupDraft, d => ({ ...d, judge: choice }))
+  // Haiku is saved as Auto: Jev whenever a TypeSafe key is there, Haiku otherwise and whenever Jev does not answer.
+  await update($, setupDraft, d => ({ ...d, judge: choice === 'haiku' ? 'auto' : choice }))
   await markSetupDone($)
   if (choice === 'haiku') {
-    $.ui.toast('effortless: Haiku judges, no key needed.')
+    $.ui.toast('effortless: Haiku 5.5 judges, no key needed. Add a Jev key later for faster answers.')
     return goSetup($, 'lean')
   }
   if (choice === 'jev' && (await findTypesafeKey($))) {
@@ -2310,6 +2311,8 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
 // The API, not raw.githubusercontent.com: the raw file sits behind a cache that lagged two releases behind.
 const RELEASES_URL = 'https://api.github.com/repos/HeyCubit/effortless/contents/public.json?ref=main'
 const WHATS_NEW_URL = 'https://heycubit.github.io/effortless/whats-new/'
+/** Where a bug is reported: a page on the site that opens a prefilled GitHub issue. */
+const REPORT_BUG_URL = 'https://heycubit.github.io/effortless/report/'
 /** How often a session looks for a new version, and how long ✕ on the offer keeps it away. */
 const UPDATE_CHECK_MS = 6 * 3600_000
 const UPDATE_SNOOZE_MS = 24 * 3600_000
@@ -2630,10 +2633,13 @@ export function judgeGlowSvg(): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:.25;animation:r ${JUDGE_GLOW_MS / 1000}s ease-in-out infinite}@keyframes r{0%,100%{opacity:.25}50%{opacity:.85}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ACCENT}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#b9a7ff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
 }
-/** The same rim fading out once the verdict is in. */
-const JUDGE_FADE_MS = 900
-export function judgeFadeSvg(): string {
-  return judgeGlowSvg().replace(/\.r\{[^}]*\}@keyframes r\{[^}]*\}[^<]*/, `.r{opacity:0;animation:r ${JUDGE_FADE_MS / 1000}s ease-out}@keyframes r{0%{opacity:.85}100%{opacity:0}}`)
+/** How bright the breathing rim is `phase` (0 to 1) of the way round its breath: the same curve as its keyframes. */
+const judgeBrightness = (phase: number) => 0.25 + 0.6 * (0.5 - 0.5 * Math.cos(2 * Math.PI * phase))
+/** The same rim fading out once the verdict is in, from the brightness it had at that moment (not from full, which
+ * flashed it up first), slowly and in steps eased so it dies away softly. */
+const JUDGE_FADE_MS = 1500
+export function judgeFadeSvg(from: number): string {
+  return judgeGlowSvg().replace(/\.r\{[^}]*\}@keyframes r\{[^}]*\}[^<]*/, `.r{opacity:0;animation:r ${JUDGE_FADE_MS / 1000}s cubic-bezier(.3,0,.5,1)}@keyframes r{0%{opacity:${from.toFixed(2)}}100%{opacity:0}}`)
 }
 // When the judge last finished, for the fade.
 let judgeEndedAt = 0
@@ -2786,7 +2792,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
         </Box>
       ) : Svg && nowMs - judgeEndedAt < JUDGE_FADE_MS ? (
         <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={inPhase(judgeFadeSvg(), nowMs - judgeEndedAt)} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+          <Svg source={inPhase(judgeFadeSvg(judgeBrightness((judgeEndedAt % JUDGE_GLOW_MS) / JUDGE_GLOW_MS)), nowMs - judgeEndedAt)} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
       {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
@@ -3731,7 +3737,7 @@ Saved to ${out}.md and .json` }
       if (Date.now() - askedHere < 60_000 && !(await read($, settingsOpen))) await update($, settingsOpen, () => true)
     }
     lastRenderBranch = (await read($, settingsOpen)) ? 'drew the settings panel' : 'drew a band or nothing'
-    const { Box, Text, Button, Svg } = $.ui.resolve(e)
+    const { Box, Text, Button, Svg, Link } = $.ui.resolve(e)
     // The settings panel: a branded header bar, then one compact row per setting, a dim hint at the end of each row.
     if (await read($, settingsOpen)) {
       // The app gives this slot maxRows rows and drops a taller tree whole, without a word. With gaps the panel is 12
@@ -3889,6 +3895,7 @@ Saved to ${out}.md and .json` }
             {dirty ? <Text dimColor> · unsaved changes</Text> : null}
           </Box>
           <Box key="settings-actions" position="absolute" top={0} right={2} height={term ? 2 : 2.5} flexDirection="row" gap={2} alignItems="center">
+            <Text color="#9a9aa3"><Link href={REPORT_BUG_URL} label="Report a bug" /></Text>
             {/* Grey and inert until something changed: there is nothing to save. */}
             {dirty ? (
               <Button key="settings-save" variant="primary" hotkey="s" label="Save" onPress={() => saveDraft($)} />
@@ -4199,15 +4206,16 @@ Saved to ${out}.md and .json` }
         </Box>
       )
       if (step === 'pick')
-        return band('Who picks the effort?', 62, [
-          // Each mark sits tight against its own button; the pairs stand apart.
-          <Box key="pick-jev" flexDirection="row" gap={1} alignItems="center">
-            <Svg source={TYPESAFE_MARK} alt="TypeSafe" width={12} height={18} />
-            <Button key="setup-jev" variant="primary" label="Jev (API)" onPress={() => pickJudge($, 'jev')} />
-          </Box>,
+        return band('Who picks the effort and model?', 62, [
+          // Haiku first and filled: it needs no key. Jev is the optional faster one; with a key, it is tried first and
+          // Haiku stands in whenever it does not answer. Each mark sits tight against its own button.
           <Box key="pick-haiku" flexDirection="row" gap={1} alignItems="center">
             <Svg source={CLAUDE_MARK} alt="Claude" width={16} height={16} />
-            <Button key="setup-haiku" variant="primary" label="Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />
+            <Button key="setup-haiku" variant="primary" label="Haiku 5.5 (no key)" onPress={() => pickJudge($, 'haiku')} />
+          </Box>,
+          <Box key="pick-jev" flexDirection="row" gap={1} alignItems="center">
+            <Svg source={TYPESAFE_MARK} alt="TypeSafe" width={12} height={18} />
+            <Button key="setup-jev" variant="secondary" label="Jev (optional, faster)" onPress={() => pickJudge($, 'jev')} />
           </Box>,
           <Button key="setup-custom" plain label="Custom" onPress={() => pickJudge($, 'custom')} />,
           ...nav(
