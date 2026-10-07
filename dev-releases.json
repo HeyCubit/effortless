@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.36.13",
+    "date": "2026-10-07",
+    "note": "Glow: redraw at judge start, log its timings"
+  },
+  {
     "version": "1.36.12",
     "date": "2026-10-07",
     "note": "Rim fades at the verdict, with the effort flash"

@@ -3439,6 +3439,9 @@ Saved to ${out}.md and .json` }
 
     judgeStartedAt = await $.clock.now().catch(() => Date.now())
     judgeEndedAt = null
+    renderLog.push(`${new Date().toISOString()} ${loadedSession} glow: start`)
+    // The band is drawn again as the judge starts, so the rise is placed by the clock from the first frame.
+    $.ui.invalidate('ui.render')
     await update($, isJudging, () => true)
     try {
       const inUse = await sessionModel($)
