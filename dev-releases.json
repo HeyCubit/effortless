@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.36.5",
+    "date": "2026-10-07",
+    "note": "Deciding glow fades over the running breath"
+  },
+  {
     "version": "1.36.4",
     "date": "2026-10-07",
     "note": "Exact fade, no cold text in the normal bar, dev releases kept apart"
