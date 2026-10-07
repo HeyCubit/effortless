@@ -680,19 +680,19 @@ var Dash=(function(){
       later(900,function(){ask('rename this variable to userId','Low','a rename in one place','Renamed in 4 files.',function(){
         ask('plan the billing migration, all services','XHigh','a plan across every service','Here is a plan in five stages, starting with the read path…',function(){
           ask('add a test for the date parser','Medium','a small fix in one file','Added 6 cases, including leap days.',function(){again(effort);});});});});},
-    function cold(){base();aim([d.cache]);msg('me','the login test fails about one run in five');d.secs(5);
-      later(6200,function(){var b=band(COLD);
+    function cold(){base();aim([d.cache]);msg('me','the login test fails about one run in five');d.secs(1);
+      later(1100,function(){var b=band(COLD);
         later(2600,function(){press(b.querySelector('.primary'),function(){unband(function(){wipe();
           later(420,function(){msg('sys','Chat compacted');d.pct(4);d.secs(3600);again(cold,2600);});});});});});},
-    function swamp(){base();aim([d.pc,d.ho]);d.pct(6);msg('me','now the retry logic');
-      later(500,function(){ramp(72,4200,function(){later(900,function(){var b=band(SWAMP);
+    function swamp(){base();aim([d.pc,d.ho]);d.pct(58);msg('me','now the retry logic');
+      later(150,function(){ramp(72,700,function(){later(250,function(){var b=band(SWAMP);
         later(2600,function(){press(b.querySelector('.primary'),function(){unband(function(){wipe();
           later(420,function(){msg('sys','Chat compacted');d.pct(5);again(swamp,2400);});});});});});});});},
     function hot(){base();aim([d.w]);msg('me','now split the auth module into two');var b=band(HOT);
       later(3000,function(){press(b.querySelector('.primary'),function(){unband(function(){msg('sys','Save mode on until 16:20');
         later(700,function(){ask('plan the billing migration, all services','Medium','capped by save mode','Here is a plan in five stages…',function(){again(hot,2400);});});});});});},
     function handoff(){base();aim([d.ho]);d.pct(48);msg('me','nice, now the retry logic');
-      later(2800,function(){press(d.ho,function(){var b=band(HANDOFF),qf=b.querySelector('.qf');
+      later(700,function(){press(d.ho,function(){var b=band(HANDOFF),qf=b.querySelector('.qf');
         later(1100,function(){qf.classList.add('full');b.querySelector('.what').textContent='A thorough note first. Clears chat, carries on.';
           later(1300,function(){qf.classList.remove('full');b.querySelector('.what').textContent='Done in seconds. Clears chat, carries on.';
             later(1100,function(){press(b.querySelector('.primary'),function(){b.querySelector('.what').textContent='Writing the handoff note…';
@@ -700,7 +700,7 @@ var Dash=(function(){
                 later(420,function(){msg('sys','Handoff note loaded');
                   later(500,function(){msg('ai','Picking up from the note: next, log each attempt.');again(handoff,3200);});});});});});});});});});});},
     function settings(){base();aim([d.gear]);
-      later(1500,function(){press(d.gear,function(){var b=band(SETT),cards=b.querySelectorAll('.card');
+      later(500,function(){press(d.gear,function(){var b=band(SETT),cards=b.querySelectorAll('.card');
         [0,1,2,3].forEach(function(k){later(500+k*650,function(){cards.forEach(function(c,j){c.classList.toggle('on',j===k)});});});
         later(3500,function(){press(b.querySelector('.x'),function(){unband(function(){again(settings,2600);});});});});});}
   ];
