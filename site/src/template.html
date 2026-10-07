@@ -160,33 +160,33 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 @keyframes blink{50%{opacity:0}}
 
 /* ---------- The install bar: appears once the opening has scrolled away ---------- */
-.topbar{position:fixed;top:0;left:0;right:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px max(24px,calc((100vw - 1180px)/2));background:#121214e0;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transform:translateY(-110%);transition:transform .4s var(--ease)}
+.topbar{position:fixed;top:0;left:0;right:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:.9em max(24px,calc((100vw - 1536px)/2));font-size:clamp(15px,1.05vw,20px);background:#121214e0;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transform:translateY(-110%);transition:transform .4s var(--ease)}
 .topbar.on{transform:none}
-.topbar .name{display:inline-flex;align-items:center;gap:8px;color:var(--text);font:500 17px var(--display);text-decoration:none}
-.topbar .name svg{width:32px;height:32px;margin:-6px -2px -6px -6px}
-.inst{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:9px;border:0;background:#f4f3f8;color:#141218;font:600 14px var(--sans);cursor:pointer}
+.topbar .name{display:inline-flex;align-items:center;gap:10px;color:var(--text);font:500 1.5em var(--display);letter-spacing:-.01em;text-decoration:none}
+.topbar .name svg{width:1.9em;height:1.9em;margin:-.35em -.12em -.35em -.35em}
+.inst{display:inline-flex;align-items:center;gap:9px;height:2.8em;padding:0 1.15em;border-radius:.65em;border:0;background:#f4f3f8;color:#141218;font:600 1em var(--sans);cursor:pointer}
 .inst:hover{background:#fff}
 .inst:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .inst svg{width:12px;height:12px;transition:transform .25s}
 .inst[aria-expanded="true"] svg{transform:rotate(180deg)}
-.pop{position:absolute;right:max(24px,calc((100vw - 1180px)/2));top:calc(100% + 8px);width:min(540px,calc(100vw - 32px));padding:18px;border-radius:14px;background:#17161c;box-shadow:0 30px 60px -20px #000;display:none}
+.pop{position:absolute;right:max(24px,calc((100vw - 1536px)/2));top:calc(100% + 8px);width:min(540px,calc(100vw - 32px));padding:18px;border-radius:14px;background:#17161c;box-shadow:0 30px 60px -20px #000;display:none}
 .pop.open{display:block}
 .pop p{margin:0;color:var(--muted);font-size:14px}
 .pop .cmds{margin-top:12px}
 
 /* ---------- The story: one big chat box, one feature at a time ---------- */
 .story{position:relative;height:calc(var(--n) * 90vh + 10vh);overflow-y:clip}
-.pin{--sc:var(--accent);position:sticky;isolation:isolate;top:0;height:100vh;display:flex;flex-direction:column;gap:20px;width:min(1600px,100%);margin:0 auto;padding:96px 32px 0;--z:clamp(15px,2.05vw,34px)}
+.pin{--sc:var(--accent);position:sticky;isolation:isolate;top:0;height:100vh;display:flex;flex-direction:column;gap:20px;width:min(1600px,100%);margin:0 auto;padding:116px 32px 0;--z:clamp(15px,2.05vw,34px)}
 .pin:before{content:"";position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:-1;pointer-events:none;background:radial-gradient(45% 40% at 50% 86%,color-mix(in srgb,var(--sc) 12%,transparent),transparent 72%),radial-gradient(#2a2733 1.1px,transparent 1.5px) 0 0/22px 22px;-webkit-mask-image:radial-gradient(60% 75% at 50% 60%,#000 35%,transparent);mask-image:radial-gradient(60% 75% at 50% 60%,#000 35%,transparent);transition:background .6s}
 .head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px}
-.caps{position:relative;flex:1;min-height:56px}
+.caps{position:relative;flex:1;min-height:1.2em;font-size:clamp(28px,3.9vw,64px)}
 .say{position:absolute;left:0;right:0;bottom:0;opacity:0;transform:translateX(-32px);transition:opacity .45s var(--ease),transform .8s var(--ease);pointer-events:none}
 .say.on{opacity:1;transform:none;pointer-events:auto}
-.say h3{margin:0;font:500 clamp(28px,3.4vw,44px)/1.1 var(--display);letter-spacing:-.02em;color:#f4f2ff;text-wrap:balance}
+.say h3{margin:0;font:500 clamp(28px,3.9vw,64px)/1.08 var(--display);letter-spacing:-.02em;color:#f4f2ff;text-wrap:balance}
 .say p{margin:0;color:#c3bfd2;font-size:17px;line-height:1.55;max-width:34em}
 .say kbd{font:inherit;padding:1px 6px;border-radius:5px;background:#2a2930;color:var(--text)}
 .go{display:flex;gap:2px;margin-right:-10px;flex-shrink:0}
-.go button{font:500 15px var(--display);color:var(--dim);background:none;border:0;padding:6px 10px;cursor:pointer;font-variant-numeric:tabular-nums;transition:color .3s}
+.go button{font:500 clamp(15px,1.15vw,19px) var(--display);color:var(--dim);background:none;border:0;padding:6px 10px;cursor:pointer;font-variant-numeric:tabular-nums;transition:color .3s}
 .go button:hover{color:var(--text)}
 .go button[aria-current="step"]{color:var(--sc)}
 .go button:focus-visible{outline:2px solid var(--sc);outline-offset:1px;border-radius:6px}
@@ -281,6 +281,9 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 @media (max-width:560px){.demo .dash .cache,.chip .dash .al{display:none}}
 .slot .dash,.slot .sett{margin-bottom:.8em;font-size:var(--z);border-radius:.8em;box-shadow:0 22px 50px -28px #000}
 .slot .dash{min-height:3.6em;padding:0 1.05em 0 1.15em}
+/* The judge's reason only fits when the bar is small, so the story and the hero leave it out and keep the cache. */
+.slot .dash .why,.demo .dash .why{display:none}
+.slot .dash .end,.demo .dash .end{margin-left:auto}
 .slot .away{display:none}
 .slot .back{animation:msg-in .5s var(--ease) both}
 .slot .sett{animation:msg-in .5s var(--ease) both}

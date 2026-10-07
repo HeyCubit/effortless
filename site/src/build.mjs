@@ -25,7 +25,7 @@ const heroArt = `<svg class="stars" viewBox="0 0 1000 600" preserveAspectRatio="
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 const TEST_NOTES = ["Releases can skip the local install"]
 const releases = JSON.parse(fs.readFileSync(repo + "/releases.json", "utf8")).filter(r => !/^A version /.test(r.note) && !TEST_NOTES.includes(r.note))
-const row = r => `<li>${esc(r.note)} <small>${esc(r.version)} · <time datetime="${esc(r.date)}">${esc(r.date)}</time></small></li>`
+const row = r => `<li>__SPARK__<b class="v">${esc(r.version)}</b><span class="n">${esc(r.note)}</span><time datetime="${esc(r.date)}">${esc(r.date)}</time></li>`
 const news = `<ol class="rel">${releases.slice(0, 10).map(row).join("")}</ol>` + (releases.length > 10 ? `<details class="more"><summary>Show all</summary><ol class="rel">${releases.slice(10).map(row).join("")}</ol></details>` : "")
 const map = {
   __STARS__: heroArt, 
@@ -41,7 +41,7 @@ if (/__[A-Z_]+__/.test(out)) throw Error('left: ' + out.match(/__[A-Z_]+__/)[0])
 fs.mkdirSync(repo + '/site', { recursive: true })
 fs.writeFileSync(repo + '/site/index.html', out)
 // What's new has its own page, at whats-new/. The main page forwards old #whats-new links there.
-let page = fs.readFileSync(new URL('./whats-new.html', import.meta.url), 'utf8').replace(/__SPARK__/g, mark).split('__ICON__').join(map.__ICON__).split('__WHATSNEW__').join(news)
+let page = fs.readFileSync(new URL('./whats-new.html', import.meta.url), 'utf8').split('__WHATSNEW__').join(news).replace(/__SPARK__/g, mark).split('__ICON__').join(map.__ICON__)
 if (/__[A-Z_]+__/.test(page)) throw Error('left: ' + page.match(/__[A-Z_]+__/)[0])
 fs.mkdirSync(repo + '/site/whats-new', { recursive: true })
 fs.writeFileSync(repo + '/site/whats-new/index.html', page)
