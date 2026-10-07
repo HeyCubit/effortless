@@ -320,15 +320,16 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .copy:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .copy.ok{color:var(--bog)}
 
-/* ---------- What's new: one row per release, newest first, from releases.json ---------- */
+/* ---------- What's new: a plain list, newest first, from releases.json ---------- */
 .news{max-width:1080px;margin:0 auto;padding:96px 24px 0;scroll-margin-top:64px}
 .news h2{margin:0;font:500 clamp(26px,3vw,36px)/1.1 var(--display);letter-spacing:-.02em;color:#f4f2ff}
-.rel{list-style:none;margin:24px 0 0;padding:0;display:grid;gap:10px;max-width:760px}
-.rel li{display:grid;grid-template-columns:88px minmax(0,1fr) auto;align-items:baseline;gap:18px;padding:14px 18px;border-radius:12px;background:#17161c}
-.rel .v{font:600 14px ui-monospace,"Cascadia Code",Consolas,monospace;color:var(--accent)}
-.rel .n{color:var(--text);font-size:15.5px}
-.rel time{color:var(--dim);font-size:13.5px;font-variant-numeric:tabular-nums}
-@media (max-width:560px){.rel li{grid-template-columns:minmax(0,1fr) auto;gap:4px 12px}.rel .n{grid-column:1/-1;order:3}}
+.rel{list-style:none;margin:20px 0 0;padding:0;max-width:720px;color:var(--text);font-size:15.5px;line-height:1.5}
+.rel li{margin:0 0 8px}
+.rel small{margin-left:.5em;color:var(--dim);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.more{margin-top:4px}
+.more summary{cursor:pointer;color:var(--muted);font-size:14px}
+.more summary:hover{color:var(--text)}
+.more .rel{margin-top:10px}
 
 /* ---------- Narrow screens ---------- */
 @media (max-width:960px){
@@ -518,7 +519,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 
   <section class="news" id="whats-new">
     <h2>What's new</h2>
-    <ol class="rel"><li><span class="v">1.35.80</span><span class="n">Update card: new versions are offered and installed from the bar</span><time datetime="2026-10-07">2026-10-07</time></li></ol>
+    <ol class="rel"><li>Update card: Update or Later, a white What's new link <small>1.35.92 · <time datetime="2026-10-07">2026-10-07</time></small></li><li>Update card buttons take clicks <small>1.35.90 · <time datetime="2026-10-07">2026-10-07</time></small></li><li>The update check runs on the first draw after any load <small>1.35.88 · <time datetime="2026-10-07">2026-10-07</time></small></li><li>Update check refreshes the marketplace over git every time <small>1.35.87 · <time datetime="2026-10-07">2026-10-07</time></small></li><li>Update check reads the GitHub API, not the cached raw file <small>1.35.86 · <time datetime="2026-10-07">2026-10-07</time></small></li><li>Update check falls back to the marketplace copy <small>1.35.84 · <time datetime="2026-10-07">2026-10-07</time></small></li><li>Uninstall has a bin and turns red on hover <small>1.35.82 · <time datetime="2026-10-07">2026-10-07</time></small></li><li>Settings say Compact alert at, not Swamped at <small>1.35.81 · <time datetime="2026-10-07">2026-10-07</time></small></li><li>Update card: new versions are offered and installed from the bar <small>1.35.80 · <time datetime="2026-10-07">2026-10-07</time></small></li></ol>
   </section>
 </main>
 
