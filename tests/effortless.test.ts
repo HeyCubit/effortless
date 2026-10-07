@@ -2142,6 +2142,34 @@ describe('running hot and judge down', () => {
 })
 
 describe('settings panel', () => {
+  test('Test asks the picked judge one sample and says if it answered, or why not', { options: { layout: 'default' } } as never, async ($, on) => {
+    engine(on, { TYPESAFE_API_KEY: 'k' })
+    mock.clock(on)
+    let status = 200
+    const toasts: string[] = []
+    on('ui.toast', (_$, e) => {
+      toasts.push(String(e))
+      return { value: undefined } as never
+    })
+    on('http.fetch', () => ({ value: { status, ok: status === 200, headers: {}, text: status === 200 ? jevReply('low') : 'no' } }))
+    await start($, on)
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    const band = await $.ui.mount(DESK_BAND)
+    await band.press({ key: 'dash-settings' })
+    await band.select({ key: 'settings-judge-pick', value: 'jev' })
+    await band.press({ key: 'settings-judge-test' })
+    const result = async () => (await band.findAll({ type: 'Text' })).map(t => t.text).find(t => /^[✓✗]/.test(t))
+    expect(await result()).toContain('✓ Jev answered: low in')
+    status = 401
+    await band.press({ key: 'settings-judge-test' })
+    expect(await result()).toBe('✗ Jev rejected the key (401)')
+    // A test warns nobody: no toast, no judge-down band.
+    expect(toasts).toEqual([])
+    await band.unmount()
+  })
+
   const start = async ($: Engine, on: On) => {
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
     on('command.register', () => ({ value: undefined }) as never)
