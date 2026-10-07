@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.82",
+    "date": "2026-10-07",
+    "note": "Uninstall has a bin and turns red on hover"
+  },
+  {
     "version": "1.35.81",
     "date": "2026-10-07",
     "note": "Settings say Compact alert at, not Swamped at"

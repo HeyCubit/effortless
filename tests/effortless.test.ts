@@ -3056,7 +3056,7 @@ describe('updates', () => {
     expect(await drawn(ui)).toContain('Appearance')
     await ui.press({ key: 'settings-uninstall' })
     expect(w.ran).toEqual([])
-    expect((await ui.find({ key: 'settings-uninstall' }))?.text).toContain('Press again')
+    expect(await drawn(ui)).toContain('Press again to uninstall')
     await ui.press({ key: 'settings-uninstall' })
     await settle()
     expect(w.ran).toEqual(['claude plugin uninstall effortless@effortless'])
