@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.101",
+    "date": "2026-10-07",
+    "note": "Solid Quick and Full icons; the switch slides on every click"
+  },
+  {
     "version": "1.35.100",
     "date": "2026-10-07",
     "note": "Compact bar: one Enter mark, drawn like Claude's"

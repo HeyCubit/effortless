@@ -1906,11 +1906,18 @@ export function rowIconSvg(kind: 'effort' | 'judge' | 'handoff' | 'show' | 'quic
     handoff: '<path d="M1.8 7H9.4M6.6 4.2L9.4 7L6.6 9.8"/><path d="M11.8 2.6V11.4"/>',
     // An eye.
     show: '<path d="M1.2 7C2.6 4.4 4.6 3.1 7 3.1S11.4 4.4 12.8 7C11.4 9.6 9.4 10.9 7 10.9S2.6 9.6 1.2 7Z"/><circle cx="7" cy="7" r="1.8"/>',
-    // A bolt: the quick handoff, done in seconds.
-    quick: '<path d="M8 1.6L3.4 7.8H7L6 12.4L10.6 6.2H7Z"/>',
-    // A pen: the full handoff, written out by your skill.
-    full: '<path d="M9.4 2.2L11.8 4.6L5 11.4L2 12L2.6 9Z"/><path d="M8 3.6L10.4 6"/>',
+    // Quick and Full are drawn solid below: an outline at 14 px was too thin to read.
+    quick: '',
+    full: '',
   }[kind]
+  if (kind === 'quick' || kind === 'full') {
+    const solid = kind === 'quick'
+      // A bolt: the quick handoff, done in seconds.
+      ? 'M8.6 1 2.8 8.2H6.6L5.4 13 11.2 5.8H7.4Z'
+      // A pen: the full handoff, written out by your skill.
+      : 'M10.2 1.5 12.5 3.8 5.3 11 2.3 11.7 3 8.7ZM9 2.7 11.3 5'
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><path d="${solid}" fill="${color}" stroke="${color}" stroke-width="0.6" stroke-linejoin="round"/></svg>`
+  }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision">${shapes}</g></svg>`
 }
 
@@ -2600,11 +2607,12 @@ export function kindSwitchSvg(kind: 'quick' | 'full', slideMs: number | null = n
     : ''
   // The track is the app's Select (white at 5%, a 1 px inset edge of white at 10%, 6 px corners), so the row reads as
   // one set; the knob sits 2 px inside it.
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${KIND_W}" height="${KIND_H}" viewBox="0 0 ${KIND_W} ${KIND_H}"><rect x=".5" y=".5" width="${KIND_W - 1}" height="${KIND_H - 1}" rx="5.5" fill="#ffffff" fill-opacity=".05" stroke="#ffffff" stroke-opacity=".1"/><rect x="${slide ? from : at(kind)}" y="2" width="${half - 2.5}" height="${KIND_H - 4}" rx="4" fill="#ececf0">${move}</rect></svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${KIND_W}" height="${KIND_H}" viewBox="0 0 ${KIND_W} ${KIND_H}"><rect x=".5" y=".5" width="${KIND_W - 1}" height="${KIND_H - 1}" rx="5.5" fill="#ffffff" fill-opacity=".05" stroke="#ffffff" stroke-opacity=".1"/><rect x="${slide ? from : at(kind)}" y="2" width="${half - 2.5}" height="${KIND_H - 4}" rx="4" fill="#ececf0">${move}</rect>${slide ? `<!--${kindFlipAt}-->` : ''}</svg>`
 }
 const KIND_SLIDE_MS = 300
 const KIND_SLIDE_DELAY_MS = 70
-// When the handoff bar's Quick | Full last changed, for the knob's slide.
+// When the handoff bar's Quick | Full last changed, for the knob's slide. Stamped into the slide's image too: going
+// back and forth drew the same image twice, and the app reused it without playing the slide again.
 let kindFlipAt = 0
 /** How long the bar's edges glow after Auto is switched on. */
 const AUTO_GLOW_MS = 2600
