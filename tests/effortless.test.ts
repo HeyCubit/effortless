@@ -2640,14 +2640,11 @@ describe('dashboard', () => {
     expect(dashboardLines({ ...base, cacheNow: null }).rest).toBe('')
   })
 
-  test('a new effort glows violet for a second, then fades to the band white', () => {
+  test('a new effort glows violet, then turns the band white in one redraw', () => {
     expect(flashColor(0)).toBe('#9b7bff')
     expect(flashColor(1000)).toBe('#9b7bff')
     expect(flashColor(null)).toBe('#d4d4d8')
-    expect(flashColor(3500)).toBe('#d4d4d8')
-    const mid = flashColor(2200)
-    expect(mid).not.toBe('#9b7bff')
-    expect(mid).not.toBe('#d4d4d8')
+    expect(flashColor(1800)).toBe('#d4d4d8')
   })
 
   test('desktop: the effort word lights up when the effort changes, then goes back to white', DASH, async ($, on) => {
