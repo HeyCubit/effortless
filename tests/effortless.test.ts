@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, compactTranscript, judgeBrightness, judgeFadeMs, judgeFadeSvg } from '../hooks/register'
+import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, compactTranscript, judgeBrightness, judgeFadeMs, judgeCoverSvg } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
@@ -1612,14 +1612,14 @@ describe('deciding glow', () => {
     for (const [phase, opacity] of measured) expect(Math.abs(judgeBrightness(phase) - opacity)).toBeLessThan(0.005)
     expect(Math.abs(judgeBrightness(1.3) - judgeBrightness(0.3))).toBeLessThan(1e-6)
   })
-  test('once the verdict is in the breath keeps its place and the rim fades over it, after the peak when it was rising', () => {
-    // Verdict on the dim part (32 ms into a 1600 ms breath): it rises to the peak at 800 ms, then fades.
+  test('once the verdict is in the breathing image is kept and a ring in the bar colour fades in over it, after the peak when rising', () => {
+    // Verdict on the dim part (32 ms into a 1600 ms breath): the cover waits for the peak at 800 ms, then fades in.
     expect(judgeFadeMs(32)).toBe(768 + 1100)
     expect(judgeFadeMs(1120)).toBe(1100)
-    const svg = judgeFadeSvg(32, 332)
-    expect(svg).toContain('.r{animation-delay:-0.332s}')
-    expect(svg).toContain('animation:o 1.868s linear -0.300s')
-    expect(svg).toContain('<g class="o"><g class="r">')
+    const cover = judgeCoverSvg(32)
+    expect(cover).toContain('animation:c 1.868s linear')
+    expect(cover).toContain('0%{opacity:0}41.11%{opacity:0')
+    expect(cover).toContain('stroke="#141416"')
   })
 })
 

@@ -2672,25 +2672,27 @@ export const judgeBrightness = (phase: number) => {
   const p = ((phase % 1) + 1) % 1
   return p < 0.5 ? 0.25 + 0.6 * easeInOut(p / 0.5) : 0.85 - 0.6 * easeInOut((p - 0.5) / 0.5)
 }
-/** The rim once the verdict is in: the breath keeps going where it was, and the whole rim fades out over it. While it
- * is still rising it first reaches its peak, so the fade is seen even when the verdict lands on the dim part of the
- * breath (fading from there went from almost nothing to nothing). Both clocks are set here, not by inPhase, which
- * would give the breath and the fade one shared delay. */
+/** The rim once the verdict is in. The breathing image stays exactly as it was (the same source, so the app keeps the
+ * same <img> running) and a ring in the bar's own colour fades in over it. Swapping in a new image made the breath jump:
+ * a new image starts a little late, once the app has decoded it, so its breath was out of step with the old one. The
+ * cover starts invisible, so starting late cannot show. While the breath is still rising the cover waits for the peak,
+ * so the fade is seen even when the verdict lands on the dim part of the breath. */
 const JUDGE_FADE_OUT_MS = 1100
 export const judgeFadeMs = (endedAt: number) => {
   const p = (((endedAt % JUDGE_GLOW_MS) + JUDGE_GLOW_MS) % JUDGE_GLOW_MS) / JUDGE_GLOW_MS
   return (p < 0.5 ? (0.5 - p) * JUDGE_GLOW_MS : 0) + JUDGE_FADE_OUT_MS
 }
-export function judgeFadeSvg(endedAt: number, nowMs: number): string {
+export function judgeCoverSvg(endedAt: number): string {
+  const W = AUTO_GLOW_W, H = AUTO_GLOW_H
   const total = judgeFadeMs(endedAt)
   const hold = ((total - JUDGE_FADE_OUT_MS) / total) * 100
-  const breath = (-(((nowMs % JUDGE_GLOW_MS) + JUDGE_GLOW_MS) % JUDGE_GLOW_MS) / 1000).toFixed(3)
-  const fade = (-Math.max(0, nowMs - endedAt) / 1000).toFixed(3)
-  return judgeGlowSvg()
-    .replace('</style>', `.r{animation-delay:${breath}s}.o{opacity:0;animation:o ${total / 1000}s linear ${fade}s}@keyframes o{0%{opacity:1}${hold.toFixed(2)}%{opacity:1;animation-timing-function:cubic-bezier(.3,0,.5,1)}100%{opacity:0}}</style>`)
-    .replace('<g class="r">', '<g class="o"><g class="r">')
-    .replace('</g></svg>', '</g></g></svg>')
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.c{opacity:1;animation:c ${total / 1000}s linear}@keyframes c{0%{opacity:0}${hold.toFixed(2)}%{opacity:0;animation-timing-function:cubic-bezier(.5,0,.7,1)}100%{opacity:1}}</style><rect class="c" x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${DASH_BG}" stroke-width="12"/></svg>`
 }
+// The breathing image, made once per decision (judgeGlowFor is the verdict before it), and the cover for the last verdict:
+// kept so every redraw hands the app the same sources and no image restarts.
+let judgeGlowSource: string | null = null
+let judgeGlowFor = -1
+let judgeCover: { at: number; source: string } | null = null
 // When the judge last finished, for the fade.
 let judgeEndedAt = 0
 
@@ -2837,13 +2839,15 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
         </Box>
       ) : null}
       {/* While the judge decides, the rim breathes violet; once the verdict is in it fades out. */}
-      {Svg && v.judging ? (
+      {Svg && (v.judging || (judgeGlowSource && nowMs - judgeEndedAt < judgeFadeMs(judgeEndedAt))) ? (
+        // The same slot while deciding and while fading, and the same source once the verdict is in: the image keeps running.
         <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={inPhase(judgeGlowSvg(), nowMs % JUDGE_GLOW_MS)} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+          <Svg source={v.judging && judgeGlowFor !== judgeEndedAt ? ((judgeGlowFor = judgeEndedAt), (judgeGlowSource = inPhase(judgeGlowSvg(), nowMs % JUDGE_GLOW_MS))) : judgeGlowSource!} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
-      ) : Svg && nowMs - judgeEndedAt < judgeFadeMs(judgeEndedAt) ? (
-        <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={judgeFadeSvg(judgeEndedAt, nowMs)} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+      ) : null}
+      {Svg && !v.judging && judgeGlowSource && nowMs - judgeEndedAt < judgeFadeMs(judgeEndedAt) ? (
+        <Box key="dash-judge-cover" position="absolute" top={0} left={0} right={0} bottom={0}>
+          <Svg source={(judgeCover?.at === judgeEndedAt ? judgeCover : (judgeCover = { at: judgeEndedAt, source: judgeCoverSvg(judgeEndedAt) })).source} alt="" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
       {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
