@@ -411,7 +411,7 @@ export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
 /** The parts of effortless a person can switch off: the footer's (setup) and the progress bar's (setup, settings).
  * The alerts (cold, swamp, running hot, judge down) and the line under replies always show; each alert has its own ✕.
  * An older hide list naming them is read without them. */
-export const HIDEABLE = ['handoff', 'timer', 'progress', 'sounds'] as const
+export const HIDEABLE = ['handoff', 'timer', 'reason', 'progress', 'sounds'] as const
 export type Hideable = (typeof HIDEABLE)[number]
 // What the app passed to register, so settings kept in the store can be laid over it at session start.
 let pluginOptions: Record<string, unknown> = {}
@@ -2092,7 +2092,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     cacheNow: drawn ? null : cacheShown,
     // Desktop draws the context as a ring and a figure (as the swamp band does); the terminal says it in words.
     contextPercent: e.surface === 'terminal' && lastContext && lastContext.window ? lastContext.percent : null,
-    reason,
+    reason: config.hide.includes('reason') ? '' : reason,
     last: await read($, lastTurn),
   })
   const toggleSettings = async () => {
@@ -2175,7 +2175,10 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
               </Box>
             ) : null}
             {cacheShown !== null ? (
-              <Text color={cacheShown === 0 ? ICE : (cacheColor(cacheShown) ?? DASH_DIM)}>{` cache ${cacheClock(cacheExpires - (await $.clock.now()))}`}</Text>
+              // A fixed width: the seconds tick, and a narrower digit must not shift the rest of the row.
+              <Box key="dash-cache-time" width={13} flexShrink={0}>
+                <Text color={cacheShown === 0 ? ICE : (cacheColor(cacheShown) ?? DASH_DIM)} wrap="truncate">{` cache ${cacheClock(cacheExpires - (await $.clock.now()))}`}</Text>
+              </Box>
             ) : null}
           </Box>
         ) : null}
@@ -2964,10 +2967,12 @@ Saved to ${out}.md and .json` }
       }
       const dirty = Object.keys(draft).length > 0
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
-      // Only the progress bar and its sounds can be switched off here: the alerts each have their own ✕, and the
-      // rest is the mod itself. A ticked box in plain text, dim when off: lighter than a row of white buttons.
+      // The cache timer, the judge's line (who picked and how sure), the progress bar and its sounds can be switched
+      // off here: the alerts each have their own ✕, and the rest is the mod itself. A ticked box in plain text, dim when off: lighter than a row of white buttons.
       const toggles = (
         [
+          ['timer', 'Cache timer'],
+          ['reason', 'Judge line'],
           ['progress', 'Progress'],
           ['sounds', 'Sounds'],
         ] as const
