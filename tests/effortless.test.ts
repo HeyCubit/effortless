@@ -3,6 +3,7 @@ import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, compactTranscript, judgeBrightness, judgeFadeMs, judgeFadeSvg } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
+import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
 
 
@@ -3022,5 +3023,50 @@ describe('agent panel', () => {
     expect(text).toContain('All done')
     expect(text).toContain('✓ 1 done')
     await pane.unmount()
+  })
+
+  test('the demo map shows the parts touched; a part opens to its files', async ($, on) => {
+    await start($, on)
+    await $.command.run({ command: 'effortless', args: 'agents demo' })
+    const pane = await $.ui.mount(PANE)
+    const text = await drawn(pane)
+    expect(text).toContain('Map')
+    expect(text).toContain('5 parts touched')
+    expect(text).toContain('map of 5 parts of the code')
+    // The main chat's own list is the total progress: 2 of 5 steps.
+    expect(text).toContain('2 of 5 steps')
+    expect(text).not.toContain('register.tsx')
+    await pane.press({ key: 'mod-hooks-press' })
+    const open = await drawn(pane)
+    expect(open).toContain('register.tsx')
+    expect(open).toContain('agents.tsx')
+    await pane.unmount()
+  })
+
+  test("a file the main chat reads lands on the map under its folder", async ($, on) => {
+    on('tool.call', () => ({ result: 'ok', isError: false }) as never)
+    on('fs.read', () => ({ value: "import { a } from '../types'" }) as never)
+    on('session.root', () => ({ value: '/proj' }) as never)
+    await start($, on)
+    await $.tool.call({ tool: 'Read', file_path: '/proj/hooks/x.ts' } as never)
+    await $.command.run({ command: 'effortless', args: 'agents' })
+    const pane = await $.ui.mount(PANE)
+    const text = await drawn(pane)
+    expect(text).toContain('1 part touched')
+    expect(text).toContain('hooks')
+    await pane.unmount()
+  })
+
+  test('imports, folders and links between parts', () => {
+    expect(relPath('C:\\proj\\hooks\\a.ts', 'C:/proj')).toBe('hooks/a.ts')
+    expect(relPath('/elsewhere/a.ts', '/proj')).toBeNull()
+    expect(importsOf('hooks/a.tsx', "import x from './b'\nimport type { T } from '../types'")).toEqual(['hooks/b', 'types'])
+    expect(importsOf('pkg/mod.py', 'from .util import x\nimport os')).toEqual(['pkg/util', 'os'])
+    expect(moduleOf('docs/agent-panel/mockups/x.mjs')).toBe('docs/agent-panel')
+    expect(moduleOf('README.md')).toBe('project')
+    let files = withTouch([], 'hooks/a.ts', false, 'main', 1, ['types'])
+    files = withTouch(files, 'types/index.d.ts', true, 'a1', 2, [])
+    expect(moduleLinks(files)).toEqual(['hooks>types'])
+    expect(files.find(f => f.path === 'types/index.d.ts')?.by).toEqual(['a1'])
   })
 })
