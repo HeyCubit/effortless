@@ -2162,10 +2162,10 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           <Box key="dash-ring" flexShrink={0} marginLeft={2} flexDirection="row" gap={1} alignItems="center"
             hover={{ scope: 'dash-cache', backgroundColor: HOVER_BOX }}>
             {lastContext && lastContext.window ? (
-              <>
+              <Box key="dash-ring-figure" flexDirection="row" gap={1} alignItems="center">
                 <Svg source={ringSvg(lastContext.percent, DASH_TEXT)} alt={`${Math.round(lastContext.percent)}% of context`} width={16} height={16} />
                 <Text color={DASH_TEXT}>{`${Math.round(lastContext.percent)}%`}</Text>
-              </>
+              </Box>
             ) : null}
             {cacheShown !== null ? (
               <Text color={cacheShown === 0 ? ICE : (cacheColor(cacheShown) ?? DASH_DIM)}>{` cache ${cacheLabel(cacheShown)}`}</Text>
@@ -2363,6 +2363,8 @@ export const register: Register = (on, options) => {
     // The cache countdown's clock. A timer started inside a request ends with that request, so it lives here.
     $.clock.every(CACHE_TICK_MS, () => void showCache($).catch(() => undefined))
     $.clock.every(CACHE_TICK_MS, () => void checkSwamp($).catch(() => undefined))
+    // Read the usage at once too, so the context ring is there from the start rather than a tick later.
+    void checkSwamp($).then(() => $.ui.invalidate('ui.render')).catch(() => undefined)
     // A written handoff is cleared and resent from here: a hook the turn waits on may not run commands. The progress
     // bar's sounds ride the same timer, so a chime never holds up the hook that queued it.
     handoffTimer?.cancel()
