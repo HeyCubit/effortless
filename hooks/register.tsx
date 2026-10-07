@@ -192,11 +192,14 @@ export function inPhase(svg: string, elapsedMs: number): string {
 }
 // How far the entrance on screen is, for introLayer.
 let introElapsed = 0
+// Set when a band replaces another, taken by the first draw of the new one.
+let introFresh = false
 async function introShows($: EngineInterface, kind: string): Promise<boolean> {
   const now = await $.clock.now()
   if (kind !== introKind) {
     introKind = kind
     introAt = now
+    introFresh = true
     $.clock.after(INTRO_MS + 100, () => $.ui.invalidate('ui.render'))
   }
   introElapsed = now - introAt
@@ -2102,8 +2105,14 @@ export function flashColor(ms: number | null): string {
 let flashWord: string | null = null
 let flashAt: number | null = null
 
-async function effortFlash($: EngineInterface, what: string, judging: boolean): Promise<string> {
+async function effortFlash($: EngineInterface, what: string, judging: boolean, entering = false): Promise<string> {
   const now = await $.clock.now()
+  // The dashboard coming back (after Handoff, settings or an alert) takes the word as it is: a change made while it was
+  // away is not a switch to point at.
+  if (entering && !judging) {
+    flashWord = what
+    flashAt = null
+  }
   if (!judging) {
     if (flashWord !== null && flashWord !== what) flashAt = now
     flashWord = what
@@ -2243,6 +2252,9 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   const { Box, Text, Button } = els
   const v = await snap($)
   await introShows($, 'dash')
+  // The first draw since another band stood here.
+  const entering = introFresh
+  introFresh = false
   const nowMs = await $.clock.now()
   if (autoSeen !== undefined && autoSeen !== v.auto) {
     autoFlipAt = nowMs
@@ -2320,7 +2332,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   if (e.surface === 'terminal')
     return terminalBand($, e, { key: 'dash', kind: 'calm', color: DASH_TEXT, bg: DASH_BG, edge: DASH_EDGE, title: head.replace(/^✦ /, ''), detail, buttons })
   const Svg = 'Svg' in els ? els.Svg : undefined
-  const wordColor = await effortFlash($, what, Boolean(v.judging))
+  const wordColor = await effortFlash($, what, Boolean(v.judging), entering)
   return (
     <Box key="dash" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
       backgroundColor={DASH_BG} borderStyle="round" borderColor={DASH_EDGE}>
