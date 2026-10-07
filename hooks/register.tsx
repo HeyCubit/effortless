@@ -526,7 +526,7 @@ let config: JudgeConfig = {
   bias: 0,
   floor: 'low',
   ceiling: 'max',
-  hide: [],
+  hide: ['reason'],
   swampAt: 50,
   layout: 'default',
   compactWith: 'haiku',
@@ -553,7 +553,8 @@ export function readConfig(options: unknown): JudgeConfig {
     layout: str(o.layout) === 'minimal' ? 'minimal' : 'default',
     compactWith: str(o.compactWith) === 'session' ? 'session' : 'haiku',
     modelAuto: str(o.modelAuto) === 'off' ? 'off' : 'on',
-    hide: str(o.hide)
+    // The judge's line is off until switched on; an empty string saved from the panel means everything shows.
+    hide: (o.hide === undefined ? 'reason' : str(o.hide))
       .split(',')
       .map(part => part.trim())
       .filter((part): part is Hideable => (HIDEABLE as readonly string[]).includes(part)),
@@ -2648,18 +2649,17 @@ const COLD_GLOW_MS = 4200
  * cache path (…/plugins/cache/<marketplace>/effortless/<version>). */
 const pluginId = ($: EngineInterface) => `effortless@${$.plugin.root.match(/cache[\\/]([^\\/]+)[\\/]/)?.[1] ?? 'effortless'}`
 
-/** The rim lit in the brand's violet when the judge starts: two slow breaths, then dark. One fixed sequence that is
+/** The rim lit in the brand's violet when the judge starts: one slow breath, up and back to dark. One fixed sequence that is
  * started with the judge and neither waits for nor reacts to the verdict, the model or the effort, so there is nothing
- * to swap or restart and nothing that can jump. The source never changes while it plays, so the app keeps one image
- * running and a redraw leaves it alone. Longer decisions end dark; shorter ones play out. */
-export const JUDGE_SEQUENCE_MS = 3200
+ * to swap or restart. The app swaps the whole band on every redraw and a new image starts its animation over (tested in
+ * Chrome: same source or not), so every draw places it by the clock with inPhase. Longer decisions end dark. */
+export const JUDGE_SEQUENCE_MS = 2400
 export function judgeGlowSvg(): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${JUDGE_SEQUENCE_MS / 1000}s ease-in-out forwards}@keyframes r{0%{opacity:0}25%{opacity:.85}50%{opacity:.15}75%{opacity:.85}100%{opacity:0}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ACCENT}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#b9a7ff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${JUDGE_SEQUENCE_MS / 1000}s ease-in-out forwards}@keyframes r{0%{opacity:0}50%{opacity:.85}100%{opacity:0}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ACCENT}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#b9a7ff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
 }
-// When the sequence last started (the judge starting); the source is built once per start.
+// When the sequence last started: the judge starting.
 let judgeStartedAt = -JUDGE_SEQUENCE_MS
-let judgeSource = ''
 
 export function coldGlowSvg(): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
@@ -2803,10 +2803,10 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           <Svg source={inPhase(autoGlowSvg(v.auto), nowMs - autoOnAt)} alt="auto glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
-      {/* The judge started: the violet rim plays its two breaths, whatever the verdict. */}
-      {Svg && judgeSource && nowMs - judgeStartedAt >= 0 && nowMs - judgeStartedAt < JUDGE_SEQUENCE_MS ? (
+      {/* The judge started: the violet rim plays its one breath, whatever the verdict. */}
+      {Svg && nowMs - judgeStartedAt >= 0 && nowMs - judgeStartedAt < JUDGE_SEQUENCE_MS ? (
         <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={judgeSource} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+          <Svg source={inPhase(judgeGlowSvg(), nowMs - judgeStartedAt)} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
       {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
@@ -3411,7 +3411,6 @@ Saved to ${out}.md and .json` }
     }
 
     judgeStartedAt = await $.clock.now().catch(() => Date.now())
-    judgeSource = judgeGlowSvg().replace("</svg>", `<!--${judgeStartedAt}--></svg>`)
     $.clock.after(JUDGE_SEQUENCE_MS + 100, () => $.ui.invalidate('ui.render'))
     await update($, isJudging, () => true)
     try {

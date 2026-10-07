@@ -1065,7 +1065,7 @@ describe('judge choice (plugin settings)', () => {
       bias: 0,
       floor: 'low',
       ceiling: 'max',
-      hide: [],
+      hide: ['reason'],
       swampAt: 50,
       layout: 'default',
       compactWith: 'haiku',
@@ -1606,14 +1606,12 @@ describe('compaction by Haiku', () => {
 })
 
 describe('deciding glow', () => {
-  test('one fixed sequence of two breaths that ends dark and plays once, whatever the verdict', () => {
+  test('one breath, up and back to dark, the same whatever the verdict; placed by the clock on every redraw', () => {
     const svg = judgeGlowSvg()
-    expect(JUDGE_SEQUENCE_MS).toBe(3200)
-    expect(svg).toContain('animation:r 3.2s ease-in-out forwards')
-    expect(svg).toContain('0%{opacity:0}25%{opacity:.85}50%{opacity:.15}75%{opacity:.85}100%{opacity:0}')
-    // Nothing in it depends on time, the model or the effort: the same source every call.
+    expect(JUDGE_SEQUENCE_MS).toBe(2400)
+    expect(svg).toContain('animation:r 2.4s ease-in-out forwards')
+    expect(svg).toContain('0%{opacity:0}50%{opacity:.85}100%{opacity:0}')
     expect(judgeGlowSvg()).toBe(svg)
-    expect(svg).not.toContain('animation-delay')
   })
 })
 
@@ -2366,11 +2364,11 @@ describe('settings panel', () => {
     await panel.press({ key: 'show-box-timer' })
     await panel.press({ key: 'show-box-reason' })
     expect(await panel.find({ key: 'show-box-sounds' })).toBeUndefined()
-    // The cache timer and the judge line can be switched off in the panel; no progress, sounds or alert.
+    // The judge line starts off, so its box switches it on; the cache timer goes off. No progress, sounds or alert.
     expect(await panel.find({ key: 'show-box-swamp' })).toBeUndefined()
     expect(set).toEqual([])
     await panel.press({ key: 'settings-save' })
-    expect(set).toContainEqual({ key: 'effortless.hide', value: 'timer,reason' })
+    expect(set).toContainEqual({ key: 'effortless.hide', value: 'timer' })
     expect(set).toContainEqual({ key: 'effortless.handoffSkill', value: 'session-handoff' })
     expect(set).toContainEqual({ key: 'effortless.effortBias', value: '1' })
     expect(set).toContainEqual({ key: 'effortless.effortFloor', value: 'medium' })
