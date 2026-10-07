@@ -1,8 +1,9 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, compactTranscript, judgeBrightness, judgeFadeMs, judgeFadeSvg } from '../hooks/register'
+import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, compactTranscript, judgeGlowSvg, JUDGE_SEQUENCE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
+import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
 
 
@@ -1064,7 +1065,7 @@ describe('judge choice (plugin settings)', () => {
       bias: 0,
       floor: 'low',
       ceiling: 'max',
-      hide: [],
+      hide: ['reason'],
       swampAt: 50,
       layout: 'default',
       compactWith: 'haiku',
@@ -1605,20 +1606,12 @@ describe('compaction by Haiku', () => {
 })
 
 describe('deciding glow', () => {
-  test('the fade starts from the brightness the breathing had, read off the same curve as the browser draws it', () => {
-    // Measured in Chrome: opacity at these points of one breath (.25 up to .85 and back, each half ease-in-out).
-    const measured: [number, number][] = [[0, 0.25], [0.1, 0.299], [0.2, 0.449], [0.3, 0.651], [0.4, 0.801], [0.5, 0.85], [0.6, 0.801], [0.8, 0.449], [0.97, 0.254]]
-    for (const [phase, opacity] of measured) expect(Math.abs(judgeBrightness(phase) - opacity)).toBeLessThan(0.005)
-    expect(Math.abs(judgeBrightness(1.3) - judgeBrightness(0.3))).toBeLessThan(1e-6)
-  })
-  test('once the verdict is in the breath keeps its place and the rim fades over it, after the peak when it was rising', () => {
-    // Verdict on the dim part (32 ms into a 1600 ms breath): it rises to the peak at 800 ms, then fades.
-    expect(judgeFadeMs(32)).toBe(768 + 1100)
-    expect(judgeFadeMs(1120)).toBe(1100)
-    const svg = judgeFadeSvg(32, 332)
-    expect(svg).toContain('.r{animation-delay:-0.332s}')
-    expect(svg).toContain('animation:o 1.868s linear -0.300s')
-    expect(svg).toContain('<g class="o"><g class="r">')
+  test('one breath, up and back to dark, the same whatever the verdict; placed by the clock on every redraw', () => {
+    const svg = judgeGlowSvg()
+    expect(JUDGE_SEQUENCE_MS).toBe(2400)
+    expect(svg).toContain('animation:r 2.4s ease-in-out forwards')
+    expect(svg).toContain('0%{opacity:0}50%{opacity:.85}100%{opacity:0}')
+    expect(judgeGlowSvg()).toBe(svg)
   })
 })
 
@@ -2371,11 +2364,11 @@ describe('settings panel', () => {
     await panel.press({ key: 'show-box-timer' })
     await panel.press({ key: 'show-box-reason' })
     expect(await panel.find({ key: 'show-box-sounds' })).toBeUndefined()
-    // The cache timer and the judge line can be switched off in the panel; no progress, sounds or alert.
+    // The judge line starts off, so its box switches it on; the cache timer goes off. No progress, sounds or alert.
     expect(await panel.find({ key: 'show-box-swamp' })).toBeUndefined()
     expect(set).toEqual([])
     await panel.press({ key: 'settings-save' })
-    expect(set).toContainEqual({ key: 'effortless.hide', value: 'timer,reason' })
+    expect(set).toContainEqual({ key: 'effortless.hide', value: 'timer' })
     expect(set).toContainEqual({ key: 'effortless.handoffSkill', value: 'session-handoff' })
     expect(set).toContainEqual({ key: 'effortless.effortBias', value: '1' })
     expect(set).toContainEqual({ key: 'effortless.effortFloor', value: 'medium' })
@@ -3022,5 +3015,50 @@ describe('agent panel', () => {
     expect(text).toContain('All done')
     expect(text).toContain('✓ 1 done')
     await pane.unmount()
+  })
+
+  test('the demo map shows the parts touched; a part opens to its files', async ($, on) => {
+    await start($, on)
+    await $.command.run({ command: 'effortless', args: 'agents demo' })
+    const pane = await $.ui.mount(PANE)
+    const text = await drawn(pane)
+    expect(text).toContain('Map')
+    expect(text).toContain('5 parts touched')
+    expect(text).toContain('map of 5 parts of the code')
+    // The main chat's own list is the total progress: 2 of 5 steps.
+    expect(text).toContain('2 of 5 steps')
+    expect(text).not.toContain('register.tsx')
+    await pane.press({ key: 'mod-hooks-press' })
+    const open = await drawn(pane)
+    expect(open).toContain('register.tsx')
+    expect(open).toContain('agents.tsx')
+    await pane.unmount()
+  })
+
+  test("a file the main chat reads lands on the map under its folder", async ($, on) => {
+    on('tool.call', () => ({ result: 'ok', isError: false }) as never)
+    on('fs.read', () => ({ value: "import { a } from '../types'" }) as never)
+    on('session.root', () => ({ value: '/proj' }) as never)
+    await start($, on)
+    await $.tool.call({ tool: 'Read', file_path: '/proj/hooks/x.ts' } as never)
+    await $.command.run({ command: 'effortless', args: 'agents' })
+    const pane = await $.ui.mount(PANE)
+    const text = await drawn(pane)
+    expect(text).toContain('1 part touched')
+    expect(text).toContain('hooks')
+    await pane.unmount()
+  })
+
+  test('imports, folders and links between parts', () => {
+    expect(relPath('C:\\proj\\hooks\\a.ts', 'C:/proj')).toBe('hooks/a.ts')
+    expect(relPath('/elsewhere/a.ts', '/proj')).toBeNull()
+    expect(importsOf('hooks/a.tsx', "import x from './b'\nimport type { T } from '../types'")).toEqual(['hooks/b', 'types'])
+    expect(importsOf('pkg/mod.py', 'from .util import x\nimport os')).toEqual(['pkg/util', 'os'])
+    expect(moduleOf('docs/agent-panel/mockups/x.mjs')).toBe('docs/agent-panel')
+    expect(moduleOf('README.md')).toBe('project')
+    let files = withTouch([], 'hooks/a.ts', false, 'main', 1, ['types'])
+    files = withTouch(files, 'types/index.d.ts', true, 'a1', 2, [])
+    expect(moduleLinks(files)).toEqual(['hooks>types'])
+    expect(files.find(f => f.path === 'types/index.d.ts')?.by).toEqual(['a1'])
   })
 })
