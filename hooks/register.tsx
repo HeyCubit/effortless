@@ -81,6 +81,13 @@ const isCompacting = atom({ plugin: 'effortless', key: 'isCompacting' } as const
 const compactAsk = atom({ plugin: 'effortless', key: 'compactAsk' } as const, false)
 // What is typed in that field. Kept here, not in state: a write per key would redraw the bar under the cursor.
 let compactNote = ''
+// When the compact bar opened: its first half second fades the swamped band's colours out (see compactFadeSvg).
+let compactOpenedAt = 0
+const COMPACT_FADE_MS = 450
+/** The swamped band's colours over the compact bar, fading to nothing: the band seems to turn from green to violet. */
+function compactFadeSvg(elapsedMs: number): string {
+  return inPhase(`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="240" viewBox="0 0 1600 240" preserveAspectRatio="none"><style>.f{animation:f ${COMPACT_FADE_MS / 1000}s ease-out forwards}@keyframes f{from{opacity:1}to{opacity:0}}</style><rect class="f" width="1600" height="240" fill="${BOG_BG}"/></svg>`, elapsedMs)
+}
 // The person closed the cold band; it comes back the next time the cache goes cold.
 // The test pane of /effortless try pane.
 const TRY_PANE = 'effortless-try'
@@ -1401,9 +1408,6 @@ async function openHandoffBar($: EngineInterface) {
 export function enterSvg(color: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5V7.2A1.8 1.8 0 0 1 9.7 9H2.8"/><path d="M5.3 6.4 2.7 9l2.6 2.6"/></g></svg>`
 }
-/** The app's text field is 159 px wide whatever its box (measured on tools/render-band), its Enter hint right after:
- * the window it shows through is the field's width in cells, so the hint is clipped. */
-const FIELD_CELLS = 21
 /** The compact bar's Compact: a white pill like the app's primary buttons, GO_CELLS wide. */
 const GO_CELLS = 12
 const GO_W = Math.round(GO_CELLS * 7.9)
@@ -1414,6 +1418,7 @@ function goPillSvg(): string {
 async function openCompact($: EngineInterface, e: { surface: string }) {
   if (e.surface === 'terminal') return compactCold($)
   compactNote = ''
+  compactOpenedAt = await $.clock.now()
   await update($, compactAsk, () => true)
 }
 async function closeHandoffBar($: EngineInterface) {
@@ -3897,22 +3902,33 @@ Saved to ${out}.md and .json` }
     if (e.surface !== 'terminal' && (await read($, compactAsk))) {
       const { Input } = $.ui.resolve(e)
       const go = () => compactCold($, compactNote)
+      const nowCompact = await $.clock.now()
+      // One redraw once the fade is over, to drop its layer.
+      if (nowCompact - compactOpenedAt < COMPACT_FADE_MS) $.clock.after(COMPACT_FADE_MS + 150 - (nowCompact - compactOpenedAt), () => $.ui.invalidate('ui.render'))
       return (
         <Box key="compact-bar" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="compact-art" position="absolute" top={-1} right={0} bottom={-1}>
             <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
           </Box>
+          {/* Opening from the swamped band: its green fades out over the violet, then the entrance sweep. */}
+          {nowCompact - compactOpenedAt < COMPACT_FADE_MS + 100 ? (
+            <Box key="compact-fade" position="absolute" top={-1} left={0} right={0} bottom={-1}>
+              <Svg source={compactFadeSvg(nowCompact - compactOpenedAt)} alt="" width={1600} height={240} />
+            </Box>
+          ) : null}
+          {introLayer({ Box, Svg }, 'compact', await introShows($, 'compact'))}
           {/* One line, as tall as the bands: the name, then the field and the buttons on the right. */}
           <Box key="compact-words" position="relative" flexShrink={0}>
             <Text color={ACCENT} bold>Compact</Text>
           </Box>
           <Box key="compact-controls" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end" alignItems="center" gap={1}>
             <Box position="absolute" top={0} left={0} />
-            {/* The field is laid in a box wider than the window it shows through: the Input's own Enter hint, a second
-                Enter beside the button's, falls outside and is clipped. */}
-            <Box key="compact-field" position="relative" width={FIELD_CELLS} height={1} flexShrink={0} overflow="hidden">
-              <Box position="absolute" top={0} left={0} width={FIELD_CELLS + 10}>
+            {/* The field shows through a window anchored right: its own Enter hint (a submit button 12 px wide, 6 px
+                after the field) is pushed past the window's right edge and clipped, whatever width the app gives the
+                field. Three cells out, one cell of padding back: the field ends 2 px inside, the hint starts 4 px out. */}
+            <Box key="compact-field" position="relative" width={48} height={1} flexShrink={0} overflow="hidden">
+              <Box position="absolute" top={0} right={-3} width={60} flexDirection="row" justifyContent="flex-end" paddingRight={1}>
                 <Input key="compact-note" placeholder="Summary (optional)" submitLabel={'​'}
                   onInput={v => { compactNote = v }} onSubmit={v => { compactNote = v; void go() }} />
               </Box>
