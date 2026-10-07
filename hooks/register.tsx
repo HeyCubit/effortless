@@ -126,6 +126,17 @@ const settingsOpen = atom({ plugin: 'effortless', key: 'settingsOpen' } as const
 const installedSkills = atom({ plugin: 'effortless', key: 'installedSkills' } as const, [])
 const settingsDraft = atom({ plugin: 'effortless', key: 'settingsDraft' } as const, {})
 const judgeDown = atom({ plugin: 'effortless', key: 'judgeDown' } as const, null)
+// Which part of the settings panel is open: null for the cards.
+type SettingsCard = 'effort' | 'judge' | 'handoff' | 'show'
+const settingsCard = atom({ plugin: 'effortless', key: 'settingsCard' } as const, null)
+/** The settings panel's parts: a card each on the overview, and what the part is for, said once it is open. */
+const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
+  { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits.' },
+  { id: 'judge', title: 'Judge', about: 'Who reads each prompt and picks the effort. Test checks it answers.' },
+  { id: 'handoff', title: 'Handoff', about: 'The skill that writes a full handoff, and when a chat counts as swamped.' },
+  { id: 'show', title: 'Show', about: 'How effortless looks and which parts it shows.' },
+]
+const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
 // The settings panel's judge test: running, or what it found. Null before a test and once the panel closes.
 const judgeTest = atom({ plugin: 'effortless', key: 'judgeTest' } as const, null)
 // The judge-down band was closed for this reason; a new reason shows it again.
@@ -1296,6 +1307,20 @@ export const HANDOFF_PROMPT = [
     'with the handoff only, no preamble or farewell.',
 ].join('\n')
 
+/** The full handoff when no skill of the person's is picked: a turn that may check git and save the handoff, then
+ * replies with it. Slower than the quick fork, and it leaves HANDOFF.md in the project for the next chat to read. */
+export const HANDOFF_FULL_PROMPT = [
+  'Write a handoff so this work can continue in a fresh chat that has no other context. You may use tools for this.',
+  '',
+  '1. Check the real state: git status, the last few commits, whether the branch is pushed, open PRs if gh is set up.',
+  '2. Rewrite HANDOFF.md in the project root from scratch (keep it under 80 lines): branch and open PRs, what is half done,',
+  '   next steps with the first one runnable, what only the user can do, and pointers to specs, plans and files.',
+  '   Never put secrets or environment values in it.',
+  '3. Reply with the handoff itself, in the same shape:',
+  '',
+  HANDOFF_PROMPT.split('\n').slice(2).join('\n').replace('Do not use tools. ', ''),
+].join('\n')
+
 /** The first message of the fresh chat: the handoff, then what to do with it. */
 export function handoffMessage(handoff: string, after: HandoffAfter, skill?: string): string {
   const ask =
@@ -1328,7 +1353,7 @@ let handoffThen: HandoffAfter = 'continue'
 async function startHandoff($: EngineInterface, full = false, after: HandoffAfter = config.handoffAfter) {
   if ((await read($, handoffStage)) !== null) return
   await update($, handoffStage, () => 'writing')
-  handoffFull = full && Boolean(config.handoffSkill)
+  handoffFull = full
   handoffThen = after
   handoffQueued = true
   await setHandoffCard($, 'writing', handoffFull)
@@ -1357,7 +1382,6 @@ async function closeHandoffBar($: EngineInterface) {
 
 /** Go in the handoff bar: keeps the choice for next time and starts the handoff. */
 async function goHandoff($: EngineInterface, choice: HandoffChoice) {
-  if (choice.kind === 'full' && !config.handoffSkill) return
   await $.store.set('handoffChoice', choice).catch(() => undefined)
   await closeHandoffBar($)
   await startHandoff($, choice.kind === 'full', choice.after)
@@ -1365,7 +1389,7 @@ async function goHandoff($: EngineInterface, choice: HandoffChoice) {
 
 /** What the handoff does, by the choice: who writes it, then what follows. */
 export function handoffWhat(choice: HandoffChoice, skill: string): { by: string; then: string } {
-  const by = choice.kind === 'full' ? `/${skill}, slower` : 'Done in seconds'
+  const by = choice.kind === 'full' ? (skill ? `/${skill}, slower` : 'Checks git and saves HANDOFF.md, slower') : 'Done in seconds'
   const then =
     choice.after === 'copy'
       ? 'Copied, chat stays.'
@@ -1397,7 +1421,9 @@ async function writeHandoff($: EngineInterface) {
   handoffQueued = false
   try {
     if (handoffFull) {
-      await $.command.run({ command: config.handoffSkill, args: '' })
+      // The person's skill, or the built-in full prompt as a turn: either way its reply is the handoff.
+      if (config.handoffSkill) await $.command.run({ command: config.handoffSkill, args: '' })
+      else await $.prompt.submit({ text: HANDOFF_FULL_PROMPT })
       return
     }
     // The built-in handoff is written by a fork: the same model over this chat as it stands, its start read from the
@@ -3184,12 +3210,18 @@ Saved to ${out}.md and .json` }
       const close = async () => {
         await update($, settingsDraft, () => ({}))
         await update($, judgeTest, () => null)
+        await update($, settingsCard, () => null)
         await update($, settingsOpen, () => false)
         $.ui.invalidate('ui.render')
       }
       // The panel shows the draft over the saved settings; every control writes to the draft only.
       const draft = await read($, settingsDraft)
       const tested = await read($, judgeTest)
+      const card = await read($, settingsCard)
+      const openCard = (to: SettingsCard | null) => async () => {
+        await update($, settingsCard, () => to)
+        $.ui.invalidate('ui.render')
+      }
       const set = (field: keyof SettingsDraft) => async (value: string) => {
         await update($, settingsDraft, d => ({ ...d, [field]: value }))
         $.ui.invalidate('ui.render')
@@ -3208,6 +3240,13 @@ Saved to ${out}.md and .json` }
       }
       const dirty = Object.keys(draft).length > 0
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
+      const judgeName = shown.judge === 'custom' ? 'Your endpoint' : shown.judge === 'auto' ? `Auto · ${hasKey ? 'Jev' : 'Haiku'}` : shown.judge === 'jev' ? 'Jev' : 'Haiku'
+      const summaries: Record<SettingsCard, string> = {
+        effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}`,
+        judge: tested && tested.ok !== null ? `${judgeName} · ${tested.ok ? 'working' : 'failing'}` : judgeName,
+        handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · swamped at ${shown.swampAt}%`,
+        show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${4 - ['timer', 'reason', 'progress', 'sounds'].filter(h => hidden.includes(h)).length} of 4 on`,
+      }
       // The cache timer, the judge's line (who picked and how sure), the progress bar and its sounds can be switched
       // off here: the alerts each have their own ✕, and the rest is the mod itself. A ticked box in plain text, dim when off: lighter than a row of white buttons.
       const toggles = (
@@ -3302,7 +3341,35 @@ Saved to ${out}.md and .json` }
             <Button key="settings-close" plain label="✕" onPress={close} />
           </Box>
           <Box key="settings-spacer" height={roomy && !term ? 2 : 1} />
-          {frameOnly ? null : row('settings-bias', 'Effort', ICON_EFFORT, [
+          {frameOnly ? null : card === null ? (
+            // The overview: a card per part, what it is set to in a few words. A card opens that part alone.
+            <Box key="settings-cards" flexDirection="row" flexWrap="wrap" gap={1}>
+              {CARDS.map(c => (
+                <Box key={`card-${c.id}`} position="relative" flexDirection="column" flexGrow={1} width={0} minWidth={18}
+                  paddingX={1} borderStyle="round" borderColor={DASH_EDGE}>
+                  <Box flexDirection="row" gap={1} alignItems="center">
+                    {Svg && !term ? <Svg source={rowIconSvg(c.id, DASH_TEXT)} alt={c.title} width={14} height={14} /> : null}
+                    <Text color={DASH_TEXT} bold>{c.title}</Text>
+                  </Box>
+                  <Text dimColor wrap="truncate">{summaries[c.id]}</Text>
+                  {/* The click takes the title row, card wide: a button is one line high, and across both lines its hover
+                      box would cut through the words. */}
+                  <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="column" paddingTop={0.5}>
+                    <Button key={`settings-card-${c.id}`} plain label={'\u00a0'.repeat(60)} onPress={openCard(c.id)} />
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            // One part: Back, its name and what it does, then its controls.
+            <Box key={`settings-${card}`} flexDirection="column" gap={roomy && !term ? 1 : 0}>
+              <Box flexDirection="row" gap={1} alignItems="center">
+                <Button key="settings-back" plain label="‹ Back" onPress={openCard(null)} />
+                <Text color={DASH_TEXT} bold>{CARDS.find(c => c.id === card)?.title}</Text>
+                <Text dimColor wrap="truncate">{CARDS.find(c => c.id === card)?.about}</Text>
+              </Box>
+              <Box flexDirection="row" flexWrap="wrap" gap={1} alignItems="center">
+                {card === 'effort' ? [
             <Text key="cheap" dimColor>Cheaper</Text>,
             <Box key="track" flexDirection="row" alignItems="center">
               {track}
@@ -3315,8 +3382,7 @@ Saved to ${out}.md and .json` }
                   <Select key="settings-floor" label="Min" value={shown.floor} options={opts(EFFORTS)} onSelect={set('floor')} />,
                   <Select key="settings-ceiling" label="Max" value={shown.ceiling} options={opts(EFFORTS)} onSelect={set('ceiling')} />,
                 ]),
-          ])}
-          {frameOnly || bare ? null : row('settings-judge', 'Judge', ICON_JUDGE, [
+] : card === 'judge' ? (bare ? [] : [
             <Select key="settings-judge-pick" value={shown.judge} options={opts(['auto', 'haiku', 'jev', 'custom'])}
               onSelect={set('judge')} />,
             ...(shown.judge === 'jev' || shown.judge === 'auto'
@@ -3343,18 +3409,16 @@ Saved to ${out}.md and .json` }
             ...(tested && tested.ok !== null
               ? [<Text key="settings-judge-result" color={tested.ok ? '#7fd49b' : '#ff8a80'}>{`${tested.ok ? '✓' : '✗'} ${tested.text}`}</Text>]
               : []),
-          ])}
-          {frameOnly || bare ? null : row('settings-handoff', 'Handoff', ICON_HANDOFF, [
-            <Select key="settings-skill" label="Full by" value={shown.handoffSkill || '-'}
+]) : card === 'handoff' ? (bare ? [] : [
+            <Select key="settings-skill" label="Handoff skill" value={shown.handoffSkill || '-'}
               options={[
-                { value: '-', label: 'none, quick only' },
+                { value: '-', label: 'effortless (built in)' },
                 ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
               ]}
               onSelect={v => set('handoffSkill')(v === '-' ? '' : v)} />,
             <Select key="settings-swamp" label="Swamped at" value={shown.swampAt}
               options={SWAMP_STEPS.map(n => ({ value: String(n), label: `${n}%` }))} onSelect={set('swampAt')} />,
-          ])}
-          {frameOnly ? null : row('settings-show', 'Show', ICON_SHOW, [
+]) : [
             ...(bare
               ? []
               : [
@@ -3363,7 +3427,10 @@ Saved to ${out}.md and .json` }
                     onSelect={set('layout')} />,
                 ]),
             ...toggles,
-          ])}
+]}
+              </Box>
+            </Box>
+          )}
         </Box>
       )
     }
@@ -3376,7 +3443,6 @@ Saved to ${out}.md and .json` }
         // The write alone redraws the bar; a full invalidate redraws the art too, which flickers.
       }
       const { Select } = $.ui.resolve(e)
-      const fullReady = Boolean(config.handoffSkill)
       const what = handoffWhat(choice, config.handoffSkill)
       // Go is the one lit button: the picked kind is a quiet box, the other plain text. The app draws a hotkey's
       // letter faint on a grey button, so only the terminal gets letters there.
@@ -3399,18 +3465,10 @@ Saved to ${out}.md and .json` }
             { value: 'copy', label: 'Keep chat & copy' },
           ]}
           onSelect={v => setBar({ after: v as HandoffAfter })()} />,
-        // Full with no skill to run: the lit button takes you to the place to pick one, instead of a Go that does nothing.
-        choice.kind === 'full' && !fullReady ? (
-          <Button key="handoff-pick" variant="primary" autoFocus label="Pick a skill" onPress={async () => {
-            await closeHandoffBar($)
-            await openPluginSettings($)
-          }} />
-        ) : (
-          <Button key="handoff-go" variant="primary" autoFocus hotkey="g" label="Go" onPress={() => goHandoff($, choice)} />
-        ),
+        <Button key="handoff-go" variant="primary" autoFocus hotkey="g" label="Go" onPress={() => goHandoff($, choice)} />,
         <Button key="handoff-close" plain role="dismiss" label="✕" onPress={() => closeHandoffBar($)} />,
       ]
-      const line = choice.kind === 'full' && !fullReady ? 'Full runs your own handoff skill, and none is set yet.' : `${what.by}. ${what.then}`
+      const line = `${what.by}. ${what.then}`
       if (e.surface === 'terminal') return terminalPanel($, e, 'handoff-bar', '⇥ Handoff', line, controls)
       return (
         // The art is a still image here: an animated one sits in a frame the app rebuilds on every redraw, and the bar
