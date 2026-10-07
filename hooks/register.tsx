@@ -2410,7 +2410,8 @@ async function runUpdate($: EngineInterface, card: UpdateCard) {
     if (r.exitCode !== 0) throw new Error((r.stderr || r.stdout).trim().split('\n').pop() || `${argv.join(' ')} failed`)
   }
   try {
-    await step(['claude', 'plugin', 'marketplace', 'update', 'effortless'])
+    // This install's own marketplace: effortless for users, effortless-dev on the dev channel.
+    await step(['claude', 'plugin', 'marketplace', 'update', pluginId($).split('@')[1]])
     await step(['claude', 'plugin', 'update', pluginId($)])
   } catch (error) {
     await update($, updateCard, () => ({ ...card, stage: 'failed', detail: String(error instanceof Error ? error.message : error) }))
@@ -2635,8 +2636,24 @@ export function judgeGlowSvg(): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:.25;animation:r ${JUDGE_GLOW_MS / 1000}s ease-in-out infinite}@keyframes r{0%,100%{opacity:.25}50%{opacity:.85}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ACCENT}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#b9a7ff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
 }
-/** How bright the breathing rim is `phase` (0 to 1) of the way round its breath: the same curve as its keyframes. */
-const judgeBrightness = (phase: number) => 0.25 + 0.6 * (0.5 - 0.5 * Math.cos(2 * Math.PI * phase))
+/** CSS's ease-in-out, cubic-bezier(.42,0,.58,1): the progress at time t (0 to 1), by bisection on the curve's x. */
+export function easeInOut(t: number): number {
+  const at = (a: number, b: number, u: number) => 3 * (1 - u) * (1 - u) * u * a + 3 * (1 - u) * u * u * b + u * u * u
+  let lo = 0, hi = 1
+  for (let i = 0; i < 30; i++) {
+    const mid = (lo + hi) / 2
+    if (at(0.42, 0.58, mid) < t) lo = mid
+    else hi = mid
+  }
+  return at(0, 1, (lo + hi) / 2)
+}
+/** How bright the breathing rim is `phase` (0 to 1) of the way round its breath. The keyframes go .25 to .85 and back,
+ * each half eased by the browser's ease-in-out, so this follows that curve exactly (a sine was a little off, and the
+ * fade then began from a slightly different brightness: a visible hop). */
+export const judgeBrightness = (phase: number) => {
+  const p = ((phase % 1) + 1) % 1
+  return p < 0.5 ? 0.25 + 0.6 * easeInOut(p / 0.5) : 0.85 - 0.6 * easeInOut((p - 0.5) / 0.5)
+}
 /** The same rim fading out once the verdict is in, from the brightness it had at that moment (not from full, which
  * flashed it up first), slowly and in steps eased so it dies away softly. */
 const JUDGE_FADE_MS = 1500
@@ -2687,7 +2704,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
       : 'You pick the effort'
   // Desktop draws the cache after the context ring, grey, with a hover that explains both; the terminal says it inline.
   const drawn = e.surface !== 'terminal' && 'Svg' in els
-  const cacheShown = config.hide.includes('timer') ? null : v.cacheNow
+  // A cold cache is the cold band's to say; the resting bar shows the countdown only while there is one.
+  const cacheShown = config.hide.includes('timer') || (v.cacheNow !== null && v.cacheNow <= 0) ? null : v.cacheNow
   const { head, what, rest, detail } = dashboardLines({
     auto: v.auto,
     paused: Boolean(v.pausedNow),
@@ -3440,7 +3458,7 @@ Saved to ${out}.md and .json` }
         }
       }
     } finally {
-      judgeEndedAt = Date.now()
+      judgeEndedAt = await $.clock.now().catch(() => Date.now())
       await update($, isJudging, () => false)
     }
     return next(e)
