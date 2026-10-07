@@ -1853,6 +1853,17 @@ let probeLevel = 0
 let renderCalls = 0
 let lastRenderProps = ''
 let lastRenderBranch = ''
+// Every time the app asked for the band, with what it sent, written to ~/.claude/effortless-renders.log each second
+// (the last 300): how often the band is really redrawn in the app, which the render rig cannot see (hover flicker).
+const renderLog: string[] = []
+let renderLogWritten = 0
+async function writeRenderLog($: EngineInterface) {
+  if (renderLog.length === renderLogWritten) return
+  if (renderLog.length > 600) renderLog.splice(0, renderLog.length - 300)
+  renderLogWritten = renderLog.length
+  const home = (await envUserProfile($)) ?? (await envHome($))
+  if (home) await $.fs.write(`${home}/.claude/effortless-renders.log`, renderLog.slice(-300).join('\n') + '\n').catch(() => undefined)
+}
 let lastRenderAt = 0
 let lastRenderError = ''
 let sessionStarted = 0
@@ -2163,14 +2174,15 @@ const AUTO_GLOW_H = 37
  * for AUTO_GLOW_MS only (every redraw would replay it). Stretched across the band's width (preserveAspectRatio none: the
  * app scales a Svg to its box's width and keeps its height); drawn at about the band's real width so the sides stay
  * as thick as the top and bottom. Clipped to the bar's inside, so the light falls inward. */
-export const AUTO_GLOW_SVG = (() => {
+export function autoGlowSvg(on: boolean): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
   const rim = `x="0" y="0" width="${W}" height="${H}" rx="8"`
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${AUTO_GLOW_MS / 1000}s ease-in-out}@keyframes r{0%{opacity:0}15%{opacity:1}45%{opacity:.85}100%{opacity:0}}</style><defs><clipPath id="c"><rect ${rim}/></clipPath><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="2.6"/></filter><filter id="s" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation=".8"/></filter></defs><g class="r" clip-path="url(#c)"><rect ${rim} fill="none" stroke="${ACCENT}" stroke-width="7" opacity=".45" filter="url(#b)"/><rect ${rim} fill="none" stroke="#c9bfff" stroke-width="1.4" opacity=".55" filter="url(#s)"/></g></svg>`
-})()
+  const [wash, line, strength] = on ? [ACCENT, '#c9bfff', 1] : ['#8b8b93', '#c8c8d0', 0.6]
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${AUTO_GLOW_MS / 1000}s ease-in-out}@keyframes r{0%{opacity:0}15%{opacity:${strength}}45%{opacity:${(strength * 0.85).toFixed(2)}}100%{opacity:0}}</style><defs><clipPath id="c"><rect ${rim}/></clipPath><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="2.8"/></filter><filter id="s" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation=".8"/></filter></defs><g class="r" clip-path="url(#c)"><rect ${rim} fill="none" stroke="${wash}" stroke-width="8" opacity=".7" filter="url(#b)"/><rect ${rim} fill="none" stroke="${line}" stroke-width="1.8" opacity=".8" filter="url(#s)"/></g></svg>`
+}
 // When the bar last saw Auto off or on, when Auto came on (for the edge glow), and when it last changed (for the slide).
 let autoSeen: boolean | undefined
-let autoOnAt = 0
+let autoOnAt = -Infinity
 let autoFlipAt = 0
 
 /** The dashboard: what effortless is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
@@ -2184,10 +2196,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     autoFlipAt = nowMs
     // Redraw once the slide is over, so a later redraw draws the switch still.
     $.clock.after(AUTO_SLIDE_MS + 50, () => $.ui.invalidate('ui.render'))
-    if (v.auto) {
-      autoOnAt = nowMs
-      $.clock.after(AUTO_GLOW_MS + 100, () => $.ui.invalidate('ui.render'))
-    }
+    autoOnAt = nowMs
+    $.clock.after(AUTO_GLOW_MS + 100, () => $.ui.invalidate('ui.render'))
   }
   autoSeen = v.auto
   const effortNow = effortOf(v, v.modelNow ?? (await sessionModel($)))
@@ -2271,9 +2281,9 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           </Box>
         ) : null
       ) : null}
-      {Svg && v.auto && nowMs - autoOnAt < AUTO_GLOW_MS ? (
+      {Svg && nowMs - autoOnAt < AUTO_GLOW_MS && renderLog.push(`glow ${v.auto ? 'on' : 'off'} at ${nowMs - autoOnAt} ms`) ? (
         <Box key="dash-auto-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={inPhase(AUTO_GLOW_SVG, nowMs - autoOnAt)} alt="" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+          <Svg source={inPhase(autoGlowSvg(v.auto), nowMs - autoOnAt)} alt="" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
       {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
@@ -2547,6 +2557,7 @@ export const register: Register = (on, options) => {
             $.ui.invalidate('ui.render')
           }
         })
+      void writeRenderLog($).catch(() => undefined)
       void finishHandoff($).catch(() => undefined)
       void playProgressCues($).catch(() => undefined)
     })
@@ -3075,6 +3086,7 @@ Saved to ${out}.md and .json` }
     renderCalls++
     lastRenderAt = Date.now()
     lastRenderProps = JSON.stringify(e.props).slice(0, 200)
+    renderLog.push(`${new Date(lastRenderAt).toISOString()} ${lastRenderProps}`)
     try {
     if (e.props.hasSurvey) {
       lastRenderBranch = 'stepped aside: the app has a survey in this spot'
