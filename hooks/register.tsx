@@ -2056,6 +2056,9 @@ async function compactCard($: EngineInterface, working = false) {
   return card
 }
 
+/** The glow behind the white Handoff button: off until a design is checked on a faithful render of the desktop band
+ * (the last one looked far bigger and blurrier in the app than in its preview). */
+const HANDOFF_GLOW = false
 /** Context share from which the dashboard's Handoff button turns white: below it a handoff saves little. */
 const HANDOFF_LOUD_AT = 30
 const handoffLoud = () => (lastContext?.percent ?? 0) >= HANDOFF_LOUD_AT
@@ -2133,7 +2136,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           // No hotkey letter on grey, which the app draws faint.
           handoffLoud() ? (
             // No glow while a reply runs: the band redraws then, and each redraw restarted the glow, so it flickered.
-            'Svg' in els && e.surface !== 'terminal' && !e.props.isWorking ? (
+            HANDOFF_GLOW && 'Svg' in els && e.surface !== 'terminal' && !e.props.isWorking ? (
               // The glow sits in a layer the wrapper centres on the button and reaches past it (a Svg is at most as wide
               // as its box). The button goes in a box of its own made positioned by an empty absolute child, so it is
               // drawn over the glow: the desktop makes a Box relative only when it has absolute children.
