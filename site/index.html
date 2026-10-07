@@ -210,6 +210,8 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .slot .qf svg{width:1em;height:1em}
 .slot .band.gone{animation:msg-out .35s var(--ease) both}
 .win .demo-box{min-height:calc(var(--z) * 9);margin-bottom:calc(var(--z) * -4.5);padding:calc(var(--z) * 1.1) 70px 0 calc(var(--z) * 1.25);border-radius:calc(var(--z) * 1.1);background:#1b1a20;box-shadow:0 50px 100px -50px color-mix(in srgb,var(--sc) 50%,#000);transition:box-shadow .6s}
+/* The box fades out toward its bottom, so it never ends on a hard edge when the story scrolls away. */
+.win .demo-box{-webkit-mask-image:linear-gradient(#000 12%,transparent 50%);mask-image:linear-gradient(#000 12%,transparent 50%)}
 .win .demo-in{font-size:calc(var(--z) * 1.3);min-height:1.5em}
 .win .demo-send,.win .demo-foot{display:none}
 .win .demo-in .caret{height:1.1em;vertical-align:-.2em}
