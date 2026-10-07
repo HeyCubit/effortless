@@ -2315,7 +2315,8 @@ describe('progress bar', () => {
     })
     const played: string[] = []
     on('process.run', (_$, e) => {
-      played.push(e.argv.join(' '))
+      // Sounds only: the update check's claude plugin commands are not chimes.
+      if (e.argv[0] !== 'claude') played.push(e.argv.join(' '))
       return { value: { exitCode: 0, stdout: '', stderr: '' } } as never
     })
     on('audio.play', (_$, e) => {
@@ -2953,6 +2954,7 @@ describe('updates', () => {
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
     on('fs.read', (_$, e) => {
       if (String(e.path).replaceAll('\\', '/').endsWith('.claude-plugin/plugin.json')) return { value: JSON.stringify({ version: v.installed }) } as never
+      if (String(e.path).replaceAll('\\', '/').endsWith('marketplaces/effortless/releases.json')) return { value: JSON.stringify([{ version: v.latest, note: 'Quick and Full as one switch.' }]) } as never
       return { value: '' } as never
     })
     on('http.fetch', (_$, e) => {
