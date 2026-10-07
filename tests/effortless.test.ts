@@ -246,14 +246,14 @@ describe('model in use', () => {
     const switchTo = (from: string, to: string) =>
       $.classic.PostModelSwitch({ from_model: from, to_model: to, requested_model: null, source: 'picker', context_tokens: 0 } as never)
 
-    await switchTo('claude-opus-5-5', 'claude-haiku-4-5-20251001')
+    await switchTo('claude-opus-5-5', 'claude-haiku-5-5')
     await $.prompt.submit({ text: 'ok', wait: false, origin: { kind: 'composer' } })
     const ui = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
     await ui.redraw()
     expect((await ui.find({ key: 'm-haiku' }))?.text).toContain('Haiku')
 
     // The person picks Opus in the app.
-    await switchTo('claude-haiku-4-5-20251001', 'claude-opus-5-5')
+    await switchTo('claude-haiku-5-5', 'claude-opus-5-5')
     await ui.redraw()
     expect((await ui.find({ key: 'm-opus' }))?.text).toContain('Opus')
 
@@ -444,14 +444,14 @@ describe('footer text', () => {
   })
 
   test('on Haiku there is no effort to name', async ($, on) => {
-    engine(on, {}, 'claude-haiku-4-5-20251001')
+    engine(on, {}, 'claude-haiku-5-5')
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple"}')
     mock.clock(on)
     on('classic.PostModelSwitch', () => ({}) as never)
     const footer = await $.ui.mount(FOOTER)
     await $.classic.PostModelSwitch({
       from_model: 'claude-opus-5-5',
-      to_model: 'claude-haiku-4-5-20251001',
+      to_model: 'claude-haiku-5-5',
       requested_model: 'haiku',
       source: 'picker',
       context_tokens: 0,
@@ -1691,7 +1691,7 @@ describe('handoff', () => {
     await footer.unmount()
   })
 
-  test('a handoff card hangs under the newest reply: handing off, then landed, gone after the next reply', async ($, on) => {
+  test('a handoff card shows above the prompt, not under the reply: handing off, then landed, gone after the next message', async ($, on) => {
     handoffEngine(on)
     on('ui.copy', () => ({ value: { isCopied: true } }) as never)
     on('ui.render', { component: 'AssistantMessage' }, (h, e) => {
@@ -1709,17 +1709,27 @@ describe('handoff', () => {
     await bar.select({ key: 'handoff-after', value: 'copy' })
     await bar.press({ key: 'handoff-go' })
     await bar.unmount()
-    const during = await $.ui.mount(reply('Last reply.'))
+    // The first-run guide comes before the card: closed here.
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    const under = await $.ui.mount(reply('Last reply.'))
+    expect(await under.find({ key: 'reply-handoff' })).toBeUndefined()
+    await under.unmount()
+    const during = await $.ui.mount(DESK_BAND)
     expect(await drawn(during)).toContain('Handing off')
     await during.unmount()
     await mocked.advance(2500)
-    const landed = await $.ui.mount(reply('Last reply.'))
+    const landed = await $.ui.mount(DESK_BAND)
     expect(await drawn(landed)).toContain('Handoff copied')
+    expect(await landed.find({ key: 'card-close' })).toBeDefined()
     await landed.unmount()
+    await $.prompt.submit({ text: 'next', wait: false, origin: { kind: 'composer' } })
     await $.turn.complete({ turnId: 't2', answer: 'Next reply.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
-    const after = await $.ui.mount(reply('Next reply.'))
-    expect(await after.find({ key: 'reply-handoff' })).toBeUndefined()
-    await after.unmount()
+    // The card is gone: the band draws whatever else it has, or nothing.
+    const after = await $.ui.mount(DESK_BAND).catch(() => null)
+    expect(after ? await after.find({ key: 'reply-handoff' }) : undefined).toBeUndefined()
+    await after?.unmount()
     await footer.unmount()
   })
 
