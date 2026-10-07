@@ -50,7 +50,7 @@ const install = solo + '<div class="ways">'
   + `<div class="way way-cmd"><p class="way-k">${termIcon}Terminal</p><p class="way-t">Run one command.</p><button type="button" class="big term" data-copy="${term}" aria-label="Copy the install command">${copyIcon}<span>Copy command</span></button><p class="way-h"><code>${term}</code></p></div>`
   + '</div><p class="then">Then run <code>/reload-plugins</code> in Claude Code.</p>'
 // The opening's background: four broad stripes in the mark's three purples, bent like the strokes of the star and
-// running diagonally up the left side. Each is a ribbon that tapers to a point at both ends, as the mark's arms do.
+// running diagonally up the left side, their edges dissolving into grain like the wordmark's. Each is a ribbon that tapers to a point at both ends, as the mark's arms do.
 const ribbon = (ax, ay, bx, by, thick, bend) => {
   const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy), nx = -dy / len, ny = dx / len, N = 48, top = [], bot = []
   for (let i = 0; i <= N; i++) {
@@ -69,7 +69,7 @@ const stripes = [
 // Each stripe fades in from its lower end and out at its upper end, so none of them starts or stops on a hard edge.
 const grads = stripes.map(([ax, ay, bx, by, , , c, op], i) => `<linearGradient id="st${i}" gradientUnits="userSpaceOnUse" x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}"><stop offset=".08" stop-color="${c}" stop-opacity="0"/><stop offset=".42" stop-color="${c}" stop-opacity="${op}"/><stop offset=".62" stop-color="${c}" stop-opacity="${op}"/><stop offset=".95" stop-color="${c}" stop-opacity="0"/></linearGradient>`).join('')
 const paths = stripes.map(([ax, ay, bx, by, th, bend, , , dur], i) => `<path d="${ribbon(ax, ay, bx, by, th, bend)}" fill="url(#st${i})" style="animation-duration:${dur}s"/>`).join('')
-const waves = `<svg class="waves" viewBox="0 0 1000 600" preserveAspectRatio="xMinYMid slice" aria-hidden="true"><defs>${grads}</defs>${paths}</svg>`
+const waves = `<svg class="waves" viewBox="0 0 1000 600" preserveAspectRatio="xMinYMid slice" aria-hidden="true"><defs>${grads}<filter id="stgrain" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="1" seed="7" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="9" xChannelSelector="R" yChannelSelector="G" result="moved"/><feComponentTransfer in="noise" result="dots"><feFuncA type="discrete" tableValues="0 1 1 1"/></feComponentTransfer><feComposite in="moved" in2="dots" operator="in"/></filter></defs><g filter="url(#stgrain)">${paths}</g></svg>`
 const map = {
   __INSTALL__: install,
   __WAVES__: waves,
