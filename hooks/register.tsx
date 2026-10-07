@@ -2313,7 +2313,7 @@ async function installedVersion($: EngineInterface): Promise<string | undefined>
   }
 }
 /** Looks for a newer version and offers it, unless ✕ put that version away less than UPDATE_SNOOZE_MS ago. */
-// What the last check found, for /effortless update to say.
+// What the last check found, for /effortless update to say (installed, web, marketplace).
 let lastUpdateCheck = 'not checked yet'
 /** The newest release: releases.json on main over the web, else the marketplace's own copy of the repo after `claude
  * plugin marketplace update` (git, so it works where the host's web fetch is refused or cached). */

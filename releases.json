@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.85",
+    "date": "2026-10-07",
+    "note": "A version to try the update card on"
+  },
+  {
     "version": "1.35.84",
     "date": "2026-10-07",
     "note": "Update check falls back to the marketplace copy"
