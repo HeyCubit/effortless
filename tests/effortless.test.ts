@@ -246,14 +246,14 @@ describe('model in use', () => {
     const switchTo = (from: string, to: string) =>
       $.classic.PostModelSwitch({ from_model: from, to_model: to, requested_model: null, source: 'picker', context_tokens: 0 } as never)
 
-    await switchTo('claude-opus-5-5', 'claude-haiku-4-5-20251001')
+    await switchTo('claude-opus-5-5', 'claude-haiku-5-5')
     await $.prompt.submit({ text: 'ok', wait: false, origin: { kind: 'composer' } })
     const ui = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
     await ui.redraw()
     expect((await ui.find({ key: 'm-haiku' }))?.text).toContain('Haiku')
 
     // The person picks Opus in the app.
-    await switchTo('claude-haiku-4-5-20251001', 'claude-opus-5-5')
+    await switchTo('claude-haiku-5-5', 'claude-opus-5-5')
     await ui.redraw()
     expect((await ui.find({ key: 'm-opus' }))?.text).toContain('Opus')
 
@@ -444,14 +444,14 @@ describe('footer text', () => {
   })
 
   test('on Haiku there is no effort to name', async ($, on) => {
-    engine(on, {}, 'claude-haiku-4-5-20251001')
+    engine(on, {}, 'claude-haiku-5-5')
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple"}')
     mock.clock(on)
     on('classic.PostModelSwitch', () => ({}) as never)
     const footer = await $.ui.mount(FOOTER)
     await $.classic.PostModelSwitch({
       from_model: 'claude-opus-5-5',
-      to_model: 'claude-haiku-4-5-20251001',
+      to_model: 'claude-haiku-5-5',
       requested_model: 'haiku',
       source: 'picker',
       context_tokens: 0,
