@@ -1,3 +1,5 @@
+import { getTheme, tintHex } from './theme'
+
 // Art for the terminal's bands: a small Raster of `▀` cells, each two pixels tall (foreground on top, background
 // below). Pure functions of the kind and a frame count, so the art can be tested and blitted from a timer.
 
@@ -36,6 +38,21 @@ const PALETTE: Record<ArtKind, { ground: Rgb; deep: Rgb; light: Rgb; glow: Rgb }
   calm: { ground: hex('#141416'), deep: hex('#2a2a2f'), light: hex('#d4d4d8'), glow: hex('#6e6e76') },
   compacting: { ground: hex('#15121f'), deep: hex('#4a3f80'), light: hex('#e4dfff'), glow: hex('#a79cf7') },
   done: { ground: hex('#0f1c15'), deep: hex('#2f7a4c'), light: hex('#d8f5e3'), glow: hex('#5ec48a') },
+}
+
+// The violet kinds in the current theme; the rest are not touched by it. Cached per theme so a pixel does not recolour.
+const themed = new Map<string, (typeof PALETTE)[ArtKind]>()
+function paletteOf(kind: ArtKind) {
+  const base = PALETTE[kind]
+  if (getTheme() === 'violet' || (kind !== 'brand' && kind !== 'compacting')) return base
+  const key = `${getTheme()}-${kind}`
+  let p = themed.get(key)
+  if (!p) {
+    const turn = (c: Rgb): Rgb => hex(tintHex(`#${c.map(v => Math.round(v).toString(16).padStart(2, '0')).join('')}`))
+    p = { ground: turn(base.ground), deep: turn(base.deep), light: turn(base.light), glow: turn(base.glow) }
+    themed.set(key, p)
+  }
+  return p
 }
 
 // The done tick, as pixels on the 16 by 4 grid (x, y).

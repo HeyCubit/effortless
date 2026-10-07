@@ -1,6 +1,7 @@
 import type { AgentRec, AgentState, FileTouch, Progress, ProgressStep } from '../types'
 import { MARK_SVG } from './brand-mark'
-import { ART_H, ART_W, LOOKS, PILL_H, progressArtSvg, progressShare, progressTrackSvg, THINK_W, thinkingSvg } from './progress'
+import { accent, tintHex } from './theme'
+import { ART_H, ART_W, looks, PILL_H, progressArtSvg, progressShare, progressTrackSvg, THINK_W, thinkingSvg } from './progress'
 
 // The agent panel (docs/agent-panel/): a pane on the right with this chat and the subagents it sends off. Its own file,
 // like progress.tsx: the rules and the drawing live here, and what needs $ (the hooks, the state) is a short section in
@@ -22,7 +23,7 @@ const PHASE: Record<Exclude<AgentState, 'failed'>, Progress['phase']> = {
 }
 /** The one state the progress band has no look for: a red card, as the alert bands' red. */
 const FAILED = { color: '#e5534b', bg: '#1a0f0f', edge: '#6a2a26' }
-const lookOf = (s: AgentState) => (s === 'failed' ? FAILED : LOOKS[PHASE[s]])
+const lookOf = (s: AgentState) => (s === 'failed' ? FAILED : looks(PHASE[s]))
 
 /** How the whole chat stands, worst news first: someone waits on a tool, someone works, all done, or nothing ran. */
 export type Mood = 'waiting' | 'working' | 'done' | 'quiet'
@@ -99,7 +100,7 @@ const CORNER_MARK = MARK_SVG.replace('<g mask=', '<g opacity=".16" transform="ro
  * the same mood is the same image.
  */
 export function paneWashSvg(mood: Mood, w = 400, h = 900): string {
-  const c = mood === 'waiting' ? LOOKS.asking.color : mood === 'done' ? LOOKS.done.color : '#8f7ff0'
+  const c = mood === 'waiting' ? looks('asking').color : mood === 'done' ? looks('done').color : '#8f7ff0'
   const light = mood === 'waiting' ? '#f2c97a' : mood === 'done' ? '#b4f0c8' : '#b3a6ff'
   const strength = mood === 'quiet' ? 0.45 : mood === 'waiting' ? 0.6 : 1
   const f = (v: number) => v.toFixed(1)
@@ -318,11 +319,11 @@ function mapCard(d: AgentsDraw, modules: readonly Module[], links: readonly stri
         return (
           <Box key={`mod-${m.key}`} position="relative" flexDirection="column">
             <Box flexDirection="row">
-              <Text color={m.live.length ? ACCENT : DIM}>{isOpen ? '▾ ' : '▸ '}</Text>
+              <Text color={m.live.length ? accent() : DIM}>{isOpen ? '▾ ' : '▸ '}</Text>
               <Text color={TEXT} bold={m.live.length > 0}>{m.key}</Text>
               <Text dimColor>{`  ${m.files.length}`}</Text>
               <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden" />
-              <Text color={m.live.length ? ACCENT : DIM}>{lead}</Text>
+              <Text color={m.live.length ? accent() : DIM}>{lead}</Text>
             </Box>
             {isOpen
               ? m.files.map(file => {
@@ -332,7 +333,7 @@ function mapCard(d: AgentsDraw, modules: readonly Module[], links: readonly stri
                       <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
                         <Text color={worker ? '#ececf0' : TEXT} wrap="truncate">{file.path.split('/').pop()}</Text>
                       </Box>
-                      <Text color={worker ? ACCENT : DIM}>{worker ? `  ${worker.type}` : file.edited ? '  changed' : '  read'}</Text>
+                      <Text color={worker ? accent() : DIM}>{worker ? `  ${worker.type}` : file.edited ? '  changed' : '  read'}</Text>
                     </Box>
                   )
                 })
@@ -377,7 +378,6 @@ export type AgentsDraw = {
 }
 
 const TEXT = '#d4d4d8'
-const ACCENT = '#a79cf7'
 /** The pane's ground: the brand card's deep violet, as the bar's brand band (BRAND_BG). */
 const PANE_BG = '#15121f'
 const DIM = '#8b8b93'
@@ -388,7 +388,7 @@ const CARD_EDGE = '#2a2a2f'
 function header(d: AgentsDraw, agents: readonly AgentRec[]) {
   const { Box, Text, Svg } = d
   const mood = moodOf(agents)
-  const color = mood === 'waiting' ? LOOKS.asking.color : mood === 'done' ? LOOKS.done.color : TEXT
+  const color = mood === 'waiting' ? looks('asking').color : mood === 'done' ? looks('done').color : TEXT
   const pct = d.steps && d.steps.length > 1 ? Math.round(progressShare(d.steps) * 100) : overallPercent(agents)
   return (
     <Box key="agents-head" position="relative" flexDirection="column" paddingX={1} overflow="hidden"
@@ -404,7 +404,7 @@ function header(d: AgentsDraw, agents: readonly AgentRec[]) {
           <Box flexShrink={0} marginRight={1} alignItems="center">
             <Svg source={MARK_SVG} alt="effortless" width={18} height={18} />
           </Box>
-        ) : <Text color="#a79cf7" bold>✦ </Text>}
+        ) : <Text color={accent()} bold>✦ </Text>}
         <Text color={color} bold>{moodWord(agents)}</Text>
         {Svg && agents.length ? (
           <Box flexShrink={0} marginLeft={2} flexDirection="row" gap={1} alignItems="center">
@@ -509,7 +509,7 @@ export function cardArtSvg(phase: Progress['phase']): string {
 /** The finished agents, folded into one green card: the done band's look. Opens to list them. */
 function doneCard(d: AgentsDraw, done: readonly AgentRec[]) {
   const { Box, Text, Button, Svg } = d
-  const look = LOOKS.done
+  const look = looks('done')
   const isOpen = d.open === 'done'
   return (
     <Box key="agents-done" position="relative" flexDirection="column" paddingX={1} overflow="hidden"
@@ -557,7 +557,7 @@ export function agentsPane(d: AgentsDraw, agents: readonly AgentRec[]) {
   // One row of the desktop pane is about 19 px; the background is drawn a little taller than the body.
   const tall = Math.max(240, (d.rows + 2) * 19)
   return (
-    <Box key="agents" position="relative" flexDirection="column" height={d.rows} overflow="hidden" backgroundColor={PANE_BG}>
+    <Box key="agents" position="relative" flexDirection="column" height={d.rows} overflow="hidden" backgroundColor={tintHex(PANE_BG)}>
       {Svg ? (
         <Box key="agents-wash" position="absolute" top={0} left={0} right={0} bottom={0}>
           <Svg source={paneWashSvg(mood, 400, tall)} alt={`agents ${mood}`} width={400} height={tall} />

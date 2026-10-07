@@ -1,5 +1,6 @@
 import { atom, read, update } from 'claude-code'
 import type { On } from 'claude-code'
+import { tintHex } from './theme'
 
 import type { Progress, ProgressStep } from '../types'
 
@@ -14,6 +15,11 @@ export const MIN_STEPS = 3
 const SEGMENTS_MAX = 12
 
 // The brand purple, as in register.tsx, and the two signal sets: yellow when Claude asks, green when it is done.
+/** A phase's look in the current theme: the violet ones turn orange, the signal greens and yellows stay. */
+export const looks = (phase: Progress['phase']) => {
+  const l = LOOKS[phase]
+  return { color: tintHex(l.color), bg: tintHex(l.bg), edge: tintHex(l.edge) }
+}
 export const LOOKS: Record<Progress['phase'], { color: string; bg: string; edge: string }> = {
   planning: { color: '#a79cf7', bg: '#15121f', edge: '#4a3f80' },
   working: { color: '#a79cf7', bg: '#15121f', edge: '#4a3f80' },
@@ -277,7 +283,7 @@ export const THINK_W = 34
  * yet, so nothing pretends to fill. Fixed size, so its interactive frame fits it.
  */
 export function thinkingSvg(phase: Progress['phase'], w = THINK_W, h = PILL_H): string {
-  const look = LOOKS[phase]
+  const look = looks(phase)
   const r = h / 2
   const dots = [0, 1, 2]
     .map(i => `<circle class="dot" style="animation-delay:${(i * 0.18).toFixed(2)}s" cx="${6 + i * 11}" cy="${r}" r="3" fill="${look.color}"/>`)
@@ -304,7 +310,7 @@ export const PILL_H = 16
  * the same standing still.
  */
 export function progressTrackSvg(p: Progress): string {
-  const look = LOOKS[p.phase]
+  const look = looks(p.phase)
   const id = p.phase
   const W = 1000
   const H = 24
@@ -381,7 +387,7 @@ export const ART_H = 64
  * so its interactive frame always fits; one source per state.
  */
 export function progressArtSvg(phase: Progress['phase']): string {
-  const c = LOOKS[phase].color
+  const c = looks(phase).color
   // A fixed pseudo-random spread, so the same state always draws the same art.
   const spread = (count: number, salt: number) =>
     Array.from({ length: count }, (_, i) => {
@@ -502,7 +508,7 @@ export function progressTitle(p: Progress): string {
  */
 export function drawProgress(p: Progress, d: ProgressDraw) {
   const { Box, Text, Button } = d
-  const look = LOOKS[p.phase]
+  const look = looks(p.phase)
   const total = p.steps.length
   const step = currentStep(p.steps)
   const title = progressTitle(p)

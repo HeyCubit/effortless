@@ -3,6 +3,7 @@ import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
+import { setTheme, themedSvg, tint, tintHex } from '../hooks/theme'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
 
@@ -1070,6 +1071,7 @@ describe('judge choice (plugin settings)', () => {
       layout: 'default',
       compactWith: 'haiku',
       modelAuto: 'on',
+      theme: 'violet',
     })
     expect(readConfig({ swampAt: '20' })).toMatchObject({ swampAt: 20 })
     expect(readConfig({ swampAt: '33' }).swampAt).toBe(50)
@@ -3116,5 +3118,49 @@ describe('agent panel', () => {
     files = withTouch(files, 'types/index.d.ts', true, 'a1', 2, [])
     expect(moduleLinks(files)).toEqual(['hooks>types'])
     expect(files.find(f => f.path === 'types/index.d.ts')?.by).toEqual(['a1'])
+  })
+})
+
+describe('theme', () => {
+  test('readConfig reads orange and falls back to violet', () => {
+    expect(readConfig({ theme: 'orange' }).theme).toBe('orange')
+    expect(readConfig({ theme: ' orange ' }).theme).toBe('orange')
+    expect(readConfig({ theme: 'pink' }).theme).toBe('violet')
+    expect(readConfig({}).theme).toBe('violet')
+  })
+
+  test('orange turns the violets and leaves greys, greens, blues and yellows alone', () => {
+    try {
+      setTheme('orange')
+      const hue = (hex: string) => {
+        const n = parseInt(hex.slice(1), 16)
+        const [r, g, b] = [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]
+        const max = Math.max(r, g, b), d = max - Math.min(r, g, b)
+        const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+        return (h * 60 + 360) % 360
+      }
+      for (const violet of ['#a79cf7', '#b9a7ff', '#7c6cf0', '#4a3f80', '#15121f', '#9b7bff', '#e4dfff'])
+        expect(Math.abs(hue(tintHex(violet)) - 15) < 4).toBe(true)
+      for (const same of ['#ffffff', '#000000', '#141416', '#d4d4d8', '#8b8b93', '#2c2c31', '#7fe0a4', '#e0a33a', '#7cc4ff', '#e5534b', '#5d6a86'])
+        expect(tintHex(same)).toBe(same)
+      expect(tint('<stop stop-color="#a79cf7"/><path fill="#ffffff"/>')).toBe(`<stop stop-color="${tintHex('#a79cf7')}"/><path fill="#ffffff"/>`)
+    } finally {
+      setTheme('violet')
+    }
+  })
+
+  test('violet changes nothing and the Svg is left as it is', () => {
+    setTheme('violet')
+    const Svg = (p: Record<string, unknown>) => p
+    expect(tint('#a79cf7')).toBe('#a79cf7')
+    expect(themedSvg(Svg)).toBe(Svg)
+    try {
+      setTheme('orange')
+      const wrapped = themedSvg(Svg) as typeof Svg
+      expect(wrapped({ source: '<g fill="#a79cf7"/>' }).source).toBe(`<g fill="${tintHex('#a79cf7')}"/>`)
+      expect(wrapped({ source: 42 }).source).toBe(42)
+    } finally {
+      setTheme('violet')
+    }
   })
 })

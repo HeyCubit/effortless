@@ -51,6 +51,8 @@ export type SettingsDraft = {
   compactWith?: string
   /** on: a prompt the judge calls simple runs on a cheaper model than the chat's; off: always the chat's model. */
   modelAuto?: string
+  /** violet (the brand) or orange (Claude's). */
+  theme?: string
 }
 
 /** One step of the task the progress bar follows: a todo or a task. */

@@ -5,6 +5,7 @@ import type { AgentRec, Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, Set
 import { agentsPane, demoAgents, demoFiles, demoSteps, importsOf, relPath, toolLine, touchOf, withTouch, withWaits } from './agents'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
 import { MARK_SVG } from './brand-mark'
+import { accent, setTheme, themedEls, type ThemeName, THEMES, tintHex } from './theme'
 import { PILL_H, stepsFromTodos, thinkingSvg, THINK_W, withTaskCreated, withTaskUpdated } from './progress'
 
 // The ladders the two sliders walk, cheapest first.
@@ -22,12 +23,21 @@ const WEIGHT = { input: 1, write: 1.25, read: 0.1, out: 5 }
 // Changing effort between two requests keeps the prompt cache on these models only. On Fable 5.1 and older Opus
 // the next request rewrote 56-100% of the cache (measured), which costs more than any effort can save.
 export const cacheSafe = (modelId: string) => /(opus|sonnet)-5-5/.test(modelId)
-// The purple the effort in the footer is written in.
-const ACCENT = '#a79cf7'
-const BRAND_BG = '#15121f'
-const BRAND_EDGE = '#4a3f80'
+// The accent the effort in the footer is written in: the brand violet, or Claude orange when the theme says so.
+let ACCENT = accent()
+/** Takes the theme the settings name; the accent and every drawing follow it. */
+function applyTheme() {
+  setTheme(config.theme)
+  ACCENT = accent()
+  BRAND_BG = tintHex('#15121f')
+  BRAND_EDGE = tintHex('#4a3f80')
+  BRAND_HEAD = tintHex('#221c3a')
+  FLASH_COLOR = tintHex('#9b7bff')
+}
+let BRAND_BG = '#15121f'
+let BRAND_EDGE = '#4a3f80'
 // The settings panel's header bar: a shade lighter than the panel, so it reads as a title bar.
-const BRAND_HEAD = '#221c3a'
+let BRAND_HEAD = '#221c3a'
 // The box behind the level while it is hovered: the grey of the app's own pills.
 const HOVER_BOX = '#2b2b2f'
 const EFFORT_LABELS: Record<Effort, string> = { low: 'Low', medium: 'Medium', high: 'High', xhigh: 'XHigh', max: 'Max' }
@@ -503,6 +513,8 @@ export type JudgeConfig = {
   compactWith: 'haiku' | 'session'
   /** A prompt the judge calls simple runs on a cheaper model than the chat's (never a dearer one). */
   modelAuto: 'on' | 'off'
+  /** The accent colour of everything effortless draws: the brand violet or Claude orange. */
+  theme: ThemeName
 }
 
 /** The swamp thresholds the settings offer, in percent of the context window. */
@@ -531,6 +543,7 @@ let config: JudgeConfig = {
   layout: 'default',
   compactWith: 'haiku',
   modelAuto: 'on',
+  theme: 'violet',
 }
 
 /** The settings as the engine hands them over (defaults filled in), cleaned to the shape the judge reads. */
@@ -553,6 +566,7 @@ export function readConfig(options: unknown): JudgeConfig {
     layout: str(o.layout) === 'minimal' ? 'minimal' : 'default',
     compactWith: str(o.compactWith) === 'session' ? 'session' : 'haiku',
     modelAuto: str(o.modelAuto) === 'off' ? 'off' : 'on',
+    theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
     // The judge's line is off until switched on; an empty string saved from the panel means everything shows.
     hide: (o.hide === undefined ? 'reason' : str(o.hide))
       .split(',')
@@ -1583,6 +1597,7 @@ const SETTING_FIELDS = {
   layout: 'layout',
   compactWith: 'compactWith',
   modelAuto: 'modelAuto',
+  theme: 'theme',
 } as const
 
 async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELDS, value: string) {
@@ -1612,9 +1627,11 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     layout: config.layout,
     compactWith: config.compactWith,
     modelAuto: config.modelAuto,
+    theme: config.theme,
     [SETTING_FIELDS[field]]: value,
   }
   config = { ...readConfig(raw), typesafeKey: config.typesafeKey, customKey: config.customKey }
+  applyTheme()
   $.ui.invalidate('ui.render')
 }
 
@@ -1622,7 +1639,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
 const SAVED_CARD_MS = 2500
 /** The card after Save: the bar's own colours, one line, nothing moving. */
 function savedCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
-  const { Box, Text } = $.ui.resolve(e)
+  const { Box, Text } = themedEls($.ui.resolve(e))
   return (
     <Box key="saved" flexDirection="row" alignItems="center" gap={1} paddingX={1} backgroundColor={DASH_BG} borderStyle="round" borderColor={DASH_EDGE}>
       <Text color={ACCENT}>✓</Text>
@@ -2070,7 +2087,7 @@ let artFrameCount = 0
 
 /** A band's art on the terminal: a Raster on the right, moving for alert kinds; null where it has no room. */
 function bandArt($: EngineInterface, e: RenderInput<'AbovePrompt'>, kind: ArtKind) {
-  const els = $.ui.resolve(e)
+  const els = themedEls($.ui.resolve(e))
   const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 0
   if (e.surface !== 'terminal' || !('Raster' in els) || columns < ART_MIN_WIDTH) return null
   const { Box, Raster } = els
@@ -2105,7 +2122,7 @@ function bandArt($: EngineInterface, e: RenderInput<'AbovePrompt'>, kind: ArtKin
 /** A bar on the terminal (setup, handoff): the title and words on the left with the brand's still art beside them,
  * the controls on a row of their own that wraps, so nothing is cut at 80 columns. */
 function terminalPanel($: EngineInterface, e: RenderInput<'AbovePrompt'>, key: string, title: string, words: unknown, controls: unknown[]) {
-  const { Box, Text } = $.ui.resolve(e)
+  const { Box, Text } = themedEls($.ui.resolve(e))
   return (
     <Box key={key} flexDirection="column" paddingX={1} backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
       <Box flexDirection="row" gap={1} alignItems="center">
@@ -2127,7 +2144,7 @@ type TerminalBand = { key: string; kind: ArtKind; color: string; bg: string; edg
 /** An alert band on the terminal: title and buttons, the detail on a line of its own, art on the right, and the effort
  * row under it, so effort stays in sight while a band shows. */
 async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b: TerminalBand) {
-  const { Box, Text } = $.ui.resolve(e)
+  const { Box, Text } = themedEls($.ui.resolve(e))
   const { rows } = await effortRows($, e)
   return (
     <Box key={`${b.key}-col`} flexDirection="column">
@@ -2185,7 +2202,7 @@ const FLASH_MS = 1800
  * and every redraw rebuilds the band (images restart, buttons under a pointer are swapped), so keep them few. */
 const FLASH_STEPS: readonly (readonly [number, number])[] = [[1000, 0.15], [1160, 0.35], [1320, 0.55], [1480, 0.75], [1640, 0.9]]
 /** The glow: a stronger violet than the accent, so a switch is seen at a glance. */
-const FLASH_COLOR = '#9b7bff'
+let FLASH_COLOR = '#9b7bff'
 /** The effort word's colour `ms` after it changed: the glow, held, then easing out to the band's white. */
 export function flashColor(ms: number | null): string {
   if (ms === null || ms >= FLASH_MS) return DASH_TEXT
@@ -2281,7 +2298,7 @@ function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui
 /** The handoff or compact card: words, the moving art while it runs, green with a check once it has landed. `above` is
  * what sits over it (the reply it hangs under), or nothing for the band above the prompt. */
 function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> | RenderInput<'AbovePrompt'>, fresh: HandoffCard, above: unknown, onDismiss?: () => unknown) {
-  const { Box, Text, Svg, Button } = $.ui.resolve(e)
+  const { Box, Text, Svg, Button } = themedEls($.ui.resolve(e))
   const by = fresh.full ? 'Full' : 'Quick'
   const words = {
     writing: ['✦ Handing off…', `${by} handoff being written. ${fresh.full ? 'Your skill takes a little while.' : 'A few seconds.'}`],
@@ -2458,7 +2475,7 @@ async function runUpdate($: EngineInterface, card: UpdateCard) {
 }
 /** The update card above the prompt: the offer, the moving art while it updates, green once done. */
 function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card: UpdateCard) {
-  const { Box, Text, Svg, Button, Link } = $.ui.resolve(e)
+  const { Box, Text, Svg, Button, Link } = themedEls($.ui.resolve(e))
   const landed = card.stage === 'done'
   const words = {
     offer: [`✦ effortless ${card.version} is out`, card.note || 'A new version is ready.'],
@@ -2755,7 +2772,7 @@ let autoFlipAt = 0
 
 /** The dashboard: what effortless is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
 async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
-  const els = $.ui.resolve(e)
+  const els = themedEls($.ui.resolve(e))
   const { Box, Text, Button } = els
   const v = await snap($)
   await introShows($, 'dash')
@@ -2993,7 +3010,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
 /** The terminal's rows above the prompt (Effort steps, Auto, the model row when switched on) and, on any surface, the
  * judge's question when it suggests another model. The rows also sit under an alert band, so effort never goes away. */
 async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
-  const { Box, Text, Button } = $.ui.resolve(e)
+  const { Box, Text, Button } = themedEls($.ui.resolve(e))
   const v = await snap($)
   const { auto, autoModel, current, judging, wanted, shownByApp } = v
   const inUse = v.modelNow ?? (await sessionModel($))
@@ -3199,6 +3216,7 @@ export const register: Register = (on, options) => {
   firstDrawLogged = false
   drawsTimed = 0
   config = readConfig(options)
+  applyTheme()
   pluginOptions = options
   on('session.compact', async ($, e, next) => {
     // A subagent's own compaction, the session's model by choice: Claude Code's own.
@@ -3239,7 +3257,10 @@ export const register: Register = (on, options) => {
     // Which chat this load serves, and when it started: each chat has its own render log.
     loadedSession = String(sid).slice(0, 8)
     // Settings the app had no /config row for (see saveSetting), over the ones it passed in.
-    if (kept && typeof kept === 'object' && Object.keys(kept).length) config = readConfig({ ...pluginOptions, ...kept })
+    if (kept && typeof kept === 'object' && Object.keys(kept).length) {
+      config = readConfig({ ...pluginOptions, ...kept })
+      applyTheme()
+    }
     keyFromFile = kff === true
     await Promise.all([
       typeof storedAuto === 'boolean' ? update($, isAuto, () => storedAuto) : null,
@@ -3636,7 +3657,7 @@ Saved to ${out}.md and .json` }
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     // The dashboard look keeps all of this in the band above the prompt; the app's own footer shows.
     if (e.surface !== 'desktop' || config.layout === 'default') return next(e)
-    const { Box, Text, Button } = $.ui.resolve(e)
+    const { Box, Text, Button } = themedEls($.ui.resolve(e))
     const v = await snap($)
     const handoffNow = (await read($, handoffStage)) !== null
     const needsSetup = await read($, setupPending)
@@ -3771,7 +3792,7 @@ Saved to ${out}.md and .json` }
   })
 
   on('ui.render', { component: 'Pane', requestId: 'effortless-agents' }, async ($, e) => {
-    const els = $.ui.resolve(e)
+    const els = themedEls($.ui.resolve(e))
     const agents = await read($, agentsState)
     const open = await read($, agentsOpen)
     const rows = Math.max(12, e.props.scroll.bodyRows)
@@ -3796,7 +3817,7 @@ Saved to ${out}.md and .json` }
 
   on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
     if (config.hide.includes('line')) return next(e)
-    const { Box, Text } = $.ui.resolve(e)
+    const { Box, Text } = themedEls($.ui.resolve(e))
     const v = await snap($)
     const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
     const took = Math.max(1, Math.round(e.props.durationMs / 1000))
@@ -3822,7 +3843,7 @@ Saved to ${out}.md and .json` }
     // The handoff's and compact's cards are above the prompt (see compactCard), not under the reply.
     const warn = await turnWarning($)
     if (!warn || turnBusy()) return next(e)
-    const { Box, Text, Svg } = $.ui.resolve(e)
+    const { Box, Text, Svg } = themedEls($.ui.resolve(e))
     const drawn = await next(e)
     return (
       <Box key="reply" flexDirection="column" gap={1}>
@@ -3874,13 +3895,13 @@ Saved to ${out}.md and .json` }
       if (Date.now() - askedHere < 60_000 && !(await read($, settingsOpen))) await update($, settingsOpen, () => true)
     }
     lastRenderBranch = (await read($, settingsOpen)) ? 'drew the settings panel' : 'drew a band or nothing'
-    const { Box, Text, Button, Svg, Link } = $.ui.resolve(e)
+    const { Box, Text, Button, Svg, Link } = themedEls($.ui.resolve(e))
     // The settings panel: a branded header bar, then one compact row per setting, a dim hint at the end of each row.
     if (await read($, settingsOpen)) {
       // The app gives this slot maxRows rows and drops a taller tree whole, without a word. With gaps the panel is 12
       // rows (2 border, 2 header, 4 settings, 4 gaps); without, 7.
       const roomy = (typeof e.props.maxRows === 'number' ? e.props.maxRows : 12) >= 12
-      const { Input, Select } = $.ui.resolve(e)
+      const { Input, Select } = themedEls($.ui.resolve(e))
       const opts = (values: readonly string[]) => values.map(value => ({ value, label: value }))
       // The skills and commands installed here, to pick the handoff writer from: no typing, no file paths. A plugin
       // cannot open a file dialog, and a skill is run by its name anyway.
@@ -3920,6 +3941,7 @@ Saved to ${out}.md and .json` }
         layout: draft.layout ?? config.layout,
         compactWith: draft.compactWith ?? config.compactWith,
         modelAuto: draft.modelAuto ?? config.modelAuto,
+        theme: draft.theme ?? config.theme,
       }
       // Dirty only while the draft differs from what is saved: a control set back to its saved value is no change.
       const sameSet = (a: string, b: string) => a.split(',').filter(Boolean).sort().join() === b.split(',').filter(Boolean).sort().join()
@@ -4151,9 +4173,12 @@ Saved to ${out}.md and .json` }
                   <Select key="settings-layout" label="Look" value={shown.layout}
                     options={[{ value: 'default', label: 'Dashboard' }, { value: 'minimal', label: 'Minimal' }]}
                     onSelect={set('layout')} />,
+                  <Select key="settings-theme" label="Theme" value={shown.theme}
+                    options={[{ value: 'violet', label: 'Violet' }, { value: 'orange', label: 'Claude orange' }]}
+                    onSelect={set('theme')} />,
                 ]),
             ...toggles,
-            ...(bare ? [] : [uninstallButton($, $.ui.resolve(e))]),
+            ...(bare ? [] : [uninstallButton($, themedEls($.ui.resolve(e)))]),
 ]}
               </Box>
             </Box>
@@ -4165,7 +4190,7 @@ Saved to ${out}.md and .json` }
     // band's Handoff; Go keeps the choice for next time. Enter presses Go once the bar holds the keyboard.
     // The compact bar: an optional note for the summary, then Compact (or Enter).
     if (e.surface !== 'terminal' && (await read($, compactAsk))) {
-      const { Input } = $.ui.resolve(e)
+      const { Input } = themedEls($.ui.resolve(e))
       const go = () => compactCold($, compactNote)
       const nowCompact = await $.clock.now()
       // One redraw once the fade is over, to drop its layer.
@@ -4233,7 +4258,7 @@ Saved to ${out}.md and .json` }
         await update($, handoffPick, () => ({ ...choice, ...change }))
         // The write alone redraws the bar; a full invalidate redraws the art too, which flickers.
       }
-      const { Select } = $.ui.resolve(e)
+      const { Select } = themedEls($.ui.resolve(e))
       const what = handoffWhat(choice, config.handoffSkill)
       // Go is the one lit button: the picked kind is a quiet box, the other plain text. The app draws a hotkey's
       // letter faint on a grey button, so only the terminal gets letters there.
@@ -4320,7 +4345,7 @@ Saved to ${out}.md and .json` }
     // footer, then a word on what else is there. The choices are saved together at Done or ✕ (see setupDraft).
     const step = await read($, setupStep)
     if (step) {
-      const { Input, Select } = $.ui.resolve(e)
+      const { Input, Select } = themedEls($.ui.resolve(e))
       const draft = await read($, setupDraft)
       const shown = setupShown(draft, config)
       const pick = (field: keyof SettingsDraft, value: string) => update($, setupDraft, d => ({ ...d, [field]: value }))
