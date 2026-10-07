@@ -968,6 +968,13 @@ export function cacheLabel(minutesLeft: number): string {
   return `${minutesLeft - 1}m`
 }
 
+/** The dashboard's countdown to the second: "58:41", or "Cold" once it ran out. */
+export function cacheClock(msLeft: number): string {
+  if (msLeft <= 0) return '❄ Cold'
+  const s = Math.ceil(msLeft / 1000)
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+
 let cacheTtl: keyof typeof CACHE_TTL = '1h'
 let cacheExpires = 0
 /** Writes the minutes left when they changed; the session's one timer (started in session.start) calls it. */
@@ -2168,7 +2175,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
               </Box>
             ) : null}
             {cacheShown !== null ? (
-              <Text color={cacheShown === 0 ? ICE : (cacheColor(cacheShown) ?? DASH_DIM)}>{` cache ${cacheLabel(cacheShown)}`}</Text>
+              <Text color={cacheShown === 0 ? ICE : (cacheColor(cacheShown) ?? DASH_DIM)}>{` cache ${cacheClock(cacheExpires - (await $.clock.now()))}`}</Text>
             ) : null}
           </Box>
         ) : null}
@@ -2373,6 +2380,9 @@ export const register: Register = (on, options) => {
         redrawsOwed--
         $.ui.invalidate('ui.render')
       }
+      // The dashboard's cache countdown ticks by the second while the cache is warm.
+      if (cacheExpires > 0 && !config.hide.includes('timer'))
+        void $.clock.now().then(now => (now < cacheExpires + HANDOFF_POLL_MS ? $.ui.invalidate('ui.render') : undefined))
       void finishHandoff($).catch(() => undefined)
       void playProgressCues($).catch(() => undefined)
     })
