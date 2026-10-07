@@ -21,7 +21,9 @@ git config user.name selfcheck
 git config core.autocrlf false
 cp "$script" tools/release.sh
 echo '{ "version": "1.0.0" }' >.claude-plugin/plugin.json
-echo '[]' >releases.json
+# The version files come from the script itself, so a renamed release log keeps this check honest.
+bumped=$(grep '^bumped=(' tools/release.sh | cut -d= -f2 | tr -d '()')
+for b in $bumped; do [ -e "$b" ] || echo '[]' >"$b"; done
 printf -- '- `main`, version 1.0.0\n- notes\n' >HANDOFF.md
 echo 'mine v1' >hooks/mine.tsx
 echo 'theirs v1' >hooks/theirs.tsx
@@ -58,8 +60,9 @@ out=$(tools/release.sh --no-install --files hooks/mine.tsx -- "Ship mine" 2>&1);
 set -e
 check "release with --files succeeds" '[ $code -eq 0 ]' || echo "$out"
 committed=$(git show --name-only --format= HEAD | sort | tr '\n' ' ')
-check "commit holds the named file and the version files only" \
-  '[ "$committed" = ".claude-plugin/plugin.json HANDOFF.md hooks/mine.tsx releases.json " ]'
+expected=$(printf '%s\n' $bumped hooks/mine.tsx | sort | tr '\n' ' ')
+check "commit holds the named file and the version files only" '[ "$committed" = "$expected" ]' ||
+  echo "  committed: $committed"$'\n'"  expected:  $expected"
 check "HANDOFF.md commit takes the version line only" \
   'git show HEAD:HANDOFF.md | grep -q "version 1.0.1" && ! git show HEAD:HANDOFF.md | grep -q "another chat"'
 check "the other chat's work stays in the working tree" \
