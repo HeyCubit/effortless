@@ -1043,7 +1043,10 @@ async function checkSwamp($: EngineInterface) {
   const tokens = context.tokens ?? 0
   // The app may leave the percent out (or give 0) while it has the tokens and the window: work it out then.
   const percent = context.percent || (context.window ? (tokens / context.window) * 100 : 0)
+  const wasLoud = handoffLoud()
   lastContext = { tokens, window: context.window ?? 0, percent }
+  // The Handoff button turns white or grey with the context: redraw the band when it crosses the line.
+  if (handoffLoud() !== wasLoud) $.ui.invalidate('ui.render')
   await checkHot($, rateLimits ?? [])
   const over = percent >= config.swampAt
   const next = over ? tokens : null
@@ -2017,6 +2020,10 @@ async function compactCard($: EngineInterface) {
   return card
 }
 
+/** Context share from which the dashboard's Handoff button turns white: below it a handoff saves little. */
+const HANDOFF_LOUD_AT = 30
+const handoffLoud = () => (lastContext?.percent ?? 0) >= HANDOFF_LOUD_AT
+
 /** The dashboard: what effortless is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
 async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
   const els = $.ui.resolve(e)
@@ -2055,7 +2062,15 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     ),
     ...(config.hide.includes('handoff')
       ? []
-      : [<Button key="dash-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />]),
+      : [
+          // Always there, but loud only once a handoff starts to pay: grey on a fresh chat, white from HANDOFF_LOUD_AT.
+          // No hotkey letter on grey, which the app draws faint.
+          handoffLoud() ? (
+            <Button key="dash-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />
+          ) : (
+            <Button key="dash-handoff" variant="secondary" label="Handoff" onPress={() => openHandoffBar($)} />
+          ),
+        ]),
     // The terminal says it in a word; the desktop draws an icon, with this button laid blank over it to take the click.
     // No-break spaces, not braille blanks: some fonts draw U+2800 as a dot.
     <Button key="dash-settings" plain label={'Svg' in els && e.surface !== 'terminal' ? '   ' : 'Settings'} onPress={toggleSettings} />,
