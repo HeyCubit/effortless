@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook } from '../hooks/register'
+import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
 
@@ -2869,5 +2869,213 @@ describe('handoff look', () => {
     expect(handoffLook(30)).toMatchObject({ fill: '#ececf0', label: '#141416' })
     expect(handoffLook(80)).toEqual(handoffLook(30))
     expect(new Set(Array.from({ length: 31 }, (_, p) => JSON.stringify(handoffLook(p)))).size).toBe(31)
+  })
+})
+
+describe('a message typed while a turn runs', () => {
+  /** The judge answers with whatever `says.effort` holds at the time. */
+  function judgeSaysNow(on: On, says: { effort: string }) {
+    const asked: string[] = []
+    on('model.complete', (_$, e) => {
+      asked.push(e.prompt)
+      return { value: { isAnswered: true as const, text: `{"model":"opus","effort":"${says.effort}","why":"x"}`, usage: USAGE } }
+    })
+    return asked
+  }
+  /** One request of turn `turnId` at request `index`. */
+  async function stepOf($: Engine, turnId: string, index: number) {
+    for await (const _ of $.turn.step({ turnId, index, model: 'claude-opus-5-5', effort: 'high', messageCount: 1 })) {
+      // drain
+    }
+  }
+
+  test('a lower verdict never lowers the running turn; it takes the next one', async ($, on) => {
+    engine(on)
+    const says = { effort: 'high' }
+    const asked = judgeSaysNow(on, says)
+    const sent = recordSteps(on)
+    mock.clock(on)
+    on('turn.complete', () => ({ text: '' }) as never)
+
+    await $.prompt.submit({ text: 'refactor the whole auth module across the app', wait: false, origin: { kind: 'composer' } })
+    await stepOf($, 't1', 0)
+    says.effort = 'low'
+    await $.prompt.submit({ text: 'also rename the helper you made', wait: false, turnId: 't1', origin: { kind: 'composer' } } as never)
+    await stepOf($, 't1', 1)
+    await $.turn.complete({ turnId: 't1', answer: '', durationMs: 1, isAborted: false, reason: 'completed' } as never)
+    await stepOf($, 't2', 0)
+
+    expect(asked.length).toBe(2)
+    // The judge is told the message came in while the task ran.
+    expect(asked[1]).toContain('still working')
+    expect(sent.map(s => s.effort)).toEqual(['high', 'high', 'low'])
+  })
+
+  test('a higher verdict raises the running turn at once', async ($, on) => {
+    engine(on)
+    const says = { effort: 'low' }
+    judgeSaysNow(on, says)
+    const sent = recordSteps(on)
+
+    await $.prompt.submit({ text: 'fix the typo in the readme', wait: false, origin: { kind: 'composer' } })
+    await stepOf($, 't1', 0)
+    says.effort = 'high'
+    await $.prompt.submit({ text: 'actually go through every doc and fix them all', wait: false, turnId: 't1', origin: { kind: 'composer' } } as never)
+    await stepOf($, 't1', 1)
+
+    expect(sent.map(s => s.effort)).toEqual(['low', 'high'])
+  })
+
+  test('Auto switched off or on mid-turn leaves the running turn at its effort', async ($, on) => {
+    engine(on)
+    const says = { effort: 'high' }
+    judgeSaysNow(on, says)
+    const sent = recordSteps(on)
+    const auto = () => $.command.run({ command: 'effortless', args: 'auto' })
+
+    await $.prompt.submit({ text: 'refactor the whole auth module across the app', wait: false, origin: { kind: 'composer' } })
+    await stepOf($, 't1', 0)
+    expect(String((await auto()).text)).toContain('Auto off')
+    await stepOf($, 't1', 1)
+    expect(String((await auto()).text)).toContain('Auto on')
+    await stepOf($, 't1', 2)
+
+    expect(sent.map(s => s.effort)).toEqual(['high', 'high', 'high'])
+  })
+})
+
+describe('updates', () => {
+  const DESK = { options: { layout: 'default' } } as never
+  /** A session with `installed` on disk and `latest` on main; records what the mod runs. */
+  function world(on: On, v: { installed: string; latest: string; fails?: string }) {
+    engine(on)
+    const clock = mock.clock(on)
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('fs.read', (_$, e) => {
+      if (String(e.path).replaceAll('\\', '/').endsWith('.claude-plugin/plugin.json')) return { value: JSON.stringify({ version: v.installed }) } as never
+      return { value: '' } as never
+    })
+    on('http.fetch', (_$, e) => {
+      if (String(e.url).endsWith('releases.json'))
+        return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify([{ version: v.latest, date: '2026-10-07', note: 'Quick and Full as one switch.' }]) } } as never
+      return { value: { status: 404, ok: false, headers: {}, text: '' } } as never
+    })
+    const ran: string[] = []
+    on('process.run', (_$, e) => {
+      ran.push(e.argv.join(' '))
+      return { value: v.fails ? { exitCode: 1, stdout: '', stderr: v.fails } : { exitCode: 0, stdout: '', stderr: '' } } as never
+    })
+    const commands: string[] = []
+    on('command.run', (_$, e) => {
+      commands.push(`/${e.command}`)
+      return { text: 'ok' }
+    })
+    return { clock, ran, commands }
+  }
+  const settle = () => new Promise(resolve => setTimeout(resolve, 30))
+  /** Through the setup guide a first session opens, which takes the band before any card. */
+  async function pastSetup(ui: { find: (q: { key: string }) => Promise<unknown>; press: (q: { key: string }) => Promise<unknown> }) {
+    for (let i = 0; i < 6 && (await ui.find({ key: 'setup-close' })); i++)
+      await ui.press({ key: (await ui.find({ key: 'setup-haiku' })) ? 'setup-haiku' : 'setup-close' })
+  }
+  const start = ($: Engine) => $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+
+  test('versions compare by number and releases.json gives its newest entry', () => {
+    expect(isNewer('1.35.80', '1.35.79')).toBe(true)
+    expect(isNewer('1.36.0', '1.35.99')).toBe(true)
+    expect(isNewer('1.35.9', '1.35.10')).toBe(false)
+    expect(isNewer('1.35.79', '1.35.79')).toBe(false)
+    expect(latestRelease('[{"version":"1.2.3","note":"x"},{"version":"1.2.2"}]')).toEqual({ version: '1.2.3', note: 'x' })
+    expect(latestRelease('not json')).toBeUndefined()
+    expect(latestRelease('[{"version":"latest"}]')).toBeUndefined()
+  })
+
+  test('a newer version is offered; ✕ puts it away for a day, then it is offered again', DESK, async ($, on) => {
+    world(on, { installed: '1.0.0', latest: '1.0.1' })
+    await start($)
+    await settle()
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await pastSetup(ui)
+    expect(await drawn(ui)).toContain('effortless 1.0.1 is out')
+    expect((await ui.find({ key: 'update-go' }))?.text).toContain('Update')
+
+    await ui.press({ key: 'update-close' })
+    expect(await drawn(ui)).not.toContain('is out')
+    await start($)
+    await settle()
+    expect(await drawn(ui)).not.toContain('is out')
+
+    // A day later, or a newer version, comes back.
+    expect(updateSnoozed({ version: '1.0.1', at: 0 }, '1.0.1', 23 * 3600_000)).toBe(true)
+    expect(updateSnoozed({ version: '1.0.1', at: 0 }, '1.0.1', 25 * 3600_000)).toBe(false)
+    expect(updateSnoozed({ version: '1.0.1', at: 0 }, '1.0.2', 60_000)).toBe(false)
+    await ui.unmount()
+  })
+
+  test('nothing is offered when the installed version is the newest', DESK, async ($, on) => {
+    world(on, { installed: '1.0.1', latest: '1.0.1' })
+    await start($)
+    await settle()
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await pastSetup(ui)
+    expect(await drawn(ui)).not.toContain('update-card')
+    await ui.unmount()
+  })
+
+  test('Update runs the two claude plugin commands, reloads, and the new version says Updated with a link', DESK, async ($, on) => {
+    const v = { installed: '1.0.0', latest: '1.0.1' }
+    const w = world(on, v)
+    await start($)
+    await settle()
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await pastSetup(ui)
+    await ui.press({ key: 'update-go' })
+    await settle()
+    expect(w.ran).toEqual(['claude plugin marketplace update effortless', 'claude plugin update effortless@effortless'])
+    expect(w.commands).toContain('/reload-plugins')
+
+    // The reload: the new version on disk starts again.
+    v.installed = '1.0.1'
+    await start($)
+    await settle()
+    const text = await drawn(ui)
+    expect(text).toContain('Updated to 1.0.1')
+    expect(text).toContain('#whats-new')
+    await ui.unmount()
+  })
+
+  test('Uninstall in Appearance asks for a second press, then uninstalls and reloads', DESK, async ($, on) => {
+    const w = world(on, { installed: '1.0.1', latest: '1.0.1' })
+    on('ui.toast', () => ({ value: undefined }) as never)
+    await start($)
+    await settle()
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await pastSetup(ui)
+    await ui.press({ key: 'dash-settings' })
+    await ui.press({ key: 'settings-card-show' })
+    expect(await drawn(ui)).toContain('Appearance')
+    await ui.press({ key: 'settings-uninstall' })
+    expect(w.ran).toEqual([])
+    expect((await ui.find({ key: 'settings-uninstall' }))?.text).toContain('Press again')
+    await ui.press({ key: 'settings-uninstall' })
+    await settle()
+    expect(w.ran).toEqual(['claude plugin uninstall effortless@effortless'])
+    expect(w.commands).toContain('/reload-plugins')
+    await ui.unmount()
+  })
+
+  test('a failed update says why and offers to try again', DESK, async ($, on) => {
+    world(on, { installed: '1.0.0', latest: '1.0.1', fails: 'network down' })
+    await start($)
+    await settle()
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await pastSetup(ui)
+    await ui.press({ key: 'update-go' })
+    await settle()
+    const text = await drawn(ui)
+    expect(text).toContain('Update failed')
+    expect(text).toContain('network down')
+    expect((await ui.find({ key: 'update-go' }))?.text).toContain('Try again')
+    await ui.unmount()
   })
 })

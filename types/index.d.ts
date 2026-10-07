@@ -116,6 +116,8 @@ declare module 'claude-code' {
       lastTurn: { cost: number; ms: number } | null
       /** The handoff card under the newest reply, from the start of a handoff until the reply after it lands. */
       handoffCard: { kind: 'writing' | 'done' | 'copied'; full: boolean; at: number; seen: boolean } | null
+      /** A new version above the prompt: offered, updating, updated or failed, or null. */
+      updateCard: { stage: 'offer' | 'updating' | 'done' | 'failed'; version: string; note: string; at: number; detail?: string } | null
       /** The setup guide's step, or null when it is closed. */
       setupStep: 'pick' | 'jev' | 'custom' | 'lean' | 'handoff' | 'done' | null
       /** Choices made in the setup guide, saved together at Done or the cross. */
