@@ -2298,7 +2298,7 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
 /** Where the mod learns of a new version: the newest entry of releases.json on main, written by tools/release.sh. */
 // The API, not raw.githubusercontent.com: the raw file sits behind a cache that lagged two releases behind.
 const RELEASES_URL = 'https://api.github.com/repos/HeyCubit/effortless/contents/releases.json?ref=main'
-const WHATS_NEW_URL = 'https://heycubit.github.io/effortless/#whats-new'
+const WHATS_NEW_URL = 'https://heycubit.github.io/effortless/whats-new/'
 /** How often a session looks for a new version, and how long ✕ on the offer keeps it away. */
 const UPDATE_CHECK_MS = 6 * 3600_000
 const UPDATE_SNOOZE_MS = 24 * 3600_000

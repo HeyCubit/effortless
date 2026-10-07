@@ -3052,7 +3052,7 @@ describe('updates', () => {
     await settle()
     const text = await drawn(ui)
     expect(text).toContain('Updated to 1.0.1')
-    expect(text).toContain('#whats-new')
+    expect(text).toContain('/whats-new/')
     await ui.unmount()
   })
 
