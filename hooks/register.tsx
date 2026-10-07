@@ -2402,7 +2402,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
               <Box key="dash-handoff-box" flexShrink={0} flexDirection="row" alignItems="center">
                 <Box width={9} height={1} flexShrink={0} />
                 <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                  <els.Svg source={handoffPillSvg(lastContext?.percent ?? 0)} alt="" width={HANDOFF_PILL_W} height={HANDOFF_PILL_H} />
+                  <els.Svg source={handoffPillSvg(lastContext?.percent ?? 0)} alt="Handoff box" width={HANDOFF_PILL_W} height={HANDOFF_PILL_H} />
                 </Box>
                 <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
                   <Text color={handoffLook(lastContext?.percent ?? 0).label}>Handoff</Text>
@@ -3460,7 +3460,7 @@ Saved to ${out}.md and .json` }
                   // pair with room each side, as the cog's does.
                   <Box key="settings-back-box" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}
                     hover={{ backgroundColor: HOVER_BOX }}>
-                    <Svg source={`<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path d="M7.5 2.5 4 6l3.5 3.5" fill="none" stroke="${DASH_TEXT}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`} alt="" width={12} height={12} />
+                    <Svg source={`<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path d="M7.5 2.5 4 6l3.5 3.5" fill="none" stroke="${DASH_TEXT}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`} alt="Back" width={12} height={12} />
                     <Text color={DASH_TEXT} hover={{ color: '#ffffff' }}>Back</Text>
                     <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
                       <Button key="settings-back" plain hover={{ backgroundColor: '#00000000' }} label={' '.repeat(12)} onPress={openCard(null)} />
