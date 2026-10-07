@@ -2027,15 +2027,27 @@ const handoffLoud = () => (lastContext?.percent ?? 0) >= HANDOFF_LOUD_AT
 export function handoffGlowStep(percent: number): number {
   return percent < HANDOFF_LOUD_AT ? 0 : Math.min(5, 1 + Math.floor((percent - HANDOFF_LOUD_AT) / 10))
 }
-/** The glow behind the Handoff button: a blurred rounded rect the button's size, so it reads as light from the button.
- * Brighter, wider and quicker each step. Sized for a layer three cells past the button each side and a row above and
- * below (see the dashboard), centred on it. */
+/** The glow behind the Handoff button, one design per step, drawn on a screenshot of the real bar: a tight violet rim
+ * just past the button (about 121 by 32 px there), wider, softer and brighter each step, pulsing between a low and a
+ * peak. Centred on the button by the layer the dashboard puts it in. */
+const GLOW_LEVELS: ReadonlyArray<{ spread: number; blur: number; peak: number; low: number; core: number; period: number }> = [
+  { spread: 0, blur: 0, peak: 0, low: 0, core: 0, period: 0 },
+  { spread: 2, blur: 2, peak: 0.55, low: 0.25, core: 0, period: 3.4 },
+  { spread: 3, blur: 2.5, peak: 0.65, low: 0.3, core: 0, period: 2.8 },
+  { spread: 4, blur: 3, peak: 0.75, low: 0.35, core: 0.15, period: 2.3 },
+  { spread: 5, blur: 3.5, peak: 0.85, low: 0.4, core: 0.2, period: 1.9 },
+  { spread: 6, blur: 4, peak: 0.95, low: 0.45, core: 0.3, period: 1.5 },
+]
 export function handoffGlowSvg(step: number): string {
-  const peak = [0, 0.35, 0.5, 0.62, 0.75, 0.9][step]
-  const low = peak * 0.45
-  const period = [0, 3.4, 2.8, 2.3, 1.9, 1.5][step]
-  const blur = [0, 5, 5.5, 6, 6.5, 7][step]
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="64" viewBox="0 0 160 64"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.g{animation:p ${period}s ease-in-out infinite}@keyframes p{0%,100%{opacity:${low.toFixed(2)}}50%{opacity:${peak.toFixed(2)}}}</style><defs><filter id="b" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="${blur}"/></filter></defs><g class="g" filter="url(#b)"><rect x="18" y="15" width="124" height="34" rx="10" fill="${ACCENT}"/><rect x="24" y="20" width="112" height="24" rx="8" fill="#ffffff" opacity=".25"/></g></svg>`
+  const { spread: e, blur, peak, low, core, period } = GLOW_LEVELS[step]
+  const w = 121
+  const h = 32
+  const x = 80 - w / 2 - e
+  const y = 32 - h / 2 - e
+  const inner = core
+    ? `<rect x="${x + e / 2}" y="${y + e / 2}" width="${w + e}" height="${h + e}" rx="${8 + e / 2}" fill="#ffffff" opacity="${core}"/>`
+    : ''
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="64" viewBox="0 0 160 64"><style>.g{animation:p ${period}s ease-in-out infinite}@keyframes p{0%,100%{opacity:${low}}50%{opacity:${peak}}}</style><defs><filter id="b" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="${blur}"/></filter></defs><g class="g" filter="url(#b)"><rect x="${x}" y="${y}" width="${w + 2 * e}" height="${h + 2 * e}" rx="${8 + e}" fill="${ACCENT}"/>${inner}</g></svg>`
 }
 
 /** The dashboard: what effortless is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
@@ -2080,13 +2092,14 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           // Always there, but loud only once a handoff starts to pay: grey on a fresh chat, white from HANDOFF_LOUD_AT.
           // No hotkey letter on grey, which the app draws faint.
           handoffLoud() ? (
-            'Svg' in els && e.surface !== 'terminal' ? (
+            // No glow while a reply runs: the band redraws then, and each redraw restarted the glow, so it flickered.
+            'Svg' in els && e.surface !== 'terminal' && !e.props.isWorking ? (
               // The glow sits in a layer the wrapper centres on the button and reaches past it (a Svg is at most as wide
               // as its box). The button goes in a box of its own made positioned by an empty absolute child, so it is
               // drawn over the glow: the desktop makes a Box relative only when it has absolute children.
               <Box key="dash-handoff-wrap" flexDirection="row">
                 <Box key="dash-glow" position="absolute" top={-1} bottom={-1} left={-3} right={-3} alignItems="center" justifyContent="center">
-                  <els.Svg source={handoffGlowSvg(handoffGlowStep(lastContext?.percent ?? 0))} alt="handoff glow" width={160} height={64} isInteractive />
+                  <els.Svg source={handoffGlowSvg(handoffGlowStep(lastContext?.percent ?? 0))} alt="handoff glow" width={160} height={64} />
                 </Box>
                 <Box flexDirection="row">
                   <Box position="absolute" top={0} left={0} />
