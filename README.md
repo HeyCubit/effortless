@@ -9,13 +9,26 @@
   <a href="#pick-your-judge"><b>Judges</b></a>
 </p>
 
-A Claude Code mod that picks the reasoning effort for every prompt. Easy questions run on **Low**, hard jobs get
-**High**, and you never touch the Effort control. One bar above the prompt also shows how full the chat is, how long
+A Claude Code mod that picks the reasoning effort, and the model, for every prompt. Easy questions run on **Low**,
+often on **Haiku 5.5**; hard jobs get **High** on your own model, and you never touch the Effort control. One bar above the prompt also shows how full the chat is, how long
 the prompt cache stays warm, and hands off or compacts in one click when a chat gets heavy.
 
 <p align="center">
   <img src="docs/readme/story.gif" alt="effortless in a Claude Code chat: effort per prompt, Handoff, cold cache, heavy chat, limits and settings" width="100%">
 </p>
+
+## Powered by Haiku 5.5
+
+Haiku 5.5 costs about 75% less than Haiku 4.5, and Anthropic names compaction and quick, well-defined work among what
+it is built for. effortless uses it in three places:
+
+| | |
+|---|---|
+| **The judge** | reads each prompt and picks the effort and model, in about a second, on your own Claude login |
+| **Cheaper model when it can** | a prompt the judge calls simple runs on Haiku 5.5 (or Sonnet), never above your chat's model. Only that prompt moves: your chat stays on its model, and that model's cache stays warm for the next hard prompt. The bar shows it as `Low · Haiku` |
+| **Compaction** | every compaction, `/compact` and the automatic one included, is summarized by Haiku 5.5. If Haiku fails, Claude Code compacts as usual |
+
+Each can be switched off: Settings → Judge → Model, and Settings → Handoff → Compact with.
 
 ## Install
 
@@ -55,7 +68,7 @@ Updates come to you: when a new version is out, a card above the prompt offers *
 
 | On the bar | Means |
 |---|---|
-| **High** | the effort Auto picked for this prompt. `Deciding` while the judge thinks; a switch flashes violet and fades to white |
+| **High** | the effort Auto picked for this prompt. `Deciding` while the judge thinks; a switch flashes violet and fades to white. `· Haiku` after it: this prompt runs on a cheaper model |
 | **◔ 38%** | how full the chat's context is |
 | **cache 59:00** | time until the prompt cache goes cold, after which the next message pays full price to re-read the chat |
 | *Haiku: a refactor…* | who judged and why |

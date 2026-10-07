@@ -144,7 +144,7 @@ const settingsCard = atom({ plugin: 'effortless', key: 'settingsCard' } as const
 /** The settings panel's parts: a card each on the overview, and what the part is for, said once it is open. */
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits.' },
-  { id: 'judge', title: 'Judge', about: 'Who reads each prompt and picks the effort. Test checks it answers.' },
+  { id: 'judge', title: 'Judge', about: 'Who reads each prompt and picks the effort and model. Test checks it answers.' },
   { id: 'handoff', title: 'Handoff', about: 'The skill that writes a full handoff, and at what share of context to suggest compacting or handing off.' },
   { id: 'show', title: 'Appearance', about: 'How effortless looks and which parts it shows. Uninstall removes it.' },
 ]
@@ -261,7 +261,7 @@ const DONE_EDGE = '#2f7a4c'
 const JUDGE_SYSTEM = `You choose which Claude model and reasoning effort an agentic assistant (it reads files, runs tools and edits things, not only code) should use for the user's next message. Pick the cheapest pair that will still do the job well.
 
 Models, cheapest first:
-- haiku: trivial questions, lookups, renames, one-line edits, chit-chat.
+- haiku: quick questions, lookups, renames, small edits in one or two files, summaries, chit-chat. It can read files and run tools; pick it for any small, well-defined job.
 - sonnet: normal coding, edits across a few files, explanations, writing.
 - opus: hard debugging, architecture, large refactors, careful reviews.
 - fable: the hardest long-horizon or research-level work.
@@ -497,6 +497,8 @@ export type JudgeConfig = {
   layout: 'default' | 'minimal'
   /** Who writes a compaction's summary: Haiku 5.5 (the default, a fraction of the price) or the chat's own model. */
   compactWith: 'haiku' | 'session'
+  /** A prompt the judge calls simple runs on a cheaper model than the chat's (never a dearer one). */
+  modelAuto: 'on' | 'off'
 }
 
 /** The swamp thresholds the settings offer, in percent of the context window. */
@@ -524,6 +526,7 @@ let config: JudgeConfig = {
   swampAt: 50,
   layout: 'default',
   compactWith: 'haiku',
+  modelAuto: 'on',
 }
 
 /** The settings as the engine hands them over (defaults filled in), cleaned to the shape the judge reads. */
@@ -545,6 +548,7 @@ export function readConfig(options: unknown): JudgeConfig {
     swampAt: SWAMP_STEPS.includes(Number(str(o.swampAt)) as (typeof SWAMP_STEPS)[number]) ? Number(str(o.swampAt)) : 50,
     layout: str(o.layout) === 'minimal' ? 'minimal' : 'default',
     compactWith: str(o.compactWith) === 'session' ? 'session' : 'haiku',
+    modelAuto: str(o.modelAuto) === 'off' ? 'off' : 'on',
     hide: str(o.hide)
       .split(',')
       .map(part => part.trim())
@@ -1573,6 +1577,7 @@ const SETTING_FIELDS = {
   swampAt: 'swampAt',
   layout: 'layout',
   compactWith: 'compactWith',
+  modelAuto: 'modelAuto',
 } as const
 
 async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELDS, value: string) {
@@ -1601,6 +1606,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     swampAt: String(config.swampAt),
     layout: config.layout,
     compactWith: config.compactWith,
+    modelAuto: config.modelAuto,
     [SETTING_FIELDS[field]]: value,
   }
   config = { ...readConfig(raw), typesafeKey: config.typesafeKey, customKey: config.customKey }
@@ -2022,6 +2028,17 @@ let classicStart: { at: number; said: string } | null = null
 let coldForced = false
 let handoffTimer: { cancel: () => void } | undefined
 const HANDOFF_POLL_MS = 1000
+// The model this prompt's requests run on when the judge picked a cheaper one than the chat's, else null. The chat's
+// own model stays as it is: each request is sent to the cheaper model in turn.step, so the chat model's cache stays warm
+// for the next prompt that needs it.
+let routed: ModelKey | null = null
+const MODEL_RANK: ModelKey[] = ['haiku', 'sonnet', 'opus', 'fable']
+/** The model a verdict sends this prompt to: a cheaper one than the chat's, or null for the chat's own. Never Fable. */
+export function routeTo(verdict: ModelKey, inUse: ModelKey): ModelKey | null {
+  if (verdict === 'fable') return null
+  return MODEL_RANK.indexOf(verdict) < MODEL_RANK.indexOf(inUse) ? verdict : null
+}
+
 // When Haiku last wrote a compaction (for /effortless debug).
 let lastHaikuCompact = 0
 
@@ -2756,6 +2773,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           {/* A new effort shows in violet, then white (effortFlash): plain text in the app's font. An animated image of the
               word looked cheap: another font, a late start and a jump back to the text. */}
           <Text key="dash-level" color={wordColor} bold>{v.judging && Svg ? 'Deciding' : what}</Text>
+          {/* This prompt runs on a cheaper model than the chat's: its name, dim, after the effort. */}
+          {routed && v.auto && !v.judging ? <Text key="dash-model" color={DASH_DIM}>{` · ${MODELS.find(m => m.key === routed)!.label}`}</Text> : null}
           {/* While the judge decides: the progress bar's thinking dots, as a plain image (its CSS still runs, and a
               redraw does not restart it the way an interactive frame does). */}
           {v.judging && Svg ? (
@@ -3259,6 +3278,7 @@ export const register: Register = (on, options) => {
           `handoff: ${await read($, handoffStage)}`,
           `last fork: ${lastFork ? `${lastFork.outcome}, ${ago(lastFork.at)}` : 'none'}`,
           `hidden: ${config.hide.join(',') || 'nothing'}`,
+          `model: ${config.modelAuto === 'on' ? `cheaper when it can, now ${routed ?? 'the chat\'s'}` : 'always the chat\'s'}`,
           `compact with: ${config.compactWith}${lastHaikuCompact ? `, last by Haiku ${ago(lastHaikuCompact)}` : ''}`,
         ].join(' | '),
       }
@@ -3366,6 +3386,15 @@ Saved to ${out}.md and .json` }
             await choose($, applied)
           }
         }
+        // A prompt the judge calls simple runs on a cheaper model; a message typed mid-turn leaves the running choice.
+        if (!midTurn) {
+          const to = wantsEffort && config.modelAuto === 'on' ? routeTo(verdict.model, inUse) : null
+          if (to !== routed) {
+            routed = to
+            void proof($, to ? `this prompt runs on ${to} (the chat is on ${inUse})` : `back on ${inUse}`)
+            $.ui.invalidate('ui.render')
+          }
+        }
         if (wantsModel && verdict.model !== inUse && verdict.model !== declined) {
           await update($, suggestion, () => verdict.model)
           $.ui.toast(`Suggestion: switch to ${verdict.model}? /effortless switch or /effortless keep`)
@@ -3421,6 +3450,16 @@ Saved to ${out}.md and .json` }
         void proof($, `request ${e.index}: you set effort ${seen} yourself, Auto off`)
         return yield* send(e)
       }
+    }
+    // The judge put this prompt on a cheaper model: each of its requests goes there, at the picked effort.
+    if (e.agentId === undefined && routed && (await read($, isAuto))) {
+      const to = MODELS.find(m => m.key === routed)!.id
+      const picked = await read($, pick)
+      const effort = picked?.effort ?? e.effort
+      void proof($, `request ${e.index}: ${e.model} -> ${to} at ${effort}`)
+      const result = yield* send({ ...e, model: to, effort })
+      if (picked && picked.by !== 'manual' && result.usage) await tally($, picked.effort, result.usage)
+      return result
     }
     const p = e.agentId === undefined ? await read($, pick) : null
     // Haiku takes no effort: decided by the model this request names, never by a stored pick.
@@ -3707,6 +3746,7 @@ Saved to ${out}.md and .json` }
         swampAt: draft.swampAt ?? String(config.swampAt),
         layout: draft.layout ?? config.layout,
         compactWith: draft.compactWith ?? config.compactWith,
+        modelAuto: draft.modelAuto ?? config.modelAuto,
       }
       // Dirty only while the draft differs from what is saved: a control set back to its saved value is no change.
       const sameSet = (a: string, b: string) => a.split(',').filter(Boolean).sort().join() === b.split(',').filter(Boolean).sort().join()
@@ -3876,6 +3916,9 @@ Saved to ${out}.md and .json` }
 ] : card === 'judge' ? (bare ? [] : [
             <Select key="settings-judge-pick" value={shown.judge} options={opts(['auto', 'haiku', 'jev', 'custom'])}
               onSelect={set('judge')} />,
+            <Select key="settings-model-auto" label="Model" value={shown.modelAuto}
+              options={[{ value: 'on', label: 'Cheaper when it can' }, { value: 'off', label: "Always the chat's" }]}
+              onSelect={set('modelAuto')} />,
             ...(shown.judge === 'jev' || shown.judge === 'auto'
               ? [field('key-field', <Input key="settings-key" placeholder={hasKey ? 'Key saved. Paste to replace' : 'Paste TypeSafe key'}
                   value={draft.key ?? ''} submitLabel="ok" onInput={set('key')} onSubmit={set('key')} />, 30)]
