@@ -2716,6 +2716,24 @@ describe('dashboard', () => {
     await expect($.ui.mount(FOOTER)).rejects.toThrow()
   })
 
+  test('Handoff is grey on a fresh chat and white once the context fills', DASH, async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    let percent = 10
+    on('session.usage', () => ({ value: { context: { tokens: percent * 10_000, window: 1_000_000, percent } } }) as never)
+    await start($, on)
+    await closeSetup($, DESK_BAND)
+    await mocked.advance(16_000)
+    let band = await $.ui.mount(DESK_BAND)
+    expect((await band.find({ key: 'dash-handoff' }))?.props).toMatchObject({ variant: 'secondary' })
+    await band.unmount()
+    percent = 35
+    await mocked.advance(16_000)
+    band = await $.ui.mount(DESK_BAND)
+    expect((await band.find({ key: 'dash-handoff' }))?.props).toMatchObject({ variant: 'primary', hotkey: 'h' })
+    await band.unmount()
+  })
+
   test("an alert takes the dashboard's place, and the dashboard comes back after it", DASH, async ($, on) => {
     engine(on)
     mock.clock(on)
