@@ -3,7 +3,7 @@ import type { EngineInterface, ModelForkResult, Register, RenderInput } from 'cl
 
 import type { Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
-import { afterPrompt, atTurnEnd, demoProgress, drawProgress, progressShows, queueCue, registerProgress, soundArgv, stepsKey, takeCues } from './progress'
+import { afterPrompt, atTurnEnd, demoProgress, drawProgress, PILL_H, progressShows, queueCue, registerProgress, soundArgv, stepsKey, takeCues, thinkingSvg, THINK_W } from './progress'
 
 // The ladders the two sliders walk, cheapest first.
 export const MODELS: { key: ModelKey; label: string; long: string; id: string }[] = [
@@ -2151,41 +2151,47 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           <Svg source={DASH_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         </Box>
       ) : null}
-      {/* One row: the effort word, the cache, the ring, then the reason and the last reply, dim. The word never shrinks;
+      {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
           when room runs out the reason goes first (it shrinks a hundred times faster), then the cache, and the row clips
           rather than run under the buttons. Siblings, not nested: a shrunk parent let the word spill under the ring. */}
       <Box key="dash-words" position="relative" flexDirection="row" flexShrink={1} minWidth={0} overflow="hidden">
         <Box flexShrink={0} flexDirection="row">
           <Text color={ACCENT} bold>✦ </Text>
-          <Text key="dash-level" color={wordColor} bold>{what}</Text>
+          <Text key="dash-level" color={wordColor} bold>{v.judging && Svg ? 'Deciding' : what}</Text>
+          {/* While the judge decides: the progress bar's thinking dots, as a plain image (its CSS still runs, and a
+              redraw does not restart it the way an interactive frame does). */}
+          {v.judging && Svg ? (
+            <Box key="dash-thinking" flexShrink={0} marginLeft={1} alignItems="center">
+              <Svg source={thinkingSvg('planning')} alt="deciding" width={THINK_W} height={PILL_H} />
+            </Box>
+          ) : null}
         </Box>
         {rest ? (
           <Box flexShrink={detail ? 0 : 1} minWidth={0}>
             <Text color={DASH_TEXT} bold wrap="truncate">{rest}</Text>
           </Box>
         ) : null}
-        {/* The context ring, then the cache in grey. Hovering either swaps the dim reason for what they mean. */}
-        {Svg && ((lastContext && lastContext.window) || cacheShown !== null) ? (
+        {/* What shows when room runs out, most needed first: the effort and the context never shrink; the cache shrinks
+            next and goes; the reason (dim, after it) goes first of all. Hovering the ring or the cache swaps the reason
+            for what they mean. */}
+        {Svg && lastContext && lastContext.window ? (
           <Box key="dash-ring" flexShrink={0} marginLeft={2} flexDirection="row" gap={1} alignItems="center"
             hover={{ scope: 'dash-cache', backgroundColor: HOVER_BOX }}>
-            {lastContext && lastContext.window ? (
-              <Box key="dash-ring-figure" flexDirection="row" gap={1} alignItems="center">
-                <Svg source={ringSvg(lastContext.percent, DASH_TEXT)} alt={`${Math.round(lastContext.percent)}% of context`} width={16} height={16} />
-                <Text color={DASH_TEXT}>{`${Math.round(lastContext.percent)}%`}</Text>
-              </Box>
-            ) : null}
-            {cacheShown !== null ? (
-              // A fixed width: the seconds tick, and a narrower digit must not shift the rest of the row.
-              <Box key="dash-cache-time" width={13} flexShrink={0}>
-                <Text color={cacheShown === 0 ? ICE : (cacheColor(cacheShown) ?? DASH_DIM)} wrap="truncate">{` cache ${cacheClock(cacheExpires - (await $.clock.now()))}`}</Text>
-              </Box>
-            ) : null}
+            <Svg source={ringSvg(lastContext.percent, DASH_TEXT)} alt={`${Math.round(lastContext.percent)}% of context`} width={16} height={16} />
+            <Text color={DASH_TEXT}>{`${Math.round(lastContext.percent)}%`}</Text>
+          </Box>
+        ) : null}
+        {Svg && cacheShown !== null ? (
+          // A fixed width, so the ticking seconds never shift the row; it gives way before the effort and the context.
+          <Box key="dash-cache-time" width={13} flexShrink={10} minWidth={0} overflow="hidden"
+            hover={{ scope: 'dash-cache', backgroundColor: HOVER_BOX }}>
+            <Text color={cacheShown === 0 ? ICE : (cacheColor(cacheShown) ?? DASH_DIM)} wrap="truncate">{` cache ${cacheClock(cacheExpires - (await $.clock.now()))}`}</Text>
           </Box>
         ) : null}
         {/* The reason, and over it (shown only while the ring or cache is hovered) what they mean: a hover can only
             reveal, so the tip is a layer on the band's colour that covers the reason. */}
         {detail ? (
-          <Box key="dash-detail" position="relative" flexShrink={100} minWidth={0} marginLeft={2}>
+          <Box key="dash-detail" position="relative" flexShrink={1000} minWidth={0} marginLeft={2}>
             <Text dimColor wrap="truncate">{detail}</Text>
             {drawn ? (
               <Box key="dash-cache-tip" position="absolute" top={0} left={0} right={0} bottom={0} backgroundColor={DASH_BG}
@@ -2383,6 +2389,8 @@ export const register: Register = (on, options) => {
         redrawsOwed--
         $.ui.invalidate('ui.render')
       }
+      // Right after a start the app may not have the usage yet: ask each second until it has, so the ring shows.
+      if (!lastContext || !lastContext.window) void checkSwamp($).then(() => lastContext?.window && $.ui.invalidate('ui.render')).catch(() => undefined)
       // The dashboard's cache countdown ticks by the second while the cache is warm.
       if (cacheExpires > 0 && !config.hide.includes('timer'))
         void $.clock.now().then(now => (now < cacheExpires + HANDOFF_POLL_MS ? $.ui.invalidate('ui.render') : undefined))
