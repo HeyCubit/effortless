@@ -90,6 +90,7 @@ const idleChat = `
 const pages = {
   'a-panel.html': frame({ title: 'Agent panel: working', sessions, chat: workChat, band: 'band-05-high-38pct-handoff-glow', pane: 'panel' }),
   'b-detail.html': frame({ title: 'Agent panel: one agent', sessions, chat: workChat, band: 'band-05-high-38pct-handoff-glow', pane: 'detail' }),
+  'd-hub.html': frame({ title: 'Agent panel: project hub', sessions, chat: workChat, band: 'band-05-high-38pct-handoff-glow', pane: 'hub' }),
   'c-idle.html': frame({ title: 'Agent panel: idle', sessions: ['Cache countdown question', ...sessions.slice(1)], chat: idleChat, band: 'band-04-medium-22pct-greybox', pane: 'idle', model: 'Sonnet 5.5' }),
 }
 for (const [file, html] of Object.entries(pages)) {
