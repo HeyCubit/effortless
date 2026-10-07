@@ -147,6 +147,8 @@
     for (const i of root.querySelectorAll('img')) out[`img:${i.alt}`] = box(i)
     const cs = getComputedStyle(root.querySelector('button') ?? band)
     out.buttonFont = `${cs.fontWeight} ${cs.fontSize}/${cs.lineHeight} ${cs.fontFamily}`
+    const bs = getComputedStyle(band)
+    out.bandBorder = `${bs.borderTopWidth} ${bs.borderTopLeftRadius}`
     out.devicePixelRatio = devicePixelRatio
     return out
   }
