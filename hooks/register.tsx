@@ -1040,6 +1040,13 @@ async function checkSwamp($: EngineInterface) {
   }
 }
 
+// Redraws still owed after a chat was opened again: the app may draw the band before it is ready for one, so the
+// session's 1 s timer asks again a few times (see redrawSoon).
+let redrawsOwed = 0
+function redrawSoon(times = 5) {
+  redrawsOwed = Math.max(redrawsOwed, times)
+}
+
 async function showCache($: EngineInterface) {
   if (cacheExpires === 0) return
   const minutes = await cacheMinutes($)
@@ -1745,6 +1752,9 @@ let lastRenderBranch = ''
 let lastRenderAt = 0
 let lastRenderError = ''
 let sessionStarted = 0
+// When the app's SessionStart came and what it said, for /effortless debug: a cold band that shows late is either a
+// late signal or a redraw the app did not take.
+let classicStart: { at: number; said: string } | null = null
 let handoffTimer: { cancel: () => void } | undefined
 const HANDOFF_POLL_MS = 1000
 // For /effortless debug: how the last progress chime went.
@@ -2205,6 +2215,10 @@ export const register: Register = (on, options) => {
     // bar's sounds ride the same timer, so a chime never holds up the hook that queued it.
     handoffTimer?.cancel()
     handoffTimer = $.clock.every(HANDOFF_POLL_MS, () => {
+      if (redrawsOwed > 0) {
+        redrawsOwed--
+        $.ui.invalidate('ui.render')
+      }
       void finishHandoff($).catch(() => undefined)
       void playProgressCues($).catch(() => undefined)
     })
@@ -2225,12 +2239,17 @@ export const register: Register = (on, options) => {
   on('classic.SessionStart', async ($, e, next) => {
     const result = await next(e)
     const r = e as { source?: string; seconds_since_last_response?: number; prompt_cache_likely_expired?: boolean }
+    classicStart = { at: Date.now(), said: `${r.source ?? '?'}, ${r.seconds_since_last_response ?? '?'}s since reply, expired ${r.prompt_cache_likely_expired ?? '?'}` }
     if ((r.source === 'resume' || r.source === 'fork') && typeof r.seconds_since_last_response === 'number' && cacheExpires === 0) {
       const now = await $.clock.now()
       lastResponseAt = now - r.seconds_since_last_response * 1000
       const left = lastResponseAt + CACHE_TTL[cacheTtl]
       cacheExpires = r.prompt_cache_likely_expired || left <= now ? now - 1 : left
       await showCache($).catch(() => undefined)
+      // The app opens the chat and draws its band while this runs; a redraw asked now can land before the band is
+      // there, and the next came only with the 15 s cache tick. Ask again over the next seconds.
+      $.ui.invalidate('ui.render')
+      redrawSoon()
     }
     return result
   })
@@ -2343,6 +2362,8 @@ export const register: Register = (on, options) => {
       return {
         text: [
           `session.start ${ago(sessionStarted)}`,
+          `app SessionStart: ${classicStart ? `${ago(classicStart.at)} (${classicStart.said})` : 'never'}`,
+          `cache: ${cacheExpires === 0 ? 'not started' : `${await cacheMinutes($)} min left`}`,
           `band asked for ${renderCalls} times, last ${ago(lastRenderAt)}`,
           `band error: ${lastRenderError || 'none'}`,
           `last draw: ${lastRenderBranch || 'none'}`,
