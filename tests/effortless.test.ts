@@ -2958,7 +2958,7 @@ describe('updates', () => {
       return { value: '' } as never
     })
     on('http.fetch', (_$, e) => {
-      if (String(e.url).endsWith('releases.json'))
+      if (String(e.url).includes('releases.json'))
         return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify([{ version: v.latest, date: '2026-10-07', note: 'Quick and Full as one switch.' }]) } } as never
       return { value: { status: 404, ok: false, headers: {}, text: '' } } as never
     })
