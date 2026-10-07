@@ -3395,16 +3395,13 @@ Saved to ${out}.md and .json` }
           <Box key="settings-title" position="absolute" top={0} left={2} height={term ? 2 : 2.5} flexDirection="row" alignItems="center" gap={1}>
             {term ? <Text color={ACCENT} bold>✦</Text> : null}
             {Svg && !term ? <Svg source={SETTINGS_TITLE} alt="effortless" width={92} height={28} /> : <Text color={DASH_TEXT} bold>effortless</Text>}
-            {/* Inside a part, the title is a trail: Settings (pressed, it goes back to the cards), then the part. */}
+            {/* Inside a part: Back to the cards, then the part's name. */}
             {card === null ? (
               <Text dimColor>Settings</Text>
             ) : (
-              <Box key="settings-trail" flexDirection="row" alignItems="center">
-                {/* The button's own padding is the space before the ›, so a cell after it matches. */}
-                <Button key="settings-back" plain dimColor label="Settings" onPress={openCard(null)} />
-                <Box marginRight={1}>
-                  <Text dimColor>›</Text>
-                </Box>
+              <Box key="settings-trail" flexDirection="row" alignItems="center" gap={1}>
+                {/* A real button: a dim "Settings" in a trail did not read as a way back. */}
+                <Button key="settings-back" variant="secondary" label="‹ Back" onPress={openCard(null)} />
                 <Text color={DASH_TEXT} bold>{CARDS.find(c => c.id === card)?.title}</Text>
               </Box>
             )}
