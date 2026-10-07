@@ -2219,11 +2219,13 @@ describe('settings panel', () => {
     await panel.input({ key: 'settings-key', text: ' tk-new ' })
     await panel.select({ key: 'settings-skill', value: 'session-handoff' })
     await panel.press({ key: 'show-box-sounds' })
-    // Only the progress bar and its sounds can be switched off in the panel.
+    await panel.press({ key: 'show-box-reason' })
+    expect(await panel.find({ key: 'show-box-timer' })).toBeDefined()
+    // The cache timer, the judge line, the progress bar and its sounds can be switched off in the panel; no alert.
     expect(await panel.find({ key: 'show-box-swamp' })).toBeUndefined()
     expect(set).toEqual([])
     await panel.press({ key: 'settings-save' })
-    expect(set).toContainEqual({ key: 'effortless.hide', value: 'sounds' })
+    expect(set).toContainEqual({ key: 'effortless.hide', value: 'sounds,reason' })
     expect(set).toContainEqual({ key: 'effortless.handoffSkill', value: 'session-handoff' })
     expect(set).toContainEqual({ key: 'effortless.effortBias', value: '1' })
     expect(set).toContainEqual({ key: 'effortless.effortFloor', value: 'medium' })
