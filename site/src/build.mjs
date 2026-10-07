@@ -35,7 +35,17 @@ try { stars = Number(execSync('gh api repos/HeyCubit/effortless --jq .stargazers
   try { const r = await fetch('https://api.github.com/repos/HeyCubit/effortless'); if (r.ok) stars = (await r.json()).stargazers_count || 0 } catch {}
 }
 const starsBadge = stars > 0 ? `<span class="stars">${stars >= 1000 ? (stars / 1000).toFixed(1) + 'k' : stars}</span>` : ''
+// The two ways in, shown in the install section and the install popover. "Ask Claude" copies a request Claude Code runs
+// for you; "Commands" has the two chat commands and one terminal line (with ; so it also runs in PowerShell 5).
+const copyIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>'
+const cmd = c => `<div class="cmd"><code>${c}</code><button type="button" class="copy" data-copy="${c}" aria-label="Copy ${c}">${copyIcon}<span>Copy</span></button></div>`
+const ask = 'Install the effortless plugin for me: run `claude plugin marketplace add HeyCubit/effortless` and then `claude plugin install effortless@effortless`. When both succeed, tell me to run /reload-plugins.'
+const install = '<div class="ways"><div class="tabs" role="tablist" aria-label="How to install"><button type="button" role="tab" aria-selected="true" data-tab="0">Ask Claude<small>Recommended</small></button><button type="button" role="tab" aria-selected="false" data-tab="1">Commands</button></div>'
+  + `<div class="pane" data-pane="0"><div class="ask"><p data-sel>${ask.replace(/\`([^\`]+)\`/g, '<code>$1</code>')}</p><button type="button" class="copy main" data-copy="${ask}" aria-label="Copy the install request for Claude">${copyIcon}<span>Copy for Claude</span></button></div><p class="help">Paste into Claude Code and press Enter. Claude runs the two commands for you.</p></div>`
+  + `<div class="pane" data-pane="1" hidden><p class="way-label">In Claude Code's chat box:</p><div class="cmds">${cmd('/plugin marketplace add HeyCubit/effortless')}${cmd('/plugin install effortless@effortless')}</div><p class="way-label">Or in a terminal:</p><div class="cmds">${cmd('claude plugin marketplace add HeyCubit/effortless; claude plugin install effortless@effortless')}</div></div>`
+  + '<p class="then">Then run <code>/reload-plugins</code> (or restart Claude Code). A short setup opens above the prompt.</p></div>'
 const map = {
+  __INSTALL__: install,
   __STARS_BADGE__: starsBadge,
   __STARS__: heroArt, 
   __ART_BRAND__: uri(grab('BRAND_SVG')), __ART_FROST__: uri(grab('FROST_SVG')), __ART_SWAMP__: uri(grab('SWAMP_SVG')),
