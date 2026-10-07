@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.99",
+    "date": "2026-10-07",
+    "note": "Compact bar on one line: Summary (optional), then Compact"
+  },
+  {
     "version": "1.35.98",
     "date": "2026-10-07",
     "note": "What's new links to its own page"
