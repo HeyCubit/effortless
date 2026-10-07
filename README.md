@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/brand/readme-banner-1600x400.png" alt="effortless: auto-picks the reasoning effort for every prompt in Claude Code" width="100%">
+  <img src="docs/readme/banner.png" alt="effortless, a Claude Code mod: one bar above the prompt that picks the reasoning effort for every prompt" width="100%">
 </p>
 
 <p align="center">
@@ -7,10 +7,6 @@
   <a href="#install"><b>Install</b></a> ·
   <a href="#what-the-bar-shows"><b>What it shows</b></a> ·
   <a href="#pick-your-judge"><b>Judges</b></a>
-  <br><br>
-  <img alt="version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FHeyCubit%2Feffortless%2Fmain%2F.claude-plugin%2Fplugin.json&query=%24.version&label=version&color=7c6cf0">
-  <img alt="Claude Code plugin" src="https://img.shields.io/badge/Claude%20Code-plugin-a79cf7">
-  <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-3d3a4d">
 </p>
 
 A Claude Code mod that picks the reasoning effort for every prompt. Easy questions run on **Low**, hard jobs get
