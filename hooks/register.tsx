@@ -1043,10 +1043,10 @@ async function checkSwamp($: EngineInterface) {
   const tokens = context.tokens ?? 0
   // The app may leave the percent out (or give 0) while it has the tokens and the window: work it out then.
   const percent = context.percent || (context.window ? (tokens / context.window) * 100 : 0)
-  const wasLoud = handoffLoud()
+  const wasStep = handoffGlowStep(lastContext?.percent ?? 0)
   lastContext = { tokens, window: context.window ?? 0, percent }
-  // The Handoff button turns white or grey with the context: redraw the band when it crosses the line.
-  if (handoffLoud() !== wasLoud) $.ui.invalidate('ui.render')
+  // The Handoff button turns white and glows harder with the context: redraw the band when it crosses a step.
+  if (handoffGlowStep(percent) !== wasStep) $.ui.invalidate('ui.render')
   await checkHot($, rateLimits ?? [])
   const over = percent >= config.swampAt
   const next = over ? tokens : null
@@ -2023,6 +2023,17 @@ async function compactCard($: EngineInterface) {
 /** Context share from which the dashboard's Handoff button turns white: below it a handoff saves little. */
 const HANDOFF_LOUD_AT = 30
 const handoffLoud = () => (lastContext?.percent ?? 0) >= HANDOFF_LOUD_AT
+/** How hard the glow behind Handoff pulls: 0 below HANDOFF_LOUD_AT, then 1 to 5, one step per 10% of context. */
+export function handoffGlowStep(percent: number): number {
+  return percent < HANDOFF_LOUD_AT ? 0 : Math.min(5, 1 + Math.floor((percent - HANDOFF_LOUD_AT) / 10))
+}
+/** The soft pulsing glow drawn behind the Handoff button: brighter and quicker each step. */
+export function handoffGlowSvg(step: number): string {
+  const peak = [0, 0.35, 0.5, 0.65, 0.8, 0.95][step]
+  const low = peak * 0.3
+  const period = [0, 3.4, 2.8, 2.3, 1.9, 1.5][step]
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="150" height="56" viewBox="0 0 150 56"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.g{animation:p ${period}s ease-in-out infinite}@keyframes p{0%,100%{opacity:${low.toFixed(2)}}50%{opacity:${peak.toFixed(2)}}}</style><defs><radialGradient id="h" cx="75" cy="28" r="70" gradientTransform="translate(0 28) scale(1 .4) translate(0 -28)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffffff"/><stop offset=".35" stop-color="${ACCENT}" stop-opacity=".8"/><stop offset="1" stop-color="${ACCENT}" stop-opacity="0"/></radialGradient></defs><rect class="g" width="150" height="56" fill="url(#h)"/></svg>`
+}
 
 /** The dashboard: what effortless is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
 async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
@@ -2112,6 +2123,13 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           </Box>
         ) : null}
       </Box>
+      {/* The glow behind Handoff from HANDOFF_LOUD_AT: its own layer before the buttons, so it never takes their clicks.
+          Placed by eye: centred on the Handoff button, left of the cog. */}
+      {Svg && !config.hide.includes('handoff') && handoffGlowStep(lastContext?.percent ?? 0) > 0 ? (
+        <Box key="dash-glow" position="absolute" top={-1} bottom={-1} right={3} alignItems="center">
+          <Svg source={handoffGlowSvg(handoffGlowStep(lastContext?.percent ?? 0))} alt="handoff glow" width={150} height={56} isInteractive />
+        </Box>
+      ) : null}
       {/* Room for the buttons, which sit in their own layer after the art so they take clicks. */}
       <Box flexGrow={1} minWidth={34} />
       <Box key="dash-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
