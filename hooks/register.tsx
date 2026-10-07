@@ -2679,15 +2679,20 @@ export function judgeBrightnessAt(kind: 'rise' | 'fade', elapsedMs: number): num
  * stale copy jumps far; a piece this short is wrong for at most one step, and the schedule draws the next one. The rim
  * at full is a still image with no animation, so a replay changes nothing. */
 export const JUDGE_STEP_MS = 50
+/** How far each piece runs: longer than the gap between the app's redraws (measured 100 to 120 ms, however often the mod
+ * asks), so a piece never ends and stands still before the next one is drawn. A piece of 50 ms did, in visible steps. */
+export const JUDGE_PIECE_MS = 150
 export function judgeGlowSvg(kind: 'rise' | 'fade', elapsedMs = 0): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
   const dur = kind === 'rise' ? JUDGE_RISE_MS : JUDGE_FADE_MS
   const from = judgeBrightnessAt(kind, elapsedMs)
-  const to = judgeBrightnessAt(kind, Math.min(dur, elapsedMs + JUDGE_STEP_MS))
+  // Five points along the true curve, so the piece is where the curve is at every moment and the next one starts on it.
+  const span = Math.max(1, Math.min(JUDGE_PIECE_MS, dur - elapsedMs))
+  const points = [0, 0.25, 0.5, 0.75, 1].map(k => `${(k * 100).toFixed(0)}%{opacity:${judgeBrightnessAt(kind, elapsedMs + k * span).toFixed(3)}}`).join('')
   const still = kind === 'rise' && elapsedMs >= dur
   const css = still
     ? `.r{opacity:${JUDGE_GLOW_MAX}}`
-    : `.r{opacity:${from.toFixed(3)};animation:r ${JUDGE_STEP_MS / 1000}s linear forwards}@keyframes r{from{opacity:${from.toFixed(3)}}to{opacity:${to.toFixed(3)}}}`
+    : `.r{opacity:${from.toFixed(3)};animation:r ${(span / 1000).toFixed(3)}s linear forwards}@keyframes r{${points}}`
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>${css}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ACCENT}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#b9a7ff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
 }
 /** What the glow is at `now`: nothing, rising or holding, or fading. `endedAt` is null while the judge decides. */

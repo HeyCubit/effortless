@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS } from '../hooks/register'
+import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
@@ -1619,23 +1619,25 @@ describe('deciding glow', () => {
     }
     // A verdict after the rise: the fade starts at once, from full, in pieces of JUDGE_STEP_MS.
     expect(op(at(3000, 3000))).toBe(0.85)
-    expect(at(3000, 3000)).toContain('animation:r ' + JUDGE_STEP_MS / 1000 + 's linear forwards')
+    expect(at(3000, 3000)).toContain('animation:r ' + (JUDGE_PIECE_MS / 1000).toFixed(3) + 's linear forwards')
     expect(at(3000, 3000 + JUDGE_FADE_MS)).toBeNull()
     // A verdict inside the rise: the rise finishes first, so the fade never starts from half-way.
     expect(op(at(1100, 1300))).toBeLessThan(0.85)
     expect(op(at(1100, 1000 + JUDGE_RISE_MS))).toBe(0.85)
     expect(at(1100, 1000 + JUDGE_RISE_MS + JUDGE_FADE_MS)).toBeNull()
   })
-  test('the pieces join: each one ends where the next begins, so the fade only ever goes down', () => {
-    let last = 0.85
-    for (let t = 0; t < JUDGE_FADE_MS; t += JUDGE_STEP_MS) {
-      const svg = judgeGlowSvg('fade', t)
-      const from = op(svg), to = Number(/to\{opacity:([\d.]+)/.exec(svg)![1])
-      expect(Math.abs(from - last)).toBeLessThan(0.002)
-      expect(to).toBeLessThanOrEqual(from)
-      last = to
+  test('each piece runs along the true curve for longer than the app takes to redraw, so the fade never stands still or goes up', () => {
+    const pts = (svg: string) => [...svg.matchAll(/(\d+)%\{opacity:([\d.]+)\}/g)].map(m => Number(m[2]))
+    for (let t = 0; t < JUDGE_FADE_MS; t += 37) {
+      const p = pts(judgeGlowSvg('fade', t))
+      expect(p.length).toBe(5)
+      // Starts on the curve, only goes down, and ends where the curve is at the end of the piece.
+      expect(Math.abs(p[0] - judgeBrightnessAt('fade', t))).toBeLessThan(0.001)
+      for (let k = 1; k < 5; k++) expect(p[k]).toBeLessThanOrEqual(p[k - 1])
+      expect(Math.abs(p[4] - judgeBrightnessAt('fade', Math.min(JUDGE_FADE_MS, t + JUDGE_PIECE_MS)))).toBeLessThan(0.001)
     }
-    expect(last).toBeLessThan(0.003)
+    expect(JUDGE_PIECE_MS).toBeGreaterThan(120)
+    expect(pts(judgeGlowSvg('fade', JUDGE_FADE_MS - 10))[4]).toBe(0)
     expect(Math.abs(judgeBrightnessAt('fade', JUDGE_FADE_MS / 2) - 0.425)).toBeLessThan(0.001)
   })
 })

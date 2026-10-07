@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.36.17",
+    "date": "2026-10-07",
+    "note": "Glow fade without stair steps"
+  },
+  {
     "version": "1.36.16",
     "date": "2026-10-07",
     "note": "Glow survives the app redrawing old copies"
