@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.89",
+    "date": "2026-10-07",
+    "note": "A version for the update card to offer"
+  },
+  {
     "version": "1.35.88",
     "date": "2026-10-07",
     "note": "The update check runs on the first draw after any load"

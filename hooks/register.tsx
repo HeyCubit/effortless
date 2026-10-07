@@ -2333,7 +2333,7 @@ async function latestAvailable($: EngineInterface): Promise<{ latest?: { version
   const best = fromWeb && (!local || !isNewer(local.version, fromWeb.version)) ? fromWeb : local
   return { latest: best, how: `${web}; marketplace ${local?.version ?? 'unreadable'}` }
 }
-// /reload-plugins loads the module again without a session start: the band's first draw runs afterLoad too.
+// /reload-plugins loads the module again without a session start, so the band's first draw runs afterLoad too.
 let loadChecked = false
 /** Once per load: "Updated" when this load is the version the card installed, then a look for a newer one. */
 async function afterLoad($: EngineInterface) {
