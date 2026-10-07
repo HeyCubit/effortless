@@ -1397,6 +1397,19 @@ async function openHandoffBar($: EngineInterface) {
   $.ui.invalidate('ui.render')
 }
 
+/** The Enter mark as Claude's prompt box draws it: a return arrow, down the right side and back left. */
+export function enterSvg(color: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5V7.2A1.8 1.8 0 0 1 9.7 9H2.8"/><path d="M5.3 6.4 2.7 9l2.6 2.6"/></g></svg>`
+}
+/** The app's text field is 159 px wide whatever its box (measured on tools/render-band), its Enter hint right after:
+ * the window it shows through is the field's width in cells, so the hint is clipped. */
+const FIELD_CELLS = 21
+/** The compact bar's Compact: a white pill like the app's primary buttons, GO_CELLS wide. */
+const GO_CELLS = 12
+const GO_W = Math.round(GO_CELLS * 7.9)
+function goPillSvg(): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${GO_W}" height="20" viewBox="0 0 ${GO_W} 20"><rect width="${GO_W}" height="20" rx="5" fill="#ffffff"/></svg>`
+}
 /** Compact pressed: on desktop a bar asks for an optional note first; the terminal compacts at once. */
 async function openCompact($: EngineInterface, e: { surface: string }) {
   if (e.surface === 'terminal') return compactCold($)
@@ -3888,13 +3901,29 @@ Saved to ${out}.md and .json` }
           </Box>
           <Box key="compact-controls" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end" alignItems="center" gap={1}>
             <Box position="absolute" top={0} left={0} />
-            <Box key="compact-field" width={40} flexShrink={1} minWidth={20}>
-              <Input key="compact-note" placeholder="Summary (optional)" submitLabel="↵"
-                onInput={v => { compactNote = v }} onSubmit={v => { compactNote = v; void go() }} />
+            {/* The field is laid in a box wider than the window it shows through: the Input's own Enter hint, a second
+                Enter beside the button's, falls outside and is clipped. */}
+            <Box key="compact-field" position="relative" width={FIELD_CELLS} height={1} flexShrink={0} overflow="hidden">
+              <Box position="absolute" top={0} left={0} width={FIELD_CELLS + 10}>
+                <Input key="compact-note" placeholder="Summary (optional)" submitLabel={'​'}
+                  onInput={v => { compactNote = v }} onSubmit={v => { compactNote = v; void go() }} />
+              </Box>
             </Box>
-            <Box key="compact-go-box" position="relative" flexShrink={0}>
-              <Box position="absolute" top={0} left={0} />
-              <Button key="compact-go" variant="primary" label="Compact ↵" onPress={go} />
+            {/* Compact with the Enter mark in it: a white pill drawn, the word in the app's font, the mark as Claude's prompt
+                box draws its own, and a blank button over all three. A Button's label is text only, and ↵ there was a
+                hairline. */}
+            <Box key="compact-go-box" position="relative" flexShrink={0} flexDirection="row" alignItems="center">
+              <Box width={GO_CELLS} height={1} flexShrink={0} />
+              <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+                <Svg source={goPillSvg()} alt="Compact" width={GO_W} height={20} />
+              </Box>
+              <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center" justifyContent="center" gap={1}>
+                <Text color="#141416">Compact</Text>
+                <Svg source={enterSvg('#141416')} alt="Enter" width={14} height={14} />
+              </Box>
+              <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+                <Button key="compact-go" plain hover={{ backgroundColor: '#00000000' }} label={' '.repeat(GO_CELLS)} onPress={go} />
+              </Box>
             </Box>
             <Box key="compact-close-box" position="relative" flexShrink={0}>
               <Box position="absolute" top={0} left={0} />
