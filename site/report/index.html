@@ -50,6 +50,10 @@ input:focus,textarea:focus{outline:none;border-color:#a79cf780;background:#1f1e2
 .go:hover{background:#fff}
 .go svg{width:18px;height:18px}
 .note{margin:-6px 0 0;color:var(--dim);font-size:13.5px}
+.kind{display:inline-flex;gap:4px;margin-top:28px;padding:4px;border-radius:11px;background:#1b1a21}
+.kind button{padding:8px 14px;border:0;border-radius:8px;background:none;color:var(--muted);font:500 14px var(--sans);cursor:pointer}
+.kind button:hover{color:var(--text)}
+.kind button[aria-pressed="true"]{background:#2e2d36;color:var(--text)}
 a:focus-visible,.go:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:10px}
 @media (max-width:560px){.top{padding:16px 16px 0}main{padding:48px 16px 72px}.opt{grid-template-columns:1fr}}
 </style>
@@ -60,28 +64,45 @@ a:focus-visible,.go:focus-visible{outline:2px solid var(--accent);outline-offset
   <a class="back" href="../">Back to the site</a>
 </header>
 <main>
-  <h1>Report a bug</h1>
+  <h1 id="h">Report a bug</h1>
+  <div class="kind" role="group" aria-label="What do you want to send?">
+    <button type="button" data-kind="bug" aria-pressed="true">Report a bug</button>
+    <button type="button" data-kind="feature" aria-pressed="false">Request a feature</button>
+  </div>
   <form id="report">
-    <label>What went wrong<input name="title" required maxlength="140" placeholder="The bar stays on Deciding after a prompt"></label>
-    <label>What happened<textarea name="body" required placeholder="What you did, what you expected, and what you saw instead."></textarea></label>
+    <label id="lt">What went wrong<input name="title" required maxlength="140" placeholder="The bar stays on Deciding after a prompt"></label>
+    <label id="lb">What happened<textarea name="body" required placeholder="What you did, what you expected, and what you saw instead."></textarea></label>
     <div class="opt">
       <label><span>effortless version <small>optional</small></span><input name="effortless" placeholder="e.g. 1.36.0" autocomplete="off"></label>
       <label><span>Claude Code version <small>optional</small></span><input name="cc" placeholder="claude --version" autocomplete="off"></label>
     </div>
-    <button class="go" type="submit"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Open the issue on GitHub</button>
+    <button class="go" type="submit"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span id="gl">Open the issue on GitHub</span></button>
     <p class="note">Opens a prefilled GitHub issue in a new tab. You need a GitHub account, and the report lives there.</p>
   </form>
 </main>
 <script>
-// The mod's Settings link can pass ?effortless=1.36.0&cc=2.1.300; those fill the optional fields.
-var f=document.getElementById('report'),q=new URLSearchParams(location.search);
+// Two modes on one page. ?kind=feature (or the second button) switches to the feature request; the mod's Settings
+// link can also pass ?effortless=1.36.0&cc=2.1.300 to fill the optional fields.
+var f=document.getElementById('report'),q=new URLSearchParams(location.search),kind='bug';
+var M={
+  bug:{h:'Report a bug',t:'What went wrong',tp:'The bar stays on Deciding after a prompt',b:'What happened',bp:'What you did, what you expected, and what you saw instead.',g:'Open the issue on GitHub',label:'bug'},
+  feature:{h:'Request a feature',t:'The feature in a few words',tp:'Show the cache clock in the Settings bar',b:'What it would do',bp:'What you want to be able to do, and why it would help.',g:'Open the request on GitHub',label:'enhancement'}
+};
+function setKind(k){kind=M[k]?k:'bug';var m=M[kind];
+  document.title=m.h+' · effortless';document.getElementById('h').textContent=m.h;
+  document.querySelectorAll('[data-kind]').forEach(function(x){x.setAttribute('aria-pressed',String(x.dataset.kind===kind))});
+  document.getElementById('lt').firstChild.nodeValue=m.t+' ';f.elements.title.placeholder=m.tp;
+  document.getElementById('lb').firstChild.nodeValue=m.b+' ';f.elements.body.placeholder=m.bp;
+  document.getElementById('gl').textContent=m.g;}
+document.querySelectorAll('[data-kind]').forEach(function(x){x.addEventListener('click',function(){setKind(x.dataset.kind)})});
+setKind(q.get('kind'));
 ['effortless','cc'].forEach(function(k){if(q.get(k))f.elements[k].value=q.get(k).slice(0,40)});
 f.addEventListener('submit',function(e){e.preventDefault();
   var v=function(k){return f.elements[k].value.trim()},body=v('body'),ver=[];
   if(v('effortless'))ver.push('- effortless: '+v('effortless'));
   if(v('cc'))ver.push('- Claude Code: '+v('cc'));
   if(ver.length)body+='\n\n### Versions\n'+ver.join('\n');
-  window.open('https://github.com/HeyCubit/effortless/issues/new?title='+encodeURIComponent(v('title'))+'&body='+encodeURIComponent(body),'_blank','noopener');
+  window.open('https://github.com/HeyCubit/effortless/issues/new?title='+encodeURIComponent(v('title'))+'&body='+encodeURIComponent(body)+'&labels='+M[kind].label,'_blank','noopener');
 });
 </script>
 </body>

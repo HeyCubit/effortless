@@ -6,7 +6,6 @@
 <title>effortless</title>
 <meta name="description" content="A Claude Code plugin that sets the reasoning effort for every prompt and counts down how long the prompt cache stays warm.">
 <meta name="theme-color" content="#121214">
-<script>try{var b=new URLSearchParams(location.search).get("bg");document.documentElement.dataset.bg=/^(sweep|shimmer|band)$/.test(b)?b:"sweep"}catch(e){document.documentElement.dataset.bg="sweep"}</script>
 <link rel="canonical" href="https://heycubit.github.io/effortless/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="effortless">
@@ -69,22 +68,12 @@ a{color:inherit}
 @media (min-width:2500px){.stage{--hz:1.5}}
 .stage{background:radial-gradient(55% 75% at 88% 52%,#1d1934 0%,#16141f 45%,transparent 75%),var(--page)}
 /* Grain over the stripes, so they read as soft light rather than flat shapes. */
-/* Behind the words: the dot grid, kept and given a little life. Three variants, picked with ?bg= (default sweep):
-   sweep   a soft violet light drifts across the dots
-   shimmer the dots breathe, two half-cell grids fading in antiphase
-   band    a diagonal band of brighter dots slides across */
+/* Behind the words: the dot grid with one soft violet light drifting slowly across it. */
 @property --x{syntax:"<percentage>";inherits:false;initial-value:20%}
 @property --y{syntax:"<percentage>";inherits:false;initial-value:50%}
-@property --p{syntax:"<percentage>";inherits:false;initial-value:-20%}
 .dots{position:absolute;inset:0;z-index:-2;pointer-events:none;background-image:radial-gradient(#2a2733 1.1px,transparent 1.5px);background-size:22px 22px;-webkit-mask-image:radial-gradient(64% 76% at 22% 50%,#000,transparent);mask-image:radial-gradient(64% 76% at 22% 50%,#000,transparent)}
-.dots .lit{position:absolute;inset:0;opacity:0;background-image:radial-gradient(#a79cf7 1.3px,transparent 1.8px);background-size:22px 22px}
-html[data-bg="sweep"] .dots .a{opacity:.85;-webkit-mask-image:radial-gradient(circle 360px at var(--x) var(--y),#000,transparent);mask-image:radial-gradient(circle 360px at var(--x) var(--y),#000,transparent);animation:sweep 16s ease-in-out infinite alternate}
+.dots .lit{position:absolute;inset:0;background-image:radial-gradient(#a79cf7 1.3px,transparent 1.8px);background-size:22px 22px;opacity:.85;-webkit-mask-image:radial-gradient(circle 360px at var(--x) var(--y),#000,transparent);mask-image:radial-gradient(circle 360px at var(--x) var(--y),#000,transparent);animation:sweep 16s ease-in-out infinite alternate}
 @keyframes sweep{from{--x:6%;--y:28%}to{--x:44%;--y:74%}}
-html[data-bg="shimmer"] .dots .a{opacity:0;background-image:radial-gradient(#8f84e6 1.2px,transparent 1.7px);animation:breathe 7s ease-in-out infinite}
-html[data-bg="shimmer"] .dots .b{opacity:0;background-position:11px 11px;background-image:radial-gradient(#8f84e6 1.2px,transparent 1.7px);animation:breathe 7s ease-in-out -3.5s infinite}
-@keyframes breathe{0%,100%{opacity:0}50%{opacity:.5}}
-html[data-bg="band"] .dots .a{opacity:.6;-webkit-mask-image:linear-gradient(115deg,transparent calc(var(--p) - 16%),#000 var(--p),transparent calc(var(--p) + 16%));mask-image:linear-gradient(115deg,transparent calc(var(--p) - 16%),#000 var(--p),transparent calc(var(--p) + 16%));animation:band 11s linear infinite}
-@keyframes band{from{--p:-24%}to{--p:124%}}
 .stage-grain{position:absolute;inset:0;z-index:-2;pointer-events:none;background-image:var(--grain);background-size:180px;opacity:.05;mix-blend-mode:overlay;-webkit-mask-image:linear-gradient(90deg,#000,transparent 45%);mask-image:linear-gradient(90deg,#000,transparent 45%)}
 .demo{margin-top:48px;width:min(440px,100%)}
 .demo-box{position:relative;border-radius:16px;background:#1d1c22;border:1px solid #2d2b34;padding:14px 48px 14px 16px;min-height:78px}
@@ -628,7 +617,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 <footer class="site-foot">
   <div class="foot-row">
     <span class="name">__SPARK__effortless<small>A Claude Code mod</small></span>
-    <nav><a href="#how">How it works</a><a href="#install">Install</a><a href="whats-new/">What's new</a><a href="https://github.com/HeyCubit/effortless">__GITHUB__GitHub</a></nav>
+    <nav><a href="#how">How it works</a><a href="#install">Install</a><a href="whats-new/">What's new</a><a href="report/">Report a bug</a><a href="report/?kind=feature">Request a feature</a><a href="https://github.com/HeyCubit/effortless">__GITHUB__GitHub</a></nav>
   </div>
   <div class="foot-word" aria-hidden="true"><span class="soft">effortless</span><span class="crisp">effortless</span></div>
 </footer>
