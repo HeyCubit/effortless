@@ -166,6 +166,8 @@ export type AgentsDraw = {
 }
 
 const TEXT = '#d4d4d8'
+/** The pane's ground: the brand card's deep violet, as the bar's brand band (BRAND_BG). */
+const PANE_BG = '#15121f'
 const DIM = '#8b8b93'
 const CARD_BG = '#141416'
 const CARD_EDGE = '#2a2a2f'
@@ -236,7 +238,7 @@ function agentCard(d: AgentsDraw, a: AgentRec) {
       backgroundColor={look.bg} borderStyle="round" borderColor={look.edge}>
       {Svg && phase ? (
         <Box key={`agent-${a.id}-art`} position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={cardArtSvg(phase)} alt="" width={ART_W} height={CARD_ART_H} />
+          <Svg source={cardArtSvg(phase)} alt={`${a.type} ${a.state}`} width={ART_W} height={CARD_ART_H} />
         </Box>
       ) : null}
       <Box position="relative" flexDirection="column">
@@ -295,7 +297,7 @@ function doneCard(d: AgentsDraw, done: readonly AgentRec[]) {
       backgroundColor={look.bg} borderStyle="round" borderColor={look.edge}>
       {Svg ? (
         <Box position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={cardArtSvg('done')} alt="" width={ART_W} height={CARD_ART_H} />
+          <Svg source={cardArtSvg('done')} alt="finished agents" width={ART_W} height={CARD_ART_H} />
         </Box>
       ) : null}
       <Box position="relative" flexDirection="column">
@@ -336,15 +338,15 @@ export function agentsPane(d: AgentsDraw, agents: readonly AgentRec[]) {
   // One row of the desktop pane is about 19 px; the background is drawn a little taller than the body.
   const tall = Math.max(240, (d.rows + 2) * 19)
   return (
-    <Box key="agents" position="relative" flexDirection="column" height={d.rows} overflow="hidden">
+    <Box key="agents" position="relative" flexDirection="column" height={d.rows} overflow="hidden" backgroundColor={PANE_BG}>
       {Svg ? (
         <Box key="agents-wash" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={paneWashSvg(mood, 400, tall)} alt="" width={400} height={tall} />
+          <Svg source={paneWashSvg(mood, 400, tall)} alt={`agents ${mood}`} width={400} height={tall} />
         </Box>
       ) : null}
       {Svg ? (
         <Box key="agents-mark" position="absolute" right={-7} bottom={-4}>
-          <Svg source={CORNER_MARK} alt="" width={230} height={230} />
+          <Svg source={CORNER_MARK} alt="effortless" width={230} height={230} />
         </Box>
       ) : null}
       <Box position="relative" flexDirection="column" gap={1}>
