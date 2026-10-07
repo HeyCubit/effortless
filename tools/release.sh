@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Ships a release: tests, version bump, commit, push, local install. Stops at the first failure, a failing test included,
+# Ships a release to the dev channel (main): tests, version bump, commit, push, local install. Users get it only
+# when tools/publish.sh moves the stable branch. Stops at the first failure, a failing test included,
 # so a broken build never reaches the marketplace.
 #
 # Usage: tools/release.sh [--no-install] [--dry-run] (--files <path>... -- | --all) "<commit subject>" ["<commit body>"]
@@ -117,7 +118,8 @@ git commit -q -m "$1" -m "${2:-}" -m "Co-Authored-By: Claude Opus 5.5 <noreply@a
 git pull -q --rebase --autostash
 git push -q
 if [ "$install" = 1 ]; then
-  claude plugin marketplace update effortless >/dev/null
-  claude plugin update effortless@effortless | tail -1
+  # This machine runs the dev channel (channels/dev): main, every release. Users get stable, moved by tools/publish.sh.
+  claude plugin marketplace update effortless-dev >/dev/null
+  claude plugin update effortless@effortless-dev | tail -1
 fi
 echo "released $new"

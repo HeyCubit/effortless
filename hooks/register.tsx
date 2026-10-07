@@ -2224,7 +2224,7 @@ function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui
     }
     uninstalling = true
     $.ui.invalidate('ui.render')
-    const r = await $.process.run(['claude', 'plugin', 'uninstall', 'effortless@effortless'], { timeoutMs: 120_000 }).catch(error => ({ exitCode: 1, stdout: '', stderr: String(error) }))
+    const r = await $.process.run(['claude', 'plugin', 'uninstall', pluginId($)], { timeoutMs: 120_000 }).catch(error => ({ exitCode: 1, stdout: '', stderr: String(error) }))
     uninstalling = false
     if (r.exitCode !== 0) {
       $.ui.toast(`effortless: uninstall failed: ${(r.stderr || r.stdout).trim().split('\n').pop()}`)
@@ -2305,9 +2305,10 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
   )
 }
 
-/** Where the mod learns of a new version: the newest entry of releases.json on main, written by tools/release.sh. */
+/** Where the mod learns of a new version: the newest entry of public.json on main, written only by tools/publish.sh.
+ * Releases between publishes (releases.json) reach the dev channel, never this card. */
 // The API, not raw.githubusercontent.com: the raw file sits behind a cache that lagged two releases behind.
-const RELEASES_URL = 'https://api.github.com/repos/HeyCubit/effortless/contents/releases.json?ref=main'
+const RELEASES_URL = 'https://api.github.com/repos/HeyCubit/effortless/contents/public.json?ref=main'
 const WHATS_NEW_URL = 'https://heycubit.github.io/effortless/whats-new/'
 /** How often a session looks for a new version, and how long ✕ on the offer keeps it away. */
 const UPDATE_CHECK_MS = 6 * 3600_000
@@ -2349,13 +2350,13 @@ async function installedVersion($: EngineInterface): Promise<string | undefined>
 /** Looks for a newer version and offers it, unless ✕ put that version away less than UPDATE_SNOOZE_MS ago. */
 // What the last check found, for /effortless update to say (installed, web, marketplace).
 let lastUpdateCheck = 'not checked yet'
-/** The newest release: releases.json on main over the web, else the marketplace's own copy of the repo after `claude
+/** The newest public release: public.json on main over the web, else the marketplace's own copy of the repo after `claude
  * plugin marketplace update` (git, so it works where the host's web fetch is refused or cached). */
 async function latestAvailable($: EngineInterface): Promise<{ latest?: { version: string; note: string }; how: string }> {
   const res = await $.http.fetch(`${RELEASES_URL}&t=${Date.now()}`, { headers: { accept: 'application/vnd.github.raw', 'user-agent': 'effortless' } }).catch((error: unknown) => ({ ok: false, status: 0, text: String(error) }))
   const fromWeb = res.ok ? latestRelease(res.text) : undefined
   const web = res.ok ? (fromWeb ? `web ${fromWeb.version}` : 'web: unreadable') : `web refused (${res.status || res.text.slice(0, 80)})`
-  const marketplace = `${$.plugin.root.replace(/[\\/]cache[\\/].*$/, '')}/marketplaces/effortless/releases.json`
+  const marketplace = `${$.plugin.root.replace(/[\\/]cache[\\/].*$/, '')}/marketplaces/effortless/public.json`
   const readLocal = async () => {
     const text = await $.fs.read(marketplace).catch(() => '')
     return latestRelease(typeof text === 'string' ? text : '')
@@ -2405,7 +2406,7 @@ async function runUpdate($: EngineInterface, card: UpdateCard) {
   }
   try {
     await step(['claude', 'plugin', 'marketplace', 'update', 'effortless'])
-    await step(['claude', 'plugin', 'update', 'effortless@effortless'])
+    await step(['claude', 'plugin', 'update', pluginId($)])
   } catch (error) {
     await update($, updateCard, () => ({ ...card, stage: 'failed', detail: String(error instanceof Error ? error.message : error) }))
     return
@@ -2619,6 +2620,24 @@ const AUTO_GLOW_H = 37
 /** The cold band's rim: the Auto glow's light in ice, breathing slowly for as long as the band shows, so a cold chat
  * looks alive rather than parked. Placed by the clock (inPhase), so a redraw picks up where the breath was. */
 const COLD_GLOW_MS = 4200
+/** This install's id: effortless@effortless for users, effortless@effortless-dev on the dev channel. Read off the
+ * cache path (…/plugins/cache/<marketplace>/effortless/<version>). */
+const pluginId = ($: EngineInterface) => `effortless@${$.plugin.root.match(/cache[\\/]([^\\/]+)[\\/]/)?.[1] ?? 'effortless'}`
+
+/** The bar's rim lit in the brand's violet while the judge decides: a slow breath, placed by the clock. */
+const JUDGE_GLOW_MS = 1600
+export function judgeGlowSvg(): string {
+  const W = AUTO_GLOW_W, H = AUTO_GLOW_H
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:.25;animation:r ${JUDGE_GLOW_MS / 1000}s ease-in-out infinite}@keyframes r{0%,100%{opacity:.25}50%{opacity:.85}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ACCENT}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#b9a7ff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
+}
+/** The same rim fading out once the verdict is in. */
+const JUDGE_FADE_MS = 900
+export function judgeFadeSvg(): string {
+  return judgeGlowSvg().replace(/\.r\{[^}]*\}@keyframes r\{[^}]*\}[^<]*/, `.r{opacity:0;animation:r ${JUDGE_FADE_MS / 1000}s ease-out}@keyframes r{0%{opacity:.85}100%{opacity:0}}`)
+}
+// When the judge last finished, for the fade.
+let judgeEndedAt = 0
+
 export function coldGlowSvg(): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:.15;animation:r ${COLD_GLOW_MS / 1000}s ease-in-out infinite}@keyframes r{0%,100%{opacity:.15}50%{opacity:.6}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ICE}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#cfeeff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
@@ -2669,7 +2688,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     cacheNow: drawn ? null : cacheShown,
     // Desktop draws the context as a ring and a figure (as the swamp band does); the terminal says it in words.
     contextPercent: e.surface === 'terminal' && lastContext && lastContext.window ? lastContext.percent : null,
-    reason: config.hide.includes('reason') ? '' : reason,
+    // A prompt on a cheaper model names it in the judge's line ("On Sonnet · Haiku: a small fix"), not beside the effort word.
+    reason: config.hide.includes('reason') ? '' : routed && !v.judging ? `On ${MODELS.find(m => m.key === routed)!.label} · ${reason}` : reason,
     // The last reply's cost is left out of the bar: it was noise there. lastTurn still records it.
     last: null,
   })
@@ -2759,6 +2779,16 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           <Svg source={inPhase(autoGlowSvg(v.auto), nowMs - autoOnAt)} alt="auto glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
+      {/* While the judge decides, the rim breathes violet; once the verdict is in it fades out. */}
+      {Svg && v.judging ? (
+        <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
+          <Svg source={inPhase(judgeGlowSvg(), nowMs % JUDGE_GLOW_MS)} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+        </Box>
+      ) : Svg && nowMs - judgeEndedAt < JUDGE_FADE_MS ? (
+        <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
+          <Svg source={inPhase(judgeFadeSvg(), nowMs - judgeEndedAt)} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+        </Box>
+      ) : null}
       {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
           when room runs out the reason goes first (it shrinks a hundred times faster), then the cache, and the row clips
           rather than run under the buttons. Siblings, not nested: a shrunk parent let the word spill under the ring. */}
@@ -2773,8 +2803,6 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           {/* A new effort shows in violet, then white (effortFlash): plain text in the app's font. An animated image of the
               word looked cheap: another font, a late start and a jump back to the text. */}
           <Text key="dash-level" color={wordColor} bold>{v.judging && Svg ? 'Deciding' : what}</Text>
-          {/* This prompt runs on a cheaper model than the chat's: its name, dim, after the effort. */}
-          {routed && v.auto && !v.judging ? <Text key="dash-model" color={DASH_DIM}>{` · ${MODELS.find(m => m.key === routed)!.label}`}</Text> : null}
           {/* While the judge decides: the progress bar's thinking dots, as a plain image (its CSS still runs, and a
               redraw does not restart it the way an interactive frame does). */}
           {v.judging && Svg ? (
@@ -3403,6 +3431,7 @@ Saved to ${out}.md and .json` }
         }
       }
     } finally {
+      judgeEndedAt = Date.now()
       await update($, isJudging, () => false)
     }
     return next(e)

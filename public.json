@@ -1,0 +1,14 @@
+[
+  {
+    "version": "1.36.0",
+    "date": "2026-10-07",
+    "note": "Haiku 5.5 picks the model and writes compactions",
+    "public": true
+  },
+  {
+    "version": "1.35.115",
+    "date": "2026-10-07",
+    "note": "Haiku 5.5 picks the model and writes compactions; installs from the website",
+    "public": true
+  }
+]
