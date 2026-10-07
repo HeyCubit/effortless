@@ -3434,6 +3434,7 @@ Saved to ${out}.md and .json` }
           {frameOnly ? null : card === null ? (
             // The overview: a card per part, what it is set to in a few words. A card opens that part alone.
             <Box key="settings-cards" flexDirection="row" flexWrap="wrap" gap={1}>
+              <Box position="absolute" top={0} left={0} />
               {CARDS.map(c => (
                 <Box key={`card-${c.id}`} position="relative" flexDirection="column" flexGrow={1} width={0} minWidth={18}
                   paddingX={1} borderStyle="round" borderColor={DASH_EDGE} hover={{ backgroundColor: CARD_HOVER, borderColor: CARD_HOVER_EDGE }}>
@@ -3454,6 +3455,10 @@ Saved to ${out}.md and .json` }
           ) : (
             // One part: Back, its name and what it does, then its controls.
             <Box key={`settings-${card}`} flexDirection="column" gap={roomy && !term ? 1 : 0}>
+              {/* An empty absolute child makes the box positioned, so its rows paint, and take clicks, over the
+                  entrance sweep and the art (absolute layers cover every plain box, and the sweep stays until the next
+                  redraw). */}
+              <Box position="absolute" top={0} left={0} />
               <Box flexDirection="row" gap={1} alignItems="center">
                 {Svg && !term ? (
                   // A drawn chevron and the word in a box of their own, a blank button over both: the hover covers the
