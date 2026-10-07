@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted } from '../hooks/register'
+import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
 
@@ -2733,7 +2733,7 @@ describe('dashboard', () => {
     await expect($.ui.mount(FOOTER)).rejects.toThrow()
   })
 
-  test('Handoff is grey on a fresh chat and white once the context fills', DASH, async ($, on) => {
+  test('Handoff gains its box a step a percent of context, with H and the glow once it is loud', DASH, async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
     let percent = 10
@@ -2742,12 +2742,13 @@ describe('dashboard', () => {
     await closeSetup($, DESK_BAND)
     await mocked.advance(16_000)
     let band = await $.ui.mount(DESK_BAND)
-    expect((await band.find({ key: 'dash-handoff' }))?.props).toMatchObject({ variant: 'secondary' })
+    expect(await band.find({ key: 'dash-handoff' })).toBeDefined()
+    expect(await band.find({ key: 'dash-handoff-h' })).toBeUndefined()
     await band.unmount()
     percent = 35
     await mocked.advance(16_000)
     band = await $.ui.mount(DESK_BAND)
-    expect((await band.find({ key: 'dash-handoff' }))?.props).toMatchObject({ variant: 'primary', hotkey: 'h' })
+    expect((await band.find({ key: 'dash-handoff-h' }))?.props).toMatchObject({ hotkey: 'h' })
     expect(await band.find({ key: 'dash-glow' })).toBeDefined()
     await band.unmount()
     // While a reply runs the band redraws often: no glow then, so it cannot flicker.
@@ -2855,5 +2856,17 @@ describe('a chat opened again', () => {
     const footer = await $.ui.mount(FOOTER)
     expect(await drawn(footer)).toMatch(/"(49|50)m"/)
     await footer.unmount()
+  })
+})
+
+describe('handoff look', () => {
+  test('no box at 0%, the grey box at 30%, white at 80%, a step each percent', () => {
+    expect(handoffLook(0).opacity).toBe(0)
+    expect(handoffLook(30)).toMatchObject({ opacity: 1, fill: '#2b2b2f' })
+    expect(handoffLook(80).fill).toBe('#ececf0')
+    expect(handoffLook(95)).toEqual(handoffLook(80))
+    expect(handoffLook(80).label).toBe('#141416')
+    const fills = new Set(Array.from({ length: 81 }, (_, p) => JSON.stringify(handoffLook(p))))
+    expect(fills.size).toBe(81)
   })
 })
