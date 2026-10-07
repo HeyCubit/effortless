@@ -2289,6 +2289,26 @@ export function autoSwitchSvg(on: boolean, slideMs: number | null = null): strin
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="15" viewBox="0 0 26 15">${css}<rect class="p" x=".5" y=".5" width="25" height="14" rx="7" fill="${on ? ACCENT : '#2c2c31'}" stroke="${on ? ACCENT : '#4a4a52'}"/><circle class="k" cx="${on ? 18.5 : 7.5}" cy="7.5" r="5" fill="${on ? '#ffffff' : '#8b8b93'}"/></svg>`
   return slide ? inPhase(svg, slideMs) : svg
 }
+/** The handoff bar's Quick | Full switch: a dark track with both words in it and a light knob under the picked one,
+ * KIND_CELLS wide each half (the words are app Text laid over it; an image would draw them in another font). */
+const KIND_CELLS = 6
+/** One cell of the desktop band in CSS px (`1ch` of its font, measured on tools/render-band). */
+const CELL_PX = 7.9
+const KIND_W = Math.round(KIND_CELLS * 2 * CELL_PX)
+const KIND_H = 20
+/** The track and the knob under `kind`; `slideMs` slides the knob over from the other half, for the redraw right
+ * after a click only (every redraw replays an image's animation). */
+export function kindSwitchSvg(kind: 'quick' | 'full', slideMs: number | null = null): string {
+  const half = KIND_W / 2
+  const slide = slideMs !== null && slideMs < AUTO_SLIDE_MS
+  const css = slide
+    ? `<style>.k{animation:k ${AUTO_SLIDE_MS / 1000}s cubic-bezier(.3,.7,.2,1)}@keyframes k{from{transform:translateX(${kind === 'full' ? -half : half}px)}}</style>`
+    : ''
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${KIND_W}" height="${KIND_H}" viewBox="0 0 ${KIND_W} ${KIND_H}">${css}<rect x=".5" y=".5" width="${KIND_W - 1}" height="${KIND_H - 1}" rx="7" fill="#000000" fill-opacity=".32" stroke="#ffffff" stroke-opacity=".12"/><rect class="k" x="${kind === 'full' ? half + 1 : 2}" y="2" width="${half - 3}" height="${KIND_H - 4}" rx="5.5" fill="#ececf0"/></svg>`
+  return slide ? inPhase(svg, slideMs) : svg
+}
+// When the handoff bar's Quick | Full last changed, for the knob's slide.
+let kindFlipAt = 0
 /** How long the bar's edges glow after Auto is switched on. */
 const AUTO_GLOW_MS = 2600
 const AUTO_GLOW_W = 760
@@ -3527,6 +3547,7 @@ Saved to ${out}.md and .json` }
     const choice = await read($, handoffPick)
     if (choice) {
       const setBar = (change: Partial<HandoffChoice>) => async () => {
+        if (change.kind && change.kind !== choice.kind) kindFlipAt = await $.clock.now()
         await update($, handoffPick, () => ({ ...choice, ...change }))
         // The write alone redraws the bar; a full invalidate redraws the art too, which flickers.
       }
@@ -3535,17 +3556,41 @@ Saved to ${out}.md and .json` }
       // Go is the one lit button: the picked kind is a quiet box, the other plain text. The app draws a hotkey's
       // letter faint on a grey button, so only the terminal gets letters there.
       const term = e.surface === 'terminal'
+      const kindNow = await $.clock.now()
       const controls = [
-        choice.kind === 'quick' ? (
+        // Desktop: one switch with both words, the knob under the picked one (like Auto), each half a blank button.
+        !term && Svg ? (
+          <Box key="handoff-kind" position="relative" flexShrink={0} flexDirection="row" alignItems="center">
+            <Box width={KIND_CELLS * 2} height={1} flexShrink={0} />
+            <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+              <Svg source={kindSwitchSvg(choice.kind, kindNow - kindFlipAt)} alt={choice.kind === 'full' ? 'Full handoff' : 'Quick handoff'} width={KIND_W} height={KIND_H} />
+            </Box>
+            <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center">
+              {(['quick', 'full'] as const).map(k => (
+                <Box key={`handoff-kind-${k}`} flexGrow={1} width={0} justifyContent="center">
+                  <Text color={choice.kind === k ? '#141416' : DASH_DIM} bold={choice.kind === k}>{k === 'quick' ? 'Quick' : 'Full'}</Text>
+                </Box>
+              ))}
+            </Box>
+            <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center">
+              {(['quick', 'full'] as const).map(k => (
+                <Box key={`handoff-kind-hit-${k}`} flexGrow={1} width={0} justifyContent="center">
+                  <Button key={`handoff-${k}`} plain hover={{ backgroundColor: '#00000000' }} label={' '.repeat(KIND_CELLS)} onPress={setBar({ kind: k })} />
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        ) : null,
+        term || !Svg ? (choice.kind === 'quick' ? (
           <Button key="handoff-quick" hotkey={term ? 'q' : undefined} variant="secondary" label="Quick" onPress={setBar({ kind: 'quick' })} />
         ) : (
           <Button key="handoff-quick" hotkey={term ? 'q' : undefined} plain dimColor label="Quick" onPress={setBar({ kind: 'quick' })} />
-        ),
-        choice.kind === 'full' ? (
+        )) : null,
+        term || !Svg ? (choice.kind === 'full' ? (
           <Button key="handoff-full" hotkey={term ? 'f' : undefined} variant="secondary" label="Full" onPress={setBar({ kind: 'full' })} />
         ) : (
           <Button key="handoff-full" hotkey={term ? 'f' : undefined} plain dimColor label="Full" onPress={setBar({ kind: 'full' })} />
-        ),
+        )) : null,
         <Select key="handoff-after" value={choice.after}
           options={[
             { value: 'continue', label: 'Clear & carry on' },
