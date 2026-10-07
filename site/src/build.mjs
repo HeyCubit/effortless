@@ -20,7 +20,12 @@ const still = [[505,110,4,.35],[585,280,3,.3],[655,140,5,.45],[705,370,4,.4],[77
 const star4 = (x, y, s) => { const i = s * .21; return `M${x} ${y-s} L${x+i} ${y-i} L${x+s} ${y} L${x+i} ${y+i} L${x} ${y+s} L${x-i} ${y+i} L${x-s} ${y} L${x-i} ${y-i} Z` }
 const streaks = [[600,38,.04],[680,14,.05],[770,46,.05],[880,18,.04],[960,36,.05],[1040,14,.04]].map(([x,w,o]) => `<line x1="${x-70}" y1="420" x2="${x+70}" y2="-20" stroke="#fff" stroke-opacity="${o}" stroke-width="${w}"/>`).join("")
 const heroArt = `<svg class="stars" viewBox="0 0 1000 600" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><style>.h-sp{fill:#fff;opacity:0;transform-box:fill-box;transform-origin:center;animation:h-gl 4s ease-in-out infinite}@keyframes h-gl{0%,50%,100%{opacity:0;transform:scale(0) rotate(0deg)}70%{opacity:.95;transform:scale(1) rotate(30deg)}90%{opacity:0;transform:scale(.2) rotate(60deg)}}</style>${sp.map(([x,y,s,d,dl]) => `<path class="h-sp" style="animation-duration:${d}s;animation-delay:${dl}s" d="${star4(x,y*1.5,s*1.1)}"/>`).join("")}${still.map(([x,y,s,o]) => `<path fill="#fff" fill-opacity="${o}" d="${star4(x,y*1.5,s)}"/>`).join("")}</svg>`
+// What's new: releases.json at the repo root, newest first, one row per release.
+const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+const releases = JSON.parse(fs.readFileSync(repo + "/releases.json", "utf8"))
+const news = releases.map(r => `<li><span class="v">${esc(r.version)}</span><span class="n">${esc(r.note)}</span><time datetime="${esc(r.date)}">${esc(r.date)}</time></li>`).join("")
 const map = {
+  __WHATSNEW__: news,
   __STARS__: heroArt, 
   __ART_BRAND__: uri(grab('BRAND_SVG')), __ART_FROST__: uri(grab('FROST_SVG')), __ART_SWAMP__: uri(grab('SWAMP_SVG')),
   __ART_EMBER__: uri(grab('EMBER_SVG')), __ART_DOWN__: uri(grab('DOWN_SVG')),
