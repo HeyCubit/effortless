@@ -2224,7 +2224,7 @@ function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui
     }
     uninstalling = true
     $.ui.invalidate('ui.render')
-    const r = await $.process.run(['claude', 'plugin', 'uninstall', 'effortless@effortless'], { timeoutMs: 120_000 }).catch(error => ({ exitCode: 1, stdout: '', stderr: String(error) }))
+    const r = await $.process.run(['claude', 'plugin', 'uninstall', pluginId($)], { timeoutMs: 120_000 }).catch(error => ({ exitCode: 1, stdout: '', stderr: String(error) }))
     uninstalling = false
     if (r.exitCode !== 0) {
       $.ui.toast(`effortless: uninstall failed: ${(r.stderr || r.stdout).trim().split('\n').pop()}`)
@@ -2406,7 +2406,7 @@ async function runUpdate($: EngineInterface, card: UpdateCard) {
   }
   try {
     await step(['claude', 'plugin', 'marketplace', 'update', 'effortless'])
-    await step(['claude', 'plugin', 'update', 'effortless@effortless'])
+    await step(['claude', 'plugin', 'update', pluginId($)])
   } catch (error) {
     await update($, updateCard, () => ({ ...card, stage: 'failed', detail: String(error instanceof Error ? error.message : error) }))
     return
@@ -2620,6 +2620,24 @@ const AUTO_GLOW_H = 37
 /** The cold band's rim: the Auto glow's light in ice, breathing slowly for as long as the band shows, so a cold chat
  * looks alive rather than parked. Placed by the clock (inPhase), so a redraw picks up where the breath was. */
 const COLD_GLOW_MS = 4200
+/** This install's id: effortless@effortless for users, effortless@effortless-dev on the dev channel. Read off the
+ * cache path (…/plugins/cache/<marketplace>/effortless/<version>). */
+const pluginId = ($: EngineInterface) => `effortless@${$.plugin.root.match(/cache[\\/]([^\\/]+)[\\/]/)?.[1] ?? 'effortless'}`
+
+/** The bar's rim lit in the brand's violet while the judge decides: a slow breath, placed by the clock. */
+const JUDGE_GLOW_MS = 1600
+export function judgeGlowSvg(): string {
+  const W = AUTO_GLOW_W, H = AUTO_GLOW_H
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:.25;animation:r ${JUDGE_GLOW_MS / 1000}s ease-in-out infinite}@keyframes r{0%,100%{opacity:.25}50%{opacity:.85}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ACCENT}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#b9a7ff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
+}
+/** The same rim fading out once the verdict is in. */
+const JUDGE_FADE_MS = 900
+export function judgeFadeSvg(): string {
+  return judgeGlowSvg().replace(/\.r\{[^}]*\}@keyframes r\{[^}]*\}[^<]*/, `.r{opacity:0;animation:r ${JUDGE_FADE_MS / 1000}s ease-out}@keyframes r{0%{opacity:.85}100%{opacity:0}}`)
+}
+// When the judge last finished, for the fade.
+let judgeEndedAt = 0
+
 export function coldGlowSvg(): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:.15;animation:r ${COLD_GLOW_MS / 1000}s ease-in-out infinite}@keyframes r{0%,100%{opacity:.15}50%{opacity:.6}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ICE}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#cfeeff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
@@ -2759,6 +2777,16 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
       {Svg && v.auto && nowMs - autoOnAt < AUTO_GLOW_MS && renderLog.push(`glow ${v.auto ? 'on' : 'off'} at ${nowMs - autoOnAt} ms`) ? (
         <Box key="dash-auto-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
           <Svg source={inPhase(autoGlowSvg(v.auto), nowMs - autoOnAt)} alt="auto glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+        </Box>
+      ) : null}
+      {/* While the judge decides, the rim breathes violet; once the verdict is in it fades out. */}
+      {Svg && v.judging ? (
+        <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
+          <Svg source={inPhase(judgeGlowSvg(), nowMs % JUDGE_GLOW_MS)} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+        </Box>
+      ) : Svg && nowMs - judgeEndedAt < JUDGE_FADE_MS ? (
+        <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
+          <Svg source={inPhase(judgeFadeSvg(), nowMs - judgeEndedAt)} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
       {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
@@ -3403,6 +3431,7 @@ Saved to ${out}.md and .json` }
         }
       }
     } finally {
+      judgeEndedAt = Date.now()
       await update($, isJudging, () => false)
     }
     return next(e)

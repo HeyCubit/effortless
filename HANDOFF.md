@@ -1,17 +1,16 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.36.0, pushed and installed. Direct pushes, no open PRs. Several chats push
-  to main: `git pull --rebase --autostash` before every push, and read the version after the pull.
-- Release: `tools/release.sh [--no-install] [--dry-run] --files <your paths> -- "<subject>" "<body>"` (or `--all`
-  instead of `--files ... --`). Commits only the named paths plus the version bump, so other chats' half-done work stays
-  out; without `--files`/`--all` it lists the changed files and stops. Runs the tests (143 pass) and stops on any
-  failure, bumps the version here and in `.claude-plugin/plugin.json`, adds the subject to `releases.json`, commits,
-  pushes and installs. `--dry-run` shows what it would stage. `tools/release-selfcheck.sh` tests the gate. `--no-install`
-  leaves this machine a version behind so the update card can be tried. Use `py`, not `python`.
-- Showcase site: https://heycubit.github.io/effortless/ (`gh-pages` = `main:site`), the bar-first redesign with a
-  /whats-new/ page built from releases.json. Build: `node site/src/build.mjs`. Not yet in `tools/release.sh`: after a
-  release, rebuild and republish so What's new lists it. Design notes: ai-setup `memory/effortless/site-design.md`.
+- `main` on HeyCubit/effortless, direct pushes. Several chats push to main: `git pull --rebase --autostash` first.
+- Two channels. Users install the plugin from the `stable` branch (marketplace entry `ref: stable`), and the update card
+  offers the newest entry of `public.json`. Isac's machine runs the dev channel: marketplace `effortless-dev`
+  (`channels/dev`, plugin from `main`), installed as `effortless@effortless-dev`.
+- `tools/release.sh (--files <paths> -- | --all) "<subject>" "<body>"`: tests, patch bump, commit to main, push,
+  installs the dev channel here. Reaches no user.
+- `tools/publish.sh "<what's new>" "<detail>"`: tests, minor bump (1.36.0 -> 1.37.0), writes releases.json and
+  public.json, pushes main and moves `stable` to it. Every user gets one update card. Publish only on Isac's go.
+- Public now: 1.36.0 (2026-10-07). Showcase site: https://heycubit.github.io/effortless/ (`gh-pages` = `main:site`);
+  the site's What's new should list public.json, not every dev release.
 
 ## Where things stand
 - Dashboard bar is the default look; Minimal stays as a setting (Settings → Appearance).
