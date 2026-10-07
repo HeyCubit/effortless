@@ -95,6 +95,7 @@ const cardRunning = (kind: HandoffCard['kind']) => kind === 'writing' || kind ==
 // Kinds that landed well: the card turns green with a checkmark.
 const cardLanded = (kind: HandoffCard['kind']) => kind === 'done' || kind === 'compacted'
 const handoffCard = atom({ plugin: 'effortless', key: 'handoffCard' } as const, null)
+const updateCard = atom({ plugin: 'effortless', key: 'updateCard' } as const, null)
 const HANDOFF_CARD_MS = 2 * 60_000
 // The handoff card's art while it is written: sparkles carried from left to right.
 const HANDOFF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.d{fill:#d9d1ff;opacity:0;animation-name:go;animation-timing-function:ease-in-out;animation-iteration-count:infinite}@keyframes go{0%{opacity:0;transform:translate(0,0)}15%{opacity:.9}85%{opacity:.7}100%{opacity:0;transform:translate(190px,0)}}.br{animation:br 2.4s ease-in-out infinite}@keyframes br{0%,100%{opacity:.75}50%{opacity:1}}</style><defs><linearGradient id="bg" x1="0" x2="1"><stop offset=".43" stop-color="#7c6cf0" stop-opacity="0"/><stop offset=".7" stop-color="#7c6cf0" stop-opacity=".2"/><stop offset="1" stop-color="#b3a6ff" stop-opacity=".46"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".07"/></pattern></defs><g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#bg)"/><circle class="d" cx="170" cy="9.2" r="0.83" style="animation-duration:2.7s;animation-delay:-2.2s"/><circle class="d" cx="170" cy="17.8" r="0.54" style="animation-duration:2.2s;animation-delay:-3.0s"/><circle class="d" cx="170" cy="9.7" r="0.64" style="animation-duration:3.6s;animation-delay:-1.7s"/><circle class="d" cx="170" cy="22.4" r="0.79" style="animation-duration:3.1s;animation-delay:-0.5s"/><circle class="d" cx="170" cy="18.0" r="1.02" style="animation-duration:2.9s;animation-delay:-2.7s"/><circle class="d" cx="170" cy="18.8" r="0.54" style="animation-duration:3.3s;animation-delay:-2.1s"/><circle class="d" cx="170" cy="10.6" r="0.52" style="animation-duration:3.4s;animation-delay:-1.7s"/><circle class="d" cx="170" cy="19.8" r="1.03" style="animation-duration:3.2s;animation-delay:-3.3s"/><circle class="d" cx="170" cy="12.7" r="0.98" style="animation-duration:2.8s;animation-delay:-3.4s"/><circle class="d" cx="170" cy="23.3" r="0.56" style="animation-duration:2.4s;animation-delay:-0.8s"/><circle class="d" cx="170" cy="25.2" r="0.76" style="animation-duration:3.1s;animation-delay:-1.1s"/><circle class="d" cx="170" cy="15.2" r="0.73" style="animation-duration:2.7s;animation-delay:-2.1s"/><circle class="d" cx="170" cy="16.9" r="1.04" style="animation-duration:3.2s;animation-delay:-3.3s"/><circle class="d" cx="170" cy="22.8" r="1.09" style="animation-duration:3.1s;animation-delay:-0.6s"/><rect width="360" height="30" fill="url(#grain)"/></g></svg>`
@@ -134,7 +135,7 @@ const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits.' },
   { id: 'judge', title: 'Judge', about: 'Who reads each prompt and picks the effort. Test checks it answers.' },
   { id: 'handoff', title: 'Handoff', about: 'The skill that writes a full handoff, and when a chat counts as swamped.' },
-  { id: 'show', title: 'Show', about: 'How effortless looks and which parts it shows.' },
+  { id: 'show', title: 'Appearance', about: 'How effortless looks and which parts it shows. Uninstall removes it.' },
 ]
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
 // The settings panel's judge test: running, or what it found. Null before a test and once the panel closes.
@@ -2172,6 +2173,43 @@ async function effortFlash($: EngineInterface, what: string, judging: boolean, e
 }
 
 
+// Uninstall's first press arms it; a second within UNINSTALL_ARM_MS uninstalls. Then the plugins reload and the mod is
+// gone from this chat; its settings stay in settings.json, so a reinstall picks them up.
+const UNINSTALL_ARM_MS = 4000
+let uninstallArmedAt = 0
+let uninstalling = false
+function uninstallButton($: EngineInterface, Button: ReturnType<EngineInterface['ui']['resolve']>['Button']) {
+  const armed = Date.now() - uninstallArmedAt < UNINSTALL_ARM_MS
+  const press = async () => {
+    if (uninstalling) return
+    if (!armed) {
+      uninstallArmedAt = Date.now()
+      $.ui.invalidate('ui.render')
+      $.clock.after(UNINSTALL_ARM_MS + 50, () => $.ui.invalidate('ui.render'))
+      return
+    }
+    uninstalling = true
+    $.ui.invalidate('ui.render')
+    const r = await $.process.run(['claude', 'plugin', 'uninstall', 'effortless@effortless'], { timeoutMs: 120_000 }).catch(error => ({ exitCode: 1, stdout: '', stderr: String(error) }))
+    uninstalling = false
+    if (r.exitCode !== 0) {
+      $.ui.toast(`effortless: uninstall failed: ${(r.stderr || r.stdout).trim().split('\n').pop()}`)
+      $.ui.invalidate('ui.render')
+      return
+    }
+    $.ui.toast('effortless is uninstalled. Thanks for trying it.')
+    const reloaded = await $.command.run({ command: 'reload-plugins', args: '' } as never).then(() => true, () => false)
+    if (!reloaded) await typeCommand($, '/reload-plugins')
+  }
+  return uninstalling ? (
+    <Button key="settings-uninstall" plain dimColor label="Uninstalling…" onPress={() => {}} />
+  ) : armed ? (
+    <Button key="settings-uninstall" variant="secondary" label="Press again to uninstall" onPress={press} />
+  ) : (
+    <Button key="settings-uninstall" plain dimColor label="Uninstall" onPress={press} />
+  )
+}
+
 /** The handoff or compact card: words, the moving art while it runs, green with a check once it has landed. `above` is
  * what sits over it (the reply it hangs under), or nothing for the band above the prompt. */
 function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> | RenderInput<'AbovePrompt'>, fresh: HandoffCard, above: unknown, onDismiss?: () => unknown) {
@@ -2210,6 +2248,127 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
     <Box key="reply" flexDirection="column" gap={1}>
       {above as never}
       {card}
+    </Box>
+  )
+}
+
+/** Where the mod learns of a new version: the newest entry of releases.json on main, written by tools/release.sh. */
+const RELEASES_URL = 'https://raw.githubusercontent.com/HeyCubit/effortless/main/releases.json'
+const WHATS_NEW_URL = 'https://heycubit.github.io/effortless/#whats-new'
+/** How often a session looks for a new version, and how long ✕ on the offer keeps it away. */
+const UPDATE_CHECK_MS = 6 * 3600_000
+const UPDATE_SNOOZE_MS = 24 * 3600_000
+/** How long "Updated" stays above the prompt when nothing else clears it. */
+const UPDATED_CARD_MS = 30_000
+type UpdateCard = { stage: 'offer' | 'updating' | 'done' | 'failed'; version: string; note: string; at: number; detail?: string }
+
+/** Whether version `a` is newer than `b`, both `major.minor.patch`. */
+export function isNewer(a: string, b: string): boolean {
+  const pa = a.split('.').map(Number), pb = b.split('.').map(Number)
+  for (let i = 0; i < 3; i++) if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) > (pb[i] ?? 0)
+  return false
+}
+/** The newest release in releases.json's text (newest first), or nothing when it does not parse. */
+export function latestRelease(text: string): { version: string; note: string } | undefined {
+  try {
+    const list = JSON.parse(text) as { version?: unknown; note?: unknown }[]
+    const top = Array.isArray(list) ? list[0] : undefined
+    if (!top || typeof top.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(top.version)) return undefined
+    return { version: top.version, note: typeof top.note === 'string' ? top.note : '' }
+  } catch {
+    return undefined
+  }
+}
+/** Whether ✕ still keeps `version` away at `now`: the same version, put away less than UPDATE_SNOOZE_MS ago. */
+export function updateSnoozed(hidden: { version: string; at: number } | null, version: string, now: number): boolean {
+  return !!hidden && hidden.version === version && now - hidden.at < UPDATE_SNOOZE_MS
+}
+async function installedVersion($: EngineInterface): Promise<string | undefined> {
+  const text = await $.fs.read(`${$.plugin.root}/.claude-plugin/plugin.json`).catch(() => '')
+  try {
+    const v = (JSON.parse(typeof text === 'string' ? text : '') as { version?: unknown }).version
+    return typeof v === 'string' ? v : undefined
+  } catch {
+    return undefined
+  }
+}
+/** Looks for a newer version and offers it, unless ✕ put that version away less than UPDATE_SNOOZE_MS ago. */
+async function checkUpdate($: EngineInterface) {
+  const shown = await read($, updateCard)
+  if (shown && shown.stage !== 'offer') return
+  const res = await $.http.fetch(RELEASES_URL).catch(() => null)
+  const latest = res?.ok ? latestRelease(res.text) : undefined
+  const mine = await installedVersion($)
+  if (!latest || !mine || !isNewer(latest.version, mine)) {
+    if (shown) await update($, updateCard, () => null)
+    return
+  }
+  const now = await $.clock.now()
+  const hidden = (await $.store.get('updateHidden').catch(() => null)) as { version: string; at: number } | null
+  if (updateSnoozed(hidden, latest.version, now)) return
+  if (shown?.version !== latest.version) await update($, updateCard, () => ({ stage: 'offer', version: latest.version, note: latest.note, at: now }))
+}
+/** Update pressed: the marketplace and the plugin are updated as `claude plugin` does, then the plugins reloaded so
+ * the new version runs in this chat. The new module shows "Updated" (see session.start). */
+async function runUpdate($: EngineInterface, card: UpdateCard) {
+  await update($, updateCard, () => ({ ...card, stage: 'updating' }))
+  const step = async (argv: string[]) => {
+    const r = await $.process.run(argv, { timeoutMs: 180_000 })
+    if (r.exitCode !== 0) throw new Error((r.stderr || r.stdout).trim().split('\n').pop() || `${argv.join(' ')} failed`)
+  }
+  try {
+    await step(['claude', 'plugin', 'marketplace', 'update', 'effortless'])
+    await step(['claude', 'plugin', 'update', 'effortless@effortless'])
+  } catch (error) {
+    await update($, updateCard, () => ({ ...card, stage: 'failed', detail: String(error instanceof Error ? error.message : error) }))
+    return
+  }
+  const now = await $.clock.now()
+  await $.store.set('updatedTo', { version: card.version, note: card.note, at: now })
+  await update($, updateCard, () => ({ ...card, stage: 'done', at: now }))
+  // The reload loads the new version here; where the app takes no command from a plugin, it is typed for Enter.
+  const reloaded = await $.command.run({ command: 'reload-plugins', args: '' } as never).then(() => true, () => false)
+  if (!reloaded && (await typeCommand($, '/reload-plugins')))
+    await update($, updateCard, c => (c ? { ...c, detail: 'Press Enter to load it' } : c))
+}
+/** The update card above the prompt: the offer, the moving art while it updates, green once done. */
+function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card: UpdateCard) {
+  const { Box, Text, Svg, Button, Link } = $.ui.resolve(e)
+  const landed = card.stage === 'done'
+  const words = {
+    offer: [`✦ effortless ${card.version} is out`, card.note || 'A new version is ready.'],
+    updating: ['✦ Updating…', `Getting ${card.version}. Takes a few seconds.`],
+    done: [`✦ Updated to ${card.version}`, card.detail ?? (card.note || 'Loaded in this chat.')],
+    failed: ['✦ Update failed', card.detail ?? 'Try again, or run claude plugin update effortless@effortless.'],
+  }[card.stage]
+  const hide = async () => {
+    if (card.stage === 'offer') await $.store.set('updateHidden', { version: card.version, at: await $.clock.now() })
+    await update($, updateCard, () => null)
+  }
+  const controls =
+    card.stage === 'offer' || card.stage === 'failed' ? (
+      <Button key="update-go" variant="primary" label={card.stage === 'failed' ? 'Try again' : 'Update'} onPress={() => runUpdate($, card)} />
+    ) : landed ? (
+      <Link href={WHATS_NEW_URL} label="What's new" />
+    ) : null
+  return (
+    <Box key="update-card" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
+      backgroundColor={landed ? DONE_BG : BRAND_BG} borderStyle="round" borderColor={landed ? DONE_EDGE : BRAND_EDGE}>
+      <Box key="update-art" position="absolute" top={-1} right={0} bottom={-1}>
+        {card.stage === 'updating' ? (
+          <Svg source={HANDOFF_SVG} alt="updating" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+        ) : (
+          <Svg source={landed ? DONE_SVG : BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+        )}
+      </Box>
+      <Box key="update-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
+        <Text color={landed ? DONE_ACCENT : ACCENT} bold wrap="truncate">{words[0]}</Text>
+        <Text wrap="truncate">{words[1]}</Text>
+      </Box>
+      <Box key="update-controls" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end" alignItems="center" gap={1}>
+        {controls}
+        {card.stage === 'updating' ? null : <Button key="update-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={hide} />}
+      </Box>
     </Box>
   )
 }
@@ -2318,15 +2477,18 @@ const KIND_H = 20
  * after a click only (every redraw replays an image's animation). */
 export function kindSwitchSvg(kind: 'quick' | 'full', slideMs: number | null = null): string {
   const half = KIND_W / 2
+  const at = (k: 'quick' | 'full') => (k === 'full' ? half + 0.5 : 2)
   const slide = slideMs !== null && slideMs < KIND_SLIDE_DELAY_MS + KIND_SLIDE_MS
   // It starts a beat after the click: the click redraws the whole bar, its large art included, and a slide in those
-  // same frames stuttered. Held at the old side until then (backwards fill), at its place on a later redraw.
-  const delay = slideMs === null ? 0 : KIND_SLIDE_DELAY_MS - slideMs
-  const css = slide
-    ? `<style>.k{animation:k ${KIND_SLIDE_MS / 1000}s cubic-bezier(.3,.7,.2,1) ${(delay / 1000).toFixed(3)}s backwards;will-change:transform}@keyframes k{from{transform:translateX(${kind === 'full' ? -half : half}px)}}</style>`
+  // same frames stuttered. SMIL, not CSS: it moves the knob's own x, held at the old side until it begins.
+  const from = at(kind === 'full' ? 'quick' : 'full')
+  const begin = slideMs === null ? 0 : KIND_SLIDE_DELAY_MS - slideMs
+  const move = slide
+    ? `<animate attributeName="x" from="${from}" to="${at(kind)}" begin="${(begin / 1000).toFixed(3)}s" dur="${KIND_SLIDE_MS / 1000}s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines=".3 .7 .2 1"/>`
     : ''
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${KIND_W}" height="${KIND_H}" viewBox="0 0 ${KIND_W} ${KIND_H}">${css}<rect x=".5" y=".5" width="${KIND_W - 1}" height="${KIND_H - 1}" rx="4.5" fill="#000000" fill-opacity=".32" stroke="#ffffff" stroke-opacity=".12"/><rect class="k" x="${kind === 'full' ? half : 0}" y="0" width="${half}" height="${KIND_H}" rx="5" fill="#ececf0"/></svg>`
-  return svg
+  // The track is the app's Select (white at 5%, a 1 px inset edge of white at 10%, 6 px corners), so the row reads as
+  // one set; the knob sits 2 px inside it.
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${KIND_W}" height="${KIND_H}" viewBox="0 0 ${KIND_W} ${KIND_H}"><rect x=".5" y=".5" width="${KIND_W - 1}" height="${KIND_H - 1}" rx="5.5" fill="#ffffff" fill-opacity=".05" stroke="#ffffff" stroke-opacity=".1"/><rect x="${slide ? from : at(kind)}" y="2" width="${half - 2.5}" height="${KIND_H - 4}" rx="4" fill="#ececf0">${move}</rect></svg>`
 }
 const KIND_SLIDE_MS = 300
 const KIND_SLIDE_DELAY_MS = 70
@@ -2723,6 +2885,15 @@ export const register: Register = (on, options) => {
     // mod's own command afterwards, instead of the file run as a skill.
     await $.command.register({ name: 'effortless', description: 'effortless: settings, debug, handoff, setup, bench, auto, stats.' }).catch(() => undefined)
     keyFromFile = (await $.store.get('keyFromFile')) === true
+    // Just updated from the card: the new version says so, with a link to what changed.
+    const updatedTo = (await $.store.get('updatedTo').catch(() => null)) as { version: string; note: string; at: number } | null
+    if (updatedTo) {
+      await $.store.set('updatedTo', null)
+      if ((await installedVersion($)) === updatedTo.version)
+        await update($, updateCard, () => ({ stage: 'done', version: updatedTo.version, note: updatedTo.note, at: Date.now() }))
+    }
+    void checkUpdate($).catch(() => undefined)
+    $.clock.every(UPDATE_CHECK_MS, () => void checkUpdate($).catch(() => undefined))
     void drainSetupSave($).catch(() => undefined)
     const storedAuto = await $.store.get('isAuto')
     if (typeof storedAuto === 'boolean') await update($, isAuto, () => storedAuto)
@@ -2861,6 +3032,13 @@ export const register: Register = (on, options) => {
       queueCue(config.hide, demo.cue)
       $.ui.invalidate('ui.render')
       return { text: demo.text }
+    }
+    if (arg === 'update') {
+      await checkUpdate($).catch(() => undefined)
+      const card = await read($, updateCard)
+      if (!card || card.stage === 'done') return { text: `effortless ${(await installedVersion($)) ?? ''} is the newest.` }
+      void runUpdate($, card)
+      return { text: `Updating to ${card.version}…` }
     }
     if (arg === 'auto') {
       await toggleAutoEffort($)
@@ -3575,6 +3753,7 @@ Saved to ${out}.md and .json` }
                     onSelect={set('layout')} />,
                 ]),
             ...toggles,
+            ...(bare ? [] : [uninstallButton($, Button)]),
 ]}
               </Box>
             </Box>
@@ -3609,7 +3788,7 @@ Saved to ${out}.md and .json` }
               {(['quick', 'full'] as const).map(k => (
                 <Box key={`handoff-kind-${k}`} flexGrow={1} width={0} flexDirection="row" alignItems="center" justifyContent="center">
                   <Svg source={rowIconSvg(k, choice.kind === k ? '#141416' : DASH_DIM)} alt="" width={14} height={14} />
-                  <Text color={choice.kind === k ? '#141416' : DASH_DIM} bold={choice.kind === k}>{k === 'quick' ? ' Quick' : ' Full'}</Text>
+                  <Text color={choice.kind === k ? '#141416' : DASH_DIM}>{k === 'quick' ? ' Quick' : ' Full'}</Text>
                 </Box>
               ))}
             </Box>
@@ -3891,6 +4070,10 @@ Saved to ${out}.md and .json` }
       )
     }
     // A compact running or just done: said above the prompt, where it is seen at once.
+    // A new version: offered, updating, or just updated (gone after UPDATED_CARD_MS or ✕). Desktop only; the terminal
+    // has /effortless update.
+    const upd = e.surface === 'terminal' ? null : await read($, updateCard)
+    if (upd && !(upd.stage === 'done' && (await $.clock.now()) - upd.at >= UPDATED_CARD_MS)) return updateCardTree($, e, upd)
     const compactNow = e.surface === 'terminal' ? null : await compactCard($, !!e.props.isWorking)
     if (compactNow)
       return handoffCardTree($, e, compactNow, undefined,
