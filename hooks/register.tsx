@@ -175,7 +175,7 @@ const DASH_EDGE = '#2a2a2f'
  * the band's font. */
 const SETTINGS_TITLE = `<svg xmlns="http://www.w3.org/2000/svg" width="92" height="28" viewBox="0 0 92 28"><defs><radialGradient id="c" cx="1" cy="1" r=".75" gradientTransform="matrix(.7 0 0 2.3 .3 -1.3)"><stop offset=".2" stop-color="#000"/><stop offset=".9" stop-color="#fff"/></radialGradient><radialGradient id="s" cx=".9" cy=".85" r=".55" gradientTransform="matrix(.7 0 0 2.3 .27 -1.1)"><stop offset=".25" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient><mask id="mc"><rect width="92" height="28" fill="url(#c)"/></mask><mask id="ms"><rect width="92" height="28" fill="url(#s)"/></mask><filter id="g" x="-20%" y="-40%" width="140%" height="180%"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="1" seed="7" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G" result="moved"/><feGaussianBlur in="moved" stdDeviation="1.1" result="soft"/><feComponentTransfer in="noise" result="dots"><feFuncA type="discrete" tableValues="0 0 1 1 1"/></feComponentTransfer><feComposite in="soft" in2="dots" operator="in"/></filter></defs><g font-size="21" font-weight="600" letter-spacing="-.5"><text x="1" y="20" fill="#f4f2ff" mask="url(#mc)">effortless</text><g mask="url(#ms)"><text x="1" y="20" fill="#f4f2ff" filter="url(#g)">effortless</text></g></g></svg>`
 /** The mark as the settings bar shows it: big, tilted and faint, cut off by the bar. */
-const SETTINGS_MARK = MARK_SVG.replace('<g mask=', '<g opacity=".2" transform="rotate(22 50 50)" mask=')
+const SETTINGS_MARK = MARK_SVG.replace('<g mask=', '<g opacity=".2" transform="rotate(9 50 50)" mask=')
 /** The settings panel's top bar: a shade above the band. */
 const DASH_HEAD = '#202024'
 const DASH_TEXT = '#d4d4d8'
@@ -2071,7 +2071,7 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
       backgroundColor={cardLanded(fresh.kind) ? DONE_BG : BRAND_BG} borderStyle="round" borderColor={cardLanded(fresh.kind) ? DONE_EDGE : BRAND_EDGE}>
       <Box key="reply-handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
         {cardRunning(fresh.kind) ? (
-          <Svg source={HANDOFF_SVG} alt={fresh.kind === 'compacting' ? 'compacting' : 'handing off'} width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} isInteractive />
+          <Svg source={HANDOFF_SVG} alt={fresh.kind === 'compacting' ? 'compacting' : 'handing off'} width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         ) : (
           <Svg source={cardLanded(fresh.kind) ? DONE_SVG : BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         )}
@@ -2141,11 +2141,31 @@ export function handoffGlowSvg(step: number): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${GLOW_W}" height="${GLOW_H}" viewBox="0 0 ${GLOW_W} ${GLOW_H}"><style>.g{animation:p ${period}s ease-in-out infinite}@keyframes p{0%,100%{opacity:${low}}50%{opacity:${peak}}}</style><defs><filter id="b" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="${blur}"/></filter></defs><g class="g" filter="url(#b)"><rect x="${x}" y="${y}" width="${GLOW_BUTTON.w + 2 * e}" height="${GLOW_BUTTON.h + 2 * e}" rx="${GLOW_BUTTON.r + e}" fill="${ACCENT}"/></g></svg>`
 }
 
+/** Auto as a switch: a pill with its knob right and violet when on, left and grey when off. */
+export function autoSwitchSvg(on: boolean): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="15" viewBox="0 0 26 15"><rect x=".5" y=".5" width="25" height="14" rx="7" fill="${on ? ACCENT : '#2c2c31'}" stroke="${on ? ACCENT : '#4a4a52'}"/><circle cx="${on ? 18.5 : 7.5}" cy="7.5" r="5" fill="${on ? '#ffffff' : '#8b8b93'}"/></svg>`
+}
+/** How long the bar's edges glow after Auto is switched on. */
+const AUTO_GLOW_MS = 1800
+/** The glow along the bar's edges as Auto comes on: a violet rim that flares and fades once. Drawn for AUTO_GLOW_MS only
+ * (every redraw would replay it). Stretched across the band's width (preserveAspectRatio none: the app scales a Svg to
+ * its box's width and keeps its height), so its height is the band's. */
+export const AUTO_GLOW_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="37" viewBox="0 0 1600 37" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${AUTO_GLOW_MS / 1000}s ease-out}@keyframes r{0%{opacity:0}18%{opacity:1}100%{opacity:0}}</style><defs><filter id="b" x="-5%" y="-50%" width="110%" height="200%"><feGaussianBlur stdDeviation="2.5"/></filter></defs><g class="r"><rect x="2" y="2" width="1596" height="33" rx="9" fill="none" stroke="${ACCENT}" stroke-width="4" filter="url(#b)"/><rect x="1" y="1" width="1598" height="35" rx="9" fill="none" stroke="#c9bfff" stroke-width="1.2"/></g></svg>`
+// When the bar last saw Auto off, and when Auto came on (for the edge glow).
+let autoSeen: boolean | undefined
+let autoOnAt = 0
+
 /** The dashboard: what effortless is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
 async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
   const els = $.ui.resolve(e)
   const { Box, Text, Button } = els
   const v = await snap($)
+  const nowMs = await $.clock.now()
+  if (autoSeen === false && v.auto) {
+    autoOnAt = nowMs
+    $.clock.after(AUTO_GLOW_MS + 100, () => $.ui.invalidate('ui.render'))
+  }
+  autoSeen = v.auto
   const effortNow = effortOf(v, v.modelNow ?? (await sessionModel($)))
   const by = v.current?.by
   const reason = v.current
@@ -2220,8 +2240,16 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     <Box key="dash" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
       backgroundColor={DASH_BG} borderStyle="round" borderColor={DASH_EDGE}>
       {Svg ? (
-        <Box key="dash-art" position="absolute" top={-1} right={0} bottom={-1}>
-          <Svg source={DASH_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+        // Auto off: the art goes, so the bar reads as resting, not working.
+        v.auto ? (
+          <Box key="dash-art" position="absolute" top={-1} right={0} bottom={-1}>
+            <Svg source={DASH_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+          </Box>
+        ) : null
+      ) : null}
+      {Svg && v.auto && nowMs - autoOnAt < AUTO_GLOW_MS ? (
+        <Box key="dash-auto-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
+          <Svg source={AUTO_GLOW_SVG} alt="" width={1600} height={37} />
         </Box>
       ) : null}
       {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
@@ -2229,7 +2257,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           rather than run under the buttons. Siblings, not nested: a shrunk parent let the word spill under the ring. */}
       <Box key="dash-words" position="relative" flexDirection="row" flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
         <Box flexShrink={0} flexDirection="row">
-          <Text color={ACCENT} bold>✦ </Text>
+          <Text color={v.auto ? ACCENT : DASH_DIM} bold>✦ </Text>
           <Text key="dash-level" color={wordColor} bold>{v.judging && Svg ? 'Deciding' : what}</Text>
           {/* While the judge decides: the progress bar's thinking dots, as a plain image (its CSS still runs, and a
               redraw does not restart it the way an interactive frame does). */}
@@ -2290,7 +2318,17 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
       <Box minWidth={1} />
       <Box key="dash-actions" flexShrink={0} flexDirection="row" gap={1} alignItems="center" marginLeft={1}>
         <Box position="absolute" top={0} left={0} />
-        {Svg ? buttons.slice(0, -1) : buttons}
+        {Svg ? (
+          // Auto as a switch, drawn, with a blank button laid over it to take the click (the cog's pattern).
+          <Box key="dash-auto-switch" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}>
+            <Svg source={autoSwitchSvg(v.auto)} alt={v.auto ? 'Auto on' : 'Auto off'} width={26} height={15} />
+            <Text color={v.auto ? DASH_TEXT : DASH_DIM}>Auto</Text>
+            <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+              <Button key="dash-auto" plain label={' '.repeat(10)} onPress={() => toggleAutoEffort($)} />
+            </Box>
+          </Box>
+        ) : null}
+        {Svg ? buttons.slice(1, -1) : buttons}
         {Svg ? (
           // The cog sits in the flow and the button in an absolute layer after it: an absolute layer paints over plain
           // ones, and the desktop ignores position="relative" on a Box without absolute children. A Button is at most as
@@ -3142,8 +3180,8 @@ Saved to ${out}.md and .json` }
           {!term ? (
             <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={3.5} overflow="hidden" backgroundColor={DASH_HEAD}>
               {/* The mark, big, tilted and cut off by the bar's edges, behind the title and the buttons. */}
-              <Box key="settings-bar-mark" position="absolute" top={-4} right={18}>
-                <Svg source={SETTINGS_MARK} alt="effortless mark" width={240} height={240} />
+              <Box key="settings-bar-mark" position="absolute" top={-3} right={18} marginTop={1}>
+                <Svg source={SETTINGS_MARK} alt="effortless mark" width={180} height={180} />
               </Box>
               {/* A hairline along the bar's bottom: a one-pixel image stretched across (a Box cannot draw one pixel). */}
               <Box key="settings-rule" position="absolute" bottom={0} left={0} right={0} height={1} alignItems="flex-end">
@@ -3449,7 +3487,7 @@ Saved to ${out}.md and .json` }
         <Box key="down" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={SLATE_BG} borderStyle="round" borderColor={SLATE_EDGE}>
           <Box key="down-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={DOWN_SVG} alt="judge down" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
+            <Svg source={DOWN_SVG} alt="judge down" width={FROST_WIDTH} height={FROST_HEIGHT} />
           </Box>
           <Box flexShrink={0}>
             <Text color={SLATE} bold wrap="truncate">
@@ -3486,7 +3524,7 @@ Saved to ${out}.md and .json` }
         <Box key="hot" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={EMBER_BG} borderStyle="round" borderColor={EMBER_EDGE}>
           <Box key="ember" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={EMBER_SVG} alt="embers" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
+            <Svg source={EMBER_SVG} alt="embers" width={FROST_WIDTH} height={FROST_HEIGHT} />
           </Box>
           <Box flexShrink={0}>
             <Text color={EMBER} bold wrap="truncate">
@@ -3545,7 +3583,7 @@ Saved to ${out}.md and .json` }
         >
           {/* Taller than the band and clipped by it, so the frost reaches every edge on the right. */}
           <Box key="frost" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={FROST_SVG} alt="frost" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
+            <Svg source={FROST_SVG} alt="frost" width={FROST_WIDTH} height={FROST_HEIGHT} />
           </Box>
           <Box key="cold-intro" position="absolute" top={-1} left={0} right={0} bottom={-1}>
             <Svg source={INTRO_SVG.replace('#8b6cff', ICE).replace('#b9a7ff', '#cfeeff')} alt="" width={1600} height={240} />
@@ -3595,7 +3633,7 @@ Saved to ${out}.md and .json` }
           borderColor={BOG_EDGE}
         >
           <Box key="bog" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={SWAMP_SVG} alt="swamp" width={FROST_WIDTH} height={FROST_HEIGHT} isInteractive />
+            <Svg source={SWAMP_SVG} alt="swamp" width={FROST_WIDTH} height={FROST_HEIGHT} />
           </Box>
           <Box flexShrink={0}>
             <Text color={BOG} bold wrap="truncate">
