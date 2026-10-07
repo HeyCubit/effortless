@@ -2031,10 +2031,10 @@ export function dashboardLines(d: {
 
 /** How long the effort word glows after it changes: held at full colour, then faded out; and the step of the fade. */
 const FLASH_HOLD_MS = 1000
-const FLASH_MS = 3500
-/** The fade's steps: when each starts and how far it is from the glow to white. Three redraws in all: every redraw
- * rebuilds the band, which restarts its images and swaps the buttons under a pointer mid-click. */
-const FLASH_STEPS: readonly (readonly [number, number])[] = [[FLASH_HOLD_MS, 0.35], [2200, 0.75]]
+const FLASH_MS = 1800
+/** The fade's steps (none: violet, then white in one redraw). Each step is a redraw, and every redraw rebuilds the band:
+ * its images restart and the buttons under a pointer are swapped (hover flicker, lost clicks). */
+const FLASH_STEPS: readonly (readonly [number, number])[] = []
 /** The glow: a stronger violet than the accent, so a switch is seen at a glance. */
 const FLASH_COLOR = '#9b7bff'
 /** The effort word's colour `ms` after it changed: the glow, held, then easing out to the band's white. */
@@ -2194,10 +2194,9 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   const nowMs = await $.clock.now()
   if (autoSeen !== undefined && autoSeen !== v.auto) {
     autoFlipAt = nowMs
-    // Redraw once the slide is over, so a later redraw draws the switch still.
-    $.clock.after(AUTO_SLIDE_MS + 50, () => $.ui.invalidate('ui.render'))
+    // No redraw to end the slide or the glow: both finish inside their images (the glow fades to nothing), and every
+    // redraw rebuilds the buttons under a resting pointer, which flickers their hover.
     autoOnAt = nowMs
-    $.clock.after(AUTO_GLOW_MS + 100, () => $.ui.invalidate('ui.render'))
   }
   autoSeen = v.auto
   const effortNow = effortOf(v, v.modelNow ?? (await sessionModel($)))
