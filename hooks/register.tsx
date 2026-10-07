@@ -2,10 +2,10 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelForkResult, Register, RenderInput } from 'claude-code'
 
 import type { AgentRec, Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
-import { agentsPane, demoAgents, toolLine, withWaits } from './agents'
+import { agentsPane, demoAgents, demoFiles, demoSteps, importsOf, relPath, toolLine, touchOf, withTouch, withWaits } from './agents'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
 import { MARK_SVG } from './brand-mark'
-import { PILL_H, stepsFromTodos, thinkingSvg, THINK_W } from './progress'
+import { PILL_H, stepsFromTodos, thinkingSvg, THINK_W, withTaskCreated, withTaskUpdated } from './progress'
 
 // The ladders the two sliders walk, cheapest first.
 export const MODELS: { key: ModelKey; label: string; long: string; id: string }[] = [
@@ -160,6 +160,10 @@ const hotHidden = atom({ plugin: 'effortless', key: 'hotHidden' } as const, null
 // The agent panel: this chat's subagents, and the card opened in it (hooks/agents.tsx).
 const agentsState = atom({ plugin: 'effortless', key: 'agents' } as const, [])
 const agentsOpen = atom({ plugin: 'effortless', key: 'agentsOpen' } as const, null)
+// The panel's map: the files touched, the main chat's own steps, the module opened in its list.
+const agentFiles = atom({ plugin: 'effortless', key: 'agentFiles' } as const, [])
+const agentSteps = atom({ plugin: 'effortless', key: 'agentSteps' } as const, null)
+const agentsModule = atom({ plugin: 'effortless', key: 'agentsModule' } as const, null)
 // Save mode: Auto picks at most medium until this time (ms), when the limit resets.
 const saveUntil = atom({ plugin: 'effortless', key: 'saveUntil' } as const, null)
 const isColdHidden = atom({ plugin: 'effortless', key: 'isColdHidden' } as const, false)
@@ -3070,6 +3074,17 @@ async function agentCost($: EngineInterface, id: string, cost: number) {
   await agentSet($, id, a => ({ ...a, cost: (a.cost ?? 0) + cost }))
 }
 
+/** A file read or changed by the main chat or an agent: added to the map, its imports read the first time. */
+async function fileTouched($: EngineInterface, path: string, edited: boolean, by: string) {
+  const rel = relPath(path, await $.session.root())
+  if (!rel) return
+  const now = await $.clock.now()
+  const known = (await read($, agentFiles)).find(f => f.path === rel)
+  let imports: string[] | undefined
+  if (!known || edited) imports = importsOf(rel, await $.fs.read(path).then(t => t.slice(0, 512_000), () => ''))
+  await update($, agentFiles, list => withTouch(list, rel, edited, by, now, imports))
+}
+
 /** From the 1 s timer: an agent long in one tool call turns to waiting. Writes only when one changes. */
 async function agentWaits($: EngineInterface) {
   const list = await read($, agentsState)
@@ -3299,6 +3314,8 @@ export const register: Register = (on, options) => {
       if (arg === 'agents demo') {
         const now = await $.clock.now()
         await update($, agentsState, () => demoAgents(now))
+        await update($, agentFiles, () => demoFiles(now))
+        await update($, agentSteps, () => demoSteps())
       }
       await $.ui.open({ id: 'effortless-agents', title: 'Agents' })
       return { text: arg === 'agents demo' ? 'The agent panel shows sample agents (a preview).' : 'The agent panel is open.' }
@@ -3674,14 +3691,30 @@ Saved to ${out}.md and .json` }
 
   on('tool.call', async ($, e, next) => {
     const id = e.agentId
-    if (id === undefined || !(await read($, agentsState)).some(a => a.id === id)) return next(e)
-    const now = await $.clock.now()
-    const line = toolLine(e.tool, e as unknown as Record<string, unknown>)
-    await agentSet($, id, a => ({ ...a, now: line, toolSince: now }))
+    const input = e as unknown as Record<string, unknown>
+    const touch = touchOf(e.tool, input)
+    const isList = e.tool === 'TodoWrite' || e.tool === 'TaskCreate' || e.tool === 'TaskUpdate'
+    const known = id !== undefined && (await read($, agentsState)).some(a => a.id === id)
+    if (!touch && !known && !(id === undefined && isList)) return next(e)
+    if (known && id !== undefined) {
+      const now = await $.clock.now()
+      const file = touch ? (relPath(touch.path, await $.session.root()) ?? undefined) : undefined
+      await agentSet($, id, a => ({ ...a, now: toolLine(e.tool, input), toolSince: now, file }))
+    }
     const result = await next(e)
     const ok = !('deny' in result && result.deny) && !result.isError
-    const steps = ok && e.tool === 'TodoWrite' ? stepsFromTodos(e.todos) : undefined
-    await agentSet($, id, a => ({ ...a, toolSince: undefined, state: a.state === 'waiting' ? 'running' : a.state, ...(steps ? { steps } : {}) }))
+    if (ok && touch) await fileTouched($, touch.path, touch.edited, id ?? 'main').catch(() => undefined)
+    if (ok && id === undefined && isList) {
+      if (e.tool === 'TodoWrite') await update($, agentSteps, () => stepsFromTodos(e.todos))
+      else if (e.tool === 'TaskCreate') {
+        const taskId = (result.result as { task?: { id?: string } } | undefined)?.task?.id
+        if (taskId) await update($, agentSteps, steps => withTaskCreated(steps ?? [], taskId, e))
+      } else await update($, agentSteps, steps => (steps ? withTaskUpdated(steps, e) : steps))
+    }
+    if (known && id !== undefined) {
+      const steps = ok && e.tool === 'TodoWrite' ? stepsFromTodos(e.todos) : undefined
+      await agentSet($, id, a => ({ ...a, toolSince: undefined, file: undefined, state: a.state === 'waiting' ? 'running' : a.state, ...(steps ? { steps } : {}) }))
+    }
     return result
   })
 
@@ -3700,6 +3733,10 @@ Saved to ${out}.md and .json` }
         ringSvg,
         cardArt: { source: DASH_SVG, width: FROST_WIDTH * 2, height: FROST_HEIGHT * 2 },
         onOpen: (id: string) => update($, agentsOpen, cur => (cur === id ? null : id)),
+        files: await read($, agentFiles),
+        steps: await read($, agentSteps),
+        module: await read($, agentsModule),
+        onModule: (key: string) => update($, agentsModule, cur => (cur === key ? null : key)),
       },
       agents,
     )
