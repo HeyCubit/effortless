@@ -2234,25 +2234,25 @@ const HANDOFF_GLOW = true
 /** Context share from which the dashboard's Handoff button turns white: below it a handoff saves little. */
 const HANDOFF_LOUD_AT = 30
 const handoffLoud = () => (lastContext?.percent ?? 0) >= HANDOFF_LOUD_AT
-/** Where Handoff's box is fully lit: from no box on a fresh chat, a step a percent of context, up to here. */
-const HANDOFF_FULL_AT = 80
+/** Handoff's box: it fades in, grey, up to HANDOFF_BOX_AT, then lightens to white by HANDOFF_LOUD_AT, where the glow
+ * takes over (it grows to 80%). A glow only ever sits around the white box. */
+const HANDOFF_BOX_AT = 15
 const HANDOFF_PILL_W = 66
 const HANDOFF_PILL_H = 19
-/** Handoff's look at `percent` of context, one of 81: no box at 0, the grey box by HANDOFF_LOUD_AT, then lighter up to
- * white at HANDOFF_FULL_AT. The label goes from dim to white, and dark once the box is light enough to need it. */
+/** Handoff's look at `percent` of context, a step each percent: no box at 0, the grey box by HANDOFF_BOX_AT, white by
+ * HANDOFF_LOUD_AT. The label goes from dim to white, and dark once the box is light enough to need it. */
 export function handoffLook(percent: number): { fill: string; opacity: number; edge: string; label: string } {
-  const p = Math.max(0, Math.min(HANDOFF_FULL_AT, Math.round(percent)))
+  const p = Math.max(0, Math.min(HANDOFF_LOUD_AT, Math.round(percent)))
   const mix = (a: string, b: string, k: number) => {
     const ch = (hex: string, i: number) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16)
     return `#${[0, 1, 2].map(i => Math.round(ch(a, i) + (ch(b, i) - ch(a, i)) * k).toString(16).padStart(2, '0')).join('')}`
   }
-  if (p <= HANDOFF_LOUD_AT) {
-    const k = p / HANDOFF_LOUD_AT
+  if (p <= HANDOFF_BOX_AT) {
+    const k = p / HANDOFF_BOX_AT
     return { fill: HOVER_BOX, opacity: k, edge: mix(DASH_BG, '#3a3a40', k), label: mix(DASH_DIM, '#ececf0', k) }
   }
-  const k = (p - HANDOFF_LOUD_AT) / (HANDOFF_FULL_AT - HANDOFF_LOUD_AT)
-  const fill = mix(HOVER_BOX, '#ececf0', k)
-  return { fill, opacity: 1, edge: mix('#3a3a40', '#ffffff', k), label: k > 0.45 ? '#141416' : '#ececf0' }
+  const k = (p - HANDOFF_BOX_AT) / (HANDOFF_LOUD_AT - HANDOFF_BOX_AT)
+  return { fill: mix(HOVER_BOX, '#ececf0', k), opacity: 1, edge: mix('#3a3a40', '#ffffff', k), label: k > 0.45 ? '#141416' : '#ececf0' }
 }
 /** Handoff's box as drawn (see handoffLook). */
 export function handoffPillSvg(percent: number): string {

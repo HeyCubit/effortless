@@ -2860,13 +2860,11 @@ describe('a chat opened again', () => {
 })
 
 describe('handoff look', () => {
-  test('no box at 0%, the grey box at 30%, white at 80%, a step each percent', () => {
+  test('no box at 0%, the grey box at 15%, white at 30% where the glow starts, a step each percent', () => {
     expect(handoffLook(0).opacity).toBe(0)
-    expect(handoffLook(30)).toMatchObject({ opacity: 1, fill: '#2b2b2f' })
-    expect(handoffLook(80).fill).toBe('#ececf0')
-    expect(handoffLook(95)).toEqual(handoffLook(80))
-    expect(handoffLook(80).label).toBe('#141416')
-    const fills = new Set(Array.from({ length: 81 }, (_, p) => JSON.stringify(handoffLook(p))))
-    expect(fills.size).toBe(81)
+    expect(handoffLook(15)).toMatchObject({ opacity: 1, fill: '#2b2b2f' })
+    expect(handoffLook(30)).toMatchObject({ fill: '#ececf0', label: '#141416' })
+    expect(handoffLook(80)).toEqual(handoffLook(30))
+    expect(new Set(Array.from({ length: 31 }, (_, p) => JSON.stringify(handoffLook(p)))).size).toBe(31)
   })
 })
