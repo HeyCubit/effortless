@@ -1,5 +1,85 @@
 [
   {
+    "version": "1.35.108",
+    "date": "2026-10-07",
+    "note": "Progress bar and sounds off for now; test pane removed"
+  },
+  {
+    "version": "1.35.107",
+    "date": "2026-10-07",
+    "note": "Compact field back to the app's own look"
+  },
+  {
+    "version": "1.35.106",
+    "date": "2026-10-07",
+    "note": "Compact field sits on a dark background"
+  },
+  {
+    "version": "1.35.105",
+    "date": "2026-10-07",
+    "note": "Handoff bar on one line; the Summary field's focus ring shows whole"
+  },
+  {
+    "version": "1.35.104",
+    "date": "2026-10-07",
+    "note": "Handoff bar says less"
+  },
+  {
+    "version": "1.35.103",
+    "date": "2026-10-07",
+    "note": "Compact bar title has its star back; HANDOFF rewritten"
+  },
+  {
+    "version": "1.35.102",
+    "date": "2026-10-07",
+    "note": "Compact bar: the field sits clear of the button; the swamp colours fade into it"
+  },
+  {
+    "version": "1.35.101",
+    "date": "2026-10-07",
+    "note": "Solid Quick and Full icons; the switch slides on every click"
+  },
+  {
+    "version": "1.35.100",
+    "date": "2026-10-07",
+    "note": "Compact bar: one Enter mark, drawn like Claude's"
+  },
+  {
+    "version": "1.35.99",
+    "date": "2026-10-07",
+    "note": "Compact bar on one line: Summary (optional), then Compact"
+  },
+  {
+    "version": "1.35.98",
+    "date": "2026-10-07",
+    "note": "What's new links to its own page"
+  },
+  {
+    "version": "1.35.97",
+    "date": "2026-10-07",
+    "note": "Compact asks for an optional note first"
+  },
+  {
+    "version": "1.35.96",
+    "date": "2026-10-07",
+    "note": "Faster start: session start reads its settings at once"
+  },
+  {
+    "version": "1.35.95",
+    "date": "2026-10-07",
+    "note": "Render log: one file per chat"
+  },
+  {
+    "version": "1.35.94",
+    "date": "2026-10-07",
+    "note": "Timing lines in the render log; the compact card's X hovers alone"
+  },
+  {
+    "version": "1.35.93",
+    "date": "2026-10-07",
+    "note": "Quick and Full icons show in the app"
+  },
+  {
     "version": "1.35.92",
     "date": "2026-10-07",
     "note": "Update card: Update or Later, a white What's new link"

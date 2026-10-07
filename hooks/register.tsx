@@ -4,7 +4,7 @@ import type { EngineInterface, ModelForkResult, Register, RenderInput } from 'cl
 import type { Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
 import { MARK_SVG } from './brand-mark'
-import { afterPrompt, atTurnEnd, demoProgress, drawProgress, PILL_H, progressShows, queueCue, registerProgress, soundArgv, stepsKey, takeCues, thinkingSvg, THINK_W } from './progress'
+import { PILL_H, thinkingSvg, THINK_W } from './progress'
 
 // The ladders the two sliders walk, cheapest first.
 export const MODELS: { key: ModelKey; label: string; long: string; id: string }[] = [
@@ -77,9 +77,19 @@ const paused = atom({ plugin: 'effortless', key: 'paused' } as const, false)
 // 0 once it has gone cold. Updated only when the minute changes, so the footer redraws once a minute at most.
 const cacheLeft = atom({ plugin: 'effortless', key: 'cacheLeft' } as const, null)
 const isCompacting = atom({ plugin: 'effortless', key: 'isCompacting' } as const, false)
+// The compact bar: open after Compact is pressed, with a field for what the summary should keep.
+const compactAsk = atom({ plugin: 'effortless', key: 'compactAsk' } as const, false)
+// What is typed in that field. Kept here, not in state: a write per key would redraw the bar under the cursor.
+let compactNote = ''
+// When the compact bar opened: its first half second fades the swamped band's colours out (see compactFadeSvg).
+let compactOpenedAt = 0
+const COMPACT_FADE_MS = 450
+/** The swamped band's colours over the compact bar, fading to nothing: the band seems to turn from green to violet. */
+function compactFadeSvg(elapsedMs: number): string {
+  return inPhase(`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="240" viewBox="0 0 1600 240" preserveAspectRatio="none"><style>.f{animation:f ${COMPACT_FADE_MS / 1000}s ease-out forwards}@keyframes f{from{opacity:1}to{opacity:0}}</style><rect class="f" width="1600" height="240" fill="${BOG_BG}"/></svg>`, elapsedMs)
+}
 // The person closed the cold band; it comes back the next time the cache goes cold.
 // The test pane of /effortless try pane.
-const TRY_PANE = 'effortless-try'
 // Where a handoff is: null idle, writing (the handoff turn runs), clearing (clear and resend).
 const handoffStage = atom({ plugin: 'effortless', key: 'handoffStage' } as const, null)
 // The handoff bar above the prompt, open with the choice shown in it, or null.
@@ -154,9 +164,7 @@ const setupStep = atom({ plugin: 'effortless', key: 'setupStep' } as const, null
 // What was picked in the setup guide and not saved yet: it is saved in one go at Done or ✕. Each saved setting reloads
 // the plugin, and the app says so in the chat, so a save per click filled the chat with notices.
 const setupDraft = atom({ plugin: 'effortless', key: 'setupDraft' } as const, {})
-// The progress bar's task and the list it was closed for (hooks/progress.tsx declares the same two for its own hooks).
-const progressState = atom({ plugin: 'effortless', key: 'progress' } as const, null)
-const progressHiddenState = atom({ plugin: 'effortless', key: 'progressHidden' } as const, null)
+
 // The band above the prompt when the cache has gone cold: an icy gradient with snowflakes drifting down.
 const FROST_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.f path{stroke:#eaf6ff;stroke-width:.5;stroke-linecap:round;fill:none}.f{transform-box:fill-box;transform-origin:center;animation:spin linear infinite;opacity:.75}@keyframes spin{to{transform:rotate(360deg)}}.fr{stroke:#dff1ff;stroke-width:.4;fill:none;stroke-linecap:round;opacity:.5}.gl{fill:#fff;opacity:0;animation:tw 3.6s ease-in-out infinite}@keyframes tw{0%,70%,100%{opacity:0}80%{opacity:.9}}.br{animation:br 6s ease-in-out infinite}@keyframes br{0%,100%{opacity:.85}50%{opacity:1}}</style><defs><linearGradient id="ice" x1="0" x2="1"><stop offset=".43" stop-color="#5aa9e6" stop-opacity="0"/><stop offset=".62" stop-color="#5aa9e6" stop-opacity=".12"/><stop offset=".85" stop-color="#8fd0ff" stop-opacity=".28"/><stop offset="1" stop-color="#cdeaff" stop-opacity=".42"/></linearGradient><radialGradient id="cold" cx="330" cy="15" r="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e9f6ff" stop-opacity=".22"/><stop offset="1" stop-color="#e9f6ff" stop-opacity="0"/></radialGradient><linearGradient id="rime" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".22" stop-color="#fff" stop-opacity="0"/><stop offset=".78" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".15"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".07"/></pattern></defs><g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#ice)"/><rect width="360" height="30" fill="url(#cold)"/><rect width="360" height="30" fill="url(#rime)"/><rect width="360" height="30" fill="url(#grain)"/><path class="fr" d="M360.0 3.0L354.1 2.1M354.1 2.1L349.8 1.8M349.8 1.8L346.7 2.1M346.7 2.1L344.4 2.2M348.2 1.9L347.5 3.2M351.9 1.9L350.3 3.1M350.3 3.1L349.2 3.8M357.0 2.5L355.1 0.6M355.1 0.6L353.5 -0.5M353.5 -0.5L352.4 -1.4M356.1 1.6L354.9 1.4M360.0 27.0L354.1 27.9M354.1 27.9L349.8 28.5M349.8 28.5L346.9 29.6M346.9 29.6L345.0 30.8M348.3 29.0L347.1 28.4M351.9 28.2L350.9 29.9M350.9 29.9L350.3 31.1M357.0 27.5L355.2 29.4M355.2 29.4L353.9 30.9M353.9 30.9L352.8 31.8M356.1 28.4L354.9 28.5M350.0 30.0L348.8 26.2M348.8 26.2L347.9 23.4M347.9 23.4L347.6 21.4M347.6 21.4L347.7 19.9M348.4 24.8L348.9 23.6M349.4 28.1L350.2 26.5M350.2 26.5L350.8 25.3M352.0 0.0L351.0 3.9M351.0 3.9L350.4 6.7M350.4 6.7L349.6 8.6M349.6 8.6L349.0 10.0M350.7 5.3L349.6 5.9M351.5 1.9L352.2 3.6M352.2 3.6L352.9 4.7"/><circle class="gl" cx="228" cy="26" r="0.5" style="animation-delay:0s"/><circle class="gl" cx="205" cy="4" r="0.45" style="animation-delay:1.3s"/><circle class="gl" cx="186" cy="26" r="0.4" style="animation-delay:2.4s"/><circle class="gl" cx="262" cy="6" r="0.5" style="animation-delay:0.7s"/><circle class="gl" cx="300" cy="25" r="0.45" style="animation-delay:3.1s"/><circle class="gl" cx="330" cy="6" r="0.5" style="animation-delay:1.9s"/><g class="f" style="animation-duration:10s;animation-delay:0s"><path d="M236.0 9.0L236.0 13.2M236.0 10.9L237.0 11.8M236.0 10.9L235.0 11.8M236.0 11.9L236.7 12.6M236.0 11.9L235.3 12.6M236.0 9.0L232.4 11.1M234.4 9.9L234.0 11.2M234.4 9.9L233.1 9.6M233.5 10.5L233.2 11.4M233.5 10.5L232.6 10.2M236.0 9.0L232.4 6.9M234.4 8.1L233.1 8.4M234.4 8.1L234.0 6.8M233.5 7.5L232.6 7.8M233.5 7.5L233.2 6.6M236.0 9.0L236.0 4.8M236.0 7.1L235.0 6.2M236.0 7.1L237.0 6.2M236.0 6.1L235.3 5.4M236.0 6.1L236.7 5.4M236.0 9.0L239.6 6.9M237.6 8.1L238.0 6.8M237.6 8.1L238.9 8.4M238.5 7.5L238.8 6.6M238.5 7.5L239.4 7.8M236.0 9.0L239.6 11.1M237.6 9.9L238.9 9.6M237.6 9.9L238.0 11.2M238.5 10.5L239.4 10.2M238.5 10.5L238.8 11.4"/></g><g class="f" style="animation-duration:12s;animation-delay:-4s"><path d="M214.0 21.0L214.0 24.2M214.0 22.4L214.7 23.2M214.0 22.4L213.3 23.2M214.0 23.2L214.5 23.7M214.0 23.2L213.5 23.7M214.0 21.0L211.2 22.6M212.8 21.7L212.5 22.7M212.8 21.7L211.8 21.5M212.1 22.1L211.9 22.8M212.1 22.1L211.4 21.9M214.0 21.0L211.2 19.4M212.8 20.3L211.8 20.5M212.8 20.3L212.5 19.3M212.1 19.9L211.4 20.1M212.1 19.9L211.9 19.2M214.0 21.0L214.0 17.8M214.0 19.6L213.3 18.8M214.0 19.6L214.7 18.8M214.0 18.8L213.5 18.3M214.0 18.8L214.5 18.3M214.0 21.0L216.8 19.4M215.2 20.3L215.5 19.3M215.2 20.3L216.2 20.5M215.9 19.9L216.1 19.2M215.9 19.9L216.6 20.1M214.0 21.0L216.8 22.6M215.2 21.7L216.2 21.5M215.2 21.7L215.5 22.7M215.9 22.1L216.6 21.9M215.9 22.1L216.1 22.8"/></g><g class="f" style="animation-duration:11s;animation-delay:-7s"><path d="M194.0 8.0L194.0 10.6M194.0 9.2L194.6 9.8M194.0 9.2L193.4 9.8M194.0 9.8L194.4 10.2M194.0 9.8L193.6 10.2M194.0 8.0L191.7 9.3M193.0 8.6L192.8 9.4M193.0 8.6L192.2 8.4M192.4 8.9L192.3 9.5M192.4 8.9L191.9 8.8M194.0 8.0L191.7 6.7M193.0 7.4L192.2 7.6M193.0 7.4L192.8 6.6M192.4 7.1L191.9 7.2M192.4 7.1L192.3 6.5M194.0 8.0L194.0 5.4M194.0 6.8L193.4 6.2M194.0 6.8L194.6 6.2M194.0 6.2L193.6 5.8M194.0 6.2L194.4 5.8M194.0 8.0L196.3 6.7M195.0 7.4L195.2 6.6M195.0 7.4L195.8 7.6M195.6 7.1L195.7 6.5M195.6 7.1L196.1 7.2M194.0 8.0L196.3 9.3M195.0 8.6L195.8 8.4M195.0 8.6L195.2 9.4M195.6 8.9L196.1 8.8M195.6 8.9L195.7 9.5"/></g><g class="f" style="animation-duration:13s;animation-delay:-2s"><path d="M176.0 19.0L176.0 21.2M176.0 20.0L176.5 20.5M176.0 20.0L175.5 20.5M176.0 20.5L176.3 20.9M176.0 20.5L175.7 20.9M176.0 19.0L174.1 20.1M175.1 19.5L175.0 20.2M175.1 19.5L174.5 19.3M174.7 19.8L174.5 20.2M174.7 19.8L174.2 19.6M176.0 19.0L174.1 17.9M175.1 18.5L174.5 18.7M175.1 18.5L175.0 17.8M174.7 18.2L174.2 18.4M174.7 18.2L174.5 17.8M176.0 19.0L176.0 16.8M176.0 18.0L175.5 17.5M176.0 18.0L176.5 17.5M176.0 17.5L175.7 17.1M176.0 17.5L176.3 17.1M176.0 19.0L177.9 17.9M176.9 18.5L177.0 17.8M176.9 18.5L177.5 18.7M177.3 18.2L177.5 17.8M177.3 18.2L177.8 18.4M176.0 19.0L177.9 20.1M176.9 19.5L177.5 19.3M176.9 19.5L177.0 20.2M177.3 19.8L177.8 19.6M177.3 19.8L177.5 20.2"/></g><g class="f" style="animation-duration:14s;animation-delay:-9s"><path d="M252.0 22.0L252.0 24.4M252.0 23.1L252.5 23.6M252.0 23.1L251.5 23.6M252.0 23.7L252.4 24.1M252.0 23.7L251.6 24.1M252.0 22.0L249.9 23.2M251.1 22.5L250.9 23.3M251.1 22.5L250.3 22.3M250.5 22.8L250.4 23.4M250.5 22.8L250.0 22.7M252.0 22.0L249.9 20.8M251.1 21.5L250.3 21.7M251.1 21.5L250.9 20.7M250.5 21.2L250.0 21.3M250.5 21.2L250.4 20.6M252.0 22.0L252.0 19.6M252.0 20.9L251.5 20.4M252.0 20.9L252.5 20.4M252.0 20.3L251.6 19.9M252.0 20.3L252.4 19.9M252.0 22.0L254.1 20.8M252.9 21.5L253.1 20.7M252.9 21.5L253.7 21.7M253.5 21.2L253.6 20.6M253.5 21.2L254.0 21.3M252.0 22.0L254.1 23.2M252.9 22.5L253.7 22.3M252.9 22.5L253.1 23.3M253.5 22.8L254.0 22.7M253.5 22.8L253.6 23.4"/></g></g></svg>`
 // The frost is drawn larger than the band and cut by it: wide enough for the right side, tall enough for any band.
@@ -1276,15 +1284,17 @@ async function cacheTouched($: EngineInterface, usage: unknown) {
  * Compacts the conversation from the footer once the cache has gone cold: the next message would write the whole
  * context to the cache again, so a summary makes it small first. The countdown hides until the next response.
  */
-async function compactCold($: EngineInterface) {
+async function compactCold($: EngineInterface, note = '') {
   if (await read($, isCompacting)) return
+  await update($, compactAsk, () => false)
   await update($, isCompacting, () => true)
   await setHandoffCard($, 'compacting', false)
   let compacted = false
   try {
     // The app's own /compact, run as if typed: nothing lands in the prompt box, nothing to send. It waits for the
     // session to be idle, where a direct $.session.compact() is refused whenever the app counts a turn as running.
-    await $.command.run({ command: 'compact', args: '' })
+    // A note goes after /compact as the app's own instructions for the summary.
+    await $.command.run({ command: 'compact', args: note.trim() })
     cacheExpires = 0
     await update($, cacheLeft, () => null)
     compacted = true
@@ -1391,6 +1401,23 @@ async function openHandoffBar($: EngineInterface) {
   $.ui.invalidate('ui.render')
 }
 
+/** The Enter mark as Claude's prompt box draws it: a return arrow, down the right side and back left. */
+export function enterSvg(color: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5V7.2A1.8 1.8 0 0 1 9.7 9H2.8"/><path d="M5.3 6.4 2.7 9l2.6 2.6"/></g></svg>`
+}
+/** The compact bar's Compact: a white pill like the app's primary buttons, GO_CELLS wide. */
+const GO_CELLS = 12
+const GO_W = Math.round(GO_CELLS * 7.9)
+function goPillSvg(): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${GO_W}" height="20" viewBox="0 0 ${GO_W} 20"><rect width="${GO_W}" height="20" rx="5" fill="#ffffff"/></svg>`
+}
+/** Compact pressed: on desktop a bar asks for an optional note first; the terminal compacts at once. */
+async function openCompact($: EngineInterface, e: { surface: string }) {
+  if (e.surface === 'terminal') return compactCold($)
+  compactNote = ''
+  compactOpenedAt = await $.clock.now()
+  await update($, compactAsk, () => true)
+}
 async function closeHandoffBar($: EngineInterface) {
   await update($, handoffPick, () => null)
   $.ui.invalidate('ui.render')
@@ -1881,11 +1908,18 @@ export function rowIconSvg(kind: 'effort' | 'judge' | 'handoff' | 'show' | 'quic
     handoff: '<path d="M1.8 7H9.4M6.6 4.2L9.4 7L6.6 9.8"/><path d="M11.8 2.6V11.4"/>',
     // An eye.
     show: '<path d="M1.2 7C2.6 4.4 4.6 3.1 7 3.1S11.4 4.4 12.8 7C11.4 9.6 9.4 10.9 7 10.9S2.6 9.6 1.2 7Z"/><circle cx="7" cy="7" r="1.8"/>',
-    // A bolt: the quick handoff, done in seconds.
-    quick: '<path d="M8 1.6L3.4 7.8H7L6 12.4L10.6 6.2H7Z"/>',
-    // A pen: the full handoff, written out by your skill.
-    full: '<path d="M9.4 2.2L11.8 4.6L5 11.4L2 12L2.6 9Z"/><path d="M8 3.6L10.4 6"/>',
+    // Quick and Full are drawn solid below: an outline at 14 px was too thin to read.
+    quick: '',
+    full: '',
   }[kind]
+  if (kind === 'quick' || kind === 'full') {
+    const solid = kind === 'quick'
+      // A bolt: the quick handoff, done in seconds.
+      ? 'M8.6 1 2.8 8.2H6.6L5.4 13 11.2 5.8H7.4Z'
+      // A pen: the full handoff, written out by your skill.
+      : 'M10.2 1.5 12.5 3.8 5.3 11 2.3 11.7 3 8.7ZM9 2.7 11.3 5'
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><path d="${solid}" fill="${color}" stroke="${color}" stroke-width="0.6" stroke-linejoin="round"/></svg>`
+  }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision">${shapes}</g></svg>`
 }
 
@@ -1954,7 +1988,7 @@ let probeLevel = 0
 let renderCalls = 0
 let lastRenderProps = ''
 let lastRenderBranch = ''
-// Every time the app asked for the band, with what it sent, written to ~/.claude/effortless-renders.log each second
+// Every time the app asked for the band, with what it sent, written to ~/.claude/effortless-render-<chat>.log each second
 // (the last 300): how often the band is really redrawn in the app, which the render rig cannot see (hover flicker).
 const renderLog: string[] = []
 let renderLogWritten = 0
@@ -1963,9 +1997,15 @@ async function writeRenderLog($: EngineInterface) {
   if (renderLog.length > 600) renderLog.splice(0, renderLog.length - 300)
   renderLogWritten = renderLog.length
   const home = (await envUserProfile($)) ?? (await envHome($))
-  if (home) await $.fs.write(`${home}/.claude/effortless-renders.log`, renderLog.slice(-300).join('\n') + '\n').catch(() => undefined)
+  // One file per chat: a shared file was overwritten whole by whichever chat drew last.
+  if (home) await $.fs.write(`${home}/.claude/effortless-render-${loadedSession}.log`, renderLog.slice(-300).join('\n') + '\n').catch(() => undefined)
 }
 let lastRenderAt = 0
+let loadedSession = '-'
+// When this module loaded, for the render log's "first draw" line.
+let loadedAt = Date.now()
+let firstDrawLogged = false
+let drawsTimed = 0
 let lastRenderError = ''
 let sessionStarted = 0
 // When the app's SessionStart came and what it said, for /effortless debug: a cold band that shows late is either a
@@ -1975,45 +2015,6 @@ let classicStart: { at: number; said: string } | null = null
 let coldForced = false
 let handoffTimer: { cancel: () => void } | undefined
 const HANDOFF_POLL_MS = 1000
-// For /effortless debug: how the last progress chime went.
-let lastCue = ''
-let lastCueAt = 0
-
-// The progress bar's glue: the rules and the drawing are in hooks/progress.tsx, and $ is followed only into functions of
-// the file it is in.
-
-/** Plays the queued progress sounds, from the session's timer: PowerShell on Windows, $.audio.play elsewhere. */
-async function playProgressCues($: EngineInterface) {
-  for (const sound of takeCues()) {
-    const file = `sounds/${sound}.wav`
-    const argv = soundArgv($.plugin.root, file)
-    const how = argv ? 'powershell' : 'audio.play'
-    try {
-      if (argv) {
-        const ran = await $.process.run(argv, { timeoutMs: 10_000 })
-        lastCue = `${sound} by ${how}: exit ${ran.exitCode}${ran.stderr ? ` (${ran.stderr.trim().slice(0, 80)})` : ''}`
-      } else {
-        await $.audio.play({ asset: file })
-        lastCue = `${sound} by ${how}: played`
-      }
-    } catch (error) {
-      lastCue = `${sound} by ${how}: ${(error instanceof Error ? error.message : String(error)).slice(0, 80)}`
-    }
-    lastCueAt = Date.now()
-  }
-}
-
-/** A main-conversation turn ended: where the task stands now, with a chime when it is done or Claude asks. */
-async function progressAtTurnEnd($: EngineInterface, e: { agentId?: string; reason: string; answer: string }) {
-  if (config.hide.includes('progress') || e.agentId !== undefined) return
-  const p = await read($, progressState)
-  if (!p) return
-  const { next, cue } = atTurnEnd(p, e, endsOnQuestion)
-  await update($, progressState, () => next)
-  // A chime only with a bar to see: a list the person closed, or one too short to show, stays quiet.
-  if (progressShows(next, await read($, progressHiddenState), 'active')) queueCue(config.hide, cue)
-}
-
 // The moving art's timer: one at a time, blitting the next frame to the band that drew it. A blit the surface refuses
 // (the band went away, another drew instead) ends it, so nothing has to stop it from outside.
 let artTimer: { cancel(): void } | null = null
@@ -2216,10 +2217,10 @@ function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui
     <Box key="settings-uninstall-box" position="relative" flexDirection="row" alignItems="center" flexShrink={0}>
       <Box position="relative" width={2} height={1} alignItems="center">
         <Box position="absolute" top={0} left={0}>
-          <Svg source={binSvg(DASH_DIM)} alt="" width={14} height={14} />
+          <Svg source={binSvg(DASH_DIM)} alt="bin" width={14} height={14} />
         </Box>
         <Box position="absolute" top={0} left={0} display={red ? 'flex' : 'none'} hover={red ? undefined : { scope: 'uninstall', display: 'flex' }}>
-          <Svg source={binSvg(UNINSTALL_RED)} alt="" width={14} height={14} />
+          <Svg source={binSvg(UNINSTALL_RED)} alt="bin" width={14} height={14} />
         </Box>
       </Box>
       <Text color={red ? UNINSTALL_RED : DASH_DIM} hover={{ scope: 'uninstall', color: UNINSTALL_RED }}>{label}</Text>
@@ -2259,7 +2260,11 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
       {onDismiss ? (
         <Box key="reply-handoff-close" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end">
           <Box position="absolute" top={0} left={0} />
-          <Button key="card-close" plain role="dismiss" label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={onDismiss} />
+          {/* A box just the ✕'s size: in the wide one its hover lit up anywhere on the card's right half. */}
+          <Box key="card-close-box" position="relative" flexShrink={0}>
+            <Box position="absolute" top={0} left={0} />
+            <Button key="card-close" plain role="dismiss" label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={onDismiss} />
+          </Box>
         </Box>
       ) : null}
     </Box>
@@ -2276,7 +2281,7 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
 /** Where the mod learns of a new version: the newest entry of releases.json on main, written by tools/release.sh. */
 // The API, not raw.githubusercontent.com: the raw file sits behind a cache that lagged two releases behind.
 const RELEASES_URL = 'https://api.github.com/repos/HeyCubit/effortless/contents/releases.json?ref=main'
-const WHATS_NEW_URL = 'https://heycubit.github.io/effortless/#whats-new'
+const WHATS_NEW_URL = 'https://heycubit.github.io/effortless/whats-new/'
 /** How often a session looks for a new version, and how long ✕ on the offer keeps it away. */
 const UPDATE_CHECK_MS = 6 * 3600_000
 const UPDATE_SNOOZE_MS = 24 * 3600_000
@@ -2565,11 +2570,12 @@ export function kindSwitchSvg(kind: 'quick' | 'full', slideMs: number | null = n
     : ''
   // The track is the app's Select (white at 5%, a 1 px inset edge of white at 10%, 6 px corners), so the row reads as
   // one set; the knob sits 2 px inside it.
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${KIND_W}" height="${KIND_H}" viewBox="0 0 ${KIND_W} ${KIND_H}"><rect x=".5" y=".5" width="${KIND_W - 1}" height="${KIND_H - 1}" rx="5.5" fill="#ffffff" fill-opacity=".05" stroke="#ffffff" stroke-opacity=".1"/><rect x="${slide ? from : at(kind)}" y="2" width="${half - 2.5}" height="${KIND_H - 4}" rx="4" fill="#ececf0">${move}</rect></svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${KIND_W}" height="${KIND_H}" viewBox="0 0 ${KIND_W} ${KIND_H}"><rect x=".5" y=".5" width="${KIND_W - 1}" height="${KIND_H - 1}" rx="5.5" fill="#ffffff" fill-opacity=".05" stroke="#ffffff" stroke-opacity=".1"/><rect x="${slide ? from : at(kind)}" y="2" width="${half - 2.5}" height="${KIND_H - 4}" rx="4" fill="#ececf0">${move}</rect>${slide ? `<!--${kindFlipAt}-->` : ''}</svg>`
 }
 const KIND_SLIDE_MS = 300
 const KIND_SLIDE_DELAY_MS = 70
-// When the handoff bar's Quick | Full last changed, for the knob's slide.
+// When the handoff bar's Quick | Full last changed, for the knob's slide. Stamped into the slide's image too: going
+// back and forth drew the same image twice, and the app reused it without playing the slide again.
 let kindFlipAt = 0
 /** How long the bar's edges glow after Auto is switched on. */
 const AUTO_GLOW_MS = 2600
@@ -2928,59 +2934,50 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
   return { question, rows }
 }
 
-/** The progress bar for one of its two places above the prompt, or null. */
-async function progressBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, when: 'active' | 'resting') {
-  if (config.hide.includes('progress')) return null
-  const p = await read($, progressState)
-  if (!progressShows(p, await read($, progressHiddenState), when)) return null
-  const els = $.ui.resolve(e)
-  const { Box, Text, Button } = els
-  // The desktop draws the track as a still image. The terminal's table has an Svg that draws nothing, so the surface
-  // decides, not the table: there the track is a row of characters.
-  const Svg = e.surface !== 'terminal' && 'Svg' in els ? els.Svg : undefined
-  // ✕ ends a finished or planning bar; a running one hides until Claude writes another list.
-  const onClose = async () => {
-    const cur = await read($, progressState)
-    if (!cur) return
-    if (cur.phase === 'done' || cur.phase === 'planning') await update($, progressState, () => null)
-    else await update($, progressHiddenState, () => stepsKey(cur.steps))
-  }
-  return drawProgress(p, { Box, Text, Button, Svg, maxRows: typeof e.props.maxRows === 'number' ? e.props.maxRows : 4, onClose })
-}
-
 export const register: Register = (on, options) => {
+  loadedAt = Date.now()
+  firstDrawLogged = false
+  drawsTimed = 0
   config = readConfig(options)
   pluginOptions = options
-  // The progress bar's two hooks of its own (hooks/progress.tsx); the rest of its glue is in this file.
-  registerProgress(on, () => config.hide)
   on('session.start', async ($, e, next) => {
     sessionStarted = Date.now()
+    // Everything the first draw needs, asked for at once: one after the other they held the start (and with it the
+    // band) for a second or more. What the draw does not need runs after, unawaited.
+    const [sid, kept, kff, storedAuto, storedAutoModel, storedPick, setupDone] = await Promise.all([
+      $.session.id().catch(() => '?'),
+      $.store.get('savedSettings').catch(() => null),
+      $.store.get('keyFromFile').catch(() => null),
+      $.store.get('isAuto').catch(() => null),
+      $.store.get('isAutoModel').catch(() => null),
+      $.store.get('pick').catch(() => null) as Promise<Pick | null>,
+      $.store.get('setupDone').catch(() => null),
+    ])
+    // Which chat this load serves, and when it started: each chat has its own render log.
+    loadedSession = String(sid).slice(0, 8)
     // Settings the app had no /config row for (see saveSetting), over the ones it passed in.
-    const kept = await $.store.get('savedSettings').catch(() => null)
     if (kept && typeof kept === 'object' && Object.keys(kept).length) config = readConfig({ ...pluginOptions, ...kept })
+    keyFromFile = kff === true
+    await Promise.all([
+      typeof storedAuto === 'boolean' ? update($, isAuto, () => storedAuto) : null,
+      typeof storedAutoModel === 'boolean' ? update($, isAutoModel, () => storedAutoModel) : null,
+      // Auto off means the effort you chose should still be the one in force.
+      storedAuto === false && storedPick && EFFORTS.includes(storedPick.effort) ? update($, pick, () => storedPick) : null,
+      // The first time the mod runs, the setup guide opens above the prompt.
+      setupDone !== true ? update($, setupStep, () => 'pick').then(() => update($, setupPending, () => true)) : null,
+    ])
     // The command file lists /effortless before the session starts; registering it here makes plain /effortless the
     // mod's own command afterwards, instead of the file run as a skill.
-    await $.command.register({ name: 'effortless', description: 'effortless: settings, debug, handoff, setup, bench, auto, stats.' }).catch(() => undefined)
-    keyFromFile = (await $.store.get('keyFromFile')) === true
+    void $.command.register({ name: 'effortless', description: 'effortless: settings, debug, handoff, setup, bench, auto, stats.' }).catch(() => undefined)
     void afterLoad($).catch(() => undefined)
     $.clock.every(UPDATE_CHECK_MS, () => void checkUpdate($).catch(() => undefined))
     void drainSetupSave($).catch(() => undefined)
-    const storedAuto = await $.store.get('isAuto')
-    if (typeof storedAuto === 'boolean') await update($, isAuto, () => storedAuto)
-    const storedAutoModel = await $.store.get('isAutoModel')
-    if (typeof storedAutoModel === 'boolean') await update($, isAutoModel, () => storedAutoModel)
-    // Auto off means the effort you chose should still be the one in force.
-    const storedPick = (await $.store.get('pick')) as Pick | null
-    if (storedAuto === false && storedPick && EFFORTS.includes(storedPick.effort)) {
-      await update($, pick, () => storedPick)
-    }
     // The cache countdown's clock. A timer started inside a request ends with that request, so it lives here.
     $.clock.every(CACHE_TICK_MS, () => void showCache($).catch(() => undefined))
     $.clock.every(CACHE_TICK_MS, () => void checkSwamp($).catch(() => undefined))
     // Read the usage at once too, so the context ring is there from the start rather than a tick later.
     void checkSwamp($).then(() => $.ui.invalidate('ui.render')).catch(() => undefined)
-    // A written handoff is cleared and resent from here: a hook the turn waits on may not run commands. The progress
-    // bar's sounds ride the same timer, so a chime never holds up the hook that queued it.
+    // A written handoff is cleared and resent from here: a hook the turn waits on may not run commands.
     handoffTimer?.cancel()
     handoffTimer = $.clock.every(HANDOFF_POLL_MS, () => {
       if (redrawsOwed > 0) {
@@ -3000,16 +2997,12 @@ export const register: Register = (on, options) => {
         })
       void writeRenderLog($).catch(() => undefined)
       void finishHandoff($).catch(() => undefined)
-      void playProgressCues($).catch(() => undefined)
     })
-    // The first time the mod runs, the setup guide opens above the prompt.
-    if ((await $.store.get('setupDone')) !== true) {
-      await update($, setupStep, () => 'pick')
-      await update($, setupPending, () => true)
-    }
     // Clear the status entry older versions set.
     $.ui.status(undefined)
-    await modelIs($, await $.session.model()).catch(() => undefined)
+    void $.session.model().then(m => modelIs($, m)).catch(() => undefined)
+    renderLog.push(`${new Date().toISOString()} ${loadedSession} session.start (${e.surface ?? '?'}), ready in ${Date.now() - sessionStarted} ms`)
+    void writeRenderLog($).catch(() => undefined)
     return next(e)
   })
 
@@ -3045,7 +3038,6 @@ export const register: Register = (on, options) => {
       heldPick = null
       if (await read($, isAuto)) await choose($, held)
     }
-    await progressAtTurnEnd($, e).catch(() => undefined)
     // The newest reply's text: its last block carries the warning card (see AssistantMessage).
     if (!e.agentId && e.reason === 'answer') await update($, lastAnswer, () => e.answer.trim())
     if (!e.agentId && turnCost > 0) await update($, lastTurn, () => ({ cost: turnCost, ms: e.durationMs ?? 0 }))
@@ -3069,40 +3061,6 @@ export const register: Register = (on, options) => {
     if (e.command !== 'effortless' && e.command !== 'effortless:effortless') return next(e)
     const wanted = await read($, suggestion)
     const arg = e.args.trim().toLowerCase()
-    // A test aid for split view's right pane, where the app draws no plugin bars: the three other ways a plugin
-    // can show something, to see which of them that pane draws. `/effortless try clear` takes the status line off.
-    if (arg === 'try') {
-      $.ui.status('effortless · High · cache 42m')
-      $.ui.log('effortless · Chat went cold. The next message costs full price: /compact first.')
-      $.ui.toast('Chat is getting swamped (52% of context). /compact or /effortless handoff', { timeoutMs: 8000 })
-      return { text: 'Shown: a status line under the prompt, a dim line in the chat, and a notice in the top right corner.' }
-    }
-    // A pane: a framed region the app places, drawn with the same elements as the bands. A test of whether split
-    // view's right pane draws one.
-    if (arg === 'try pane') {
-      const opened = await $.ui.open({ id: TRY_PANE, title: 'effortless' })
-      return { text: opened.isPlaced ? 'Pane opened.' : `The app did not place the pane: ${'reason' in opened ? opened.reason : 'no reason given'}` }
-    }
-    // Cards in the chat: this command's own output row drawn as a branded card, and from now on the line under each
-    // reply ("Baked 3s") carries the effort and cache. A test of whether the chat's rows draw where the bands do not.
-    if (arg === 'try card') {
-      await $.store.set('tryCard', true)
-      return { text: 'card' }
-    }
-    if (arg === 'try clear') {
-      await $.store.set('tryCard', false)
-      await $.ui.close({ id: TRY_PANE }).catch(() => undefined)
-      $.ui.status(undefined)
-      return { text: 'Status line cleared.' }
-    }
-    if (arg === 'progress' || arg.startsWith('progress ')) {
-      const demo = demoProgress(arg.slice('progress'.length).trim())
-      await update($, progressHiddenState, () => null)
-      await update($, progressState, () => demo.progress)
-      queueCue(config.hide, demo.cue)
-      $.ui.invalidate('ui.render')
-      return { text: demo.text }
-    }
     if (arg === 'update') {
       await checkUpdate($).catch(() => undefined)
       const card = await read($, updateCard)
@@ -3167,7 +3125,6 @@ export const register: Register = (on, options) => {
           `handoff: ${await read($, handoffStage)}`,
           `last fork: ${lastFork ? `${lastFork.outcome}, ${ago(lastFork.at)}` : 'none'}`,
           `hidden: ${config.hide.join(',') || 'nothing'}`,
-          `last chime: ${lastCue ? `${lastCue}, ${ago(lastCueAt)}` : 'none'}`,
         ].join(' | '),
       }
     }
@@ -3213,10 +3170,6 @@ Saved to ${out}.md and .json` }
   on('prompt.submit', async ($, e, next) => {
     await setTurnBusy($, true)
     turnCost = 0
-    if (!config.hide.includes('progress')) {
-      const was = await read($, progressState)
-      if (afterPrompt(was, e) !== was) await update($, progressState, p => afterPrompt(p, e))
-    }
     const byPerson = e.origin.kind === 'composer' || e.origin.kind === 'bridge' || e.origin.kind === 'sdk'
     const wantsEffort = await read($, isAuto)
     const wantsModel = await read($, isAutoModel)
@@ -3443,33 +3396,6 @@ Saved to ${out}.md and .json` }
     )
   })
 
-  // /effortless try card: its output row drawn as a branded card, with a button.
-  on('ui.render', { component: 'CommandOutput' }, async ($, e, next) => {
-    if (!/effortless$/.test(e.props.command) || e.props.args.trim() !== 'try card') return next(e)
-    const { Box, Text, Button, Svg } = $.ui.resolve(e)
-    const v = await snap($)
-    const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
-    return (
-      <Box key="try-card" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
-        backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
-        <Box key="try-card-art" position="absolute" top={-1} right={0} bottom={-1}>
-          <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
-        </Box>
-        <Box key="try-card-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
-          <Text color={ACCENT} bold wrap="truncate">✦ effortless</Text>
-          <Text dimColor wrap="truncate">
-            {`Effort ${effortNow ? EFFORT_LABELS[effortNow] : 'Auto'} · cache ${v.cacheNow === null ? 'not started' : cacheLabel(v.cacheNow)}. A card in the chat.`}
-          </Text>
-        </Box>
-        <Box flexGrow={1} minWidth={2} />
-        <Box key="try-card-actions" position="relative" flexShrink={0} flexDirection="row" gap={1} alignItems="center">
-          <Button key="try-card-settings" label="Settings" onPress={async () => { $.ui.toast('Card button pressed: Settings'); await openPluginSettings($) }} />
-          <Button key="try-card-handoff" variant="primary" label="Handoff" onPress={async () => { $.ui.toast('Card button pressed: Handoff'); await openHandoffBar($) }} />
-        </Box>
-      </Box>
-    )
-  })
-
   // The terminal's line under each reply ("Baked 3s") in the brand's colours, with the effort and the cache. The
   // desktop draws no such line; there the warning card hangs under the reply instead (AssistantMessage, below).
   on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
@@ -3527,20 +3453,6 @@ Saved to ${out}.md and .json` }
     )
   })
 
-  // The test pane of /effortless try pane: the footer's facts in the brand's colours.
-  on('ui.render', { component: 'Pane', requestId: TRY_PANE }, async ($, e) => {
-    const { Box, Text } = $.ui.resolve(e)
-    const v = await snap($)
-    const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
-    return (
-      <Box flexDirection="column" paddingX={1} backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
-        <Text color={ACCENT} bold>✦ effortless</Text>
-        <Text>{`Effort ${effortNow ? EFFORT_LABELS[effortNow] : 'Auto'} · cache ${v.cacheNow === null ? 'not started' : cacheLabel(v.cacheNow)}`}</Text>
-        <Text dimColor>A pane, to see if this side of split view draws one.</Text>
-      </Box>
-    )
-  })
-
   // Above the prompt: the terminal's rows (effort steps, Auto, and the model row when it is switched on).
   // On desktop nothing is drawn here, except the question when the judge suggests another model.
   // Draws the bands and the settings panel. Counted and guarded so /effortless debug can say whether the app asks
@@ -3552,7 +3464,12 @@ Saved to ${out}.md and .json` }
     renderCalls++
     lastRenderAt = Date.now()
     lastRenderProps = JSON.stringify(e.props).slice(0, 200)
-    renderLog.push(`${new Date(lastRenderAt).toISOString()} ${lastRenderProps}`)
+    renderLog.push(`${new Date(lastRenderAt).toISOString()} ${loadedSession} ${lastRenderProps}`)
+    if (!firstDrawLogged) {
+      firstDrawLogged = true
+      renderLog.push(`${new Date().toISOString()} ${loadedSession} first draw asked ${lastRenderAt - loadedAt} ms after load`)
+      void writeRenderLog($).catch(() => undefined)
+    }
     try {
     if (e.props.hasSurvey) {
       lastRenderBranch = 'stepped aside: the app has a survey in this spot'
@@ -3625,16 +3542,14 @@ Saved to ${out}.md and .json` }
         effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}`,
         judge: tested && tested.ok !== null ? `${judgeName} · ${tested.ok ? 'working' : 'failing'}` : judgeName,
         handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · compact alert at ${shown.swampAt}%`,
-        show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${4 - ['timer', 'reason', 'progress', 'sounds'].filter(h => hidden.includes(h)).length} of 4 on`,
+        show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${2 - ['timer', 'reason'].filter(h => hidden.includes(h)).length} of 2 on`,
       }
-      // The cache timer, the judge's line (who picked and how sure), the progress bar and its sounds can be switched
+      // The cache timer and the judge's line (who picked and how sure) can be switched
       // off here: the alerts each have their own ✕, and the rest is the mod itself. A ticked box in plain text, dim when off: lighter than a row of white buttons.
       const toggles = (
         [
           ['timer', 'Cache timer'],
           ['reason', 'Judge line'],
-          ['progress', 'Progress'],
-          ['sounds', 'Sounds'],
         ] as const
       ).map(([part, label]) => {
         const off = hidden.includes(part)
@@ -3834,6 +3749,69 @@ Saved to ${out}.md and .json` }
     }
     // The handoff bar: quick or full, then what follows, and a line saying what that does. Opened by ⇥ or the swamp
     // band's Handoff; Go keeps the choice for next time. Enter presses Go once the bar holds the keyboard.
+    // The compact bar: an optional note for the summary, then Compact (or Enter).
+    if (e.surface !== 'terminal' && (await read($, compactAsk))) {
+      const { Input } = $.ui.resolve(e)
+      const go = () => compactCold($, compactNote)
+      const nowCompact = await $.clock.now()
+      // One redraw once the fade is over, to drop its layer.
+      if (nowCompact - compactOpenedAt < COMPACT_FADE_MS) $.clock.after(COMPACT_FADE_MS + 150 - (nowCompact - compactOpenedAt), () => $.ui.invalidate('ui.render'))
+      return (
+        <Box key="compact-bar" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
+          backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
+          <Box key="compact-art" position="absolute" top={-1} right={0} bottom={-1}>
+            <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+          </Box>
+          {/* Opening from the swamped band: its green fades out over the violet, then the entrance sweep. */}
+          {nowCompact - compactOpenedAt < COMPACT_FADE_MS + 100 ? (
+            <Box key="compact-fade" position="absolute" top={-1} left={0} right={0} bottom={-1}>
+              <Svg source={compactFadeSvg(nowCompact - compactOpenedAt)} alt="" width={1600} height={240} />
+            </Box>
+          ) : null}
+          {introLayer({ Box, Svg }, 'compact', await introShows($, 'compact'))}
+          {/* One line, as tall as the bands: the name, then the field and the buttons on the right. */}
+          <Box key="compact-words" position="relative" flexShrink={0}>
+            <Text color={ACCENT} bold>✦ Compact</Text>
+          </Box>
+          <Box key="compact-controls" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end" alignItems="center" gap={1}>
+            <Box position="absolute" top={0} left={0} />
+            {/* The field shows through a window anchored right: its own Enter hint (a submit button 12 px wide, 6 px
+                after the field) is pushed past the window's right edge and clipped, whatever width the app gives the
+                field. Three cells out, one cell of padding back: the field ends 2 px inside, the hint starts 4 px out. */}
+            {/* The window reaches a row above and below the field (absolutely, so the bar stays one line): one line tall,
+                it cut the field's focus ring off at the top and bottom. */}
+            <Box key="compact-field" position="relative" width={48} height={1} flexShrink={0}>
+              <Box position="absolute" top={-1} bottom={-1} left={0} right={0} overflow="hidden">
+                <Box position="absolute" top={0} bottom={0} right={-3} width={60} flexDirection="row" alignItems="center" justifyContent="flex-end" paddingRight={1}>
+                  <Input key="compact-note" placeholder="Summary (optional)" submitLabel={'​'}
+                      onInput={v => { compactNote = v }} onSubmit={v => { compactNote = v; void go() }} />
+                </Box>
+              </Box>
+            </Box>
+            {/* Compact with the Enter mark in it: a white pill drawn, the word in the app's font, the mark as Claude's prompt
+                box draws its own, and a blank button over all three. A Button's label is text only, and ↵ there was a
+                hairline. */}
+            <Box key="compact-go-box" position="relative" flexShrink={0} flexDirection="row" alignItems="center">
+              <Box width={GO_CELLS} height={1} flexShrink={0} />
+              <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+                <Svg source={goPillSvg()} alt="Compact" width={GO_W} height={20} />
+              </Box>
+              <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center" justifyContent="center" gap={1}>
+                <Text color="#141416">Compact</Text>
+                <Svg source={enterSvg('#141416')} alt="Enter" width={14} height={14} />
+              </Box>
+              <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+                <Button key="compact-go" plain hover={{ backgroundColor: '#00000000' }} label={' '.repeat(GO_CELLS)} onPress={go} />
+              </Box>
+            </Box>
+            <Box key="compact-close-box" position="relative" flexShrink={0}>
+              <Box position="absolute" top={0} left={0} />
+              <Button key="compact-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={() => update($, compactAsk, () => false)} />
+            </Box>
+          </Box>
+        </Box>
+      )
+    }
     const choice = await read($, handoffPick)
     if (choice) {
       const setBar = (change: Partial<HandoffChoice>) => async () => {
@@ -3858,8 +3836,8 @@ Saved to ${out}.md and .json` }
             <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center">
               {(['quick', 'full'] as const).map(k => (
                 <Box key={`handoff-kind-${k}`} flexGrow={1} width={0} flexDirection="row" alignItems="center" justifyContent="center">
-                  <Svg source={rowIconSvg(k, choice.kind === k ? '#141416' : DASH_DIM)} alt="" width={14} height={14} />
-                  <Text color={choice.kind === k ? '#141416' : DASH_DIM}>{k === 'quick' ? ' Quick' : ' Full'}</Text>
+                  <Box flexShrink={0} width={2} alignItems="center"><Svg source={rowIconSvg(k, choice.kind === k ? '#141416' : DASH_DIM)} alt={k === 'quick' ? 'bolt' : 'pen'} width={14} height={14} /></Box>
+                  <Text color={choice.kind === k ? '#141416' : DASH_DIM}>{k === 'quick' ? 'Quick' : 'Full'}</Text>
                 </Box>
               ))}
             </Box>
@@ -3892,7 +3870,9 @@ Saved to ${out}.md and .json` }
         <Button key="handoff-go" variant="primary" autoFocus hotkey="g" label="Go" onPress={() => goHandoff($, choice)} />,
         <Button key="handoff-close" plain role="dismiss" label="✕" onPress={() => closeHandoffBar($)} />,
       ]
-      const line = `${what.by}. ${what.then}`
+      // The terminal says all of it; the desktop bar only what the picked kind does: the dropdown beside it already
+      // says what happens after.
+      const line = e.surface === 'terminal' ? `${what.by}. ${what.then}` : choice.kind === 'full' ? (config.handoffSkill ? `/${config.handoffSkill}` : 'Saves HANDOFF.md') : 'A few seconds'
       if (e.surface === 'terminal') return terminalPanel($, e, 'handoff-bar', '⇥ Handoff', line, controls)
       return (
         // The art is a still image here: an animated one sits in a frame the app rebuilds on every redraw, and the bar
@@ -3906,7 +3886,8 @@ Saved to ${out}.md and .json` }
           </Box>
           {/* The entrance as the bar opens, only then: a choice redraws the bar. */}
           {introLayer({ Box, Svg }, 'handoff', await introShows($, 'handoff'))}
-          <Box key="handoff-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
+          {/* One line: the name, then what the picked kind does, dim. */}
+          <Box key="handoff-words" position="relative" flexDirection="row" gap={1} flexShrink={1} minWidth={0}>
             <Text color={ACCENT} bold wrap="truncate">
               ⇥ Handoff
             </Text>
@@ -4059,9 +4040,6 @@ Saved to ${out}.md and .json` }
         ...nav(<Button key="setup-done" variant="primary" autoFocus label="Done" onPress={() => finishSetup($)} />),
       ])
     }
-    // A bigger task under way: its progress bar comes before the alerts.
-    const liveProgress = await progressBand($, e, 'active')
-    if (liveProgress) return liveProgress
     // The judge the person picked is failing: Haiku stands in until it works again.
     const downReason = await read($, judgeDown)
     if (downReason && !config.hide.includes('down') && downReason !== (await read($, judgeDownHidden))) {
@@ -4160,7 +4138,7 @@ Saved to ${out}.md and .json` }
           detail: `${line} Hand off or compact first.`,
           buttons: [
             <Button key="cold-hide" plain hotkey="n" label="Not now" onPress={() => update($, isColdHidden, () => true)} />,
-            <Button key="cold-compact" hotkey="c" label="Compact" onPress={() => compactCold($)} />,
+            <Button key="cold-compact" hotkey="c" label="Compact" onPress={() => openCompact($, e)} />,
             <Button key="cold-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />,
           ],
         })
@@ -4193,7 +4171,7 @@ Saved to ${out}.md and .json` }
           <Box flexGrow={1} minWidth={34} />
           <Box key="cold-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
             <Button key="cold-hide" plain label="Not now" onPress={() => update($, isColdHidden, () => true)} />
-            <Button key="cold-compact" variant="secondary" label="Compact" onPress={() => compactCold($)} />
+            <Button key="cold-compact" variant="secondary" label="Compact" onPress={() => openCompact($, e)} />
             <Button key="cold-handoff" variant="primary" label="Handoff" onPress={() => openHandoffBar($)} />
           </Box>
         </Box>
@@ -4209,7 +4187,7 @@ Saved to ${out}.md and .json` }
           key: 'swamp', kind: 'swamp', color: BOG, bg: BOG_BG, edge: BOG_EDGE, title: 'Chat is getting swamped',
           detail: `${Math.round(swampTokens / 1000)}k tokens${lastContext && lastContext.window ? ` (${lastContext.percent}% of context)` : ''} re-read every message.`,
           buttons: [
-            <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => compactCold($)} />,
+            <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => openCompact($, e)} />,
             <Button key="swamp-handoff" hotkey="h" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />,
             <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />,
           ],
@@ -4248,16 +4226,13 @@ Saved to ${out}.md and .json` }
           </Text>
           <Box flexGrow={1} minWidth={34} />
           <Box key="swamp-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
-            <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => compactCold($)} />
+            <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => openCompact($, e)} />
             <Button key="swamp-handoff" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />
             <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />
           </Box>
         </Box>
       )
     }
-    // A finished or paused task: its bar after the alerts.
-    const restingProgress = await progressBand($, e, 'resting')
-    if (restingProgress) return restingProgress
     // At rest: the dashboard, unless the person picked the minimal look (the footer's buttons, no band).
     if (config.layout === 'default') {
       if (e.surface === 'terminal') return dashboardBand($, e)
@@ -4278,6 +4253,12 @@ Saved to ${out}.md and .json` }
     } catch (error) {
       lastRenderError = (error instanceof Error ? error.message : String(error)).slice(0, 300)
       return next(e)
+    } finally {
+      // How long the draws take, for the first few after a load: the render log says where a slow start goes.
+      if (drawsTimed < 5) {
+        drawsTimed++
+        renderLog.push(`${new Date().toISOString()} ${loadedSession} draw took ${Date.now() - lastRenderAt} ms`)
+      }
     }
   })
 }
