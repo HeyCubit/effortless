@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.109",
+    "date": "2026-10-07",
+    "note": "Handoff card above the chat box; the cold band breathes"
+  },
+  {
     "version": "1.35.108",
     "date": "2026-10-07",
     "note": "Progress bar and sounds off for now; test pane removed"
