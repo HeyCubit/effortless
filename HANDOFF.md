@@ -6,9 +6,9 @@
 - Release: `tools/release.sh [--no-install] "<subject>" "<body>"` runs the tests (143 pass) and stops on any failure,
   bumps the version here and in `.claude-plugin/plugin.json`, adds the subject to `releases.json`, commits, pushes and
   installs. `--no-install` leaves this machine a version behind so the update card can be tried. Use `py`, not `python`.
-- Showcase site: https://heycubit.github.io/effortless/ (`gh-pages` = `main:site`). The redesign (bar-first, a
-  /whats-new/ page built from releases.json) is on branch `site-story`, not live: waits for Isac's OK in the site chat.
-  After it merges, add `node site/src/build.mjs` + republish to `tools/release.sh`.
+- Showcase site: https://heycubit.github.io/effortless/ (`gh-pages` = `main:site`), the bar-first redesign with a
+  /whats-new/ page built from releases.json. Build: `node site/src/build.mjs`. Not yet in `tools/release.sh`: after a
+  release, rebuild and republish so What's new lists it. Design notes: ai-setup `memory/effortless/site-design.md`.
 
 ## Where things stand
 - Dashboard bar is the default look; Minimal stays as a setting (Settings → Appearance).
