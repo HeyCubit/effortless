@@ -320,6 +320,16 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .copy:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .copy.ok{color:var(--bog)}
 
+/* ---------- What's new: one row per release, newest first, from releases.json ---------- */
+.news{max-width:1080px;margin:0 auto;padding:96px 24px 0;scroll-margin-top:64px}
+.news h2{margin:0;font:500 clamp(26px,3vw,36px)/1.1 var(--display);letter-spacing:-.02em;color:#f4f2ff}
+.rel{list-style:none;margin:24px 0 0;padding:0;display:grid;gap:10px;max-width:760px}
+.rel li{display:grid;grid-template-columns:88px minmax(0,1fr) auto;align-items:baseline;gap:18px;padding:14px 18px;border-radius:12px;background:#17161c}
+.rel .v{font:600 14px ui-monospace,"Cascadia Code",Consolas,monospace;color:var(--accent)}
+.rel .n{color:var(--text);font-size:15.5px}
+.rel time{color:var(--dim);font-size:13.5px;font-variant-numeric:tabular-nums}
+@media (max-width:560px){.rel li{grid-template-columns:minmax(0,1fr) auto;gap:4px 12px}.rel .n{grid-column:1/-1;order:3}}
+
 /* ---------- Narrow screens ---------- */
 @media (max-width:960px){
   .pin{gap:18px;padding:64px 16px 20px}
@@ -502,15 +512,20 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
     <p class="lead">No terminal. Paste both into Claude Code, restart, and pick who judges your prompts. Haiku needs no key.</p>
     <div class="cmds"><div class="cmd"><code>/plugin marketplace add HeyCubit/effortless</code><button type="button" class="copy" data-copy="/plugin marketplace add HeyCubit/effortless" aria-label="Copy /plugin marketplace add HeyCubit/effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Copy</span></button></div><div class="cmd"><code>/plugin install effortless@effortless</code><button type="button" class="copy" data-copy="/plugin install effortless@effortless" aria-label="Copy /plugin install effortless@effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Copy</span></button></div></div>
     <p class="fine">The whole mod is one file, <code class="f">hooks/register.tsx</code>. A key, if you use one, goes only to the judge you pick. Runs on Opus 5.5 and Sonnet 5.5.</p>
-    <p class="fine">Prefer it quiet? Settings → Show → Minimal puts effortless back in the footer.</p>
+    <p class="fine">Prefer it quiet? Settings → Appearance → Minimal puts effortless back in the footer.</p>
     <div class="cta"><a class="gh" href="https://github.com/HeyCubit/effortless">__GITHUB__<span>Star on GitHub</span></a></div>
+  </section>
+
+  <section class="news" id="whats-new">
+    <h2>What's new</h2>
+    <ol class="rel">__WHATSNEW__</ol>
   </section>
 </main>
 
 <footer class="site-foot">
   <div class="foot-row">
     <span class="name">__SPARK__effortless<small>A Claude Code mod</small></span>
-    <nav><a href="#how">How it works</a><a href="#install">Install</a><a href="https://github.com/HeyCubit/effortless">__GITHUB__GitHub</a></nav>
+    <nav><a href="#how">How it works</a><a href="#install">Install</a><a href="#whats-new">What's new</a><a href="https://github.com/HeyCubit/effortless">__GITHUB__GitHub</a></nav>
   </div>
   <div class="foot-word" aria-hidden="true"><span class="soft">effortless</span><span class="crisp">effortless</span></div>
 </footer>
@@ -625,7 +640,7 @@ var Dash=(function(){
   var HANDOFF='<div class="band brand handoff"><span class="words"><span class="t">⇥ Handoff</span><span class="what">Done in seconds. Clears chat, carries on.</span></span><span class="acts"><span class="qf"><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.5L3.5 9H8l-1 5.5L12.5 7H8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Quick</span><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5l3 3L6 13l-3.5.5L3 10z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Full</span></span><span class="btn pick">Clear &amp; carry on</span><span class="btn primary">Go <span class="k">G</span></span><span class="btn x">✕</span></span></div>';
   var SETT='<div class="sett"><div class="sett-h"><b>effortless</b><span class="sub">Settings</span><span class="save">Save</span><span class="x">✕</span></div><div class="cards">'+
     '<div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 11.5a5.5 5.5 0 1111 0M8 11.5l2.6-3.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Effort</b><span>Balanced · low to max</span></div><div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v11M4.5 13.5h7M3 4.5h10M3 4.5L1.5 9h3zM13 4.5L11.5 9h3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Judge</b><span>Auto · Haiku</span></div>'+
-    '<div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h8.5M7.5 5l3 3-3 3M13.5 3.5v9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Handoff</b><span>Built in · swamped at 50%</span></div><div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8s-2.4 4.5-6.5 4.5S1.5 8 1.5 8zM8 9.8a1.8 1.8 0 100-3.6 1.8 1.8 0 000 3.6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Show</b><span>Dashboard · 4 of 4 on</span></div></div></div>';
+    '<div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h8.5M7.5 5l3 3-3 3M13.5 3.5v9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Handoff</b><span>Built in · swamped at 50%</span></div><div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8s-2.4 4.5-6.5 4.5S1.5 8 1.5 8zM8 9.8a1.8 1.8 0 100-3.6 1.8 1.8 0 000 3.6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Appearance</b><span>Dashboard · 4 of 4 on</span></div></div></div>';
 
   // Every scene shows what it is about at once, so someone scrolling past still sees it, and only then plays it out.
   var scenes=[
