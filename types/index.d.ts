@@ -47,6 +47,8 @@ export type SettingsDraft = {
   swampAt?: string
   /** default (dashboard band) or minimal (footer buttons). */
   layout?: string
+  /** haiku (Haiku 5.5 writes the compaction's summary) or session (the chat's own model). */
+  compactWith?: string
 }
 
 /** One step of the task the progress bar follows: a todo or a task. */
@@ -63,6 +65,38 @@ export type ProgressStep = {
 export type Progress = {
   phase: 'planning' | 'working' | 'asking' | 'paused' | 'done'
   steps: ProgressStep[]
+}
+
+/** Where one subagent stands, as the agent panel shows it. */
+export type AgentState = 'picking' | 'running' | 'waiting' | 'done' | 'failed'
+
+/** One subagent of this chat, for the agent panel. */
+export type AgentRec = {
+  id: string
+  /** The agent type (Explore, general-purpose, a plugin's agent). */
+  type: string
+  /** The Agent call's short description of the task. */
+  task: string
+  state: AgentState
+  /** The id of the agent that spawned it; absent when the main chat did. */
+  parentId?: string
+  /** When it was spawned and when it ended (clock ms). */
+  startedAt: number
+  endedAt?: number
+  /** Its own task list, when it keeps one: the progress the card shows. */
+  steps?: ProgressStep[]
+  /** What it does now: a tool and its argument, short. */
+  now?: string
+  /** When its current tool call started (clock ms); absent between calls. */
+  toolSince?: number
+  /** Since when it waits on that tool (clock ms). */
+  waitingSince?: number
+  model?: string
+  effort?: string
+  /** Why effortless picked that, a few words. */
+  why?: string
+  /** Weighted tokens so far. */
+  cost?: number
 }
 
 declare module 'claude-code' {
@@ -137,6 +171,10 @@ declare module 'claude-code' {
       progress: Progress | null
       /** The step list the progress bar was closed for; a new list shows it again. */
       progressHidden: string | null
+      /** This chat's subagents, oldest first, for the agent panel. */
+      agents: AgentRec[]
+      /** The agent card opened in the panel, or 'done' for the finished ones, or null. */
+      agentsOpen: string | null
     }
   }
 }

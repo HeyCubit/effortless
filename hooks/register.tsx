@@ -1,10 +1,11 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelForkResult, Register, RenderInput } from 'claude-code'
 
-import type { Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
+import type { AgentRec, Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
+import { agentsPane, demoAgents, toolLine, withWaits } from './agents'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
 import { MARK_SVG } from './brand-mark'
-import { PILL_H, thinkingSvg, THINK_W } from './progress'
+import { PILL_H, stepsFromTodos, thinkingSvg, THINK_W } from './progress'
 
 // The ladders the two sliders walk, cheapest first.
 export const MODELS: { key: ModelKey; label: string; long: string; id: string }[] = [
@@ -156,6 +157,9 @@ const judgeDownHidden = atom({ plugin: 'effortless', key: 'judgeDownHidden' } as
 const hot = atom({ plugin: 'effortless', key: 'hot' } as const, null)
 // The running-hot band was closed at this many percent; it returns ten points later or in a new window.
 const hotHidden = atom({ plugin: 'effortless', key: 'hotHidden' } as const, null)
+// The agent panel: this chat's subagents, and the card opened in it (hooks/agents.tsx).
+const agentsState = atom({ plugin: 'effortless', key: 'agents' } as const, [])
+const agentsOpen = atom({ plugin: 'effortless', key: 'agentsOpen' } as const, null)
 // Save mode: Auto picks at most medium until this time (ms), when the limit resets.
 const saveUntil = atom({ plugin: 'effortless', key: 'saveUntil' } as const, null)
 const isColdHidden = atom({ plugin: 'effortless', key: 'isColdHidden' } as const, false)
@@ -491,6 +495,8 @@ export type JudgeConfig = {
   swampAt: number
   /** default: the dashboard band above the prompt; minimal: the footer's small buttons and no band. */
   layout: 'default' | 'minimal'
+  /** Who writes a compaction's summary: Haiku 5.5 (the default, a fraction of the price) or the chat's own model. */
+  compactWith: 'haiku' | 'session'
 }
 
 /** The swamp thresholds the settings offer, in percent of the context window. */
@@ -517,6 +523,7 @@ let config: JudgeConfig = {
   hide: [],
   swampAt: 50,
   layout: 'default',
+  compactWith: 'haiku',
 }
 
 /** The settings as the engine hands them over (defaults filled in), cleaned to the shape the judge reads. */
@@ -537,6 +544,7 @@ export function readConfig(options: unknown): JudgeConfig {
     ceiling: EFFORTS.includes(str(o.effortCeiling) as Effort) ? (str(o.effortCeiling) as Effort) : 'max',
     swampAt: SWAMP_STEPS.includes(Number(str(o.swampAt)) as (typeof SWAMP_STEPS)[number]) ? Number(str(o.swampAt)) : 50,
     layout: str(o.layout) === 'minimal' ? 'minimal' : 'default',
+    compactWith: str(o.compactWith) === 'session' ? 'session' : 'haiku',
     hide: str(o.hide)
       .split(',')
       .map(part => part.trim())
@@ -729,14 +737,11 @@ async function testJudge($: EngineInterface, judgeKind: string, draftKey: string
 /** Haiku through the session's own login: the judge that needs no key, and the fallback for the others. */
 async function askHaiku($: EngineInterface, prompt: string, current: Pick | null, context: string): Promise<Judged> {
   const asked = judgeQuestion(prompt, current, context)
-  const r = await $.model.complete({
-    model: 'haiku',
-    system: JUDGE_SYSTEM,
-    prompt: asked,
-    maxTokens: 120,
-    effort: 'low',
-    timeoutMs: 6000,
-  })
+  const ask = (model: string) => $.model.complete({ model, system: JUDGE_SYSTEM, prompt: asked, maxTokens: 120, effort: 'low', timeoutMs: 6000 })
+  // Haiku 5.5 by name: Claude Code builds that predate it map the plain alias to Haiku 4.5, at ten times the price.
+  // Where 5.5 does not answer, the alias stands in.
+  let r = await ask(COMPACT_MODEL)
+  if (!r.isAnswered) r = await ask('haiku')
   const verdict = r.isAnswered ? parseVerdict(r.text) : undefined
   const tokens = r.isAnswered && r.usage ? r.usage.input_tokens + r.usage.output_tokens : 0
   return { verdict: verdict && { ...verdict, by: 'haiku' }, tokens }
@@ -1567,6 +1572,7 @@ const SETTING_FIELDS = {
   hide: 'hide',
   swampAt: 'swampAt',
   layout: 'layout',
+  compactWith: 'compactWith',
 } as const
 
 async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELDS, value: string) {
@@ -1594,6 +1600,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     hide: config.hide.join(','),
     swampAt: String(config.swampAt),
     layout: config.layout,
+    compactWith: config.compactWith,
     [SETTING_FIELDS[field]]: value,
   }
   config = { ...readConfig(raw), typesafeKey: config.typesafeKey, customKey: config.customKey }
@@ -2015,6 +2022,9 @@ let classicStart: { at: number; said: string } | null = null
 let coldForced = false
 let handoffTimer: { cancel: () => void } | undefined
 const HANDOFF_POLL_MS = 1000
+// When Haiku last wrote a compaction (for /effortless debug).
+let lastHaikuCompact = 0
+
 // The moving art's timer: one at a time, blitting the next frame to the band that drew it. A blit the surface refuses
 // (the band went away, another drew instead) ends it, so nothing has to stop it from outside.
 let artTimer: { cancel(): void } | null = null
@@ -2942,12 +2952,118 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
   return { question, rows }
 }
 
+// --- The agent panel (hooks/agents.tsx): the $ side, kept short ------------------------------------------------------
+
+/** Changes one agent's record, if the panel knows it. */
+async function agentSet($: EngineInterface, id: string, fn: (a: AgentRec) => AgentRec) {
+  await update($, agentsState, list => (list.some(a => a.id === id) ? list.map(a => (a.id === id ? fn(a) : a)) : list))
+}
+
+/** An agent's loop ended: done when it answered, failed otherwise. */
+async function agentEnded($: EngineInterface, id: string, reason: string) {
+  const now = await $.clock.now()
+  await agentSet($, id, a => ({ ...a, state: reason === 'answer' ? 'done' : 'failed', endedAt: now, toolSince: undefined, now: undefined }))
+}
+
+/** Adds a request's weighted tokens to its agent. */
+async function agentCost($: EngineInterface, id: string, cost: number) {
+  await agentSet($, id, a => ({ ...a, cost: (a.cost ?? 0) + cost }))
+}
+
+/** From the 1 s timer: an agent long in one tool call turns to waiting. Writes only when one changes. */
+async function agentWaits($: EngineInterface) {
+  const list = await read($, agentsState)
+  if (!list.length) return
+  const next = withWaits(list, await $.clock.now())
+  if (next) await update($, agentsState, () => next)
+}
+
+// A compaction written by Haiku 5.5: Anthropic names compaction among the jobs it is built for, at a fraction of the
+// chat model's price. Claude Code compacts with the chat's own model and has no setting for another, and the
+// summarizer's request does not pass through turn.step, so the mod answers session.compact itself: the transcript as
+// text, Haiku's summary back as the conversation. Anything that fails falls through to Claude Code's own compaction.
+const COMPACT_MODEL = 'claude-haiku-5-5'
+/** The transcript's most text sent to Haiku: about 600k tokens, inside its window with room for the summary. */
+const COMPACT_MAX_CHARS = 2_400_000
+const COMPACT_SYSTEM = `You compact a conversation between a user and Claude Code, an AI coding agent, so the work can continue
+in a fresh context that holds only your summary. Whoever reads it next knows nothing else about the conversation.
+
+Write a detailed summary with these sections:
+1. Primary request and intent: everything the user asked for, in detail, including changes of mind.
+2. Key technical concepts: technologies, frameworks, constraints and decisions.
+3. Files and code: every file read, created or edited, why it matters, and the important snippets or signatures.
+4. Errors and fixes: what went wrong, how it was fixed, and any feedback the user gave about it.
+5. Problem solving: what was solved and what is still being worked out.
+6. All user messages: every message the user wrote that is not a tool result, briefly and in order.
+7. Pending tasks: what the user asked for that is not done.
+8. Current work: exactly what was being done right before this summary, with file names and code.
+9. Next step: the next step, only if it follows directly from the user's latest request, quoting that request.
+
+Be precise: keep names, paths, numbers, commands and error messages exact. Leave out pleasantries.
+Reply with the summary only.`
+
+/** The transcript as plain text for the summarizer: each message, its tool calls and their results, the long ones cut. */
+export function compactTranscript(messages: readonly { role: string; text: string; toolUses?: readonly { tool: string; input: unknown; text?: string }[]; toolResults?: readonly { text?: string }[] }[], toolChars = 2000): string {
+  const cut = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)} …[${s.length - n} more characters]` : s)
+  return messages
+    .map(m => {
+      const lines = [`${m.role === 'user' ? 'USER' : 'CLAUDE'}: ${m.text}`.trimEnd()]
+      for (const t of m.toolUses ?? []) {
+        lines.push(`  [${t.tool} ${cut(JSON.stringify(t.input ?? {}), 400)}]`)
+        if (t.text) lines.push(`  → ${cut(t.text, toolChars)}`)
+      }
+      if (!m.toolUses?.length) for (const r of m.toolResults ?? []) if (r.text) lines.push(`  → ${cut(r.text, toolChars)}`)
+      return lines.join('\n')
+    })
+    .join('\n\n')
+}
+
+/** Haiku's summary of the transcript, or why there is none. */
+async function haikuCompaction($: EngineInterface, messages: Parameters<typeof compactTranscript>[0], instructions?: string): Promise<{ text: string } | { fail: string }> {
+  let transcript = compactTranscript(messages)
+  if (transcript.length > COMPACT_MAX_CHARS) transcript = compactTranscript(messages, 300)
+  if (transcript.length > COMPACT_MAX_CHARS) return { fail: 'the chat is too long for Haiku' }
+  const r = await $.model.complete({
+    model: COMPACT_MODEL,
+    system: COMPACT_SYSTEM,
+    prompt: `${transcript}\n\n---\nWrite the summary now.${instructions?.trim() ? `\nThe user asked the summary to keep or stress: ${instructions.trim()}` : ''}`,
+    maxTokens: 16000,
+    effort: 'medium',
+    timeoutMs: 240_000,
+  })
+  if (!r.isAnswered) return { fail: 'reason' in r ? String(r.reason) : 'no answer' }
+  return r.text.trim().length > 200 ? { text: r.text.trim() } : { fail: 'the summary came back empty' }
+}
+
 export const register: Register = (on, options) => {
   loadedAt = Date.now()
   firstDrawLogged = false
   drawsTimed = 0
   config = readConfig(options)
   pluginOptions = options
+  on('session.compact', async ($, e, next) => {
+    // A subagent's own compaction, the session's model by choice: Claude Code's own.
+    if (e.agentId !== undefined || config.compactWith !== 'haiku') return next(e)
+    // Ahead-of-time summaries would be written by the chat's model and then not used: none.
+    if (e.trigger === 'precompute') return { skip: 'effortless compacts with Haiku when it is time' }
+    // The transcript comes with the event; read it if not (a test's engine hands none).
+    const messages = Array.isArray(e.messages) && e.messages.length ? e.messages : await $.session.messages().catch(() => [])
+    const got = await haikuCompaction($, messages, e.instructions).catch((error: unknown) => ({ fail: String(error).slice(0, 80) }))
+    if ('fail' in got) {
+      $.ui.toast(`effortless: Haiku could not compact (${got.fail}). The chat's own model does it.`)
+      return next(e)
+    }
+    lastHaikuCompact = Date.now()
+    return {
+      messages: [
+        {
+          role: 'user' as const,
+          text: `This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation, written by Haiku 5.5 for effortless.\n\n${got.text}\n\nContinue the conversation from where it left off without asking the user any further questions.`,
+          toolUses: [],
+        },
+      ],
+    }
+  })
   on('session.start', async ($, e, next) => {
     sessionStarted = Date.now()
     // Everything the first draw needs, asked for at once: one after the other they held the start (and with it the
@@ -2988,6 +3104,7 @@ export const register: Register = (on, options) => {
     // A written handoff is cleared and resent from here: a hook the turn waits on may not run commands.
     handoffTimer?.cancel()
     handoffTimer = $.clock.every(HANDOFF_POLL_MS, () => {
+      void agentWaits($).catch(() => undefined)
       if (redrawsOwed > 0) {
         redrawsOwed--
         $.ui.invalidate('ui.render')
@@ -3039,6 +3156,7 @@ export const register: Register = (on, options) => {
   // The handoff turn ended: keep its text; the session's timer clears the chat and sends it.
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
+    if (e.agentId) await agentEnded($, e.agentId, e.reason)
     if (!e.agentId) await setTurnBusy($, false)
     // A lower verdict for a message typed during the turn takes over now, if Auto is still on.
     if (!e.agentId && heldPick) {
@@ -3075,6 +3193,14 @@ export const register: Register = (on, options) => {
       if (!card || card.stage === 'done') return { text: `effortless ${(await installedVersion($)) ?? ''} is the newest (${lastUpdateCheck}).` }
       void runUpdate($, card)
       return { text: `Updating to ${card.version}…` }
+    }
+    if (arg === 'agents' || arg === 'agents demo') {
+      if (arg === 'agents demo') {
+        const now = await $.clock.now()
+        await update($, agentsState, () => demoAgents(now))
+      }
+      await $.ui.open({ id: 'effortless-agents', title: 'Agents' })
+      return { text: arg === 'agents demo' ? 'The agent panel shows sample agents (a preview).' : 'The agent panel is open.' }
     }
     if (arg === 'auto') {
       await toggleAutoEffort($)
@@ -3133,6 +3259,7 @@ export const register: Register = (on, options) => {
           `handoff: ${await read($, handoffStage)}`,
           `last fork: ${lastFork ? `${lastFork.outcome}, ${ago(lastFork.at)}` : 'none'}`,
           `hidden: ${config.hide.join(',') || 'nothing'}`,
+          `compact with: ${config.compactWith}${lastHaikuCompact ? `, last by Haiku ${ago(lastHaikuCompact)}` : ''}`,
         ].join(' | '),
       }
     }
@@ -3275,6 +3402,7 @@ Saved to ${out}.md and .json` }
       // Inside the hook ($ calls after it returns are refused), and never allowed to break the request.
       if (e.agentId === undefined && answer?.usage) await cacheTouched($, answer.usage).catch(() => undefined)
       if (e.agentId === undefined && answer?.usage) turnCost += weighted(answer.usage)
+      if (e.agentId !== undefined && answer?.usage) await agentCost($, e.agentId, weighted(answer.usage)).catch(() => undefined)
       return answer
     }
     if (e.agentId === undefined) await setTurnBusy($, true)
@@ -3409,6 +3537,52 @@ Saved to ${out}.md and .json` }
 
   // The terminal's line under each reply ("Baked 3s") in the brand's colours, with the effort and the cache. The
   // desktop draws no such line; there the warning card hangs under the reply instead (AssistantMessage, below).
+  // The agent panel. Each subagent the chat sends off gets a record: spawned, what it does now, its own steps, how it
+  // ended. Teammates and workflow agents are left out for now.
+  on('agent.spawn', async ($, e, next) => {
+    const result = await next(e)
+    if (e.isTeammate || e.workflow || !('agentId' in result) || !result.agentId) return result
+    const id = result.agentId
+    const now = await $.clock.now()
+    const rec: AgentRec = { id, type: e.fork ? 'fork' : e.subagentType, task: e.description, state: 'running', startedAt: now, model: result.model }
+    if (e.parentAgentId) rec.parentId = e.parentAgentId
+    await update($, agentsState, list => [...list.filter(a => a.id !== id), rec].slice(-40))
+    return result
+  })
+
+  on('tool.call', async ($, e, next) => {
+    const id = e.agentId
+    if (id === undefined || !(await read($, agentsState)).some(a => a.id === id)) return next(e)
+    const now = await $.clock.now()
+    const line = toolLine(e.tool, e as unknown as Record<string, unknown>)
+    await agentSet($, id, a => ({ ...a, now: line, toolSince: now }))
+    const result = await next(e)
+    const ok = !('deny' in result && result.deny) && !result.isError
+    const steps = ok && e.tool === 'TodoWrite' ? stepsFromTodos(e.todos) : undefined
+    await agentSet($, id, a => ({ ...a, toolSince: undefined, state: a.state === 'waiting' ? 'running' : a.state, ...(steps ? { steps } : {}) }))
+    return result
+  })
+
+  on('ui.render', { component: 'Pane', requestId: 'effortless-agents' }, async ($, e) => {
+    const els = $.ui.resolve(e)
+    const agents = await read($, agentsState)
+    const open = await read($, agentsOpen)
+    const rows = Math.max(12, e.props.scroll.bodyRows)
+    return agentsPane(
+      {
+        ...els,
+        rows,
+        nowMs: await $.clock.now(),
+        title: 'This chat',
+        open,
+        ringSvg,
+        cardArt: { source: DASH_SVG, width: FROST_WIDTH * 2, height: FROST_HEIGHT * 2 },
+        onOpen: (id: string) => update($, agentsOpen, cur => (cur === id ? null : id)),
+      },
+      agents,
+    )
+  })
+
   on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
     if (config.hide.includes('line')) return next(e)
     const { Box, Text } = $.ui.resolve(e)
@@ -3532,6 +3706,7 @@ Saved to ${out}.md and .json` }
         customModel: draft.customModel ?? config.customModel,
         swampAt: draft.swampAt ?? String(config.swampAt),
         layout: draft.layout ?? config.layout,
+        compactWith: draft.compactWith ?? config.compactWith,
       }
       // Dirty only while the draft differs from what is saved: a control set back to its saved value is no change.
       const sameSet = (a: string, b: string) => a.split(',').filter(Boolean).sort().join() === b.split(',').filter(Boolean).sort().join()
@@ -3734,6 +3909,9 @@ Saved to ${out}.md and .json` }
               onSelect={v => set('handoffSkill')(v === '-' ? '' : v)} />,
             <Select key="settings-swamp" label="Compact alert at" value={shown.swampAt}
               options={SWAMP_STEPS.map(n => ({ value: String(n), label: `${n}%` }))} onSelect={set('swampAt')} />,
+            <Select key="settings-compact-with" label="Compact with" value={shown.compactWith}
+              options={[{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }]}
+              onSelect={set('compactWith')} />,
 ]) : [
             ...(bare
               ? []
