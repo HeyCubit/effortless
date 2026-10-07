@@ -35,22 +35,24 @@ try { stars = Number(execSync('gh api repos/HeyCubit/effortless --jq .stargazers
   try { const r = await fetch('https://api.github.com/repos/HeyCubit/effortless'); if (r.ok) stars = (await r.json()).stargazers_count || 0 } catch {}
 }
 const starsBadge = stars > 0 ? `<span class="stars">${stars >= 1000 ? (stars / 1000).toFixed(1) + 'k' : stars}</span>` : ''
-// The two ways in, shown in the install section and the install popover. "Ask Claude" copies a request Claude Code runs
-// for you; "Commands" has the two chat commands and one terminal line (with ; so it also runs in PowerShell 5).
+// The two ways in, side by side in the install section and the install popover. Left, Claude's: one button copies a
+// request Claude Code runs for you. Right: one button copies the terminal line (joined with ; so it also runs in
+// PowerShell 5). The line shows under its button, so people see what they paste.
 const copyIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>'
-const cmd = c => `<div class="cmd"><code>${c}</code><button type="button" class="copy" data-copy="${c}" aria-label="Copy ${c}">${copyIcon}<span>Copy</span></button></div>`
+const termIcon = '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="1.5" y="3" width="17" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 8l2.5 2-2.5 2M10 12.5h4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 const ask = 'Install the effortless plugin for me: run `claude plugin marketplace add HeyCubit/effortless` and then `claude plugin install effortless@effortless`. When both succeed, tell me to run /reload-plugins.'
-const install = '<div class="ways"><div class="tabs" role="tablist" aria-label="How to install"><button type="button" role="tab" aria-selected="true" data-tab="0">Ask Claude<small>Recommended</small></button><button type="button" role="tab" aria-selected="false" data-tab="1">Commands</button></div>'
-  + `<div class="pane" data-pane="0"><div class="ask"><p data-sel>${ask.replace(/\`([^\`]+)\`/g, '<code>$1</code>')}</p><button type="button" class="copy main" data-copy="${ask}" aria-label="Copy the install request for Claude">${copyIcon}<span>Copy for Claude</span></button></div><p class="help">Paste into Claude Code and press Enter. Claude runs the two commands for you.</p></div>`
-  + `<div class="pane" data-pane="1" hidden><p class="way-label">In Claude Code's chat box:</p><div class="cmds">${cmd('/plugin marketplace add HeyCubit/effortless')}${cmd('/plugin install effortless@effortless')}</div><p class="way-label">Or in a terminal:</p><div class="cmds">${cmd('claude plugin marketplace add HeyCubit/effortless; claude plugin install effortless@effortless')}</div></div>`
-  + '<p class="then">Then run <code>/reload-plugins</code> (or restart Claude Code). A short setup opens above the prompt.</p></div>'
+const term = 'claude plugin marketplace add HeyCubit/effortless; claude plugin install effortless@effortless'
+const install = '<div class="ways">'
+  + `<div class="way way-claude"><p class="way-k"><img src="__CLAUDE_ORANGE__" alt="" width="20" height="20">Ask Claude</p><p class="way-t">Claude installs it for you.</p><button type="button" class="big claude" data-copy="${ask}" aria-label="Copy the install request for Claude"><img src="__CLAUDE_DARK__" alt="" width="20" height="20"><span>Copy for Claude</span></button><p class="way-h">Paste into Claude Code, press Enter.</p></div>`
+  + `<div class="way way-cmd"><p class="way-k">${termIcon}Terminal</p><p class="way-t">Run one command.</p><button type="button" class="big term" data-copy="${term}" aria-label="Copy the install command">${copyIcon}<span>Copy command</span></button><p class="way-h"><code>${term}</code></p></div>`
+  + '</div><p class="then">Then run <code>/reload-plugins</code> in Claude Code.</p>'
 const map = {
   __INSTALL__: install,
   __STARS_BADGE__: starsBadge,
   __STARS__: heroArt, 
   __ART_BRAND__: uri(grab('BRAND_SVG')), __ART_FROST__: uri(grab('FROST_SVG')), __ART_SWAMP__: uri(grab('SWAMP_SVG')),
   __ART_EMBER__: uri(grab('EMBER_SVG')), __ART_DOWN__: uri(grab('DOWN_SVG')),
-  __TYPESAFE__: uri(grab('TYPESAFE_MARK')), __CLAUDE__: uri(grab('CLAUDE_MARK')), __CLAUDE_ORANGE__: uri(grab('CLAUDE_MARK').replace(/#ffffff/g, '#d97757')), __RING__: uri(ring),
+  __TYPESAFE__: uri(grab('TYPESAFE_MARK')), __CLAUDE__: uri(grab('CLAUDE_MARK')), __CLAUDE_ORANGE__: uri(grab('CLAUDE_MARK').replace(/#ffffff/g, '#d97757')), __CLAUDE_DARK__: uri(grab('CLAUDE_MARK').replace(/#ffffff/g, '#1f1009')), __RING__: uri(ring),
   __ICON__: uri(favicon), __GITHUB__: github,
 }
 let out = fs.readFileSync(new URL('./template.html', import.meta.url), 'utf8')
