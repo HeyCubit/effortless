@@ -134,7 +134,7 @@ const settingsCard = atom({ plugin: 'effortless', key: 'settingsCard' } as const
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits.' },
   { id: 'judge', title: 'Judge', about: 'Who reads each prompt and picks the effort. Test checks it answers.' },
-  { id: 'handoff', title: 'Handoff', about: 'The skill that writes a full handoff, and when a chat counts as swamped.' },
+  { id: 'handoff', title: 'Handoff', about: 'The skill that writes a full handoff, and at what share of context to suggest compacting or handing off.' },
   { id: 'show', title: 'Appearance', about: 'How effortless looks and which parts it shows. Uninstall removes it.' },
 ]
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
@@ -3553,7 +3553,7 @@ Saved to ${out}.md and .json` }
       const summaries: Record<SettingsCard, string> = {
         effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}`,
         judge: tested && tested.ok !== null ? `${judgeName} · ${tested.ok ? 'working' : 'failing'}` : judgeName,
-        handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · swamped at ${shown.swampAt}%`,
+        handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · compact alert at ${shown.swampAt}%`,
         show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${4 - ['timer', 'reason', 'progress', 'sounds'].filter(h => hidden.includes(h)).length} of 4 on`,
       }
       // The cache timer, the judge's line (who picked and how sure), the progress bar and its sounds can be switched
@@ -3742,7 +3742,7 @@ Saved to ${out}.md and .json` }
                 ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
               ]}
               onSelect={v => set('handoffSkill')(v === '-' ? '' : v)} />,
-            <Select key="settings-swamp" label="Swamped at" value={shown.swampAt}
+            <Select key="settings-swamp" label="Compact alert at" value={shown.swampAt}
               options={SWAMP_STEPS.map(n => ({ value: String(n), label: `${n}%` }))} onSelect={set('swampAt')} />,
 ]) : [
             ...(bare
