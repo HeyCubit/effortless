@@ -237,8 +237,6 @@ const DASH_DIM = '#8b8b93'
 // A settings card under the pointer: a shade up from the band, its edge a shade up from that.
 const CARD_HOVER = '#1c1c20'
 const CARD_HOVER_EDGE = '#3b3b42'
-// Blanks on the button laid over Back's chevron and word: enough for its own (rounded, app-drawn) hover to cover both.
-const BACK_BLANKS = 16
 const DONE_SVG = BRAND_SVG
   .replace(/#7c6cf0/g, '#2fae62').replace(/#8f7ff0/g, '#3cc472').replace(/#b3a6ff/g, '#7fe0a4')
   .replace(/#c9bdff/g, '#b4f0c8').replace(/#9a86ff/g, '#4fd486')
@@ -3433,7 +3431,19 @@ Saved to ${out}.md and .json` }
           <Box key="settings-title" position="absolute" top={0} left={2} height={term ? 2 : 2.5} flexDirection="row" alignItems="center" gap={1}>
             {term ? <Text color={ACCENT} bold>✦</Text> : null}
             {Svg && !term ? <Svg source={SETTINGS_TITLE} alt="effortless" width={92} height={28} /> : <Text color={DASH_TEXT} bold>effortless</Text>}
-            <Text dimColor>Settings</Text>
+            {/* Inside a part, the title is a trail: Settings (pressed, it goes back to the cards), then the part. */}
+            {card === null ? (
+              <Text dimColor>Settings</Text>
+            ) : (
+              <Box key="settings-trail" flexDirection="row" alignItems="center">
+                {/* The button's own padding is the space before the ›, so a cell after it matches. */}
+                <Button key="settings-back" plain dimColor label="Settings" onPress={openCard(null)} />
+                <Box marginRight={1}>
+                  <Text dimColor>›</Text>
+                </Box>
+                <Text color={DASH_TEXT} bold>{CARDS.find(c => c.id === card)?.title}</Text>
+              </Box>
+            )}
             {dirty ? <Text dimColor> · unsaved changes</Text> : null}
           </Box>
           <Box key="settings-actions" position="absolute" top={0} right={2} height={term ? 2 : 2.5} flexDirection="row" gap={2} alignItems="center">
@@ -3474,23 +3484,8 @@ Saved to ${out}.md and .json` }
                   entrance sweep and the art (absolute layers cover every plain box, and the sweep stays until the next
                   redraw). */}
               <Box position="absolute" top={0} left={0} />
-              <Box flexDirection="row" gap={1} alignItems="center">
-                {Svg && !term ? (
-                  // A drawn chevron and the word in a box of their own, a blank button over both: the hover covers the
-                  // pair with room each side, as the cog's does.
-                  <Box key="settings-back-box" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}>
-                    <Svg source={`<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path d="M7.5 2.5 4 6l3.5 3.5" fill="none" stroke="${DASH_TEXT}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`} alt="Back" width={12} height={12} />
-                    <Text color={DASH_TEXT} hover={{ color: '#ffffff' }}>Back</Text>
-                    <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                      <Button key="settings-back" plain label={' '.repeat(BACK_BLANKS)} onPress={openCard(null)} />
-                    </Box>
-                  </Box>
-                ) : (
-                  <Button key="settings-back" plain label="‹ Back" onPress={openCard(null)} />
-                )}
-                <Text color={DASH_TEXT} bold>{CARDS.find(c => c.id === card)?.title}</Text>
-                <Text dimColor wrap="truncate">{CARDS.find(c => c.id === card)?.about}</Text>
-              </Box>
+              {/* What the part does; Back and its name are in the top bar's trail. */}
+              <Text dimColor wrap="truncate">{CARDS.find(c => c.id === card)?.about}</Text>
               <Box flexDirection="row" flexWrap="wrap" gap={1} alignItems="center">
                 {card === 'effort' ? [
             <Text key="cheap" dimColor>Cheaper</Text>,
@@ -3520,7 +3515,7 @@ Saved to ${out}.md and .json` }
                     onInput={set('customModel')} onSubmit={set('customModel')} />, 16),
                 ]
               : []),
-            <Button key="settings-judge-test" plain dimColor={tested?.ok === null} label={tested?.ok === null ? 'Testing…' : 'Test'}
+            <Button key="settings-judge-test" variant="secondary" dimColor={tested?.ok === null} label={tested?.ok === null ? 'Testing…' : 'Test'}
               onPress={async () => {
                 if (tested?.ok === null) return
                 await update($, judgeTest, () => ({ ok: null, text: '' }))
