@@ -2871,3 +2871,75 @@ describe('handoff look', () => {
     expect(new Set(Array.from({ length: 31 }, (_, p) => JSON.stringify(handoffLook(p)))).size).toBe(31)
   })
 })
+
+describe('a message typed while a turn runs', () => {
+  /** The judge answers with whatever `says.effort` holds at the time. */
+  function judgeSaysNow(on: On, says: { effort: string }) {
+    const asked: string[] = []
+    on('model.complete', (_$, e) => {
+      asked.push(e.prompt)
+      return { value: { isAnswered: true as const, text: `{"model":"opus","effort":"${says.effort}","why":"x"}`, usage: USAGE } }
+    })
+    return asked
+  }
+  /** One request of turn `turnId` at request `index`. */
+  async function stepOf($: Engine, turnId: string, index: number) {
+    for await (const _ of $.turn.step({ turnId, index, model: 'claude-opus-5-5', effort: 'high', messageCount: 1 })) {
+      // drain
+    }
+  }
+
+  test('a lower verdict never lowers the running turn; it takes the next one', async ($, on) => {
+    engine(on)
+    const says = { effort: 'high' }
+    const asked = judgeSaysNow(on, says)
+    const sent = recordSteps(on)
+    mock.clock(on)
+    on('turn.complete', () => ({ text: '' }) as never)
+
+    await $.prompt.submit({ text: 'refactor the whole auth module across the app', wait: false, origin: { kind: 'composer' } })
+    await stepOf($, 't1', 0)
+    says.effort = 'low'
+    await $.prompt.submit({ text: 'also rename the helper you made', wait: false, turnId: 't1', origin: { kind: 'composer' } } as never)
+    await stepOf($, 't1', 1)
+    await $.turn.complete({ turnId: 't1', answer: '', durationMs: 1, isAborted: false, reason: 'completed' } as never)
+    await stepOf($, 't2', 0)
+
+    expect(asked.length).toBe(2)
+    // The judge is told the message came in while the task ran.
+    expect(asked[1]).toContain('still working')
+    expect(sent.map(s => s.effort)).toEqual(['high', 'high', 'low'])
+  })
+
+  test('a higher verdict raises the running turn at once', async ($, on) => {
+    engine(on)
+    const says = { effort: 'low' }
+    judgeSaysNow(on, says)
+    const sent = recordSteps(on)
+
+    await $.prompt.submit({ text: 'fix the typo in the readme', wait: false, origin: { kind: 'composer' } })
+    await stepOf($, 't1', 0)
+    says.effort = 'high'
+    await $.prompt.submit({ text: 'actually go through every doc and fix them all', wait: false, turnId: 't1', origin: { kind: 'composer' } } as never)
+    await stepOf($, 't1', 1)
+
+    expect(sent.map(s => s.effort)).toEqual(['low', 'high'])
+  })
+
+  test('Auto switched off or on mid-turn leaves the running turn at its effort', async ($, on) => {
+    engine(on)
+    const says = { effort: 'high' }
+    judgeSaysNow(on, says)
+    const sent = recordSteps(on)
+    const auto = () => $.command.run({ command: 'effortless', args: 'auto' })
+
+    await $.prompt.submit({ text: 'refactor the whole auth module across the app', wait: false, origin: { kind: 'composer' } })
+    await stepOf($, 't1', 0)
+    expect(String((await auto()).text)).toContain('Auto off')
+    await stepOf($, 't1', 1)
+    expect(String((await auto()).text)).toContain('Auto on')
+    await stepOf($, 't1', 2)
+
+    expect(sent.map(s => s.effort)).toEqual(['high', 'high', 'high'])
+  })
+})

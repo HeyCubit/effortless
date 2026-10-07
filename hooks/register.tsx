@@ -366,6 +366,15 @@ export function withAttachments(text: string, attachments?: readonly { type: str
 [The message comes with ${said} to look at.]`
 }
 
+/** The message as the judge reads it when it was typed while a task was still running. */
+export function withMidTurn(text: string, effort: Effort): string {
+  return `${text}
+
+[Sent while the assistant was still working on the last task at ${effort} effort. If it adds to, corrects or steers that task, keep ${effort}; judge it on its own only if it is a separate new request.]`
+}
+// A lower verdict for a message typed mid-turn, applied when that turn ends (see prompt.submit).
+let heldPick: Pick | null = null
+
 /** A short follow-up that keeps the current effort: "go" between two steps, not an answer to a question. */
 export function keepsEffort(message: string, context: string): boolean {
   return isFollowUp(message) && !endsOnQuestion(context)
@@ -2775,6 +2784,12 @@ export const register: Register = (on, options) => {
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
     if (!e.agentId) await setTurnBusy($, false)
+    // A lower verdict for a message typed during the turn takes over now, if Auto is still on.
+    if (!e.agentId && heldPick) {
+      const held = heldPick
+      heldPick = null
+      if (await read($, isAuto)) await choose($, held)
+    }
     await progressAtTurnEnd($, e).catch(() => undefined)
     // The newest reply's text: its last block carries the warning card (see AssistantMessage).
     if (!e.agentId && e.reason === 'answer') await update($, lastAnswer, () => e.answer.trim())
@@ -2951,7 +2966,9 @@ Saved to ${out}.md and .json` }
     // "go", "ok", "yes" between two steps of work keep the effort Auto already chose; no judge is asked.
     const before = await read($, pick)
     // A message with an image is never a bare follow-up: "fix this" plus a screenshot is new work.
-    const shown = withAttachments(e.text, e.attachments)
+    // Typed while a turn ran (e.turnId), it often steers that task: the judge is told, so it can keep the effort.
+    const midTurn = e.turnId !== undefined && before !== null
+    const shown = midTurn ? withMidTurn(withAttachments(e.text, e.attachments), before.effort) : withAttachments(e.text, e.attachments)
     if (wantsEffort && before && before.by !== 'manual' && !e.attachments?.length && isFollowUp(e.text) && keepsEffort(e.text, await recentContext($).catch(() => ''))) {
       await countPrompt($, before.effort, undefined, 0, 0)
       void proof($, `follow-up "${e.text.trim()}": keeping ${before.effort}`)
@@ -2985,7 +3002,16 @@ Saved to ${out}.md and .json` }
           const effort = capped(leaned, saving)
           const why = effort !== leaned ? 'save mode' : leaned !== verdict.effort ? 'your settings' : verdict.why
           const applied: Pick = { ...verdict, model: inUse, effort, why }
-          await choose($, applied)
+          // Mid-turn, a lower verdict would cut the running task's effort for its remaining steps: it waits for the
+          // turn to end (the queued message may run as a turn of its own). A higher one helps the task, so it applies.
+          const running = await read($, pick)
+          if (midTurn && running && EFFORTS.indexOf(effort) < EFFORTS.indexOf(running.effort)) {
+            heldPick = applied
+            void proof($, `typed mid-turn: ${effort} waits, the running turn keeps ${running.effort}`)
+          } else {
+            heldPick = null
+            await choose($, applied)
+          }
         }
         if (wantsModel && verdict.model !== inUse && verdict.model !== declined) {
           await update($, suggestion, () => verdict.model)
