@@ -2273,7 +2273,8 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
 }
 
 /** Where the mod learns of a new version: the newest entry of releases.json on main, written by tools/release.sh. */
-const RELEASES_URL = 'https://raw.githubusercontent.com/HeyCubit/effortless/main/releases.json'
+// The API, not raw.githubusercontent.com: the raw file sits behind a cache that lagged two releases behind.
+const RELEASES_URL = 'https://api.github.com/repos/HeyCubit/effortless/contents/releases.json?ref=main'
 const WHATS_NEW_URL = 'https://heycubit.github.io/effortless/#whats-new'
 /** How often a session looks for a new version, and how long ✕ on the offer keeps it away. */
 const UPDATE_CHECK_MS = 6 * 3600_000
@@ -2318,7 +2319,7 @@ let lastUpdateCheck = 'not checked yet'
 /** The newest release: releases.json on main over the web, else the marketplace's own copy of the repo after `claude
  * plugin marketplace update` (git, so it works where the host's web fetch is refused or cached). */
 async function latestAvailable($: EngineInterface): Promise<{ latest?: { version: string; note: string }; how: string }> {
-  const res = await $.http.fetch(RELEASES_URL).catch((error: unknown) => ({ ok: false, status: 0, text: String(error) }))
+  const res = await $.http.fetch(RELEASES_URL, { headers: { accept: 'application/vnd.github.raw', 'user-agent': 'effortless' } }).catch((error: unknown) => ({ ok: false, status: 0, text: String(error) }))
   const fromWeb = res.ok ? latestRelease(res.text) : undefined
   const web = res.ok ? (fromWeb ? `web ${fromWeb.version}` : 'web: unreadable') : `web refused (${res.status || res.text.slice(0, 80)})`
   const marketplace = `${$.plugin.root.replace(/[\\/]cache[\\/].*$/, '')}/marketplaces/effortless/releases.json`
