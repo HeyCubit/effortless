@@ -2654,11 +2654,24 @@ export const judgeBrightness = (phase: number) => {
   const p = ((phase % 1) + 1) % 1
   return p < 0.5 ? 0.25 + 0.6 * easeInOut(p / 0.5) : 0.85 - 0.6 * easeInOut((p - 0.5) / 0.5)
 }
-/** The same rim fading out once the verdict is in, from the brightness it had at that moment (not from full, which
- * flashed it up first), slowly and in steps eased so it dies away softly. */
-const JUDGE_FADE_MS = 1500
-export function judgeFadeSvg(from: number): string {
-  return judgeGlowSvg().replace(/\.r\{[^}]*\}@keyframes r\{[^}]*\}[^<]*/, `.r{opacity:0;animation:r ${JUDGE_FADE_MS / 1000}s cubic-bezier(.3,0,.5,1)}@keyframes r{0%{opacity:${from.toFixed(2)}}100%{opacity:0}}`)
+/** The rim once the verdict is in: the breath keeps going where it was, and the whole rim fades out over it. While it
+ * is still rising it first reaches its peak, so the fade is seen even when the verdict lands on the dim part of the
+ * breath (fading from there went from almost nothing to nothing). Both clocks are set here, not by inPhase, which
+ * would give the breath and the fade one shared delay. */
+const JUDGE_FADE_OUT_MS = 1100
+export const judgeFadeMs = (endedAt: number) => {
+  const p = (((endedAt % JUDGE_GLOW_MS) + JUDGE_GLOW_MS) % JUDGE_GLOW_MS) / JUDGE_GLOW_MS
+  return (p < 0.5 ? (0.5 - p) * JUDGE_GLOW_MS : 0) + JUDGE_FADE_OUT_MS
+}
+export function judgeFadeSvg(endedAt: number, nowMs: number): string {
+  const total = judgeFadeMs(endedAt)
+  const hold = ((total - JUDGE_FADE_OUT_MS) / total) * 100
+  const breath = (-(((nowMs % JUDGE_GLOW_MS) + JUDGE_GLOW_MS) % JUDGE_GLOW_MS) / 1000).toFixed(3)
+  const fade = (-Math.max(0, nowMs - endedAt) / 1000).toFixed(3)
+  return judgeGlowSvg()
+    .replace('</style>', `.r{animation-delay:${breath}s}.o{opacity:0;animation:o ${total / 1000}s linear ${fade}s}@keyframes o{0%{opacity:1}${hold.toFixed(2)}%{opacity:1;animation-timing-function:cubic-bezier(.3,0,.5,1)}100%{opacity:0}}</style>`)
+    .replace('<g class="r">', '<g class="o"><g class="r">')
+    .replace('</g></svg>', '</g></g></svg>')
 }
 // When the judge last finished, for the fade.
 let judgeEndedAt = 0
@@ -2810,9 +2823,9 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
         <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
           <Svg source={inPhase(judgeGlowSvg(), nowMs % JUDGE_GLOW_MS)} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
-      ) : Svg && nowMs - judgeEndedAt < JUDGE_FADE_MS ? (
+      ) : Svg && nowMs - judgeEndedAt < judgeFadeMs(judgeEndedAt) ? (
         <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={inPhase(judgeFadeSvg(judgeBrightness((judgeEndedAt % JUDGE_GLOW_MS) / JUDGE_GLOW_MS)), nowMs - judgeEndedAt)} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+          <Svg source={judgeFadeSvg(judgeEndedAt, nowMs)} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
       {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
