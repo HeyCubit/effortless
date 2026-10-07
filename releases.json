@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.112",
+    "date": "2026-10-07",
+    "note": "Simple prompts run on Haiku 5.5"
+  },
+  {
     "version": "1.35.111",
     "date": "2026-10-07",
     "note": "Compactions written by Haiku 5.5; the judge asks Haiku 5.5"
