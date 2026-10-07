@@ -89,6 +89,7 @@ declare module 'claude-code' {
       judgeDownHidden: string | null
       /** The effortless settings panel is open above the prompt. */
       settingsOpen: boolean
+      settingsCard: 'effort' | 'judge' | 'handoff' | 'show' | null
       /** Changes made in the settings panel and not saved yet. */
       settingsDraft: SettingsDraft
       /** The user and plugin skills, read when the settings panel opens. */
