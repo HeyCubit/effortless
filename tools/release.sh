@@ -13,7 +13,13 @@ old=$(node -p "require('./.claude-plugin/plugin.json').version")
 new=$(node -p "const v='$old'.split('.');v[2]=+v[2]+1;v.join('.')")
 sed -i "s/\"version\": \"$old\"/\"version\": \"$new\"/" .claude-plugin/plugin.json
 sed -i "s/version $old/version $new/" HANDOFF.md
-git add -A hooks tests .claude-plugin/plugin.json HANDOFF.md
+# The mod's update card reads the newest entry: the version, the day and the commit's subject as the note.
+node -e '
+const fs = require("fs"), [v, note] = process.argv.slice(1)
+const list = fs.existsSync("releases.json") ? JSON.parse(fs.readFileSync("releases.json", "utf8")) : []
+list.unshift({ version: v, date: new Date().toISOString().slice(0, 10), note })
+fs.writeFileSync("releases.json", JSON.stringify(list, null, 2) + String.fromCharCode(10))' "$new" "$1"
+git add -A hooks tests types tools .claude-plugin/plugin.json HANDOFF.md releases.json
 git commit -q -m "$1" -m "${2:-}" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 git pull -q --rebase --autostash
 git push -q
