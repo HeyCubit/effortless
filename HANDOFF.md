@@ -1,7 +1,7 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.35.36, pushed and installed. Direct pushes, no open PRs. Several chats push
+- `main` on HeyCubit/effortless, version 1.35.37, pushed and installed. Direct pushes, no open PRs. Several chats push
   to main: fetch and rebase before every push, and read the version after the pull (others bump it too).
 - Release: bump `version` in `.claude-plugin/plugin.json`, `<cli> plugin validate .`, `<cli> plugin test .`
   (0 fail, 139 tests; the 2.1.288 CLI refuses `plugin test` in the agent sandbox, plain `claude` = 2.1.285 runs it), push, `<cli> plugin marketplace update effortless`, `<cli> plugin update effortless@effortless`.
@@ -45,3 +45,4 @@
   `{ layout: 'default' }`). Terminal audit `docs/terminal-audit-2026-10-06.md`.
 - Pty harness for real-CLI checks: pywinpty + pyte, set `MSYS_NO_PATHCONV=1` in Git Bash (not in repo).
 - Memories: `modellval_mod.md`, `mod_band_styling.md`, `mod_engine_module_rules.md`.
+- Visual changes to the band: check them on `node tools/render-band/render.mjs` (faithful render of the desktop band, see its README) before shipping.

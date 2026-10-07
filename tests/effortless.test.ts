@@ -2737,8 +2737,7 @@ describe('dashboard', () => {
     await mocked.advance(16_000)
     band = await $.ui.mount(DESK_BAND)
     expect((await band.find({ key: 'dash-handoff' }))?.props).toMatchObject({ variant: 'primary', hotkey: 'h' })
-    // The glow is off for now (HANDOFF_GLOW): white button, no glow layer.
-    expect(await band.find({ key: 'dash-glow' })).toBeUndefined()
+    expect(await band.find({ key: 'dash-glow' })).toBeDefined()
     await band.unmount()
     // While a reply runs the band redraws often: no glow then, so it cannot flicker.
     const working = { ...(DESK_BAND as object), props: { ...BAND.props, isWorking: true } } as never

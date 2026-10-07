@@ -2056,9 +2056,9 @@ async function compactCard($: EngineInterface, working = false) {
   return card
 }
 
-/** The glow behind the white Handoff button: off until a design is checked on a faithful render of the desktop band
- * (the last one looked far bigger and blurrier in the app than in its preview). */
-const HANDOFF_GLOW = false
+/** The glow behind the white Handoff button. Check a change on tools/render-band before shipping: an earlier glow looked
+ * tight in a preview but far bigger and blurrier in the app. */
+const HANDOFF_GLOW = true
 /** Context share from which the dashboard's Handoff button turns white: below it a handoff saves little. */
 const HANDOFF_LOUD_AT = 30
 const handoffLoud = () => (lastContext?.percent ?? 0) >= HANDOFF_LOUD_AT
@@ -2069,24 +2069,25 @@ export function handoffGlowStep(percent: number): number {
 /** The glow behind the Handoff button, one design per step, drawn on a screenshot of the real bar: a tight violet rim
  * just past the button (about 121 by 32 px there), wider, softer and brighter each step, pulsing between a low and a
  * peak. Centred on the button by the layer the dashboard puts it in. */
-const GLOW_LEVELS: ReadonlyArray<{ spread: number; blur: number; peak: number; low: number; core: number; period: number }> = [
-  { spread: 0, blur: 0, peak: 0, low: 0, core: 0, period: 0 },
-  { spread: 2, blur: 2, peak: 0.55, low: 0.25, core: 0, period: 3.4 },
-  { spread: 3, blur: 2.5, peak: 0.65, low: 0.3, core: 0, period: 2.8 },
-  { spread: 4, blur: 3, peak: 0.75, low: 0.35, core: 0.15, period: 2.3 },
-  { spread: 5, blur: 3.5, peak: 0.85, low: 0.4, core: 0.2, period: 1.9 },
-  { spread: 6, blur: 4, peak: 0.95, low: 0.45, core: 0.3, period: 1.5 },
+const GLOW_LEVELS: ReadonlyArray<{ spread: number; blur: number; peak: number; low: number; period: number }> = [
+  { spread: 0, blur: 0, peak: 0, low: 0, period: 0 },
+  { spread: 1.5, blur: 1.2, peak: 0.55, low: 0.2, period: 3.4 },
+  { spread: 2, blur: 1.5, peak: 0.65, low: 0.25, period: 2.8 },
+  { spread: 2.5, blur: 1.8, peak: 0.75, low: 0.3, period: 2.3 },
+  { spread: 3, blur: 2.1, peak: 0.85, low: 0.35, period: 1.9 },
+  { spread: 3.5, blur: 2.4, peak: 0.95, low: 0.4, period: 1.5 },
 ]
+/** The glow's drawing in CSS px, measured on a faithful render of the desktop band (tools/render-band): the primary
+ * Handoff button is 77 by 20 with a 6 px radius, and the band leaves 8 px above and below it. The drawing is no wider
+ * than the layer it sits in, so the app never scales it (a Svg is at most as wide as its box). */
+const GLOW_W = 93
+const GLOW_H = 36
+const GLOW_BUTTON = { w: 77, h: 20, r: 6 }
 export function handoffGlowSvg(step: number): string {
-  const { spread: e, blur, peak, low, core, period } = GLOW_LEVELS[step]
-  const w = 121
-  const h = 32
-  const x = 80 - w / 2 - e
-  const y = 32 - h / 2 - e
-  const inner = core
-    ? `<rect x="${x + e / 2}" y="${y + e / 2}" width="${w + e}" height="${h + e}" rx="${8 + e / 2}" fill="#ffffff" opacity="${core}"/>`
-    : ''
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="64" viewBox="0 0 160 64"><style>.g{animation:p ${period}s ease-in-out infinite}@keyframes p{0%,100%{opacity:${low}}50%{opacity:${peak}}}</style><defs><filter id="b" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="${blur}"/></filter></defs><g class="g" filter="url(#b)"><rect x="${x}" y="${y}" width="${w + 2 * e}" height="${h + 2 * e}" rx="${8 + e}" fill="${ACCENT}"/>${inner}</g></svg>`
+  const { spread: e, blur, peak, low, period } = GLOW_LEVELS[step]
+  const x = (GLOW_W - GLOW_BUTTON.w) / 2 - e
+  const y = (GLOW_H - GLOW_BUTTON.h) / 2 - e
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${GLOW_W}" height="${GLOW_H}" viewBox="0 0 ${GLOW_W} ${GLOW_H}"><style>.g{animation:p ${period}s ease-in-out infinite}@keyframes p{0%,100%{opacity:${low}}50%{opacity:${peak}}}</style><defs><filter id="b" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="${blur}"/></filter></defs><g class="g" filter="url(#b)"><rect x="${x}" y="${y}" width="${GLOW_BUTTON.w + 2 * e}" height="${GLOW_BUTTON.h + 2 * e}" rx="${GLOW_BUTTON.r + e}" fill="${ACCENT}"/></g></svg>`
 }
 
 /** The dashboard: what effortless is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
@@ -2141,8 +2142,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
               // as its box). The button goes in a box of its own made positioned by an empty absolute child, so it is
               // drawn over the glow: the desktop makes a Box relative only when it has absolute children.
               <Box key="dash-handoff-wrap" flexDirection="row">
-                <Box key="dash-glow" position="absolute" top={-1} bottom={-1} left={-3} right={-3} alignItems="center" justifyContent="center">
-                  <els.Svg source={handoffGlowSvg(handoffGlowStep(lastContext?.percent ?? 0))} alt="handoff glow" width={160} height={64} />
+                <Box key="dash-glow" position="absolute" top={0} bottom={0} left={-2} right={-2} alignItems="center" justifyContent="center">
+                  <els.Svg source={handoffGlowSvg(handoffGlowStep(lastContext?.percent ?? 0))} alt="handoff glow" width={GLOW_W} height={GLOW_H} />
                 </Box>
                 <Box flexDirection="row">
                   <Box position="absolute" top={0} left={0} />
