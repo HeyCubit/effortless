@@ -2027,12 +2027,15 @@ const handoffLoud = () => (lastContext?.percent ?? 0) >= HANDOFF_LOUD_AT
 export function handoffGlowStep(percent: number): number {
   return percent < HANDOFF_LOUD_AT ? 0 : Math.min(5, 1 + Math.floor((percent - HANDOFF_LOUD_AT) / 10))
 }
-/** The soft pulsing glow drawn behind the Handoff button: brighter and quicker each step. */
+/** The glow behind the Handoff button: a blurred rounded rect the button's size, so it reads as light from the button.
+ * Brighter, wider and quicker each step. Sized for a layer three cells past the button each side and a row above and
+ * below (see the dashboard), centred on it. */
 export function handoffGlowSvg(step: number): string {
-  const peak = [0, 0.35, 0.5, 0.65, 0.8, 0.95][step]
-  const low = peak * 0.3
+  const peak = [0, 0.35, 0.5, 0.62, 0.75, 0.9][step]
+  const low = peak * 0.45
   const period = [0, 3.4, 2.8, 2.3, 1.9, 1.5][step]
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="150" height="56" viewBox="0 0 150 56"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.g{animation:p ${period}s ease-in-out infinite}@keyframes p{0%,100%{opacity:${low.toFixed(2)}}50%{opacity:${peak.toFixed(2)}}}</style><defs><radialGradient id="h" cx="75" cy="28" r="70" gradientTransform="translate(0 28) scale(1 .4) translate(0 -28)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffffff"/><stop offset=".35" stop-color="${ACCENT}" stop-opacity=".8"/><stop offset="1" stop-color="${ACCENT}" stop-opacity="0"/></radialGradient></defs><rect class="g" width="150" height="56" fill="url(#h)"/></svg>`
+  const blur = [0, 5, 5.5, 6, 6.5, 7][step]
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="64" viewBox="0 0 160 64"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.g{animation:p ${period}s ease-in-out infinite}@keyframes p{0%,100%{opacity:${low.toFixed(2)}}50%{opacity:${peak.toFixed(2)}}}</style><defs><filter id="b" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="${blur}"/></filter></defs><g class="g" filter="url(#b)"><rect x="18" y="15" width="124" height="34" rx="10" fill="${ACCENT}"/><rect x="24" y="20" width="112" height="24" rx="8" fill="#ffffff" opacity=".25"/></g></svg>`
 }
 
 /** The dashboard: what effortless is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
@@ -2077,7 +2080,22 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           // Always there, but loud only once a handoff starts to pay: grey on a fresh chat, white from HANDOFF_LOUD_AT.
           // No hotkey letter on grey, which the app draws faint.
           handoffLoud() ? (
-            <Button key="dash-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />
+            'Svg' in els && e.surface !== 'terminal' ? (
+              // The glow sits in a layer the wrapper centres on the button and reaches past it (a Svg is at most as wide
+              // as its box). The button goes in a box of its own made positioned by an empty absolute child, so it is
+              // drawn over the glow: the desktop makes a Box relative only when it has absolute children.
+              <Box key="dash-handoff-wrap" flexDirection="row">
+                <Box key="dash-glow" position="absolute" top={-1} bottom={-1} left={-3} right={-3} alignItems="center" justifyContent="center">
+                  <els.Svg source={handoffGlowSvg(handoffGlowStep(lastContext?.percent ?? 0))} alt="handoff glow" width={160} height={64} isInteractive />
+                </Box>
+                <Box flexDirection="row">
+                  <Box position="absolute" top={0} left={0} />
+                  <Button key="dash-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />
+                </Box>
+              </Box>
+            ) : (
+              <Button key="dash-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />
+            )
           ) : (
             <Button key="dash-handoff" variant="secondary" label="Handoff" onPress={() => openHandoffBar($)} />
           ),
@@ -2123,13 +2141,6 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           </Box>
         ) : null}
       </Box>
-      {/* The glow behind Handoff from HANDOFF_LOUD_AT: its own layer before the buttons, so it never takes their clicks.
-          Placed by eye: centred on the Handoff button, left of the cog. */}
-      {Svg && !config.hide.includes('handoff') && handoffGlowStep(lastContext?.percent ?? 0) > 0 ? (
-        <Box key="dash-glow" position="absolute" top={-1} bottom={-1} right={3} alignItems="center">
-          <Svg source={handoffGlowSvg(handoffGlowStep(lastContext?.percent ?? 0))} alt="handoff glow" width={150} height={56} isInteractive />
-        </Box>
-      ) : null}
       {/* Room for the buttons, which sit in their own layer after the art so they take clicks. */}
       <Box flexGrow={1} minWidth={34} />
       <Box key="dash-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
