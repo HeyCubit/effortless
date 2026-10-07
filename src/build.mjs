@@ -57,7 +57,7 @@ const map = {
   __STARS__: heroArt, 
   __ART_BRAND__: uri(grab('BRAND_SVG')), __ART_FROST__: uri(grab('FROST_SVG')), __ART_SWAMP__: uri(grab('SWAMP_SVG')),
   __ART_EMBER__: uri(grab('EMBER_SVG')), __ART_DOWN__: uri(grab('DOWN_SVG')),
-  __TYPESAFE__: uri(grab('TYPESAFE_MARK')), __TYPESAFE_VIOLET__: uri(grab('TYPESAFE_MARK').replace(/#ffffff/gi, '#cfc7ff').replace(/<style>/, '<style>path{fill:#cfc7ff}')), __CLAUDE__: uri(grab('CLAUDE_MARK')), __CLAUDE_ORANGE__: uri(grab('CLAUDE_MARK').replace(/#ffffff/g, '#d97757')), __CLAUDE_DARK__: uri(grab('CLAUDE_MARK').replace(/#ffffff/g, '#1f1009')), __RING__: uri(ring),
+  __TYPESAFE__: uri(grab('TYPESAFE_MARK')), __TYPESAFE_VIOLET__: uri(grab('TYPESAFE_MARK').replace(/#ffffff/gi, '#ff8fd6').replace(/<style>/, '<style>path{fill:#ff8fd6}')), __CLAUDE__: uri(grab('CLAUDE_MARK')), __CLAUDE_ORANGE__: uri(grab('CLAUDE_MARK').replace(/#ffffff/g, '#d97757')), __CLAUDE_DARK__: uri(grab('CLAUDE_MARK').replace(/#ffffff/g, '#1f1009')), __RING__: uri(ring),
   __ICON__: uri(favicon), __GITHUB__: github,
 }
 let out = fs.readFileSync(new URL('./template.html', import.meta.url), 'utf8')
