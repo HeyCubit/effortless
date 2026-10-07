@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.83",
+    "date": "2026-10-07",
+    "note": "Releases can skip the local install"
+  },
+  {
     "version": "1.35.82",
     "date": "2026-10-07",
     "note": "Uninstall has a bin and turns red on hover"
