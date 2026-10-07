@@ -6,7 +6,9 @@
 - Release: `tools/release.sh "<subject>" "<body>"` runs the tests (149 pass) and stops on any failure, then bumps
   the version here and in `.claude-plugin/plugin.json`, commits, pushes and installs. Isac restarts the app to load
   it. Use `py`, not `python`.
-- Showcase site: https://heycubit.github.io/effortless/ (`gh-pages` = `main:site`).
+- Showcase site: https://heycubit.github.io/effortless/ (`gh-pages` = `main:site`). The redesign around the dashboard
+  bar waits on Isac's OK in draft PR HeyCubit/effortless#3 (branch `site-story`); build, publish steps and checks are
+  in the PR. Design notes: ai-setup `memory/effortless/site-design.md`.
 
 ## Where things stand (desktop band, 1.35.4x-1.35.61)
 - Dashboard: effort word, ring, cache clock (self-ticking image, redraw once a minute), judge line in the middle,
