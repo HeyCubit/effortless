@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.104",
+    "date": "2026-10-07",
+    "note": "Handoff bar says less"
+  },
+  {
     "version": "1.35.103",
     "date": "2026-10-07",
     "note": "Compact bar title has its star back; HANDOFF rewritten"

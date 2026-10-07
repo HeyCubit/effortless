@@ -4015,7 +4015,9 @@ Saved to ${out}.md and .json` }
         <Button key="handoff-go" variant="primary" autoFocus hotkey="g" label="Go" onPress={() => goHandoff($, choice)} />,
         <Button key="handoff-close" plain role="dismiss" label="✕" onPress={() => closeHandoffBar($)} />,
       ]
-      const line = `${what.by}. ${what.then}`
+      // The terminal says all of it; the desktop bar only what the picked kind does: the dropdown beside it already
+      // says what happens after.
+      const line = e.surface === 'terminal' ? `${what.by}. ${what.then}` : choice.kind === 'full' ? (config.handoffSkill ? `/${config.handoffSkill}` : 'Saves HANDOFF.md') : 'A few seconds'
       if (e.surface === 'terminal') return terminalPanel($, e, 'handoff-bar', '⇥ Handoff', line, controls)
       return (
         // The art is a still image here: an animated one sits in a frame the app rebuilds on every redraw, and the bar
