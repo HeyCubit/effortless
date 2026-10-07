@@ -54,7 +54,7 @@ a{color:inherit}
 @media (min-width:2500px){.stage{--hz:1.5}}
 .stage{background:radial-gradient(55% 75% at 88% 52%,#1d1934 0%,#16141f 45%,transparent 75%),var(--page)}
 /* Behind the words: the mark's stripes, broad and diagonal, swaying slowly. They fade out toward the bands. */
-.waves{position:absolute;inset:0;z-index:-2;width:100%;height:100%;pointer-events:none;filter:blur(8px);-webkit-mask-image:linear-gradient(90deg,#000 0%,#0009 34%,transparent 62%);mask-image:linear-gradient(90deg,#000 0%,#0009 34%,transparent 62%)}
+.waves{position:absolute;inset:0;z-index:-2;width:100%;height:100%;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,#000 0%,#0009 34%,transparent 62%);mask-image:linear-gradient(90deg,#000 0%,#0009 34%,transparent 62%)}
 /* Grain over the stripes, so they read as soft light rather than flat shapes. */
 .stage-grain{position:absolute;inset:0;z-index:-2;pointer-events:none;background-image:var(--grain);background-size:180px;opacity:.07;mix-blend-mode:overlay;-webkit-mask-image:linear-gradient(90deg,#000,transparent 60%);mask-image:linear-gradient(90deg,#000,transparent 60%)}
 .waves path{transform-box:fill-box;transform-origin:center;animation:sway ease-in-out infinite alternate}
@@ -272,6 +272,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .dash .spark{width:1.3em;height:1.3em;margin:0 -.35em 0 -.15em;transition:opacity .3s}
 .dash.off .spark{opacity:.35}
 .dash .w{font-weight:650;color:#d4d4d8;transition:color .8s ease}
+.dash .w .mdl{font-weight:500;color:#8b8a96}
 .dash .w.flash{color:#9b7bff;transition:none}
 .dash .w.deciding{background:linear-gradient(90deg,#77777f 0%,#e4e4ea 45%,#77777f 90%) 0 0/200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shim 1.3s linear infinite}
 @keyframes shim{to{background-position:-200% 0}}
@@ -352,6 +353,17 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .inst-sec .fine{margin:22px 0 0;color:var(--dim);font-size:14px}
 .inst-sec .cta{margin-top:28px}
 .inst-sec code.f{font:13.5px ui-monospace,"Cascadia Code",Consolas,monospace;color:#d8d4ee;background:#1c1b22;padding:2px 6px;border-radius:5px}
+/* Powered by Haiku 5.5: one big line with Claude's mark after it. */
+.power{padding:140px var(--frame) 0}
+.power h2{display:flex;align-items:center;flex-wrap:wrap;gap:.3em;margin:0;font:500 clamp(40px,6.4vw,110px)/1.02 var(--display);letter-spacing:-.03em;color:#f4f2ff}
+.power h2 img{width:.86em;height:.86em}
+.power p{margin:22px 0 0;max-width:30em;color:var(--muted);font-size:18px;line-height:1.55}
+.uses{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:40px;max-width:1080px;margin:52px 0 0;padding:0;list-style:none}
+.uses b{display:block;font:500 22px/1.25 var(--display);color:#f4f2ff}
+.uses span{display:block;margin-top:8px;color:var(--muted);font-size:15.5px;line-height:1.55}
+@media (max-width:820px){.uses{grid-template-columns:minmax(0,1fr);gap:26px}}
+@media (max-width:560px){.power{padding-top:100px}.power h2{font-size:30px}}
+.power+.inst-sec{padding-top:110px}
 /* Beta: a strip at the very top of the page, and a tag beside the name in the top bar. */
 .beta{margin:0;padding:9px var(--frame);background:#a79cf714;color:#cfc7ff;font-size:13.5px;text-align:center}
 .beta b{margin-right:10px;padding:2px 8px;border-radius:6px;background:#a79cf733;color:#ece8ff;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase}
@@ -565,9 +577,19 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
     </div>
   </section>
 
+  <section class="power" aria-label="Powered by Haiku 5.5">
+    <h2>Powered by Haiku&nbsp;5.5<img src="__CLAUDE_ORANGE__" alt="Claude" width="96" height="96"></h2>
+    <p>About 75% cheaper than Haiku 4.5, and it does three jobs.</p>
+    <ul class="uses">
+      <li><b>Judges every prompt</b><span>Picks the effort, on your own Claude login.</span></li>
+      <li><b>Runs the simple ones</b><span>A quick prompt runs on Haiku. Your chat keeps its model and its warm cache.</span></li>
+      <li><b>Writes your compactions</b><span>Every compact, by hand or automatic, is summarized by Haiku 5.5.</span></li>
+    </ul>
+  </section>
+
   <section class="inst-sec" id="install">
     <h2>Two ways in.</h2>
-    <p class="lead">Haiku 5.5 judges every prompt. No API key needed.</p>
+    <p class="lead">Runs on your own Claude login. No API key needed.</p>
     __INSTALL__
     <div class="cta"><a class="gh" href="https://github.com/HeyCubit/effortless">__GITHUB__<span>Star on GitHub</span></a></div>
   </section>
@@ -633,7 +655,9 @@ var Dash=(function(){
       // A new verdict turns the word violet, holds it a second, then fades it back to white.
       word:function(v,flash){w.classList.remove('deciding');clearTimeout(ft);
         if(w.textContent!==v&&flash){w.classList.add('flash');ft=setTimeout(function(){w.classList.remove('flash')},1000);}else w.classList.remove('flash');
-        w.textContent=v;},
+        // "Low · Haiku": the effort word, then the cheaper model it moved the prompt to, dimmed.
+        var at=v.indexOf(' · ');w.textContent=at<0?v:v.slice(0,at);
+        if(at>=0){var m=document.createElement('span');m.className='mdl';m.textContent=v.slice(at);w.appendChild(m);}},
       deciding:function(){clearTimeout(ft);w.classList.remove('flash');w.textContent='Deciding';w.classList.add('deciding');},
       reason:function(t){d.why.textContent=t;},
       secs:function(s){d.left=s;draw(d);},
@@ -720,7 +744,7 @@ var Dash=(function(){
   function only(html){base();aim([]);return band(html);}
   var scenes=[
     function effort(){base();aim([d.w]);
-      later(900,function(){ask('rename this variable to userId','Low','a rename in one place','Renamed in 4 files.',function(){
+      later(900,function(){ask('rename this variable to userId','Low · Haiku','a rename in one place','Renamed in 4 files.',function(){
         ask('plan the billing migration, all services','XHigh','a plan across every service','Here is a plan in five stages, starting with the read path…',function(){
           ask('add a test for the date parser','Medium','a small fix in one file','Added 6 cases, including leap days.',function(){again(effort);});});});});},
     function handoff(){only(HANDOFF);d.pct(48);},
