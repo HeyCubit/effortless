@@ -2182,10 +2182,14 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           </Box>
         ) : null}
         {Svg && cacheShown !== null ? (
-          // A fixed width, so the ticking seconds never shift the row; it gives way before the effort and the context.
-          <Box key="dash-cache-time" width={13} flexShrink={10} minWidth={0} overflow="hidden"
-            hover={{ scope: 'dash-cache', backgroundColor: HOVER_BOX }}>
-            <Text color={cacheShown === 0 ? ICE : (cacheColor(cacheShown) ?? DASH_DIM)} wrap="truncate">{` cache ${cacheClock(cacheExpires - (await $.clock.now()))}`}</Text>
+          // A fixed width, so the ticking seconds never shift the row. It gives way before the effort and the context,
+          // whole: the slot wraps, one row high, behind an empty first item, so a timer that no longer fits drops to
+          // the hidden second row instead of showing cut off.
+          <Box key="dash-cache-slot" width={13} flexShrink={10} minWidth={0} height={1} overflow="hidden" flexDirection="row" flexWrap="wrap">
+            <Box width={0} height={1} />
+            <Box key="dash-cache-time" width={13} flexShrink={0} hover={{ scope: 'dash-cache', backgroundColor: HOVER_BOX }}>
+              <Text color={cacheShown === 0 ? ICE : (cacheColor(cacheShown) ?? DASH_DIM)} wrap="truncate">{` cache ${cacheClock(cacheExpires - (await $.clock.now()))}`}</Text>
+            </Box>
           </Box>
         ) : null}
         {/* The reason, and over it (shown only while the ring or cache is hovered) what they mean: a hover can only
@@ -2202,9 +2206,11 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           </Box>
         ) : null}
       </Box>
-      {/* Room for the buttons, which sit in their own layer after the art so they take clicks. */}
-      <Box flexGrow={1} minWidth={34} />
-      <Box key="dash-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
+      {/* The buttons in the flow, their real width and no more, so the words get all the rest. An empty absolute child
+          makes the box positioned, which paints it over the art (a plain flow box sits under it and loses clicks). */}
+      <Box flexGrow={1} minWidth={1} />
+      <Box key="dash-actions" flexShrink={0} flexDirection="row" gap={1} alignItems="center" marginLeft={1}>
+        <Box position="absolute" top={0} left={0} />
         {Svg ? buttons.slice(0, -1) : buttons}
         {Svg ? (
           // The cog sits in the flow and the button in an absolute layer after it: an absolute layer paints over plain
