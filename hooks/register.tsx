@@ -3,6 +3,7 @@ import type { EngineInterface, ModelForkResult, Register, RenderInput } from 'cl
 
 import type { Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
+import { MARK_SVG } from './brand-mark'
 import { afterPrompt, atTurnEnd, demoProgress, drawProgress, PILL_H, progressShows, queueCue, registerProgress, soundArgv, stepsKey, takeCues, thinkingSvg, THINK_W } from './progress'
 
 // The ladders the two sliders walk, cheapest first.
@@ -170,7 +171,7 @@ const DASH_SVG = BRAND_SVG.replace(/stop-opacity="([0-9.]+)"/g, (_m, v: string) 
 const DASH_BG = '#141416'
 const DASH_EDGE = '#2a2a2f'
 /** The settings panel's top bar: a shade above the band. */
-const DASH_HEAD = '#1d1d21'
+const DASH_HEAD = '#202024'
 const DASH_TEXT = '#d4d4d8'
 /** The dashboard's quieter figures: the cache countdown while it has time left. */
 const DASH_DIM = '#8b8b93'
@@ -3139,9 +3140,22 @@ Saved to ${out}.md and .json` }
           {!term ? (
             <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={3} backgroundColor={DASH_HEAD} />
           ) : null}
-          <Box key="settings-title" position="absolute" top={0} left={2} height={2} flexDirection="row" alignItems="center">
-            <Text color={ACCENT} bold>✦ </Text>
-            <Text color={DASH_TEXT} bold>Settings</Text>
+          {/* A hairline under the bar: a one-pixel image stretched across (a Box cannot draw a single pixel). */}
+          {Svg && !term ? (
+            <Box key="settings-rule" position="absolute" top={2} left={0} right={0} height={1}>
+              <Svg source={`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1" viewBox="0 0 1600 1" preserveAspectRatio="none"><rect width="1600" height="1" fill="${DASH_EDGE}"/></svg>`} alt="" width={1600} height={1} />
+            </Box>
+          ) : null}
+          {/* The mark, large and faint, behind the right of the panel: the brand without a second logo in the way. */}
+          {Svg && !term ? (
+            <Box key="settings-mark" position="absolute" top={-1} right={6} bottom={-1} alignItems="center">
+              <Svg source={MARK_SVG.replace('<g mask=', '<g opacity=".06" mask=')} alt="" width={150} height={150} />
+            </Box>
+          ) : null}
+          <Box key="settings-title" position="absolute" top={0} left={2} height={2} flexDirection="row" alignItems="center" gap={1}>
+            {Svg && !term ? <Svg source={MARK_SVG} alt="effortless" width={18} height={18} /> : <Text color={ACCENT} bold>✦</Text>}
+            <Text color={DASH_TEXT} bold>effortless</Text>
+            <Text dimColor>Settings</Text>
             {dirty ? <Text dimColor> · unsaved changes</Text> : null}
           </Box>
           <Box key="settings-actions" position="absolute" top={0} right={2} height={2} flexDirection="row" gap={2} alignItems="center">
