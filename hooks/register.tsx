@@ -1870,7 +1870,7 @@ export function settingsSvg(color: string): string {
 
 /** The settings rows' icons, drawn in the cog's outline style (14 px, 1.3 stroke) rather than font glyphs, which
  * differ per font. */
-export function rowIconSvg(kind: 'effort' | 'judge' | 'handoff' | 'show', color: string): string {
+export function rowIconSvg(kind: 'effort' | 'judge' | 'handoff' | 'show' | 'quick' | 'full', color: string): string {
   const shapes = {
     // A gauge: an open arc with a needle.
     effort: '<path d="M2.6 10.4A5 5 0 1 1 11.4 10.4"/><path d="M7 8.2L9.6 5.2"/><circle cx="7" cy="8.6" r=".9"/>',
@@ -1880,6 +1880,10 @@ export function rowIconSvg(kind: 'effort' | 'judge' | 'handoff' | 'show', color:
     handoff: '<path d="M1.8 7H9.4M6.6 4.2L9.4 7L6.6 9.8"/><path d="M11.8 2.6V11.4"/>',
     // An eye.
     show: '<path d="M1.2 7C2.6 4.4 4.6 3.1 7 3.1S11.4 4.4 12.8 7C11.4 9.6 9.4 10.9 7 10.9S2.6 9.6 1.2 7Z"/><circle cx="7" cy="7" r="1.8"/>',
+    // A bolt: the quick handoff, done in seconds.
+    quick: '<path d="M8 1.6L3.4 7.8H7L6 12.4L10.6 6.2H7Z"/>',
+    // A pen: the full handoff, written out by your skill.
+    full: '<path d="M9.4 2.2L11.8 4.6L5 11.4L2 12L2.6 9Z"/><path d="M8 3.6L10.4 6"/>',
   }[kind]
   return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision">${shapes}</g></svg>`
 }
@@ -2299,8 +2303,9 @@ export function autoSwitchSvg(on: boolean, slideMs: number | null = null): strin
   return slide ? inPhase(svg, slideMs) : svg
 }
 /** The handoff bar's Quick | Full switch: a dark track with both words in it and a light knob under the picked one,
+ * as tall as Go (20 px, 5 px radius, measured on tools/render-band) so the row's controls line up,
  * KIND_CELLS wide each half (the words are app Text laid over it; an image would draw them in another font). */
-const KIND_CELLS = 6
+const KIND_CELLS = 9
 /** One cell of the desktop band in CSS px (`1ch` of its font, measured on tools/render-band). */
 const CELL_PX = 7.9
 const KIND_W = Math.round(KIND_CELLS * 2 * CELL_PX)
@@ -2309,13 +2314,18 @@ const KIND_H = 20
  * after a click only (every redraw replays an image's animation). */
 export function kindSwitchSvg(kind: 'quick' | 'full', slideMs: number | null = null): string {
   const half = KIND_W / 2
-  const slide = slideMs !== null && slideMs < AUTO_SLIDE_MS
+  const slide = slideMs !== null && slideMs < KIND_SLIDE_DELAY_MS + KIND_SLIDE_MS
+  // It starts a beat after the click: the click redraws the whole bar, its large art included, and a slide in those
+  // same frames stuttered. Held at the old side until then (backwards fill), at its place on a later redraw.
+  const delay = slideMs === null ? 0 : KIND_SLIDE_DELAY_MS - slideMs
   const css = slide
-    ? `<style>.k{animation:k ${AUTO_SLIDE_MS / 1000}s cubic-bezier(.3,.7,.2,1)}@keyframes k{from{transform:translateX(${kind === 'full' ? -half : half}px)}}</style>`
+    ? `<style>.k{animation:k ${KIND_SLIDE_MS / 1000}s cubic-bezier(.3,.7,.2,1) ${(delay / 1000).toFixed(3)}s backwards;will-change:transform}@keyframes k{from{transform:translateX(${kind === 'full' ? -half : half}px)}}</style>`
     : ''
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${KIND_W}" height="${KIND_H}" viewBox="0 0 ${KIND_W} ${KIND_H}">${css}<rect x=".5" y=".5" width="${KIND_W - 1}" height="${KIND_H - 1}" rx="7" fill="#000000" fill-opacity=".32" stroke="#ffffff" stroke-opacity=".12"/><rect class="k" x="${kind === 'full' ? half + 1 : 2}" y="2" width="${half - 3}" height="${KIND_H - 4}" rx="5.5" fill="#ececf0"/></svg>`
-  return slide ? inPhase(svg, slideMs) : svg
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${KIND_W}" height="${KIND_H}" viewBox="0 0 ${KIND_W} ${KIND_H}">${css}<rect x=".5" y=".5" width="${KIND_W - 1}" height="${KIND_H - 1}" rx="4.5" fill="#000000" fill-opacity=".32" stroke="#ffffff" stroke-opacity=".12"/><rect class="k" x="${kind === 'full' ? half : 0}" y="0" width="${half}" height="${KIND_H}" rx="5" fill="#ececf0"/></svg>`
+  return svg
 }
+const KIND_SLIDE_MS = 300
+const KIND_SLIDE_DELAY_MS = 70
 // When the handoff bar's Quick | Full last changed, for the knob's slide.
 let kindFlipAt = 0
 /** How long the bar's edges glow after Auto is switched on. */
@@ -3593,8 +3603,9 @@ Saved to ${out}.md and .json` }
             </Box>
             <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center">
               {(['quick', 'full'] as const).map(k => (
-                <Box key={`handoff-kind-${k}`} flexGrow={1} width={0} justifyContent="center">
-                  <Text color={choice.kind === k ? '#141416' : DASH_DIM} bold={choice.kind === k}>{k === 'quick' ? 'Quick' : 'Full'}</Text>
+                <Box key={`handoff-kind-${k}`} flexGrow={1} width={0} flexDirection="row" alignItems="center" justifyContent="center">
+                  <Svg source={rowIconSvg(k, choice.kind === k ? '#141416' : DASH_DIM)} alt="" width={14} height={14} />
+                  <Text color={choice.kind === k ? '#141416' : DASH_DIM} bold={choice.kind === k}>{k === 'quick' ? ' Quick' : ' Full'}</Text>
                 </Box>
               ))}
             </Box>
