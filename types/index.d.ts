@@ -49,6 +49,8 @@ export type SettingsDraft = {
   layout?: string
   /** haiku (Haiku 5.5 writes the compaction's summary) or session (the chat's own model). */
   compactWith?: string
+  /** on: a prompt the judge calls simple runs on a cheaper model than the chat's; off: always the chat's model. */
+  modelAuto?: string
 }
 
 /** One step of the task the progress bar follows: a todo or a task. */

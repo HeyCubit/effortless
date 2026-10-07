@@ -39,7 +39,7 @@ update it either keeps working or exits and says which of these it could not fin
 | `--wait S` | 0 | let S seconds of real time pass before the shot: use it for animations that run once (an entrance), which `--at` cannot hold past their end |
 | `--trace MS` | | simulates clicks: presses the `--press` buttons on the drawn band, records every redraw for MS ms of the mod's clock, then replays each one at its time with the app's renderer (a redraw swaps the whole band, as in the app) and shoots frames into `out/<name>-frames/` (named by ms). Prints the redraws per step. Use it for flicker, animations across redraws and clicks that get lost |
 | `--cache M` / `--cache off` | 59 | minutes left on a 1 h cache |
-| `--effort E`, `--reason "..."` | medium | the judge's verdict (Haiku judge) |
+| `--effort E`, `--reason "..."`, `--model M` | medium, opus | the judge's verdict (Haiku judge); `--model haiku` puts the prompt on a cheaper model |
 | `--auto off`, `--fresh`, `--judging`, `--working` | | other states |
 | `--density compact\|comfortable` | compact | the Code tab's CDS density (the reference screenshots match compact) |
 | `--mode dark\|light` | dark | |
