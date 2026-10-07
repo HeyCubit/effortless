@@ -53,7 +53,11 @@ a{color:inherit}
 @media (min-width:2200px){.stage{--hz:1.35}}
 @media (min-width:2500px){.stage{--hz:1.5}}
 .stage{background:radial-gradient(55% 75% at 88% 52%,#1d1934 0%,#16141f 45%,transparent 75%),var(--page)}
-.stage:before{content:"";position:absolute;inset:0;z-index:-2;pointer-events:none;background-image:radial-gradient(#2a2733 1.1px,transparent 1.5px);background-size:22px 22px;-webkit-mask-image:radial-gradient(60% 70% at 22% 50%,#000,transparent);mask-image:radial-gradient(60% 70% at 22% 50%,#000,transparent)}
+/* Behind the words: the mark's stripes, broad and diagonal, swaying slowly. They fade out toward the bands. */
+.waves{position:absolute;inset:0;z-index:-2;width:100%;height:100%;pointer-events:none;-webkit-mask-image:radial-gradient(70% 95% at 18% 55%,#000 35%,transparent 100%);mask-image:radial-gradient(70% 95% at 18% 55%,#000 35%,transparent 100%)}
+.waves path{transform-box:fill-box;transform-origin:center;animation:sway ease-in-out infinite alternate}
+.waves path:nth-child(even){animation-direction:alternate-reverse}
+@keyframes sway{from{transform:translate(-14px,10px) rotate(-1.2deg) scaleY(.94)}to{transform:translate(14px,-10px) rotate(1.2deg) scaleY(1.06)}}
 .demo{margin-top:48px;width:min(440px,100%)}
 .demo-box{position:relative;border-radius:16px;background:#1d1c22;border:1px solid #2d2b34;padding:14px 48px 14px 16px;min-height:78px}
 .demo-in{position:relative;color:var(--text);font-size:15px;min-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -183,7 +187,6 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .pop{position:absolute;right:var(--frame);top:calc(100% + 8px);width:min(540px,calc(100vw - 32px));padding:18px;border-radius:14px;background:#17161c;box-shadow:0 30px 60px -20px #000;display:none}
 .pop.open{display:block}
 .pop p{margin:0;color:var(--muted);font-size:14px}
-.pop .cmds{margin-top:12px}
 
 /* ---------- The story: one big chat box, one feature at a time ---------- */
 .story{position:relative;height:calc(var(--n) * 90vh + 10vh);overflow-y:clip}
@@ -197,7 +200,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
    the bar and the box rise in one after another. */
 .story:not(.in) .say.on{opacity:0;transform:translateX(-64px)}
 .story .go,.story .slot,.story .win .demo-box{transition:opacity .7s var(--ease),transform 1s var(--ease)}
-.story:not(.in) .go{opacity:0;transform:translateY(12px)}
+.story:not(.in) .go{opacity:0}
 .story:not(.in) .slot{opacity:0;transform:translateY(36px)}
 .story:not(.in) .win .demo-box{opacity:0;transform:translateY(56px)}
 .story.in .say.on{transition-duration:.6s,1.1s}
@@ -345,38 +348,43 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .inst-sec .fine{margin:22px 0 0;color:var(--dim);font-size:14px}
 .inst-sec .cta{margin-top:28px}
 .inst-sec code.f{font:13.5px ui-monospace,"Cascadia Code",Consolas,monospace;color:#d8d4ee;background:#1c1b22;padding:2px 6px;border-radius:5px}
-.cmds{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;max-width:640px}
-/* The two ways in: tabs, then the Ask Claude card or the commands, then what happens next. */
-.ways{margin-top:28px;max-width:680px}
-.tabs{display:inline-flex;gap:4px;padding:4px;border-radius:11px;background:#1b1a21}
-.tabs button{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border:0;border-radius:8px;background:none;color:var(--muted);font:500 14px var(--sans);cursor:pointer;transition:background .2s,color .2s}
-.tabs button:hover{color:var(--text)}
-.tabs button[aria-selected="true"]{background:#2e2d36;color:var(--text)}
-.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.tabs small{padding:2px 7px;border-radius:999px;background:#a79cf72e;color:#cfc7ff;font-size:11.5px;font-weight:600}
-.pane{margin-top:14px}
-.ask{display:flex;align-items:center;gap:16px;padding:14px 14px 14px 18px;border-radius:12px;background:#1b1a21}
-.ask p{flex:1;min-width:0;margin:0;color:var(--text);font-size:14.5px;line-height:1.55}
-.ask code,.then code,.way-label code{font:13.5px ui-monospace,"Cascadia Code",Consolas,monospace;color:#d8d4ee;background:#26252d;padding:1px 6px;border-radius:5px}
-.copy.main{background:#f4f3f8;color:#141218;font-weight:600;white-space:nowrap}
-.copy.main:hover{background:#fff}
-.help,.way-label{margin:10px 0 0;color:var(--muted);font-size:14px}
-.way-label{margin:0 0 8px}
-.way-label+.cmds{margin-top:0}
-.cmds+.way-label{margin-top:18px}
-.then{margin:16px 0 0;color:var(--muted);font-size:14px}
-.pop .ways{margin-top:0}
-.pop .help,.pop .then{margin:10px 0 0;line-height:1.5}
-.pop .ask{flex-direction:column;align-items:stretch}
-.pop .copy.main{align-self:flex-start}
-@media (max-width:560px){.ask{flex-direction:column;align-items:stretch}.copy.main{align-self:flex-start}.tabs small{display:none}}
-.cmd{display:flex;align-items:center;gap:12px;background:#1b1a21;border-radius:12px;padding:8px 8px 8px 18px}
-.cmd code{flex:1;min-width:0;overflow-x:auto;white-space:nowrap;background:none;padding:6px 0;font:14.5px ui-monospace,"Cascadia Code",Consolas,monospace;color:var(--text)}
-.cmd code:before{content:"›";color:var(--accent);margin-right:10px;user-select:none}
-.copy{display:inline-flex;align-items:center;gap:7px;font:500 13px var(--sans);color:var(--text);background:#2a2932;border:0;border-radius:8px;padding:8px 12px;cursor:pointer;flex-shrink:0}
-.copy:hover{background:#34333d}.copy svg{width:14px;height:14px}
-.copy:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.copy.ok{color:var(--bog)}
+/* Beta: a strip at the very top of the page, and a tag beside the name in the top bar. */
+.beta{margin:0;padding:9px var(--frame);background:#a79cf714;color:#cfc7ff;font-size:13.5px;text-align:center}
+.beta b{margin-right:10px;padding:2px 8px;border-radius:6px;background:#a79cf733;color:#ece8ff;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase}
+.topbar .tag{margin-left:.15em;padding:.2em .5em;border-radius:.4em;background:#a79cf733;color:#d8d2ff;font:600 .5em var(--sans);letter-spacing:.06em;text-transform:uppercase}
+/* One chat at a time: said big, in amber, before the two ways in. */
+.solo{display:flex;align-items:flex-start;gap:16px;max-width:1080px;margin:32px 0 0;padding:20px 24px;border-radius:14px;background:#e0a33a1c;color:#dccaa6;font-size:15px;line-height:1.5}
+.solo svg{width:28px;height:28px;flex-shrink:0;color:var(--yellow)}
+.solo b{display:block;margin-bottom:2px;font:500 21px/1.25 var(--display);color:#ffe7bd}
+.solo+.ways{margin-top:16px}
+.pop .solo{margin:0 0 10px;padding:12px 14px;gap:10px;color:#dccaa6;font-size:13px}
+.pop .solo svg{width:20px;height:20px}
+.pop .solo b{font-size:15px}
+/* The two ways in, side by side: Claude's on the left (the one most people want), the terminal on the right. */
+.ways{margin-top:36px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;max-width:1080px}
+.way{display:flex;flex-direction:column;min-width:0;padding:26px;border-radius:16px;background:#1b1a21}
+.way-claude{background:radial-gradient(120% 100% at 0% 0%,#d9775724,transparent 62%),#1b1a21}
+.way-k{display:flex;align-items:center;gap:9px;margin:0;font:600 13px var(--sans);letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.way-claude .way-k{color:#e8a487}
+.way-k img,.way-k svg{width:20px;height:20px;flex-shrink:0}
+.way-t{margin:10px 0 22px;font:500 24px/1.2 var(--display);letter-spacing:-.01em;color:#f4f2ff}
+.big{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:58px;margin-top:auto;border:0;border-radius:12px;font:600 17px var(--sans);cursor:pointer;transition:background .2s}
+.big img,.big svg{width:20px;height:20px;flex-shrink:0}
+.big.claude{background:#d97757;color:#1f1009}.big.claude:hover{background:#e48a6b}
+.big.term{background:#2e2d36;color:var(--text)}.big.term:hover{background:#393842}
+.big.ok.term{color:var(--bog)}
+.big:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.way-h{margin:12px 0 0;color:var(--dim);font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.way-claude .way-h{white-space:normal}
+.way-h code{font:12.5px ui-monospace,"Cascadia Code",Consolas,monospace;color:var(--muted)}
+.then{margin:20px 0 0;color:var(--muted);font-size:14.5px}
+.then code{font:13.5px ui-monospace,"Cascadia Code",Consolas,monospace;color:#d8d4ee;background:#26252d;padding:1px 6px;border-radius:5px}
+.pop .ways{margin-top:0;gap:10px}
+.pop .way{padding:16px}
+.pop .way-t{margin:8px 0 14px;font-size:17px}
+.pop .big{min-height:46px;margin-top:0;font-size:15px}
+.pop .then{margin:12px 0 0}
+@media (max-width:720px){.ways{grid-template-columns:minmax(0,1fr)}}
 
 /* ---------- Narrow screens ---------- */
 @media (max-width:960px){
@@ -411,8 +419,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 @media (max-width:560px){
   .topbar{padding:8px var(--frame)}
   .inst-sec{padding:88px var(--frame) 24px}
-  .cmd{padding-left:12px}.cmd code{font-size:12.5px}
-  .copy span{display:none}
+
 }
 
 /* ---------- Footer: the name, huge, sinking into a purple haze at the bottom of the page ---------- */
@@ -485,7 +492,9 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   </filter>
 </svg>
 
+<p class="beta"><b>Beta</b>effortless is still under development. Expect rough edges.</p>
 <section class="stage" id="top">
+  __WAVES__
   <div class="stage-inner">
     <div class="intro">
       <h1>__SPARK__<span class="word" aria-label="effortless"><span class="crisp" aria-hidden="true">effortless</span><span class="soft" aria-hidden="true">effortless</span></span></h1>
@@ -518,7 +527,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 <template id="dash-tpl"><div class="dash">__SPARK__<span class="w">Medium</span><span class="pc"><i></i><b>22%</b></span><span class="cache">cache 59:00</span><span class="why">Haiku: a small fix in one file</span><span class="end"><span class="auto"><span class="sw"></span><span class="al">Auto</span></span><span class="ho"><span>Handoff</span></span><svg class="gear" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" d="M12.91 6.63L14.44 6.56 14.44 9.44 12.91 9.37 12.44 10.5 13.57 11.54 11.54 13.57 10.5 12.44 9.37 12.91 9.44 14.44 6.56 14.44 6.63 12.91 5.5 12.44 4.46 13.57 2.43 11.54 3.56 10.5 3.09 9.37 1.56 9.44 1.56 6.56 3.09 6.63 3.56 5.5 2.43 4.46 4.46 2.43 5.5 3.56 6.63 3.09 6.56 1.56 9.44 1.56 9.37 3.09 10.5 3.56 11.54 2.43 13.57 4.46 12.44 5.5Z"/><circle cx="8" cy="8" r="2.1" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></span></div></template>
 
 <header class="topbar" id="topbar">
-  <a class="name" href="#top">__SPARK__effortless</a>
+  <a class="name" href="#top">__SPARK__effortless<span class="tag">Beta</span></a>
   <button type="button" class="inst" id="inst" aria-label="Show install commands" aria-expanded="false" aria-controls="pop">Install<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   <div class="pop" id="pop" role="dialog" aria-label="Install effortless">
     __INSTALL__
@@ -529,13 +538,13 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   <section class="story" id="how" style="--n:6" aria-label="What effortless does">
     <div class="pin">
       <div class="head">
-        <div class="go" aria-label="Steps"><button type="button" data-go="0" aria-label="Effort"><i></i><span>Effort</span></button><button type="button" data-go="1" aria-label="Cold cache"><i></i><span>Cold cache</span></button><button type="button" data-go="2" aria-label="Swamped"><i></i><span>Heavy chat</span></button><button type="button" data-go="3" aria-label="Running hot"><i></i><span>Near the limit</span></button><button type="button" data-go="4" aria-label="Handoff"><i></i><span>Handoff</span></button><button type="button" data-go="5" aria-label="Settings"><i></i><span>Settings</span></button></div>
+        <div class="go" aria-label="Steps"><button type="button" data-go="0" aria-label="Effort"><i></i><span>Effort</span></button><button type="button" data-go="1" aria-label="Handoff"><i></i><span>Handoff</span></button><button type="button" data-go="2" aria-label="Cold cache"><i></i><span>Cold cache</span></button><button type="button" data-go="3" aria-label="Swamped"><i></i><span>Heavy chat</span></button><button type="button" data-go="4" aria-label="Running hot"><i></i><span>Near the limit</span></button><button type="button" data-go="5" aria-label="Settings"><i></i><span>Settings</span></button></div>
         <div class="caps">
           <div class="say" data-i="0"><h3>One bar. Every prompt gets the effort it needs.</h3></div>
-          <div class="say" data-i="1"><h3>It tells you when the cache goes cold.</h3></div>
-          <div class="say" data-i="2"><h3>And when the chat gets heavy.</h3></div>
-          <div class="say" data-i="3"><h3>It eases off before you hit the limit.</h3></div>
-          <div class="say" data-i="4"><h3>Handoff glows when a fresh chat pays off.</h3></div>
+          <div class="say" data-i="1"><h3>Handoff glows when a fresh chat pays off.</h3></div>
+          <div class="say" data-i="2"><h3>It tells you when the cache goes cold.</h3></div>
+          <div class="say" data-i="3"><h3>And when the chat gets heavy.</h3></div>
+          <div class="say" data-i="4"><h3>It eases off before you hit the limit.</h3></div>
           <div class="say" data-i="5"><h3>Everything else sits behind the gear.</h3></div>
         </div>
       </div>
@@ -553,10 +562,8 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 
   <section class="inst-sec" id="install">
     <h2>Two ways in.</h2>
-    <p class="lead">Let Claude install it for you, or paste the commands yourself. Haiku judges your prompts by default, so no key is needed.</p>
+    <p class="lead">Pick one. No API key needed.</p>
     __INSTALL__
-    <p class="fine">The whole mod is one file, <code class="f">hooks/register.tsx</code>. A key, if you use one, goes only to the judge you pick. Runs on Opus 5.5 and Sonnet 5.5.</p>
-    <p class="fine">Prefer it quiet? Settings → Appearance → Minimal puts effortless back in the footer.</p>
     <div class="cta"><a class="gh" href="https://github.com/HeyCubit/effortless">__GITHUB__<span>Star on GitHub</span></a></div>
   </section>
 
@@ -577,24 +584,21 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 document.querySelectorAll('[data-copy] span').forEach(function(s){s.dataset.label=s.textContent});
 document.addEventListener('click',function(e){
   var b=e.target.closest('[data-copy]');if(!b)return;
-  var s=b.querySelector('span'),code=b.parentNode.querySelector('[data-sel]')||b.parentNode.querySelector('code');if(!s.dataset.label)s.dataset.label=s.textContent;
+  var s=b.querySelector('span'),code=b.parentNode.querySelector('code');if(!s.dataset.label)s.dataset.label=s.textContent;
   // Only one button says Copied at a time.
   document.querySelectorAll('[data-copy]').forEach(function(o){if(o!==b){clearTimeout(o.t);o.classList.remove('ok');var os=o.querySelector('span');os.textContent=os.dataset.label||'Copy';}});
   function say(t,ok){b.classList.toggle('ok',ok);s.textContent=t;clearTimeout(b.t);b.t=setTimeout(function(){b.classList.remove('ok');s.textContent=s.dataset.label},ok?1400:3000);}
   function fallback(){
-    var r=document.createRange();r.selectNodeContents(code);var sel=getSelection();sel.removeAllRanges();sel.addRange(r);
-    var done=false;try{done=document.execCommand('copy')}catch(err){}
+    // Claude's button has no visible text to select, so it copies through a hidden text box.
+    var done=false,t;
+    if(code){var r=document.createRange();r.selectNodeContents(code);var sel=getSelection();sel.removeAllRanges();sel.addRange(r);}
+    else{t=document.createElement('textarea');t.value=b.dataset.copy;t.setAttribute('readonly','');t.style.cssText='position:fixed;opacity:0';document.body.appendChild(t);t.select();}
+    try{done=document.execCommand('copy')}catch(err){}
+    if(t)t.remove();
     say(done?'Copied':'Press Ctrl+C',done);
   }
   if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(b.dataset.copy).then(function(){say('Copied',true)},fallback);
   else fallback();
-});
-
-// The two ways in: one tab shows at a time. Each copy of the block (the section and the popover) switches on its own.
-document.addEventListener('click',function(e){
-  var t=e.target.closest('[data-tab]');if(!t)return;var w=t.closest('.ways'),k=t.dataset.tab;
-  w.querySelectorAll('[data-tab]').forEach(function(b){b.setAttribute('aria-selected',String(b===t))});
-  w.querySelectorAll('[data-pane]').forEach(function(p){p.hidden=p.dataset.pane!==k});
 });
 
 // The install bar slides in once the opening has scrolled away; its button opens the two commands.
@@ -706,40 +710,25 @@ var Dash=(function(){
     '<div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 11.5a5.5 5.5 0 1111 0M8 11.5l2.6-3.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Effort</b><span>Balanced · low to max</span></div><div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v11M4.5 13.5h7M3 4.5h10M3 4.5L1.5 9h3zM13 4.5L11.5 9h3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Judge</b><span>Auto · Haiku</span></div>'+
     '<div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h8.5M7.5 5l3 3-3 3M13.5 3.5v9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Handoff</b><span>Built in · swamped at 50%</span></div><div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8s-2.4 4.5-6.5 4.5S1.5 8 1.5 8zM8 9.8a1.8 1.8 0 100-3.6 1.8 1.8 0 000 3.6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Appearance</b><span>Dashboard look</span></div></div></div>';
 
-  // Every scene shows what it is about at once, so someone scrolling past still sees it, and only then plays it out.
+  // Each step swaps the bar for its own band the moment it scrolls in; nothing is typed or pressed first. Only the
+  // effort step plays prompts, since the bar itself is what it shows. Settings walks its cards.
+  function only(html){base();aim([]);return band(html);}
   var scenes=[
     function effort(){base();aim([d.w]);
       later(900,function(){ask('rename this variable to userId','Low','a rename in one place','Renamed in 4 files.',function(){
         ask('plan the billing migration, all services','XHigh','a plan across every service','Here is a plan in five stages, starting with the read path…',function(){
           ask('add a test for the date parser','Medium','a small fix in one file','Added 6 cases, including leap days.',function(){again(effort);});});});});},
-    function cold(){base();aim([d.cache]);msg('me','the login test fails about one run in five');d.secs(1);
-      later(1100,function(){var b=band(COLD);
-        later(2600,function(){press(b.querySelector('.primary'),function(){unband(function(){wipe();
-          later(420,function(){msg('sys','Chat compacted');d.pct(4);d.secs(3600);again(cold,2600);});});});});});},
-    function swamp(){base();aim([d.pc,d.ho]);d.pct(58);msg('me','now the retry logic');
-      later(150,function(){ramp(72,700,function(){later(250,function(){var b=band(SWAMP);
-        later(2600,function(){press(b.querySelector('.primary'),function(){unband(function(){wipe();
-          later(420,function(){msg('sys','Chat compacted');d.pct(5);again(swamp,2400);});});});});});});});},
-    function hot(){base();aim([d.w]);msg('me','now split the auth module into two');var b=band(HOT);
-      later(3000,function(){press(b.querySelector('.primary'),function(){unband(function(){msg('sys','Save mode on until 16:20');
-        later(700,function(){ask('plan the billing migration, all services','Medium','capped by save mode','Here is a plan in five stages…',function(){again(hot,2400);});});});});});},
-    function handoff(){base();aim([d.ho]);d.pct(48);msg('me','nice, now the retry logic');
-      later(700,function(){press(d.ho,function(){var b=band(HANDOFF),qf=b.querySelector('.qf');
-        later(1100,function(){qf.classList.add('full');b.querySelector('.what').textContent='A thorough note first. Clears chat, carries on.';
-          later(1300,function(){qf.classList.remove('full');b.querySelector('.what').textContent='Done in seconds. Clears chat, carries on.';
-            later(1100,function(){press(b.querySelector('.primary'),function(){b.querySelector('.what').textContent='Writing the handoff note…';
-              later(1500,function(){unband(function(){wipe();d.pct(3);d.secs(null);d.word('Auto');d.reason('Auto picks the effort at the next prompt');
-                later(420,function(){msg('sys','Handoff note loaded');
-                  later(500,function(){msg('ai','Picking up from the note: next, log each attempt.');again(handoff,3200);});});});});});});});});});});},
-    function settings(){base();aim([d.gear]);
-      later(500,function(){press(d.gear,function(){var b=band(SETT),cards=b.querySelectorAll('.card');
-        [0,1,2,3].forEach(function(k){later(500+k*650,function(){cards.forEach(function(c,j){c.classList.toggle('on',j===k)});});});
-        later(3500,function(){press(b.querySelector('.x'),function(){unband(function(){again(settings,2600);});});});});});}
+    function handoff(){only(HANDOFF);d.pct(48);},
+    function cold(){only(COLD);d.secs(0);},
+    function swamp(){only(SWAMP);d.pct(72);},
+    function hot(){only(HOT);},
+    function settings(){var cards=only(SETT).querySelectorAll('.card'),k=0;
+      (function next(){cards.forEach(function(c,j){c.classList.toggle('on',j===k%4)});k++;if(!still)later(900,next);})();}
   ];
 
   function show(i){if(i===cur)return;cur=i;stop();
     says.forEach(function(s,k){s.classList.toggle('on',k===i)});
-    story.querySelector('.pin').style.setProperty('--sc','var(--'+['accent','ice','bog','ember','accent','accent'][i]+')');
+    story.querySelector('.pin').style.setProperty('--sc','var(--'+['accent','accent','ice','bog','ember','accent'][i]+')');
     gos.forEach(function(b,k){b.setAttribute('aria-current',k===i?'step':'false')});
     scenes[i]();}
   function onScroll(){var r=story.getBoundingClientRect(),span=story.offsetHeight-innerHeight,p=span>0?-r.top/span:0;
