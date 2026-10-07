@@ -169,6 +169,8 @@ const DASH_SVG = BRAND_SVG.replace(/stop-opacity="([0-9.]+)"/g, (_m, v: string) 
   .replace(/#(7c6cf0|8f7ff0|b3a6ff|c9bdff|9a86ff)/g, '#9a9aa2')
 const DASH_BG = '#141416'
 const DASH_EDGE = '#2a2a2f'
+/** The settings panel's top bar: a shade above the band. */
+const DASH_HEAD = '#1d1d21'
 const DASH_TEXT = '#d4d4d8'
 /** The dashboard's quieter figures: the cache countdown while it has time left. */
 const DASH_DIM = '#8b8b93'
@@ -1775,7 +1777,7 @@ export function rowIconSvg(kind: 'effort' | 'judge' | 'handoff' | 'show', color:
  * appears. The app has no transitions for a band (its tree is swapped at once), but a plain Svg's CSS animation starts
  * when the image is first drawn and is not restarted by a redraw with the same source. Stretched to the band
  * (preserveAspectRatio none: the app scales a Svg down to its box's width but keeps its height), behind the content. */
-export const INTRO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="240" viewBox="0 0 1600 240" preserveAspectRatio="none"><style>.w{animation:w .7s ease-out forwards}.s{animation:s 1.1s cubic-bezier(.2,.7,.2,1) forwards}@keyframes w{from{opacity:.16}to{opacity:0}}@keyframes s{from{transform:translateX(-520px);opacity:1}80%{opacity:1}to{transform:translateX(1700px);opacity:0}}</style><defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".55" stop-color="#b9a7ff" stop-opacity=".16"/><stop offset=".7" stop-color="#fff" stop-opacity=".1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs><rect class="w" width="1600" height="240" fill="#8b6cff"/><rect class="s" width="480" height="240" fill="url(#g)"/></svg>`
+export const INTRO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="240" viewBox="0 0 1600 240" preserveAspectRatio="none"><style>.w{opacity:0;animation:w .7s ease-out}.s{opacity:0;animation:s 1.1s cubic-bezier(.2,.7,.2,1)}@keyframes w{from{opacity:.16}to{opacity:0}}@keyframes s{from{transform:translateX(-520px);opacity:1}80%{opacity:1}to{transform:translateX(1700px);opacity:0}}</style><defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".55" stop-color="#b9a7ff" stop-opacity=".16"/><stop offset=".7" stop-color="#fff" stop-opacity=".1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs><rect class="w" width="1600" height="240" fill="#8b6cff"/><rect class="s" width="480" height="240" fill="url(#g)"/></svg>`
 
 /** k/M for token counts: 420000 -> "420k", 1000000 -> "1.0M". */
 function kTokens(n: number): string {
@@ -3132,6 +3134,10 @@ Saved to ${out}.md and .json` }
             <Box key="settings-intro" position="absolute" top={-1} left={0} right={0} bottom={-1}>
               <Svg source={INTRO_SVG} alt="" width={1600} height={240} />
             </Box>
+          ) : null}
+          {/* The top bar: a strip a shade lighter than the band, holding the title, Save and the cross. */}
+          {!term ? (
+            <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={3} backgroundColor={DASH_HEAD} />
           ) : null}
           <Box key="settings-title" position="absolute" top={0} left={2} height={2} flexDirection="row" alignItems="center">
             <Text color={ACCENT} bold>✦ </Text>
