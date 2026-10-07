@@ -21,11 +21,10 @@ const still = [[505,110,4,.35],[585,280,3,.3],[655,140,5,.45],[705,370,4,.4],[77
 const star4 = (x, y, s) => { const i = s * .21; return `M${x} ${y-s} L${x+i} ${y-i} L${x+s} ${y} L${x+i} ${y+i} L${x} ${y+s} L${x-i} ${y+i} L${x-s} ${y} L${x-i} ${y-i} Z` }
 const streaks = [[600,38,.04],[680,14,.05],[770,46,.05],[880,18,.04],[960,36,.05],[1040,14,.04]].map(([x,w,o]) => `<line x1="${x-70}" y1="420" x2="${x+70}" y2="-20" stroke="#fff" stroke-opacity="${o}" stroke-width="${w}"/>`).join("")
 const heroArt = `<svg class="stars" viewBox="0 0 1000 600" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><style>.h-sp{fill:#fff;opacity:0;transform-box:fill-box;transform-origin:center;animation:h-gl 4s ease-in-out infinite}@keyframes h-gl{0%,50%,100%{opacity:0;transform:scale(0) rotate(0deg)}70%{opacity:.95;transform:scale(1) rotate(30deg)}90%{opacity:0;transform:scale(.2) rotate(60deg)}}</style>${sp.map(([x,y,s,d,dl]) => `<path class="h-sp" style="animation-duration:${d}s;animation-delay:${dl}s" d="${star4(x,y*1.5,s*1.1)}"/>`).join("")}${still.map(([x,y,s,o]) => `<path fill="#fff" fill-opacity="${o}" d="${star4(x,y*1.5,s)}"/>`).join("")}</svg>`
-// What's new: releases.json at the repo root, newest first. Test releases made to try the update card are left out
-// (their notes start with "A version "). The latest 10 show; the rest wait behind "Show all".
+// What's new: public.json at the repo root, newest first. It holds only published versions (tools/publish.sh writes
+// it); releases.json also lists dev versions users never get. The latest 10 show; the rest wait behind "Show all".
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
-const TEST_NOTES = ["Releases can skip the local install"]
-const releases = JSON.parse(fs.readFileSync(repo + "/releases.json", "utf8")).filter(r => !/^A version /.test(r.note) && !TEST_NOTES.includes(r.note))
+const releases = JSON.parse(fs.readFileSync(repo + "/public.json", "utf8")).filter(r => r.public)
 const row = r => `<li>__SPARK__<b class="v">${esc(r.version)}</b><span class="n">${esc(r.note)}</span><time datetime="${esc(r.date)}">${esc(r.date)}</time></li>`
 const news = `<ol class="rel">${releases.slice(0, 10).map(row).join("")}</ol>` + (releases.length > 10 ? `<details class="more"><summary>Show all</summary><ol class="rel">${releases.slice(10).map(row).join("")}</ol></details>` : "")
 // The star count, read once at build time so the page never calls the GitHub API (it is rate limited per visitor IP).
