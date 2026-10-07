@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.98",
+    "date": "2026-10-07",
+    "note": "What's new links to its own page"
+  },
+  {
     "version": "1.35.97",
     "date": "2026-10-07",
     "note": "Compact asks for an optional note first"
