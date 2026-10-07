@@ -1701,7 +1701,7 @@ export function settingsSvg(color: string): string {
     const at = (f: number, r: number) => `${(7 + r * Math.cos(a + f * step)).toFixed(2)},${(7 + r * Math.sin(a + f * step)).toFixed(2)}`
     pts.push(at(-0.42, 4.6), at(-0.27, 4.6), at(-0.2, 6.1), at(0.2, 6.1), at(0.27, 4.6), at(0.42, 4.6))
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.3" stroke-linejoin="round"><path d="M${pts.join('L')}Z"/><circle cx="7" cy="7" r="2"/></g></svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.3" stroke-linejoin="round" shape-rendering="geometricPrecision"><path d="M${pts.join('L')}Z"/><circle cx="7" cy="7" r="2"/></g></svg>`
 }
 
 /** k/M for token counts: 420000 -> "420k", 1000000 -> "1.0M". */
@@ -2057,7 +2057,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
       ? []
       : [<Button key="dash-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />]),
     // The terminal says it in a word; the desktop draws an icon, with this button laid blank over it to take the click.
-    <Button key="dash-settings" plain label={'Svg' in els && e.surface !== 'terminal' ? '⠀⠀⠀' : 'Settings'} onPress={toggleSettings} />,
+    // No-break spaces, not braille blanks: some fonts draw U+2800 as a dot.
+    <Button key="dash-settings" plain label={'Svg' in els && e.surface !== 'terminal' ? '   ' : 'Settings'} onPress={toggleSettings} />,
   ].filter(Boolean)
   if (e.surface === 'terminal')
     return terminalBand($, e, { key: 'dash', kind: 'calm', color: DASH_TEXT, bg: DASH_BG, edge: DASH_EDGE, title: head.replace(/^✦ /, ''), detail, buttons })
