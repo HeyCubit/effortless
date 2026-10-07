@@ -54,7 +54,9 @@ a{color:inherit}
 @media (min-width:2500px){.stage{--hz:1.5}}
 .stage{background:radial-gradient(55% 75% at 88% 52%,#1d1934 0%,#16141f 45%,transparent 75%),var(--page)}
 /* Behind the words: the mark's stripes, broad and diagonal, swaying slowly. They fade out toward the bands. */
-.waves{position:absolute;inset:0;z-index:-2;width:100%;height:100%;pointer-events:none;-webkit-mask-image:radial-gradient(70% 95% at 18% 55%,#000 35%,transparent 100%);mask-image:radial-gradient(70% 95% at 18% 55%,#000 35%,transparent 100%)}
+.waves{position:absolute;inset:0;z-index:-2;width:100%;height:100%;pointer-events:none;filter:blur(8px);-webkit-mask-image:linear-gradient(90deg,#000 0%,#0009 34%,transparent 62%);mask-image:linear-gradient(90deg,#000 0%,#0009 34%,transparent 62%)}
+/* Grain over the stripes, so they read as soft light rather than flat shapes. */
+.stage-grain{position:absolute;inset:0;z-index:-2;pointer-events:none;background-image:var(--grain);background-size:180px;opacity:.07;mix-blend-mode:overlay;-webkit-mask-image:linear-gradient(90deg,#000,transparent 60%);mask-image:linear-gradient(90deg,#000,transparent 60%)}
 .waves path{transform-box:fill-box;transform-origin:center;animation:sway ease-in-out infinite alternate}
 .waves path:nth-child(even){animation-direction:alternate-reverse}
 @keyframes sway{from{transform:translate(-14px,10px) rotate(-1.2deg) scaleY(.94)}to{transform:translate(14px,-10px) rotate(1.2deg) scaleY(1.06)}}
@@ -495,6 +497,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 <p class="beta"><b>Beta</b>effortless is still under development. Expect rough edges.</p>
 <section class="stage" id="top">
   __WAVES__
+  <div class="stage-grain" aria-hidden="true"></div>
   <div class="stage-inner">
     <div class="intro">
       <h1>__SPARK__<span class="word" aria-label="effortless"><span class="crisp" aria-hidden="true">effortless</span><span class="soft" aria-hidden="true">effortless</span></span></h1>
