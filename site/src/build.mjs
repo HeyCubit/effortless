@@ -49,19 +49,27 @@ const install = solo + '<div class="ways">'
   + `<div class="way way-claude"><p class="way-k"><img src="__CLAUDE_ORANGE__" alt="" width="20" height="20">Ask Claude</p><p class="way-t">Claude installs it for you.</p><button type="button" class="big claude" data-copy="${ask}" aria-label="Copy the install request for Claude"><img src="__CLAUDE_DARK__" alt="" width="20" height="20"><span>Copy for Claude</span></button><p class="way-h">Paste into Claude Code, press Enter.</p></div>`
   + `<div class="way way-cmd"><p class="way-k">${termIcon}Terminal</p><p class="way-t">Run one command.</p><button type="button" class="big term" data-copy="${term}" aria-label="Copy the install command">${copyIcon}<span>Copy command</span></button><p class="way-h"><code>${term}</code></p></div>`
   + '</div><p class="then">Then run <code>/reload-plugins</code> in Claude Code.</p>'
-// The opening's background: a ribbon of thin purple lines, each one wave repeated across three periods so sliding it
-// by one period loops without a seam. Lines drift at slightly different speeds, so the ribbon slowly twists. The
-// plugin's small four-point stars twinkle between them, as they do on the Handoff bar.
-const P = 900
-const wave = (y, a, x0) => `M${x0 - P} ${y} Q${x0 - P + P / 4} ${y - 2 * a} ${x0 - P / 2} ${y}` + ' T'.repeat(1) + Array.from({ length: 6 }, (_, k) => `${x0 + k * P / 2} ${y}`).join(' T')
-const lines = Array.from({ length: 11 }, (_, i) => {
-  const t = i / 10, y = 250 + i * 13, a = 70 + 40 * Math.sin(t * Math.PI), x0 = Math.round(i * 22)
-  const op = (0.06 + 0.14 * Math.sin(t * Math.PI)).toFixed(2), w = (i % 3 === 1 ? 1.6 : 1).toFixed(1)
-  return `<path d="${wave(y, a, x0)}" stroke-opacity="${op}" stroke-width="${w}" style="animation-duration:${(46 + (i * 7) % 23)}s"/>`
-}).join('')
-const star = (x, y, r, dur, delay) => `<path class="tw" style="transform-origin:${x}px ${y}px;animation-duration:${dur}s;animation-delay:${delay}s" d="M${x} ${y - r} L${x + r * .21} ${y - r * .21} L${x + r} ${y} L${x + r * .21} ${y + r * .21} L${x} ${y + r} L${x - r * .21} ${y + r * .21} L${x - r} ${y} L${x - r * .21} ${y - r * .21} Z"/>`
-const twinkles = [[160, 190, 7, 5.2, .4], [430, 420, 5, 4.4, 2.2], [620, 230, 6, 6.1, 1.1], [300, 470, 4, 4.8, 3.3], [760, 380, 5, 5.6, .9]].map(a => star(...a)).join('')
-const waves = `<svg class="waves" viewBox="0 0 1000 600" preserveAspectRatio="xMinYMid slice" aria-hidden="true"><defs><linearGradient id="wv" x1="0" x2="1"><stop offset="0" stop-color="#7566d8"/><stop offset=".5" stop-color="#a79cf7"/><stop offset="1" stop-color="#cfc7ff"/></linearGradient></defs><g class="ln" fill="none" stroke="url(#wv)" stroke-linecap="round">${lines}</g><g fill="#cfc7ff">${twinkles}</g></svg>`
+// The opening's background: four broad stripes in the mark's three purples, bent like the strokes of the star and
+// running diagonally up the left side. Each is a ribbon that tapers to a point at both ends, as the mark's arms do.
+const ribbon = (ax, ay, bx, by, thick, bend) => {
+  const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy), nx = -dy / len, ny = dx / len, N = 48, top = [], bot = []
+  for (let i = 0; i <= N; i++) {
+    const t = i / N, off = bend * Math.sin(2 * Math.PI * t), w = thick / 2 * Math.pow(Math.sin(Math.PI * t), .7)
+    const cx = ax + dx * t + nx * off, cy = ay + dy * t + ny * off
+    top.push(`${(cx + nx * w).toFixed(1)} ${(cy + ny * w).toFixed(1)}`); bot.unshift(`${(cx - nx * w).toFixed(1)} ${(cy - ny * w).toFixed(1)}`)
+  }
+  return `M${top.join(' L')} L${bot.join(' L')} Z`
+}
+const stripes = [
+  [-240, 700, 620, -120, 96, 70, '#7566d8', .2, 23],
+  [-120, 760, 740, -60, 70, 62, '#a79cf7', .16, 19],
+  [-10, 820, 850, 0, 44, 54, '#cfc7ff', .12, 27],
+  [-330, 600, 450, -180, 28, 48, '#a79cf7', .1, 31],
+]
+// Each stripe fades in from its lower end and out at its upper end, so none of them starts or stops on a hard edge.
+const grads = stripes.map(([ax, ay, bx, by, , , c, op], i) => `<linearGradient id="st${i}" gradientUnits="userSpaceOnUse" x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}"><stop offset=".08" stop-color="${c}" stop-opacity="0"/><stop offset=".42" stop-color="${c}" stop-opacity="${op}"/><stop offset=".62" stop-color="${c}" stop-opacity="${op}"/><stop offset=".95" stop-color="${c}" stop-opacity="0"/></linearGradient>`).join('')
+const paths = stripes.map(([ax, ay, bx, by, th, bend, , , dur], i) => `<path d="${ribbon(ax, ay, bx, by, th, bend)}" fill="url(#st${i})" style="animation-duration:${dur}s"/>`).join('')
+const waves = `<svg class="waves" viewBox="0 0 1000 600" preserveAspectRatio="xMinYMid slice" aria-hidden="true"><defs>${grads}</defs>${paths}</svg>`
 const map = {
   __INSTALL__: install,
   __WAVES__: waves,
