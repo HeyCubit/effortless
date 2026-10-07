@@ -3,9 +3,9 @@
 ## Branch and PRs
 - `main` on HeyCubit/effortless, version 1.35.79, pushed and installed. Direct pushes, no open PRs. Several chats push
   to main: `git pull --rebase --autostash` before every push, and read the version after the pull.
-- Release: bump `version` in `.claude-plugin/plugin.json` and this file, `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude
-  plugin test .` (145 pass), commit, push, `claude plugin marketplace update effortless`, `claude plugin update
-  effortless@effortless`. Isac restarts the app to load it. Use `py`, not `python`.
+- Release: `tools/release.sh "<subject>" "<body>"` runs the tests (149 pass) and stops on any failure, then bumps
+  the version here and in `.claude-plugin/plugin.json`, commits, pushes and installs. Isac restarts the app to load
+  it. Use `py`, not `python`.
 - Showcase site: https://heycubit.github.io/effortless/ (`gh-pages` = `main:site`).
 
 ## Where things stand (desktop band, 1.35.4x-1.35.61)
