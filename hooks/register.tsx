@@ -2216,10 +2216,10 @@ function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui
     <Box key="settings-uninstall-box" position="relative" flexDirection="row" alignItems="center" flexShrink={0}>
       <Box position="relative" width={2} height={1} alignItems="center">
         <Box position="absolute" top={0} left={0}>
-          <Svg source={binSvg(DASH_DIM)} alt="" width={14} height={14} />
+          <Svg source={binSvg(DASH_DIM)} alt="bin" width={14} height={14} />
         </Box>
         <Box position="absolute" top={0} left={0} display={red ? 'flex' : 'none'} hover={red ? undefined : { scope: 'uninstall', display: 'flex' }}>
-          <Svg source={binSvg(UNINSTALL_RED)} alt="" width={14} height={14} />
+          <Svg source={binSvg(UNINSTALL_RED)} alt="bin" width={14} height={14} />
         </Box>
       </Box>
       <Text color={red ? UNINSTALL_RED : DASH_DIM} hover={{ scope: 'uninstall', color: UNINSTALL_RED }}>{label}</Text>
@@ -3858,8 +3858,8 @@ Saved to ${out}.md and .json` }
             <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center">
               {(['quick', 'full'] as const).map(k => (
                 <Box key={`handoff-kind-${k}`} flexGrow={1} width={0} flexDirection="row" alignItems="center" justifyContent="center">
-                  <Svg source={rowIconSvg(k, choice.kind === k ? '#141416' : DASH_DIM)} alt="" width={14} height={14} />
-                  <Text color={choice.kind === k ? '#141416' : DASH_DIM}>{k === 'quick' ? ' Quick' : ' Full'}</Text>
+                  <Box flexShrink={0} width={2} alignItems="center"><Svg source={rowIconSvg(k, choice.kind === k ? '#141416' : DASH_DIM)} alt={k === 'quick' ? 'bolt' : 'pen'} width={14} height={14} /></Box>
+                  <Text color={choice.kind === k ? '#141416' : DASH_DIM}>{k === 'quick' ? 'Quick' : 'Full'}</Text>
                 </Box>
               ))}
             </Box>
