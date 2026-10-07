@@ -2119,15 +2119,15 @@ export function dashboardLines(d: {
 /** How long the effort word glows after it changes: held at full colour, then faded out; and the step of the fade. */
 const FLASH_HOLD_MS = 1000
 const FLASH_MS = 1800
-/** The fade's steps (none: violet, then white in one redraw). Each step is a redraw, and every redraw rebuilds the band:
- * its images restart and the buttons under a pointer are swapped (hover flicker, lost clicks). */
-const FLASH_STEPS: readonly (readonly [number, number])[] = []
+/** The fade's steps, [ms, share of the way to white]: five, so it reads as a fade without a tick. Each step is a redraw,
+ * and every redraw rebuilds the band (images restart, buttons under a pointer are swapped), so keep them few. */
+const FLASH_STEPS: readonly (readonly [number, number])[] = [[1000, 0.15], [1160, 0.35], [1320, 0.55], [1480, 0.75], [1640, 0.9]]
 /** The glow: a stronger violet than the accent, so a switch is seen at a glance. */
 const FLASH_COLOR = '#9b7bff'
 /** The effort word's colour `ms` after it changed: the glow, held, then easing out to the band's white. */
 export function flashColor(ms: number | null): string {
   if (ms === null || ms >= FLASH_MS) return DASH_TEXT
-  if (ms <= FLASH_HOLD_MS) return FLASH_COLOR
+  if (ms < FLASH_HOLD_MS) return FLASH_COLOR
   const k = [...FLASH_STEPS].reverse().find(([at]) => ms >= at)?.[1] ?? 0
   const ch = (hex: string, i: number) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16)
   return `#${[0, 1, 2].map(i => Math.round(ch(FLASH_COLOR, i) + (ch(DASH_TEXT, i) - ch(FLASH_COLOR, i)) * k).toString(16).padStart(2, '0')).join('')}`
@@ -2227,8 +2227,9 @@ const HANDOFF_PILL_W = 66
 const HANDOFF_PILL_H = 19
 /** Handoff's look at `percent` of context, a step each percent: no box at 0, the grey box by HANDOFF_BOX_AT, white by
  * HANDOFF_LOUD_AT. The label goes from dim to white, and dark once the box is light enough to need it. */
-export function handoffLook(percent: number): { fill: string; opacity: number; edge: string; label: string } {
-  const p = Math.max(0, Math.min(HANDOFF_LOUD_AT, Math.round(percent)))
+export function handoffLook(percent: number, hovered = false): { fill: string; opacity: number; edge: string; label: string } {
+  // Hovered, the box is there even on a fresh chat and a few steps lighter.
+  const p = Math.max(hovered ? HANDOFF_BOX_AT : 0, Math.min(HANDOFF_LOUD_AT, Math.round(percent) + (hovered ? 5 : 0)))
   const mix = (a: string, b: string, k: number) => {
     const ch = (hex: string, i: number) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16)
     return `#${[0, 1, 2].map(i => Math.round(ch(a, i) + (ch(b, i) - ch(a, i)) * k).toString(16).padStart(2, '0')).join('')}`
@@ -2241,8 +2242,8 @@ export function handoffLook(percent: number): { fill: string; opacity: number; e
   return { fill: mix(HOVER_BOX, '#ececf0', k), opacity: 1, edge: mix('#3a3a40', '#ffffff', k), label: k > 0.45 ? '#141416' : '#ececf0' }
 }
 /** Handoff's box as drawn (see handoffLook). */
-export function handoffPillSvg(percent: number): string {
-  const l = handoffLook(percent)
+export function handoffPillSvg(percent: number, hovered = false): string {
+  const l = handoffLook(percent, hovered)
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${HANDOFF_PILL_W}" height="${HANDOFF_PILL_H}" viewBox="0 0 ${HANDOFF_PILL_W} ${HANDOFF_PILL_H}"><rect x=".5" y=".5" width="${HANDOFF_PILL_W - 1}" height="${HANDOFF_PILL_H - 1}" rx="6" fill="${l.fill}" fill-opacity="${l.opacity.toFixed(3)}" stroke="${l.edge}" stroke-opacity="${l.opacity.toFixed(3)}"/></svg>`
 }
 /** How hard the glow behind Handoff pulls: 0 below HANDOFF_LOUD_AT, then 1 to 5, one step per 10% of context. */
@@ -2391,11 +2392,17 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
                 <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
                   <els.Svg source={handoffPillSvg(lastContext?.percent ?? 0)} alt="Handoff box" width={HANDOFF_PILL_W} height={HANDOFF_PILL_H} />
                 </Box>
-                <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                  <Text color={handoffLook(lastContext?.percent ?? 0).label}>Handoff</Text>
+                {/* Its hover: a lighter pill shown over the box, not the app's ghost fill, which is sized to the blank
+                    label and sat off the drawn box. */}
+                <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center"
+                  display="none" hover={{ scope: 'handoff', display: 'flex' }}>
+                  <els.Svg source={handoffPillSvg(lastContext?.percent ?? 0, true)} alt="Handoff box" width={HANDOFF_PILL_W} height={HANDOFF_PILL_H} />
                 </Box>
                 <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                  <Button key="dash-handoff" plain label={' '.repeat(14)} onPress={() => openHandoffBar($)} />
+                  <Text color={handoffLook(lastContext?.percent ?? 0).label} hover={{ scope: 'handoff', color: handoffLook(lastContext?.percent ?? 0, true).label }}>Handoff</Text>
+                </Box>
+                <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+                  <Button key="dash-handoff" plain label={' '.repeat(14)} hover={{ scope: 'handoff', backgroundColor: '#00000000' }} onPress={() => openHandoffBar($)} />
                 </Box>
               </Box>
             </Box>

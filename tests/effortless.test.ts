@@ -2684,7 +2684,10 @@ describe('dashboard', () => {
 
   test('a new effort glows violet, then turns the band white in one redraw', () => {
     expect(flashColor(0)).toBe('#9b7bff')
-    expect(flashColor(1000)).toBe('#9b7bff')
+    expect(flashColor(999)).toBe('#9b7bff')
+    expect(new Set([1000, 1160, 1320, 1480, 1640].map(flashColor)).size).toBe(5)
+    expect(flashColor(1400)).not.toBe('#9b7bff')
+    expect(flashColor(1400)).not.toBe('#d4d4d8')
     expect(flashColor(null)).toBe('#d4d4d8')
     expect(flashColor(1800)).toBe('#d4d4d8')
   })
