@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, compactTranscript } from '../hooks/register'
+import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, compactTranscript, judgeBrightness } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
 
@@ -1601,6 +1601,15 @@ describe('compaction by Haiku', () => {
     await $.session.compact({})
     expect(ran.core).toBe(1)
     expect(asked).toBe(0)
+  })
+})
+
+describe('deciding glow', () => {
+  test('the fade starts from the brightness the breathing had, read off the same curve as the browser draws it', () => {
+    // Measured in Chrome: opacity at these points of one breath (.25 up to .85 and back, each half ease-in-out).
+    const measured: [number, number][] = [[0, 0.25], [0.1, 0.299], [0.2, 0.449], [0.3, 0.651], [0.4, 0.801], [0.5, 0.85], [0.6, 0.801], [0.8, 0.449], [0.97, 0.254]]
+    for (const [phase, opacity] of measured) expect(Math.abs(judgeBrightness(phase) - opacity)).toBeLessThan(0.005)
+    expect(Math.abs(judgeBrightness(1.3) - judgeBrightness(0.3))).toBeLessThan(1e-6)
   })
 })
 
