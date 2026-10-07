@@ -1613,6 +1613,19 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
   $.ui.invalidate('ui.render')
 }
 
+/** How long the "Settings saved" card stays above the prompt. */
+const SAVED_CARD_MS = 2500
+/** The card after Save: the bar's own colours, one line, nothing moving. */
+function savedCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
+  const { Box, Text } = $.ui.resolve(e)
+  return (
+    <Box key="saved" flexDirection="row" alignItems="center" gap={1} paddingX={1} backgroundColor={DASH_BG} borderStyle="round" borderColor={DASH_EDGE}>
+      <Text color={ACCENT}>✓</Text>
+      <Text bold>Settings saved</Text>
+    </Box>
+  )
+}
+
 /** Saves every change in the panel's draft, then closes the panel. Nothing changed applies before this. */
 async function saveDraft($: EngineInterface) {
   const draft = await read($, settingsDraft)
@@ -1627,7 +1640,8 @@ async function saveDraft($: EngineInterface) {
   if (key?.trim() && (changes.judge ?? config.judge) !== 'jev') changes.judge = 'jev'
   await update($, settingsDraft, () => ({}))
   await update($, settingsOpen, () => false)
-  $.ui.toast('effortless: settings saved.')
+  // Said by a card above the prompt, not a toast. Kept in the store: each setting written reloads the plugin.
+  await $.store.set('settingsSavedAt', await $.clock.now().catch(() => Date.now()))
   $.ui.invalidate('ui.render')
   await $.store.set('setupSave', changes)
   await drainSetupSave($)
@@ -4417,6 +4431,14 @@ Saved to ${out}.md and .json` }
     // A handoff or compact running or just done: said above the prompt, where it is seen at once.
     // A new version: offered, updating, or just updated (gone after UPDATED_CARD_MS or ✕). Desktop only; the terminal
     // has /effortless update.
+    const savedAt = (await $.store.get('settingsSavedAt').catch(() => null)) as number | null
+    if (typeof savedAt === 'number') {
+      const since = (await $.clock.now().catch(() => Date.now())) - savedAt
+      if (since >= 0 && since < SAVED_CARD_MS) {
+        $.clock.after(SAVED_CARD_MS - since + 50, () => $.ui.invalidate('ui.render'))
+        return savedCardTree($, e)
+      }
+    }
     const upd = e.surface === 'terminal' ? null : await read($, updateCard)
     if (upd && !(upd.stage === 'done' && (await $.clock.now()) - upd.at >= UPDATED_CARD_MS)) return updateCardTree($, e, upd)
     const compactNow = e.surface === 'terminal' ? null : await compactCard($, !!e.props.isWorking)

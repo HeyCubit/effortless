@@ -2323,7 +2323,7 @@ describe('settings panel', () => {
 
   test('Open settings opens the panel; the slider, range and key are saved from it', async ($, on) => {
     engine(on, { USERPROFILE: 'C:/Users/x' })
-    mock.clock(on)
+    const mocked = mock.clock(on)
     const set: { key: string; value: unknown }[] = []
     on('config.set', (_$, e) => {
       set.push({ key: e.key, value: e.value })
@@ -2383,6 +2383,11 @@ describe('settings panel', () => {
     expect(said.join(' | ')).toContain('key saved')
     expect(files['C:/Users/x/.config/jev/.env']).toBe('OTHER=1\nTYPESAFE_API_KEY=tk-new\n')
     await panel.unmount()
+    // A plain card says it was saved, then goes.
+    const saved = await $.ui.mount(DESK_BAND)
+    expect(await drawn(saved)).toContain('Settings saved')
+    await saved.unmount()
+    await mocked.advance(3000)
     await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
   })
 })

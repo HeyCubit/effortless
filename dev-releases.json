@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.36.6",
+    "date": "2026-10-07",
+    "note": "Settings saved card"
+  },
+  {
     "version": "1.36.5",
     "date": "2026-10-07",
     "note": "Deciding glow fades over the running breath"
