@@ -752,7 +752,9 @@ describe('cache countdown', () => {
     const mocked = mock.clock(on)
     answer(on, { ephemeral_1h_input_tokens: 500, ephemeral_5m_input_tokens: 0 })
     let compacted = 0
+    let note = ''
     on('command.run', (_$, e) => {
+      if (e.command === 'compact') note = e.args
       if (e.command === 'compact') compacted++
       return { text: 'ok' }
     })
@@ -769,9 +771,12 @@ describe('cache countdown', () => {
     const band = await $.ui.mount(DESK_BAND)
     expect(await band.find({ key: 'cold-compact' })).toBeDefined()
     await band.press({ key: 'cold-compact' })
+    // The bar asks for an optional note first; Enter in it compacts with the note as /compact's instructions.
+    await band.input({ key: 'compact-note', text: 'keep the API decisions' })
     await mocked.advance(100)
     // The test kit's compaction has no transcript to run over, so only the call is checked here.
     expect(compacted).toBe(1)
+    expect(note).toBe('keep the API decisions')
     await band.unmount()
   })
 
@@ -812,6 +817,8 @@ describe('cache countdown', () => {
     await step($)
     await mocked.advance(6 * 60_000)
     await band.press({ key: 'cold-compact' })
+    // The bar asks for an optional note first; Compact runs it.
+    await band.press({ key: 'compact-go' })
     expect(toasts.join(' ')).toContain('compact failed')
     expect(await drawn(footer)).toContain(shows('❄ Cold'))
     await band.unmount()
@@ -1948,7 +1955,8 @@ describe('swamp band and setup entry', () => {
     await guide.unmount()
     await mocked.advance(16_000)
     const band = await $.ui.mount(DESK_BAND)
-    const pressed = band.press({ key: 'swamp-compact' })
+    await band.press({ key: 'swamp-compact' })
+    const pressed = band.press({ key: 'compact-go' })
     await mocked.advance(100)
     const during = await $.ui.mount(DESK_BAND).catch(() => null)
     expect(during ? await drawn(during) : '').not.toContain('Chat is getting swamped')
@@ -1983,7 +1991,8 @@ describe('swamp band and setup entry', () => {
     await $.turn.complete({ turnId: 't1', answer: 'Last reply.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
     const reply = () => $.ui.mount({ plugin: 'effortless', surface: 'desktop', component: 'AssistantMessage', props: { text: 'Last reply.', isFirstOfReply: true } } as never)
     const band = await $.ui.mount(DESK_BAND)
-    const pressed = band.press({ key: 'swamp-compact' })
+    await band.press({ key: 'swamp-compact' })
+    const pressed = band.press({ key: 'compact-go' })
     await mocked.advance(100)
     expect(await drawn(band)).toContain('Compacting…')
     // Not under the old reply: after a compact no reply sits past the boundary.
