@@ -3882,19 +3882,19 @@ Saved to ${out}.md and .json` }
           <Box key="compact-art" position="absolute" top={-1} right={0} bottom={-1}>
             <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
           </Box>
-          <Box key="compact-words" position="relative" flexDirection="column" flexShrink={0}>
+          {/* One line, as tall as the bands: the name, then the field and the buttons on the right. */}
+          <Box key="compact-words" position="relative" flexShrink={0}>
             <Text color={ACCENT} bold>Compact</Text>
-            <Text dimColor>What should the summary keep? Optional.</Text>
           </Box>
           <Box key="compact-controls" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end" alignItems="center" gap={1}>
             <Box position="absolute" top={0} left={0} />
-            <Box key="compact-field" width={44} flexShrink={1} minWidth={20}>
-              <Input key="compact-note" autoFocus placeholder="e.g. keep the API decisions and open bugs" submitLabel="↵"
+            <Box key="compact-field" width={40} flexShrink={1} minWidth={20}>
+              <Input key="compact-note" placeholder="Summary (optional)" submitLabel="↵"
                 onInput={v => { compactNote = v }} onSubmit={v => { compactNote = v; void go() }} />
             </Box>
             <Box key="compact-go-box" position="relative" flexShrink={0}>
               <Box position="absolute" top={0} left={0} />
-              <Button key="compact-go" variant="primary" label="Compact" onPress={go} />
+              <Button key="compact-go" variant="primary" label="Compact ↵" onPress={go} />
             </Box>
             <Box key="compact-close-box" position="relative" flexShrink={0}>
               <Box position="absolute" top={0} left={0} />
