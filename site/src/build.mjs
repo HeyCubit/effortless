@@ -48,30 +48,12 @@ const install = solo + '<div class="ways">'
   + `<div class="way way-claude"><p class="way-k"><img src="__CLAUDE_ORANGE__" alt="" width="20" height="20">Ask Claude</p><p class="way-t">Claude installs it for you.</p><button type="button" class="big claude" data-copy="${ask}" aria-label="Copy the install request for Claude"><img src="__CLAUDE_DARK__" alt="" width="20" height="20"><span>Copy for Claude</span></button><p class="way-h">Paste into Claude Code, press Enter.</p></div>`
   + `<div class="way way-cmd"><p class="way-k">${termIcon}Terminal</p><p class="way-t">Run one command.</p><button type="button" class="big term" data-copy="${term}" aria-label="Copy the install command">${copyIcon}<span>Copy command</span></button><p class="way-h"><code>${term}</code></p></div>`
   + '</div><p class="then">Then run <code>/reload-plugins</code> in Claude Code.</p>'
-// The opening's background: four broad stripes in the mark's three purples, bent like the strokes of the star and
-// running diagonally up the left side, their edges dissolving into grain like the wordmark's. Each is a ribbon that tapers to a point at both ends, as the mark's arms do.
-const ribbon = (ax, ay, bx, by, thick, bend) => {
-  const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy), nx = -dy / len, ny = dx / len, N = 48, top = [], bot = []
-  for (let i = 0; i <= N; i++) {
-    const t = i / N, off = bend * Math.sin(2 * Math.PI * t), w = thick / 2 * Math.pow(Math.sin(Math.PI * t), .7)
-    const cx = ax + dx * t + nx * off, cy = ay + dy * t + ny * off
-    top.push(`${(cx + nx * w).toFixed(1)} ${(cy + ny * w).toFixed(1)}`); bot.unshift(`${(cx - nx * w).toFixed(1)} ${(cy - ny * w).toFixed(1)}`)
-  }
-  return `M${top.join(' L')} L${bot.join(' L')} Z`
-}
-const stripes = [
-  [-240, 700, 620, -120, 96, 70, '#7566d8', .2, 23],
-  [-120, 760, 740, -60, 70, 62, '#a79cf7', .16, 19],
-  [-10, 820, 850, 0, 44, 54, '#cfc7ff', .12, 27],
-  [-330, 600, 450, -180, 28, 48, '#a79cf7', .1, 31],
-]
-// Each stripe fades in from its lower end and out at its upper end, so none of them starts or stops on a hard edge.
-const grads = stripes.map(([ax, ay, bx, by, , , c, op], i) => `<linearGradient id="st${i}" gradientUnits="userSpaceOnUse" x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}"><stop offset=".08" stop-color="${c}" stop-opacity="0"/><stop offset=".42" stop-color="${c}" stop-opacity="${op}"/><stop offset=".62" stop-color="${c}" stop-opacity="${op}"/><stop offset=".95" stop-color="${c}" stop-opacity="0"/></linearGradient>`).join('')
-const paths = stripes.map(([ax, ay, bx, by, th, bend, , , dur], i) => `<path d="${ribbon(ax, ay, bx, by, th, bend)}" fill="url(#st${i})" style="animation-duration:${dur}s"/>`).join('')
-const waves = `<svg class="waves" viewBox="0 0 1000 600" preserveAspectRatio="xMinYMid slice" aria-hidden="true"><defs>${grads}<filter id="stgrain" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="1" seed="7" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="9" xChannelSelector="R" yChannelSelector="G" result="moved"/><feComponentTransfer in="noise" result="dots"><feFuncA type="discrete" tableValues="0 1 1 1"/></feComponentTransfer><feComposite in="moved" in2="dots" operator="in"/></filter></defs><g filter="url(#stgrain)">${paths}</g></svg>`
+// The opening's background: the brand's own star, huge, dim and cropped at the left edge. One calm shape; the
+// wordmark's grainy dissolve is applied to it in CSS (#grainy).
+const waves = () => `<div class="bgmark" aria-hidden="true">${mark()}</div>`
 const map = {
   __INSTALL__: install,
-  __WAVES__: waves,
+  __WAVES__: waves(),
   __STARS_BADGE__: starsBadge,
   __STARS__: heroArt, 
   __ART_BRAND__: uri(grab('BRAND_SVG')), __ART_FROST__: uri(grab('FROST_SVG')), __ART_SWAMP__: uri(grab('SWAMP_SVG')),
