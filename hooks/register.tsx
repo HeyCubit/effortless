@@ -2669,7 +2669,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     cacheNow: drawn ? null : cacheShown,
     // Desktop draws the context as a ring and a figure (as the swamp band does); the terminal says it in words.
     contextPercent: e.surface === 'terminal' && lastContext && lastContext.window ? lastContext.percent : null,
-    reason: config.hide.includes('reason') ? '' : reason,
+    // A prompt on a cheaper model names it in the judge's line ("On Sonnet · Haiku: a small fix"), not beside the effort word.
+    reason: config.hide.includes('reason') ? '' : routed && !v.judging ? `On ${MODELS.find(m => m.key === routed)!.label} · ${reason}` : reason,
     // The last reply's cost is left out of the bar: it was noise there. lastTurn still records it.
     last: null,
   })
@@ -2773,8 +2774,6 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           {/* A new effort shows in violet, then white (effortFlash): plain text in the app's font. An animated image of the
               word looked cheap: another font, a late start and a jump back to the text. */}
           <Text key="dash-level" color={wordColor} bold>{v.judging && Svg ? 'Deciding' : what}</Text>
-          {/* This prompt runs on a cheaper model than the chat's: its name, dim, after the effort. */}
-          {routed && v.auto && !v.judging ? <Text key="dash-model" color={DASH_DIM}>{` · ${MODELS.find(m => m.key === routed)!.label}`}</Text> : null}
           {/* While the judge decides: the progress bar's thinking dots, as a plain image (its CSS still runs, and a
               redraw does not restart it the way an interactive frame does). */}
           {v.judging && Svg ? (
