@@ -1047,11 +1047,28 @@ async function setTurnBusy($: EngineInterface, busy: boolean) {
   if (was !== busy) $.ui.invalidate('ui.render')
 }
 
+/** A context share to draw the bars with instead of the real one, from ~/.claude/effortless-preview.json
+ * ({"contextPercent": 45}), so how a level looks can be checked on screen without filling a chat. No file, no change. */
+async function previewPercent($: EngineInterface): Promise<number | undefined> {
+  const home = (await envUserProfile($)) ?? (await envHome($))
+  if (!home) return undefined
+  const text = await $.fs.read(`${home}/.claude/effortless-preview.json`).catch(() => '')
+  if (!text) return undefined
+  try {
+    const n = Number((JSON.parse(text) as { contextPercent?: unknown }).contextPercent)
+    return Number.isFinite(n) && n >= 0 && n <= 100 ? n : undefined
+  } catch {
+    return undefined
+  }
+}
+
 async function checkSwamp($: EngineInterface) {
   const { context, rateLimits } = await $.session.usage()
-  const tokens = context.tokens ?? 0
+  const preview = await previewPercent($)
+  const tokens = preview === undefined ? (context.tokens ?? 0) : Math.round(((context.window || 200_000) * preview) / 100)
   // The app may leave the percent out (or give 0) while it has the tokens and the window: work it out then.
-  const percent = context.percent || (context.window ? (tokens / context.window) * 100 : 0)
+  const percent = preview ?? (context.percent || (context.window ? (tokens / context.window) * 100 : 0))
+  if (preview !== undefined && !context.window) context.window = 200_000
   const wasStep = handoffGlowStep(lastContext?.percent ?? 0)
   lastContext = { tokens, window: context.window ?? 0, percent }
   // The Handoff button turns white and glows harder with the context: redraw the band when it crosses a step.
