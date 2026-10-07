@@ -2673,6 +2673,11 @@ export function judgeGlowAt(startedAt: number, endedAt: number | null, now: numb
   if (now < fadeFrom + JUDGE_FADE_MS) return inPhase(judgeGlowSvg('fade'), now - fadeFrom)
   return null
 }
+// The glow's clock is read as late as the draw allows, and set ahead by how long the rest of a draw takes (measured,
+// smoothed): a fade placed where it was when the draw began showed up that much behind, a little brighter at every
+// redraw, which read as lag and as a second glow.
+let glowReadAt: number | null = null
+let drawLead = 20
 // When the judge started, and when it gave its verdict (null while it decides).
 let judgeStartedAt = 0
 let judgeEndedAt: number | null = 0
@@ -2814,6 +2819,10 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     return terminalBand($, e, { key: 'dash', kind: 'calm', color: DASH_TEXT, bg: DASH_BG, edge: DASH_EDGE, title: head.replace(/^✦ /, ''), detail, buttons })
   const Svg = 'Svg' in els ? els.Svg : undefined
   const wordColor = await effortFlash($, what, Boolean(v.judging), entering)
+  glowReadAt = Date.now()
+  const glowNow = (await $.clock.now().catch(() => nowMs)) + drawLead
+  const glowSource = Svg ? judgeGlowAt(judgeStartedAt, judgeEndedAt, glowNow) : null
+  if (glowSource && judgeEndedAt !== null) renderLog.push(`${new Date().toISOString()} ${loadedSession} glow: fade drawn at +${Math.round(glowNow - Math.max(judgeEndedAt, judgeStartedAt + JUDGE_RISE_MS))} ms, lead ${Math.round(drawLead)} ms, ${Math.round(glowNow - drawLead - nowMs)} ms after the draw began`)
   return (
     <Box key="dash" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
       backgroundColor={DASH_BG} borderStyle="round" borderColor={DASH_EDGE}>
@@ -2831,9 +2840,9 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
         </Box>
       ) : null}
       {/* The judge decides: the violet rim lights up, holds, and fades from full once the verdict is in. */}
-      {Svg && judgeGlowAt(judgeStartedAt, judgeEndedAt, nowMs) ? (
+      {Svg && glowSource ? (
         <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={judgeGlowAt(judgeStartedAt, judgeEndedAt, nowMs)!} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+          <Svg source={glowSource} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
       {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
@@ -4610,6 +4619,10 @@ Saved to ${out}.md and .json` }
       lastRenderError = (error instanceof Error ? error.message : String(error)).slice(0, 300)
       return next(e)
     } finally {
+      if (glowReadAt !== null) {
+        drawLead = drawLead * 0.7 + Math.min(150, Date.now() - glowReadAt + 16) * 0.3
+        glowReadAt = null
+      }
       // How long the draws take, for the first few after a load: the render log says where a slow start goes.
       if (drawsTimed < 5) {
         drawsTimed++
