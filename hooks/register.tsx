@@ -2238,8 +2238,8 @@ const AUTO_GLOW_H = 37
 export function autoGlowSvg(on: boolean): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
   const rim = `x="0" y="0" width="${W}" height="${H}" rx="8"`
-  const [wash, line, strength] = on ? [ACCENT, '#c9bfff', 1] : ['#8b8b93', '#c8c8d0', 0.6]
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${AUTO_GLOW_MS / 1000}s ease-in-out}@keyframes r{0%{opacity:0}15%{opacity:${strength}}45%{opacity:${(strength * 0.85).toFixed(2)}}100%{opacity:0}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="2.8"/></filter><filter id="s" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation=".8"/></filter></defs><g class="r"><rect ${rim} fill="none" stroke="${wash}" stroke-width="7" opacity=".45" filter="url(#b)"/><rect ${rim} fill="none" stroke="${line}" stroke-width="1.4" opacity=".5" filter="url(#s)"/></g></svg>`
+  const [wash, line, strength] = on ? [ACCENT, '#c9bfff', 0.75] : ['#8b8b93', '#c8c8d0', 0.6]
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${AUTO_GLOW_MS / 1000}s ease-in-out}@keyframes r{0%{opacity:0}15%{opacity:${strength}}45%{opacity:${(strength * 0.85).toFixed(2)}}100%{opacity:0}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter><filter id="s" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation=".8"/></filter></defs><g class="r"><rect ${rim} fill="none" stroke="${wash}" stroke-width="4" opacity=".4" filter="url(#b)"/><rect ${rim} fill="none" stroke="${line}" stroke-width="1.4" opacity=".5" filter="url(#s)"/></g></svg>`
 }
 // When the bar last saw Auto off or on, when Auto came on (for the edge glow), and when it last changed (for the slide).
 let autoSeen: boolean | undefined
