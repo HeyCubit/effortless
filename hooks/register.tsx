@@ -2178,7 +2178,13 @@ async function effortFlash($: EngineInterface, what: string, judging: boolean, e
 const UNINSTALL_ARM_MS = 4000
 let uninstallArmedAt = 0
 let uninstalling = false
-function uninstallButton($: EngineInterface, Button: ReturnType<EngineInterface['ui']['resolve']>['Button']) {
+const UNINSTALL_RED = '#ff6b6b'
+/** A bin: the lid and its handle, the can with two ribs. */
+function binSvg(color: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2.2 3.8H11.8M5.4 3.8V2.4H8.6V3.8M3.4 3.8L4 12H10L10.6 3.8M5.9 6V9.8M8.1 6V9.8"/></g></svg>`
+}
+function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui']['resolve']>) {
+  const { Box, Text, Button, Svg } = els
   const armed = Date.now() - uninstallArmedAt < UNINSTALL_ARM_MS
   const press = async () => {
     if (uninstalling) return
@@ -2201,12 +2207,26 @@ function uninstallButton($: EngineInterface, Button: ReturnType<EngineInterface[
     const reloaded = await $.command.run({ command: 'reload-plugins', args: '' } as never).then(() => true, () => false)
     if (!reloaded) await typeCommand($, '/reload-plugins')
   }
-  return uninstalling ? (
-    <Button key="settings-uninstall" plain dimColor label="Uninstalling…" onPress={() => {}} />
-  ) : armed ? (
-    <Button key="settings-uninstall" variant="secondary" label="Press again to uninstall" onPress={press} />
-  ) : (
-    <Button key="settings-uninstall" plain dimColor label="Uninstall" onPress={press} />
+  const label = uninstalling ? 'Uninstalling…' : armed ? 'Press again to uninstall' : 'Uninstall'
+  if (!Svg) return <Button key="settings-uninstall" plain dimColor={!armed} label={label} onPress={press} />
+  // A bin and the word, grey; red under the pointer, and red while armed (the red bin is laid over the grey one, since
+  // a hover can only reveal). A blank button over both takes the press.
+  const red = armed || uninstalling
+  return (
+    <Box key="settings-uninstall-box" position="relative" flexDirection="row" alignItems="center" flexShrink={0}>
+      <Box position="relative" width={2} height={1} alignItems="center">
+        <Box position="absolute" top={0} left={0}>
+          <Svg source={binSvg(DASH_DIM)} alt="" width={14} height={14} />
+        </Box>
+        <Box position="absolute" top={0} left={0} display={red ? 'flex' : 'none'} hover={red ? undefined : { scope: 'uninstall', display: 'flex' }}>
+          <Svg source={binSvg(UNINSTALL_RED)} alt="" width={14} height={14} />
+        </Box>
+      </Box>
+      <Text color={red ? UNINSTALL_RED : DASH_DIM} hover={{ scope: 'uninstall', color: UNINSTALL_RED }}>{label}</Text>
+      <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+        <Button key="settings-uninstall" plain hover={{ scope: 'uninstall', backgroundColor: '#00000000' }} label={' '.repeat(label.length + 3)} onPress={press} />
+      </Box>
+    </Box>
   )
 }
 
@@ -3753,7 +3773,7 @@ Saved to ${out}.md and .json` }
                     onSelect={set('layout')} />,
                 ]),
             ...toggles,
-            ...(bare ? [] : [uninstallButton($, Button)]),
+            ...(bare ? [] : [uninstallButton($, $.ui.resolve(e))]),
 ]}
               </Box>
             </Box>
