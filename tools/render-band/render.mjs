@@ -37,6 +37,7 @@ const params = {
   cacheMinutes: opt('cache', '59') === 'off' ? null : Number(opt('cache', '59')),
   effort: opt('effort', 'medium'),
   reason: opt('reason', 'a small fix in one file'),
+  model: opt('model', 'opus'),
   judged: !flag('fresh'),
   judging: flag('judging'),
   working: flag('working'),

@@ -128,7 +128,7 @@ async function clickable(ui: { drawn: () => Promise<unknown> }, layer: string) {
 }
 
 describe('auto', () => {
-  test('effort follows the judge, the model stays the one in use', async ($, on) => {
+  test('with the cheaper model off, effort follows the judge and the model stays the one in use', { options: { modelAuto: 'off' } } as never, async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple question"}')
     const sent = recordSteps(on)
@@ -137,6 +137,31 @@ describe('auto', () => {
     await step($)
 
     expect(sent[0]).toEqual({ model: 'claude-opus-5-5', effort: 'low' })
+  })
+
+  test('a prompt the judge calls simple runs on Haiku 5.5; the next hard one is back on the chat model', async ($, on) => {
+    engine(on)
+    let verdict = '{"model":"haiku","effort":"low","why":"simple question"}'
+    on('model.complete', () => ({ value: { isAnswered: true as const, text: verdict, usage: USAGE } }))
+    const sent = recordSteps(on)
+    await $.prompt.submit({ text: 'vad heter mappen?', wait: false, origin: { kind: 'composer' } })
+    await step($)
+    expect(sent[0]).toEqual({ model: 'claude-haiku-5-5', effort: 'low' })
+    verdict = '{"model":"opus","effort":"high","why":"big refactor"}'
+    await $.prompt.submit({ text: 'refactor the whole auth layer', wait: false, origin: { kind: 'composer' } })
+    await step($)
+    expect(sent[1]).toEqual({ model: 'claude-opus-5-5', effort: 'high' })
+  })
+
+  test('the judge never moves a prompt to a dearer model than the chat model, nor to Fable', async ($, on) => {
+    engine(on, {}, 'claude-sonnet-5-5')
+    judgeSays(on, '{"model":"opus","effort":"high","why":"hard"}')
+    const sent = recordSteps(on)
+    await $.prompt.submit({ text: 'debug this race condition', wait: false, origin: { kind: 'composer' } })
+    for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-sonnet-5-5', effort: 'high', messageCount: 1 })) {
+      // drain
+    }
+    expect(sent[0].model).toBe('claude-sonnet-5-5')
   })
 
   test('a reply that is not a verdict leaves the session as it is', async ($, on) => {
@@ -237,7 +262,7 @@ describe('manual effort', () => {
 })
 
 describe('model in use', () => {
-  test('a switch in the app moves the band, and effort applies to the new model at once', async ($, on) => {
+  test('a switch in the app moves the band, and effort applies to the new model at once', { options: { modelAuto: 'off' } } as never, async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"haiku","effort":"low","why":"kort"}')
     const sent = recordSteps(on)
@@ -1043,6 +1068,7 @@ describe('judge choice (plugin settings)', () => {
       swampAt: 50,
       layout: 'default',
       compactWith: 'haiku',
+      modelAuto: 'on',
     })
     expect(readConfig({ swampAt: '20' })).toMatchObject({ swampAt: 20 })
     expect(readConfig({ swampAt: '33' }).swampAt).toBe(50)
