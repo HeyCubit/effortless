@@ -170,8 +170,9 @@ const DASH_SVG = BRAND_SVG.replace(/stop-opacity="([0-9.]+)"/g, (_m, v: string) 
   .replace(/#(7c6cf0|8f7ff0|b3a6ff|c9bdff|9a86ff)/g, '#9a9aa2')
 const DASH_BG = '#141416'
 const DASH_EDGE = '#2a2a2f'
-/** The mark as the settings bar shows it: tilted and faint, to be cut off by the bar. */
-const SETTINGS_MARK = MARK_SVG.replace('<g mask=', '<g opacity=".2" transform="rotate(-16 50 50)" mask=')
+/** The website footer's word, for the settings bar: "effortless" big in the violet gradient over a grainy blurred copy
+ * (the site's #grainy filter), cut off by the bar at its bottom. The app gives the image the band's font. */
+const SETTINGS_WORD = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="100" viewBox="0 0 440 100"><defs><linearGradient id="w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9d3ff"/><stop offset=".38" stop-color="#a79cf7"/><stop offset=".7" stop-color="#5f53b8"/><stop offset=".96" stop-color="#5f53b8" stop-opacity="0"/></linearGradient><filter id="g" x="-20%" y="-20%" width="140%" height="160%"><feGaussianBlur in="SourceGraphic" stdDeviation="9" result="b"/><feTurbulence type="fractalNoise" baseFrequency="1.7" numOctaves="1" seed="7" result="noise"/><feDisplacementMap in="b" in2="noise" scale="7" xChannelSelector="R" yChannelSelector="G" result="moved"/><feComponentTransfer in="noise" result="dots"><feFuncA type="discrete" tableValues="0 0 1 1 1"/></feComponentTransfer><feComposite in="moved" in2="dots" operator="in"/></filter></defs><g font-size="96" font-weight="600" letter-spacing="-5"><text x="6" y="88" fill="#8e7ff5" opacity=".35" filter="url(#g)">effortless</text><text x="6" y="88" fill="url(#w)" opacity=".34">effortless</text></g></svg>`
 /** The settings panel's top bar: a shade above the band. */
 const DASH_HEAD = '#202024'
 const DASH_TEXT = '#d4d4d8'
@@ -3137,9 +3138,9 @@ Saved to ${out}.md and .json` }
           {/* The top bar: a strip a shade lighter than the band, holding the title, Save and the cross. */}
           {!term ? (
             <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={3.5} overflow="hidden" backgroundColor={DASH_HEAD}>
-              {/* The mark, big, tilted and cut off by the bar's edges, behind the title and the buttons. */}
-              <Box key="settings-bar-mark" position="absolute" top={-4} right={18}>
-                <Svg source={SETTINGS_MARK} alt="effortless mark" width={240} height={240} />
+              {/* The site's word, big, soft and cut off by the bar's bottom, behind the title and the buttons. */}
+              <Box key="settings-bar-word" position="absolute" top={0} right={14}>
+                <Svg source={SETTINGS_WORD} alt="effortless word" width={440} height={100} />
               </Box>
               {/* A hairline along the bar's bottom: a one-pixel image stretched across (a Box cannot draw one pixel). */}
               <Box key="settings-rule" position="absolute" bottom={0} left={0} right={0} height={1} alignItems="flex-end">
