@@ -2305,9 +2305,10 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
   )
 }
 
-/** Where the mod learns of a new version: the newest entry of releases.json on main, written by tools/release.sh. */
+/** Where the mod learns of a new version: the newest entry of public.json on main, written only by tools/publish.sh.
+ * Releases between publishes (releases.json) reach the dev channel, never this card. */
 // The API, not raw.githubusercontent.com: the raw file sits behind a cache that lagged two releases behind.
-const RELEASES_URL = 'https://api.github.com/repos/HeyCubit/effortless/contents/releases.json?ref=main'
+const RELEASES_URL = 'https://api.github.com/repos/HeyCubit/effortless/contents/public.json?ref=main'
 const WHATS_NEW_URL = 'https://heycubit.github.io/effortless/whats-new/'
 /** How often a session looks for a new version, and how long ✕ on the offer keeps it away. */
 const UPDATE_CHECK_MS = 6 * 3600_000
@@ -2349,13 +2350,13 @@ async function installedVersion($: EngineInterface): Promise<string | undefined>
 /** Looks for a newer version and offers it, unless ✕ put that version away less than UPDATE_SNOOZE_MS ago. */
 // What the last check found, for /effortless update to say (installed, web, marketplace).
 let lastUpdateCheck = 'not checked yet'
-/** The newest release: releases.json on main over the web, else the marketplace's own copy of the repo after `claude
+/** The newest public release: public.json on main over the web, else the marketplace's own copy of the repo after `claude
  * plugin marketplace update` (git, so it works where the host's web fetch is refused or cached). */
 async function latestAvailable($: EngineInterface): Promise<{ latest?: { version: string; note: string }; how: string }> {
   const res = await $.http.fetch(`${RELEASES_URL}&t=${Date.now()}`, { headers: { accept: 'application/vnd.github.raw', 'user-agent': 'effortless' } }).catch((error: unknown) => ({ ok: false, status: 0, text: String(error) }))
   const fromWeb = res.ok ? latestRelease(res.text) : undefined
   const web = res.ok ? (fromWeb ? `web ${fromWeb.version}` : 'web: unreadable') : `web refused (${res.status || res.text.slice(0, 80)})`
-  const marketplace = `${$.plugin.root.replace(/[\\/]cache[\\/].*$/, '')}/marketplaces/effortless/releases.json`
+  const marketplace = `${$.plugin.root.replace(/[\\/]cache[\\/].*$/, '')}/marketplaces/effortless/public.json`
   const readLocal = async () => {
     const text = await $.fs.read(marketplace).catch(() => '')
     return latestRelease(typeof text === 'string' ? text : '')
