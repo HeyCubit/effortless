@@ -175,7 +175,7 @@ const DASH_EDGE = '#2a2a2f'
  * the band's font. */
 const SETTINGS_TITLE = `<svg xmlns="http://www.w3.org/2000/svg" width="92" height="28" viewBox="0 0 92 28"><defs><radialGradient id="c" cx="1" cy="1" r=".75" gradientTransform="matrix(.7 0 0 2.3 .3 -1.3)"><stop offset=".2" stop-color="#000"/><stop offset=".9" stop-color="#fff"/></radialGradient><radialGradient id="s" cx=".9" cy=".85" r=".55" gradientTransform="matrix(.7 0 0 2.3 .27 -1.1)"><stop offset=".25" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient><mask id="mc"><rect width="92" height="28" fill="url(#c)"/></mask><mask id="ms"><rect width="92" height="28" fill="url(#s)"/></mask><filter id="g" x="-20%" y="-40%" width="140%" height="180%"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="1" seed="7" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G" result="moved"/><feGaussianBlur in="moved" stdDeviation="1.1" result="soft"/><feComponentTransfer in="noise" result="dots"><feFuncA type="discrete" tableValues="0 0 1 1 1"/></feComponentTransfer><feComposite in="soft" in2="dots" operator="in"/></filter></defs><g font-size="21" font-weight="600" letter-spacing="-.5"><text x="1" y="20" fill="#f4f2ff" mask="url(#mc)">effortless</text><g mask="url(#ms)"><text x="1" y="20" fill="#f4f2ff" filter="url(#g)">effortless</text></g></g></svg>`
 /** The mark as the settings bar shows it: big, tilted and faint, cut off by the bar. */
-const SETTINGS_MARK = MARK_SVG.replace('<g mask=', '<g opacity=".2" transform="rotate(-16 50 50)" mask=')
+const SETTINGS_MARK = MARK_SVG.replace('<g mask=', '<g opacity=".2" transform="rotate(22 50 50)" mask=')
 /** The settings panel's top bar: a shade above the band. */
 const DASH_HEAD = '#202024'
 const DASH_TEXT = '#d4d4d8'
@@ -3151,13 +3151,15 @@ Saved to ${out}.md and .json` }
               </Box>
             </Box>
           ) : null}
-          <Box key="settings-title" position="absolute" top={0} left={2} height={2} flexDirection="row" alignItems="center" gap={1}>
-            {Svg && !term ? <Svg source={MARK_SVG} alt="effortless" width={18} height={18} /> : <Text color={ACCENT} bold>✦</Text>}
+          {/* Title and buttons are centred in the whole bar (it reaches from the border to the line under it), so the
+              space above them equals the space below. */}
+          <Box key="settings-title" position="absolute" top={0} left={2} height={term ? 2 : 2.5} flexDirection="row" alignItems="center" gap={1}>
+            {term ? <Text color={ACCENT} bold>✦</Text> : null}
             {Svg && !term ? <Svg source={SETTINGS_TITLE} alt="effortless" width={92} height={28} /> : <Text color={DASH_TEXT} bold>effortless</Text>}
             <Text dimColor>Settings</Text>
             {dirty ? <Text dimColor> · unsaved changes</Text> : null}
           </Box>
-          <Box key="settings-actions" position="absolute" top={0} right={2} height={2} flexDirection="row" gap={2} alignItems="center">
+          <Box key="settings-actions" position="absolute" top={0} right={2} height={term ? 2 : 2.5} flexDirection="row" gap={2} alignItems="center">
             <Button key="settings-save" variant="primary" hotkey="s" label="Save" onPress={() => saveDraft($)} />
             <Button key="settings-close" plain label="✕" onPress={close} />
           </Box>
