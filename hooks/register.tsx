@@ -2333,6 +2333,20 @@ async function latestAvailable($: EngineInterface): Promise<{ latest?: { version
   const best = fromWeb && (!local || !isNewer(local.version, fromWeb.version)) ? fromWeb : local
   return { latest: best, how: `${web}; marketplace ${local?.version ?? 'unreadable'}` }
 }
+// /reload-plugins loads the module again without a session start: the band's first draw runs afterLoad too.
+let loadChecked = false
+/** Once per load: "Updated" when this load is the version the card installed, then a look for a newer one. */
+async function afterLoad($: EngineInterface) {
+  if (loadChecked) return
+  loadChecked = true
+  const updatedTo = (await $.store.get('updatedTo').catch(() => null)) as { version: string; note: string; at: number } | null
+  if (updatedTo) {
+    await $.store.set('updatedTo', null)
+    if ((await installedVersion($)) === updatedTo.version)
+      await update($, updateCard, () => ({ stage: 'done', version: updatedTo.version, note: updatedTo.note, at: Date.now() }))
+  }
+  await checkUpdate($)
+}
 async function checkUpdate($: EngineInterface) {
   const shown = await read($, updateCard)
   if (shown && shown.stage !== 'offer') return
@@ -2925,14 +2939,7 @@ export const register: Register = (on, options) => {
     // mod's own command afterwards, instead of the file run as a skill.
     await $.command.register({ name: 'effortless', description: 'effortless: settings, debug, handoff, setup, bench, auto, stats.' }).catch(() => undefined)
     keyFromFile = (await $.store.get('keyFromFile')) === true
-    // Just updated from the card: the new version says so, with a link to what changed.
-    const updatedTo = (await $.store.get('updatedTo').catch(() => null)) as { version: string; note: string; at: number } | null
-    if (updatedTo) {
-      await $.store.set('updatedTo', null)
-      if ((await installedVersion($)) === updatedTo.version)
-        await update($, updateCard, () => ({ stage: 'done', version: updatedTo.version, note: updatedTo.note, at: Date.now() }))
-    }
-    void checkUpdate($).catch(() => undefined)
+    void afterLoad($).catch(() => undefined)
     $.clock.every(UPDATE_CHECK_MS, () => void checkUpdate($).catch(() => undefined))
     void drainSetupSave($).catch(() => undefined)
     const storedAuto = await $.store.get('isAuto')
@@ -3518,6 +3525,7 @@ Saved to ${out}.md and .json` }
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     // Setup changes a reload cut off are saved from here: the reloaded plugin draws before anything else runs.
     void drainSetupSave($).catch(() => undefined)
+    void afterLoad($).catch(() => undefined)
     renderCalls++
     lastRenderAt = Date.now()
     lastRenderProps = JSON.stringify(e.props).slice(0, 200)
