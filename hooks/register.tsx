@@ -2167,15 +2167,24 @@ let flashSince: number | null = null
 const WORD_W = 110
 /** Cells of the box that holds it: at 13px a cell is about 7.5px, so this is wider than WORD_W. */
 const WORD_CELLS = 16
-/** The effort word as it changes, drawn as an image (a Text cannot animate): it rises into place in violet with a soft
- * glow, holds, then fades to the band's white, all inside the image, so the band redraws only once, at the end, to put
- * the plain word back. `sinceMs` places a redraw inside the animation. */
+/** How long the new word takes to rise into place, and how far it comes from. */
+const WORD_RISE_MS = 420
+const WORD_RISE_PX = 6
+/** The effort word as it changes, drawn as an image (a Text cannot animate): violet, holding, then fading to the band's
+ * white, all inside the image, so the band redraws only once, at the end, to put the plain word back. It rises into
+ * place on the first draw after the change only: any redraw inside the animation (the band redraws often while a reply
+ * runs) continues the fade with the word already in place, instead of rising again. `sinceMs` places a redraw inside
+ * the fade. */
 export function effortWordSvg(word: string, sinceMs: number): string {
   const d = `${FLASH_MS / 1000}s`
   const hold = Math.round((FLASH_HOLD_MS / FLASH_MS) * 100)
   const font = `font:600 13px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif`
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WORD_W}" height="19" viewBox="0 0 ${WORD_W} 19"><style>text{${font};animation:${d} cubic-bezier(.2,.8,.2,1) both}.w{animation-name:w}.g{animation-name:g;filter:url(#b)}@keyframes w{0%{transform:translateY(9px);opacity:0;fill:${FLASH_COLOR}}18%{transform:none;opacity:1}${hold}%{fill:${FLASH_COLOR}}100%{transform:none;opacity:1;fill:${DASH_TEXT}}}@keyframes g{0%{transform:translateY(9px);opacity:0}18%{transform:none;opacity:.8}${hold}%{opacity:.5}100%{transform:none;opacity:0}}</style><defs><filter id="b" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="2.5"/></filter></defs><text class="g" x="1" y="14" fill="${FLASH_COLOR}">${word}</text><text class="w" x="1" y="14">${word}</text></svg>`
-  return inPhase(svg, sinceMs)
+  const rise = sinceMs < 120
+    ? `.r{animation:r ${WORD_RISE_MS / 1000}s cubic-bezier(.22,1,.36,1) both}@keyframes r{from{transform:translateY(${WORD_RISE_PX}px);opacity:0}to{transform:none;opacity:1}}`
+    : ''
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WORD_W}" height="19" viewBox="0 0 ${WORD_W} 19"><style>text{${font};animation:c ${d} ease-in-out both}@keyframes c{0%,${hold}%{fill:${FLASH_COLOR}}100%{fill:${DASH_TEXT}}}${rise}</style><g class="r"><text x="1" y="14">${word}</text></g></svg>`
+  // The fade keeps its place across redraws; the rise, drawn only at the start, needs none.
+  return sinceMs < 120 ? svg : svg.replace('</svg>', `<style>text{animation-delay:${(-sinceMs / 1000).toFixed(3)}s}</style></svg>`)
 }
 
 /** The handoff or compact card: words, the moving art while it runs, green with a check once it has landed. `above` is
