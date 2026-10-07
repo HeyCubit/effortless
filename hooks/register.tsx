@@ -134,7 +134,7 @@ const settingsCard = atom({ plugin: 'effortless', key: 'settingsCard' } as const
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits.' },
   { id: 'judge', title: 'Judge', about: 'Who reads each prompt and picks the effort. Test checks it answers.' },
-  { id: 'handoff', title: 'Handoff', about: 'The skill that writes a full handoff, and when a chat counts as swamped.' },
+  { id: 'handoff', title: 'Handoff', about: 'The skill that writes a full handoff, and at what share of context to suggest compacting or handing off.' },
   { id: 'show', title: 'Appearance', about: 'How effortless looks and which parts it shows. Uninstall removes it.' },
 ]
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
@@ -2178,7 +2178,13 @@ async function effortFlash($: EngineInterface, what: string, judging: boolean, e
 const UNINSTALL_ARM_MS = 4000
 let uninstallArmedAt = 0
 let uninstalling = false
-function uninstallButton($: EngineInterface, Button: ReturnType<EngineInterface['ui']['resolve']>['Button']) {
+const UNINSTALL_RED = '#ff6b6b'
+/** A bin: the lid and its handle, the can with two ribs. */
+function binSvg(color: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2.2 3.8H11.8M5.4 3.8V2.4H8.6V3.8M3.4 3.8L4 12H10L10.6 3.8M5.9 6V9.8M8.1 6V9.8"/></g></svg>`
+}
+function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui']['resolve']>) {
+  const { Box, Text, Button, Svg } = els
   const armed = Date.now() - uninstallArmedAt < UNINSTALL_ARM_MS
   const press = async () => {
     if (uninstalling) return
@@ -2201,12 +2207,26 @@ function uninstallButton($: EngineInterface, Button: ReturnType<EngineInterface[
     const reloaded = await $.command.run({ command: 'reload-plugins', args: '' } as never).then(() => true, () => false)
     if (!reloaded) await typeCommand($, '/reload-plugins')
   }
-  return uninstalling ? (
-    <Button key="settings-uninstall" plain dimColor label="Uninstalling…" onPress={() => {}} />
-  ) : armed ? (
-    <Button key="settings-uninstall" variant="secondary" label="Press again to uninstall" onPress={press} />
-  ) : (
-    <Button key="settings-uninstall" plain dimColor label="Uninstall" onPress={press} />
+  const label = uninstalling ? 'Uninstalling…' : armed ? 'Press again to uninstall' : 'Uninstall'
+  if (!Svg) return <Button key="settings-uninstall" plain dimColor={!armed} label={label} onPress={press} />
+  // A bin and the word, grey; red under the pointer, and red while armed (the red bin is laid over the grey one, since
+  // a hover can only reveal). A blank button over both takes the press.
+  const red = armed || uninstalling
+  return (
+    <Box key="settings-uninstall-box" position="relative" flexDirection="row" alignItems="center" flexShrink={0}>
+      <Box position="relative" width={2} height={1} alignItems="center">
+        <Box position="absolute" top={0} left={0}>
+          <Svg source={binSvg(DASH_DIM)} alt="" width={14} height={14} />
+        </Box>
+        <Box position="absolute" top={0} left={0} display={red ? 'flex' : 'none'} hover={red ? undefined : { scope: 'uninstall', display: 'flex' }}>
+          <Svg source={binSvg(UNINSTALL_RED)} alt="" width={14} height={14} />
+        </Box>
+      </Box>
+      <Text color={red ? UNINSTALL_RED : DASH_DIM} hover={{ scope: 'uninstall', color: UNINSTALL_RED }}>{label}</Text>
+      <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+        <Button key="settings-uninstall" plain hover={{ scope: 'uninstall', backgroundColor: '#00000000' }} label={' '.repeat(label.length + 3)} onPress={press} />
+      </Box>
+    </Box>
   )
 }
 
@@ -2238,6 +2258,7 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
       </Box>
       {onDismiss ? (
         <Box key="reply-handoff-close" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end">
+          <Box position="absolute" top={0} left={0} />
           <Button key="card-close" plain role="dismiss" label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={onDismiss} />
         </Box>
       ) : null}
@@ -2253,7 +2274,8 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
 }
 
 /** Where the mod learns of a new version: the newest entry of releases.json on main, written by tools/release.sh. */
-const RELEASES_URL = 'https://raw.githubusercontent.com/HeyCubit/effortless/main/releases.json'
+// The API, not raw.githubusercontent.com: the raw file sits behind a cache that lagged two releases behind.
+const RELEASES_URL = 'https://api.github.com/repos/HeyCubit/effortless/contents/releases.json?ref=main'
 const WHATS_NEW_URL = 'https://heycubit.github.io/effortless/#whats-new'
 /** How often a session looks for a new version, and how long ✕ on the offer keeps it away. */
 const UPDATE_CHECK_MS = 6 * 3600_000
@@ -2293,12 +2315,45 @@ async function installedVersion($: EngineInterface): Promise<string | undefined>
   }
 }
 /** Looks for a newer version and offers it, unless ✕ put that version away less than UPDATE_SNOOZE_MS ago. */
+// What the last check found, for /effortless update to say (installed, web, marketplace).
+let lastUpdateCheck = 'not checked yet'
+/** The newest release: releases.json on main over the web, else the marketplace's own copy of the repo after `claude
+ * plugin marketplace update` (git, so it works where the host's web fetch is refused or cached). */
+async function latestAvailable($: EngineInterface): Promise<{ latest?: { version: string; note: string }; how: string }> {
+  const res = await $.http.fetch(`${RELEASES_URL}&t=${Date.now()}`, { headers: { accept: 'application/vnd.github.raw', 'user-agent': 'effortless' } }).catch((error: unknown) => ({ ok: false, status: 0, text: String(error) }))
+  const fromWeb = res.ok ? latestRelease(res.text) : undefined
+  const web = res.ok ? (fromWeb ? `web ${fromWeb.version}` : 'web: unreadable') : `web refused (${res.status || res.text.slice(0, 80)})`
+  const marketplace = `${$.plugin.root.replace(/[\\/]cache[\\/].*$/, '')}/marketplaces/effortless/releases.json`
+  const readLocal = async () => {
+    const text = await $.fs.read(marketplace).catch(() => '')
+    return latestRelease(typeof text === 'string' ? text : '')
+  }
+  // Always refreshed: the host's web fetch can answer from its own cache, git does not.
+  await $.process.run(['claude', 'plugin', 'marketplace', 'update', 'effortless'], { timeoutMs: 120_000 }).catch(() => null)
+  const local = await readLocal()
+  const best = fromWeb && (!local || !isNewer(local.version, fromWeb.version)) ? fromWeb : local
+  return { latest: best, how: `${web}; marketplace ${local?.version ?? 'unreadable'}` }
+}
+// /reload-plugins loads the module again without a session start, so the band's first draw runs afterLoad too.
+let loadChecked = false
+/** Once per load: "Updated" when this load is the version the card installed, then a look for a newer one. */
+async function afterLoad($: EngineInterface) {
+  if (loadChecked) return
+  loadChecked = true
+  const updatedTo = (await $.store.get('updatedTo').catch(() => null)) as { version: string; note: string; at: number } | null
+  if (updatedTo) {
+    await $.store.set('updatedTo', null)
+    if ((await installedVersion($)) === updatedTo.version)
+      await update($, updateCard, () => ({ stage: 'done', version: updatedTo.version, note: updatedTo.note, at: Date.now() }))
+  }
+  await checkUpdate($)
+}
 async function checkUpdate($: EngineInterface) {
   const shown = await read($, updateCard)
   if (shown && shown.stage !== 'offer') return
-  const res = await $.http.fetch(RELEASES_URL).catch(() => null)
-  const latest = res?.ok ? latestRelease(res.text) : undefined
+  const { latest, how } = await latestAvailable($)
   const mine = await installedVersion($)
+  lastUpdateCheck = `installed ${mine ?? 'unreadable'}; ${how}`
   if (!latest || !mine || !isNewer(latest.version, mine)) {
     if (shown) await update($, updateCard, () => null)
     return
@@ -2345,12 +2400,33 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
     if (card.stage === 'offer') await $.store.set('updateHidden', { version: card.version, at: await $.clock.now() })
     await update($, updateCard, () => null)
   }
+  // Each control in a box of its own: under one shared box, hovering one lit the other too.
+  const own = (key: string, el: unknown) => (
+    <Box key={key} position="relative" flexShrink={0}>
+      <Box position="absolute" top={0} left={0} />
+      {el as never}
+    </Box>
+  )
+  // The offer is Update or Later (Later puts this version away for a day); "Updated" has the link and a ✕; a failed
+  // update has Try again and ✕. Nothing while it runs.
   const controls =
-    card.stage === 'offer' || card.stage === 'failed' ? (
-      <Button key="update-go" variant="primary" label={card.stage === 'failed' ? 'Try again' : 'Update'} onPress={() => runUpdate($, card)} />
-    ) : landed ? (
-      <Link href={WHATS_NEW_URL} label="What's new" />
-    ) : null
+    card.stage === 'offer'
+      ? [
+          own('update-go-box', <Button key="update-go" variant="primary" label="Update" onPress={() => runUpdate($, card)} />),
+          own('update-later-box', <Button key="update-later" variant="secondary" label="Later" onPress={hide} />),
+        ]
+      : card.stage === 'failed'
+        ? [
+            own('update-go-box', <Button key="update-go" variant="primary" label="Try again" onPress={() => runUpdate($, card)} />),
+            own('update-close-box', <Button key="update-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={hide} />),
+          ]
+        : landed
+          ? [
+              // White and bold: the app's blue link was hard to see on the green and the check.
+              own('update-link-box', <Text color="#ffffff" bold><Link href={WHATS_NEW_URL} label="What's new →" /></Text>),
+              own('update-close-box', <Button key="update-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={hide} />),
+            ]
+          : []
   return (
     <Box key="update-card" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
       backgroundColor={landed ? DONE_BG : BRAND_BG} borderStyle="round" borderColor={landed ? DONE_EDGE : BRAND_EDGE}>
@@ -2366,8 +2442,9 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
         <Text wrap="truncate">{words[1]}</Text>
       </Box>
       <Box key="update-controls" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end" alignItems="center" gap={1}>
+        {/* Positioned by an empty absolute child, so it paints over the art and takes the clicks. */}
+        <Box position="absolute" top={0} left={0} />
         {controls}
-        {card.stage === 'updating' ? null : <Button key="update-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={hide} />}
       </Box>
     </Box>
   )
@@ -2885,14 +2962,7 @@ export const register: Register = (on, options) => {
     // mod's own command afterwards, instead of the file run as a skill.
     await $.command.register({ name: 'effortless', description: 'effortless: settings, debug, handoff, setup, bench, auto, stats.' }).catch(() => undefined)
     keyFromFile = (await $.store.get('keyFromFile')) === true
-    // Just updated from the card: the new version says so, with a link to what changed.
-    const updatedTo = (await $.store.get('updatedTo').catch(() => null)) as { version: string; note: string; at: number } | null
-    if (updatedTo) {
-      await $.store.set('updatedTo', null)
-      if ((await installedVersion($)) === updatedTo.version)
-        await update($, updateCard, () => ({ stage: 'done', version: updatedTo.version, note: updatedTo.note, at: Date.now() }))
-    }
-    void checkUpdate($).catch(() => undefined)
+    void afterLoad($).catch(() => undefined)
     $.clock.every(UPDATE_CHECK_MS, () => void checkUpdate($).catch(() => undefined))
     void drainSetupSave($).catch(() => undefined)
     const storedAuto = await $.store.get('isAuto')
@@ -3036,7 +3106,7 @@ export const register: Register = (on, options) => {
     if (arg === 'update') {
       await checkUpdate($).catch(() => undefined)
       const card = await read($, updateCard)
-      if (!card || card.stage === 'done') return { text: `effortless ${(await installedVersion($)) ?? ''} is the newest.` }
+      if (!card || card.stage === 'done') return { text: `effortless ${(await installedVersion($)) ?? ''} is the newest (${lastUpdateCheck}).` }
       void runUpdate($, card)
       return { text: `Updating to ${card.version}…` }
     }
@@ -3478,6 +3548,7 @@ Saved to ${out}.md and .json` }
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     // Setup changes a reload cut off are saved from here: the reloaded plugin draws before anything else runs.
     void drainSetupSave($).catch(() => undefined)
+    void afterLoad($).catch(() => undefined)
     renderCalls++
     lastRenderAt = Date.now()
     lastRenderProps = JSON.stringify(e.props).slice(0, 200)
@@ -3553,7 +3624,7 @@ Saved to ${out}.md and .json` }
       const summaries: Record<SettingsCard, string> = {
         effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}`,
         judge: tested && tested.ok !== null ? `${judgeName} · ${tested.ok ? 'working' : 'failing'}` : judgeName,
-        handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · swamped at ${shown.swampAt}%`,
+        handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · compact alert at ${shown.swampAt}%`,
         show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${4 - ['timer', 'reason', 'progress', 'sounds'].filter(h => hidden.includes(h)).length} of 4 on`,
       }
       // The cache timer, the judge's line (who picked and how sure), the progress bar and its sounds can be switched
@@ -3742,7 +3813,7 @@ Saved to ${out}.md and .json` }
                 ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
               ]}
               onSelect={v => set('handoffSkill')(v === '-' ? '' : v)} />,
-            <Select key="settings-swamp" label="Swamped at" value={shown.swampAt}
+            <Select key="settings-swamp" label="Compact alert at" value={shown.swampAt}
               options={SWAMP_STEPS.map(n => ({ value: String(n), label: `${n}%` }))} onSelect={set('swampAt')} />,
 ]) : [
             ...(bare
@@ -3753,7 +3824,7 @@ Saved to ${out}.md and .json` }
                     onSelect={set('layout')} />,
                 ]),
             ...toggles,
-            ...(bare ? [] : [uninstallButton($, Button)]),
+            ...(bare ? [] : [uninstallButton($, $.ui.resolve(e))]),
 ]}
               </Box>
             </Box>

@@ -1,5 +1,65 @@
 [
   {
+    "version": "1.35.92",
+    "date": "2026-10-07",
+    "note": "Update card: Update or Later, a white What's new link"
+  },
+  {
+    "version": "1.35.91",
+    "date": "2026-10-07",
+    "note": "A version for the update card to offer"
+  },
+  {
+    "version": "1.35.90",
+    "date": "2026-10-07",
+    "note": "Update card buttons take clicks"
+  },
+  {
+    "version": "1.35.89",
+    "date": "2026-10-07",
+    "note": "A version for the update card to offer"
+  },
+  {
+    "version": "1.35.88",
+    "date": "2026-10-07",
+    "note": "The update check runs on the first draw after any load"
+  },
+  {
+    "version": "1.35.87",
+    "date": "2026-10-07",
+    "note": "Update check refreshes the marketplace over git every time"
+  },
+  {
+    "version": "1.35.86",
+    "date": "2026-10-07",
+    "note": "Update check reads the GitHub API, not the cached raw file"
+  },
+  {
+    "version": "1.35.85",
+    "date": "2026-10-07",
+    "note": "A version to try the update card on"
+  },
+  {
+    "version": "1.35.84",
+    "date": "2026-10-07",
+    "note": "Update check falls back to the marketplace copy"
+  },
+  {
+    "version": "1.35.83",
+    "date": "2026-10-07",
+    "note": "Releases can skip the local install"
+  },
+  {
+    "version": "1.35.82",
+    "date": "2026-10-07",
+    "note": "Uninstall has a bin and turns red on hover"
+  },
+  {
+    "version": "1.35.81",
+    "date": "2026-10-07",
+    "note": "Settings say Compact alert at, not Swamped at"
+  },
+  {
     "version": "1.35.80",
     "date": "2026-10-07",
     "note": "Update card: new versions are offered and installed from the bar"

@@ -2237,7 +2237,7 @@ describe('settings panel', () => {
     await panel.press({ key: 'settings-back' })
     // The cards say what is set, unsaved changes included.
     expect(await drawn(panel)).toContain('Smarter · medium to max')
-    expect(await drawn(panel)).toContain('/session-handoff · swamped at')
+    expect(await drawn(panel)).toContain('/session-handoff · compact alert at')
     await panel.press({ key: 'settings-card-show' })
     await panel.press({ key: 'show-box-sounds' })
     await panel.press({ key: 'show-box-reason' })
@@ -2315,7 +2315,8 @@ describe('progress bar', () => {
     })
     const played: string[] = []
     on('process.run', (_$, e) => {
-      played.push(e.argv.join(' '))
+      // Sounds only: the update check's claude plugin commands are not chimes.
+      if (e.argv[0] !== 'claude') played.push(e.argv.join(' '))
       return { value: { exitCode: 0, stdout: '', stderr: '' } } as never
     })
     on('audio.play', (_$, e) => {
@@ -2953,10 +2954,11 @@ describe('updates', () => {
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
     on('fs.read', (_$, e) => {
       if (String(e.path).replaceAll('\\', '/').endsWith('.claude-plugin/plugin.json')) return { value: JSON.stringify({ version: v.installed }) } as never
+      if (String(e.path).replaceAll('\\', '/').endsWith('marketplaces/effortless/releases.json')) return { value: JSON.stringify([{ version: v.latest, note: 'Quick and Full as one switch.' }]) } as never
       return { value: '' } as never
     })
     on('http.fetch', (_$, e) => {
-      if (String(e.url).endsWith('releases.json'))
+      if (String(e.url).includes('releases.json'))
         return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify([{ version: v.latest, date: '2026-10-07', note: 'Quick and Full as one switch.' }]) } } as never
       return { value: { status: 404, ok: false, headers: {}, text: '' } } as never
     })
@@ -2999,7 +3001,7 @@ describe('updates', () => {
     expect(await drawn(ui)).toContain('effortless 1.0.1 is out')
     expect((await ui.find({ key: 'update-go' }))?.text).toContain('Update')
 
-    await ui.press({ key: 'update-close' })
+    await ui.press({ key: 'update-later' })
     expect(await drawn(ui)).not.toContain('is out')
     await start($)
     await settle()
@@ -3029,6 +3031,7 @@ describe('updates', () => {
     await settle()
     const ui = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
     await pastSetup(ui)
+    w.ran.length = 0
     await ui.press({ key: 'update-go' })
     await settle()
     expect(w.ran).toEqual(['claude plugin marketplace update effortless', 'claude plugin update effortless@effortless'])
@@ -3054,9 +3057,10 @@ describe('updates', () => {
     await ui.press({ key: 'dash-settings' })
     await ui.press({ key: 'settings-card-show' })
     expect(await drawn(ui)).toContain('Appearance')
+    w.ran.length = 0
     await ui.press({ key: 'settings-uninstall' })
     expect(w.ran).toEqual([])
-    expect((await ui.find({ key: 'settings-uninstall' }))?.text).toContain('Press again')
+    expect(await drawn(ui)).toContain('Press again to uninstall')
     await ui.press({ key: 'settings-uninstall' })
     await settle()
     expect(w.ran).toEqual(['claude plugin uninstall effortless@effortless'])
