@@ -266,12 +266,13 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .dash.gone,.sett.gone{animation:msg-out .35s var(--ease) both}
 
 /* The bar where it sits on the page: in the stack, in the story's slot, under the hero's words. */
-.chip .dash{width:max-content;max-width:100%;min-height:64px;padding:0 18px;border-radius:12px;font-size:14px;box-shadow:0 18px 40px -26px #000;transition:transform .45s var(--ease),border-color .3s,box-shadow .45s var(--ease)}
+.chip .dash{--fadew:calc(300px / var(--k,1));min-height:64px;padding:0 calc(18px + var(--fadew)) 0 18px;border-radius:12px;font-size:14px;box-shadow:0 18px 40px -26px #000;transition:transform .45s var(--ease),border-color .3s,box-shadow .45s var(--ease)}
 .stack .chip:hover .dash,.stack .chip.auto .dash{transform:translateX(-10px);border-color:#4a4a52;box-shadow:0 18px 40px -26px #000,0 0 0 1px #4a4a52}
 .demo .dash{margin-bottom:10px;font-size:13px}
-/* In the stack the bar shows only what fits before the fade: the word, the ring, the cache on wide screens, and the buttons. */
-.chip .dash .why{display:none}
+/* In the stack the bar runs off the edge like the bands, but keeps its buttons clear of the fade. */
 @media (max-width:1500px){.chip .dash .cache{display:none}}
+@media (max-width:1080px){.chip .dash{--fadew:200px}}
+@media (max-width:720px){.chip .dash{--fadew:110px}.chip .dash .why{display:none}}
 @media (max-width:560px){.demo .dash .cache,.chip .dash .al{display:none}}
 .slot .dash,.slot .sett{margin-bottom:14px;font-size:17px;border-radius:14px;box-shadow:0 22px 50px -28px #000}
 .slot .dash{min-height:62px;padding:0 18px 0 20px}
@@ -581,7 +582,7 @@ var Dash=(function(){
 // The bar at the top of the stack: High, a refactor, Handoff already glowing.
 (function(){
   var host=document.querySelector('[data-dash="stack"]');if(!host)return;
-  var d=Dash(host);d.word('High');d.pct(38);d.secs(3539);d.reason('Haiku: a refactor across five files');
+  var d=Dash(host);d.word('High');d.pct(38);d.secs(3539);d.reason('Haiku: a refactor');
 })();
 
 // The story: one window stays put while the page scrolls, and each step plays one feature in it.
