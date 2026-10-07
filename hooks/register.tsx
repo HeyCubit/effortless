@@ -81,6 +81,8 @@ const isCompacting = atom({ plugin: 'effortless', key: 'isCompacting' } as const
 const compactAsk = atom({ plugin: 'effortless', key: 'compactAsk' } as const, false)
 // What is typed in that field. Kept here, not in state: a write per key would redraw the bar under the cursor.
 let compactNote = ''
+/** Behind the compact bar's field: a dark violet near what the app paints a focused field. */
+const FIELD_BG = '#0f0d18'
 // When the compact bar opened: its first half second fades the swamped band's colours out (see compactFadeSvg).
 let compactOpenedAt = 0
 const COMPACT_FADE_MS = 450
@@ -3929,11 +3931,20 @@ Saved to ${out}.md and .json` }
                 field. Three cells out, one cell of padding back: the field ends 2 px inside, the hint starts 4 px out. */}
             {/* The window reaches a row above and below the field (absolutely, so the bar stays one line): one line tall,
                 it cut the field's focus ring off at the top and bottom. */}
-            <Box key="compact-field" position="relative" width={48} height={1} flexShrink={0}>
+            <Box key="compact-field" position="relative" width={48} height={1} flexShrink={0} marginRight={1}>
+              {/* The dark box is cut square where the window ends (it wraps the hidden hint too): a rounded end drawn
+                  just past that edge, under the window, finishes it. */}
+              <Box position="absolute" top={0} bottom={0} right={-1} width={1} alignItems="center">
+                <Svg source={`<svg xmlns="http://www.w3.org/2000/svg" width="4" height="21" viewBox="0 0 4 21"><rect x="-8" y="0" width="12" height="21" rx="5" fill="${FIELD_BG}"/></svg>`} alt="field end" width={4} height={21} />
+              </Box>
               <Box position="absolute" top={-1} bottom={-1} left={0} right={0} overflow="hidden">
                 <Box position="absolute" top={0} bottom={0} right={-3} width={60} flexDirection="row" alignItems="center" justifyContent="flex-end" paddingRight={1}>
-                  <Input key="compact-note" placeholder="Summary (optional)" submitLabel={'​'}
-                    onInput={v => { compactNote = v }} onSubmit={v => { compactNote = v; void go() }} />
+                  {/* A dark round box hugging the field: the app turns a focused field near black, and on the violet that
+                      jump was harsh; with the field already dark it is only a shade. */}
+                  <Box key="compact-field-bg" flexShrink={0} borderStyle="round" borderColor={FIELD_BG} backgroundColor={FIELD_BG} paddingX={0} paddingY={0}>
+                    <Input key="compact-note" placeholder="Summary (optional)" submitLabel={'​'}
+                      onInput={v => { compactNote = v }} onSubmit={v => { compactNote = v; void go() }} />
+                  </Box>
                 </Box>
               </Box>
             </Box>

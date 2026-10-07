@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.106",
+    "date": "2026-10-07",
+    "note": "Compact field sits on a dark background"
+  },
+  {
     "version": "1.35.105",
     "date": "2026-10-07",
     "note": "Handoff bar on one line; the Summary field's focus ring shows whole"
