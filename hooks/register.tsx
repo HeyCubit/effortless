@@ -2649,17 +2649,33 @@ const COLD_GLOW_MS = 4200
  * cache path (…/plugins/cache/<marketplace>/effortless/<version>). */
 const pluginId = ($: EngineInterface) => `effortless@${$.plugin.root.match(/cache[\\/]([^\\/]+)[\\/]/)?.[1] ?? 'effortless'}`
 
-/** The rim lit in the brand's violet when the judge starts: one slow breath, up and back to dark. One fixed sequence that is
- * started with the judge and neither waits for nor reacts to the verdict, the model or the effort, so there is nothing
- * to swap or restart. The app swaps the whole band on every redraw and a new image starts its animation over (tested in
- * Chrome: same source or not), so every draw places it by the clock with inPhase. Longer decisions end dark. */
-export const JUDGE_SEQUENCE_MS = 2400
-export function judgeGlowSvg(): string {
+/** The rim in the brand's violet while the judge decides: it lights up and stays at full while it thinks, then fades from
+ * full once the verdict is in. Two images, each placed by the clock on every draw (inPhase): the app swaps the whole
+ * band on every redraw and a new image starts its animation over, so nothing here may depend on an image surviving.
+ * The rise ends at full and holds there (forwards); the fade starts at full. The fade waits for the rise to finish, so
+ * a quick verdict never fades from half-way. */
+export const JUDGE_RISE_MS = 500
+export const JUDGE_FADE_MS = 900
+const JUDGE_GLOW_MAX = 0.85
+export function judgeGlowSvg(kind: 'rise' | 'fade'): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${JUDGE_SEQUENCE_MS / 1000}s ease-in-out forwards}@keyframes r{0%{opacity:0}50%{opacity:.85}100%{opacity:0}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ACCENT}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#b9a7ff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
+  const css = kind === 'rise'
+    ? `.r{opacity:0;animation:r ${JUDGE_RISE_MS / 1000}s ease-in-out forwards}@keyframes r{from{opacity:0}to{opacity:${JUDGE_GLOW_MAX}}}`
+    : `.r{opacity:${JUDGE_GLOW_MAX};animation:r ${JUDGE_FADE_MS / 1000}s ease-in-out forwards}@keyframes r{from{opacity:${JUDGE_GLOW_MAX}}to{opacity:0}}`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>${css}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ACCENT}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#b9a7ff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
 }
-// When the sequence last started: the judge starting.
-let judgeStartedAt = -JUDGE_SEQUENCE_MS
+/** What the glow is at `now`: nothing, rising or holding (the rise image, placed), or fading (the fade image, placed).
+ * `endedAt` is null while the judge is still deciding. */
+export function judgeGlowAt(startedAt: number, endedAt: number | null, now: number): string | null {
+  if (now < startedAt) return null
+  const fadeFrom = endedAt === null ? Infinity : Math.max(endedAt, startedAt + JUDGE_RISE_MS)
+  if (now < fadeFrom) return inPhase(judgeGlowSvg('rise'), now - startedAt)
+  if (now < fadeFrom + JUDGE_FADE_MS) return inPhase(judgeGlowSvg('fade'), now - fadeFrom)
+  return null
+}
+// When the judge started, and when it gave its verdict (null while it decides).
+let judgeStartedAt = 0
+let judgeEndedAt: number | null = 0
 
 export function coldGlowSvg(): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
@@ -2803,10 +2819,10 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           <Svg source={inPhase(autoGlowSvg(v.auto), nowMs - autoOnAt)} alt="auto glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
-      {/* The judge started: the violet rim plays its one breath, whatever the verdict. */}
-      {Svg && nowMs - judgeStartedAt >= 0 && nowMs - judgeStartedAt < JUDGE_SEQUENCE_MS ? (
+      {/* The judge decides: the violet rim lights up, holds, and fades from full once the verdict is in. */}
+      {Svg && judgeGlowAt(judgeStartedAt, v.judging ? null : judgeEndedAt, nowMs) ? (
         <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={inPhase(judgeGlowSvg(), nowMs - judgeStartedAt)} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+          <Svg source={judgeGlowAt(judgeStartedAt, v.judging ? null : judgeEndedAt, nowMs)!} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
       {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
@@ -3411,7 +3427,7 @@ Saved to ${out}.md and .json` }
     }
 
     judgeStartedAt = await $.clock.now().catch(() => Date.now())
-    $.clock.after(JUDGE_SEQUENCE_MS + 100, () => $.ui.invalidate('ui.render'))
+    judgeEndedAt = null
     await update($, isJudging, () => true)
     try {
       const inUse = await sessionModel($)
@@ -3467,6 +3483,11 @@ Saved to ${out}.md and .json` }
         }
       }
     } finally {
+      judgeEndedAt = await $.clock.now().catch(() => Date.now())
+      // The fade starts once the rise is done and ends JUDGE_FADE_MS later; redraw at both, so it swaps in and clears.
+      const fadeAt = Math.max(judgeEndedAt, judgeStartedAt + JUDGE_RISE_MS) - judgeEndedAt
+      $.clock.after(fadeAt + 30, () => $.ui.invalidate('ui.render'))
+      $.clock.after(fadeAt + JUDGE_FADE_MS + 100, () => $.ui.invalidate('ui.render'))
       await update($, isJudging, () => false)
     }
     return next(e)

@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.36.11",
+    "date": "2026-10-07",
+    "note": "Deciding glow lights up, holds, fades from full"
+  },
+  {
     "version": "1.36.10",
     "date": "2026-10-07",
     "note": "Version in the settings header"

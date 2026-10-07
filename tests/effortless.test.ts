@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, compactTranscript, judgeGlowSvg, JUDGE_SEQUENCE_MS } from '../hooks/register'
+import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, compactTranscript, judgeGlowSvg, judgeGlowAt, JUDGE_RISE_MS, JUDGE_FADE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
@@ -1606,12 +1606,23 @@ describe('compaction by Haiku', () => {
 })
 
 describe('deciding glow', () => {
-  test('one breath, up and back to dark, the same whatever the verdict; placed by the clock on every redraw', () => {
-    const svg = judgeGlowSvg()
-    expect(JUDGE_SEQUENCE_MS).toBe(2400)
-    expect(svg).toContain('animation:r 2.4s ease-in-out forwards')
-    expect(svg).toContain('0%{opacity:0}50%{opacity:.85}100%{opacity:0}')
-    expect(judgeGlowSvg()).toBe(svg)
+  test('lights up and holds at full while deciding, then fades from full; placed by the clock on every draw', () => {
+    const at = (end: number | null, now: number) => judgeGlowAt(1000, end, now)
+    expect(at(null, 999)).toBeNull()
+    // Deciding: the rise image placed by the clock, however long it takes.
+    expect(at(null, 1000)).toContain('animation-delay:0.000s')
+    expect(at(null, 1300)).toContain('animation-delay:-0.300s')
+    expect(at(null, 9000)).toContain('animation-delay:-8.000s')
+    expect(judgeGlowSvg('rise')).toContain('forwards}@keyframes r{from{opacity:0}to{opacity:0.85}}')
+    // Verdict after the rise: the fade starts at once, from full.
+    expect(at(3000, 3000)).toContain('animation-delay:0.000s')
+    expect(at(3000, 3400)).toContain('animation-delay:-0.400s')
+    expect(judgeGlowSvg('fade')).toContain('@keyframes r{from{opacity:0.85}to{opacity:0}}')
+    expect(at(3000, 3000 + JUDGE_FADE_MS)).toBeNull()
+    // A verdict inside the rise: the rise finishes first, so the fade never starts from half-way.
+    expect(at(1100, 1300)).toContain('@keyframes r{from{opacity:0}')
+    expect(at(1100, 1000 + JUDGE_RISE_MS)).toContain('@keyframes r{from{opacity:0.85}to{opacity:0}}')
+    expect(at(1100, 1000 + JUDGE_RISE_MS + JUDGE_FADE_MS)).toBeNull()
   })
 })
 
