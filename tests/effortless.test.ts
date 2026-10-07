@@ -3001,7 +3001,7 @@ describe('updates', () => {
     expect(await drawn(ui)).toContain('effortless 1.0.1 is out')
     expect((await ui.find({ key: 'update-go' }))?.text).toContain('Update')
 
-    await ui.press({ key: 'update-close' })
+    await ui.press({ key: 'update-later' })
     expect(await drawn(ui)).not.toContain('is out')
     await start($)
     await settle()

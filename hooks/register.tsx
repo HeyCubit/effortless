@@ -2400,12 +2400,33 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
     if (card.stage === 'offer') await $.store.set('updateHidden', { version: card.version, at: await $.clock.now() })
     await update($, updateCard, () => null)
   }
+  // Each control in a box of its own: under one shared box, hovering one lit the other too.
+  const own = (key: string, el: unknown) => (
+    <Box key={key} position="relative" flexShrink={0}>
+      <Box position="absolute" top={0} left={0} />
+      {el as never}
+    </Box>
+  )
+  // The offer is Update or Later (Later puts this version away for a day); "Updated" has the link and a ✕; a failed
+  // update has Try again and ✕. Nothing while it runs.
   const controls =
-    card.stage === 'offer' || card.stage === 'failed' ? (
-      <Button key="update-go" variant="primary" label={card.stage === 'failed' ? 'Try again' : 'Update'} onPress={() => runUpdate($, card)} />
-    ) : landed ? (
-      <Link href={WHATS_NEW_URL} label="What's new" />
-    ) : null
+    card.stage === 'offer'
+      ? [
+          own('update-go-box', <Button key="update-go" variant="primary" label="Update" onPress={() => runUpdate($, card)} />),
+          own('update-later-box', <Button key="update-later" variant="secondary" label="Later" onPress={hide} />),
+        ]
+      : card.stage === 'failed'
+        ? [
+            own('update-go-box', <Button key="update-go" variant="primary" label="Try again" onPress={() => runUpdate($, card)} />),
+            own('update-close-box', <Button key="update-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={hide} />),
+          ]
+        : landed
+          ? [
+              // White and bold: the app's blue link was hard to see on the green and the check.
+              own('update-link-box', <Text color="#ffffff" bold><Link href={WHATS_NEW_URL} label="What's new →" /></Text>),
+              own('update-close-box', <Button key="update-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={hide} />),
+            ]
+          : []
   return (
     <Box key="update-card" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
       backgroundColor={landed ? DONE_BG : BRAND_BG} borderStyle="round" borderColor={landed ? DONE_EDGE : BRAND_EDGE}>
@@ -2424,7 +2445,6 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
         {/* Positioned by an empty absolute child, so it paints over the art and takes the clicks. */}
         <Box position="absolute" top={0} left={0} />
         {controls}
-        {card.stage === 'updating' ? null : <Button key="update-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={hide} />}
       </Box>
     </Box>
   )
