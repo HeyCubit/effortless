@@ -170,6 +170,8 @@ const DASH_SVG = BRAND_SVG.replace(/stop-opacity="([0-9.]+)"/g, (_m, v: string) 
 const DASH_BG = '#141416'
 const DASH_EDGE = '#2a2a2f'
 const DASH_TEXT = '#d4d4d8'
+/** The dashboard's quieter figures: the cache countdown while it has time left. */
+const DASH_DIM = '#8b8b93'
 const DONE_SVG = BRAND_SVG
   .replace(/#7c6cf0/g, '#2fae62').replace(/#8f7ff0/g, '#3cc472').replace(/#b3a6ff/g, '#7fe0a4')
   .replace(/#c9bdff/g, '#b4f0c8').replace(/#9a86ff/g, '#4fd486')
@@ -1124,8 +1126,10 @@ async function compactCold($: EngineInterface) {
   } finally {
     await update($, isCompacting, () => false)
     // Complete, or gone when it failed (the toast says why).
-    if (compacted) await setHandoffCard($, 'compacted', false)
-    else await update($, handoffCard, card => (card?.kind === 'compacting' ? null : card))
+    if (compacted) {
+      await setHandoffCard($, 'compacted', false)
+      $.clock.after(COMPACT_CARD_MS + 100, () => $.ui.invalidate('ui.render'))
+    } else await update($, handoffCard, card => (card?.kind === 'compacting' ? null : card))
   }
 }
 
@@ -1745,7 +1749,7 @@ function hoverTips(v: Snap): { effort: string; cache: string } {
         ]
           .filter(Boolean)
           .join(' · ')
-  const ctx = lastContext && lastContext.window ? ` · Context${lastContext.percent}% · ${kTokens(lastContext.tokens)}/${kTokens(lastContext.window)}` : ''
+  const ctx = lastContext && lastContext.window ? ` · Context ${lastContext.percent}% · ${kTokens(lastContext.tokens)}/${kTokens(lastContext.window)}` : ''
   const cacheTip =
     v.cacheNow === 0
       ? `Prompt cache cold: the next message reads the whole chat again at full price. Compact first to save.${ctx}`
@@ -1976,8 +1980,8 @@ async function effortFlash($: EngineInterface, what: string, judging: boolean): 
 
 /** The handoff or compact card: words, the moving art while it runs, green with a check once it has landed. `above` is
  * what sits over it (the reply it hangs under), or nothing for the band above the prompt. */
-function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> | RenderInput<'AbovePrompt'>, fresh: HandoffCard, above: unknown) {
-  const { Box, Text, Svg } = $.ui.resolve(e)
+function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> | RenderInput<'AbovePrompt'>, fresh: HandoffCard, above: unknown, onDismiss?: () => unknown) {
+  const { Box, Text, Svg, Button } = $.ui.resolve(e)
   const by = fresh.full ? 'Full' : 'Quick'
   const words = {
     writing: ['✦ Handing off…', `${by} handoff being written. ${fresh.full ? 'Your skill takes a little while.' : 'A few seconds.'}`],
@@ -2001,6 +2005,11 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
         <Text color={cardLanded(fresh.kind) ? DONE_ACCENT : ACCENT} bold wrap="truncate">{words[0]}</Text>
         <Text wrap="truncate">{words[1]}</Text>
       </Box>
+      {onDismiss ? (
+        <Box key="reply-handoff-close" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end">
+          <Button key="card-close" plain role="dismiss" label="✕" onPress={onDismiss} />
+        </Box>
+      ) : null}
     </Box>
   )
   if (above === undefined) return card
@@ -2012,11 +2021,14 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
   )
 }
 
-/** A compact's card for the band above the prompt: while it runs, and once done until the first reply after it. */
-async function compactCard($: EngineInterface) {
+/** How long "Compact complete" stays above the prompt when nothing else clears it. */
+const COMPACT_CARD_MS = 20_000
+/** A compact's card for the band above the prompt: while it runs, and once done until the next message is sent, the
+ * ✕ is pressed or COMPACT_CARD_MS has passed. */
+async function compactCard($: EngineInterface, working = false) {
   const card = await read($, handoffCard)
   if (!card || (card.kind !== 'compacting' && card.kind !== 'compacted')) return null
-  if (card.kind === 'compacted' && (card.seen || (await $.clock.now()) - card.at >= HANDOFF_CARD_MS)) return null
+  if (card.kind === 'compacted' && (working || card.seen || (await $.clock.now()) - card.at >= COMPACT_CARD_MS)) return null
   return card
 }
 
@@ -2062,12 +2074,15 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     : v.auto
       ? 'Auto picks the effort at the next prompt'
       : 'You pick the effort'
+  // Desktop draws the cache after the context ring, grey, with a hover that explains both; the terminal says it inline.
+  const drawn = e.surface !== 'terminal' && 'Svg' in els
+  const cacheShown = config.hide.includes('timer') ? null : v.cacheNow
   const { head, what, rest, detail } = dashboardLines({
     auto: v.auto,
     paused: Boolean(v.pausedNow),
     judging: Boolean(v.judging),
     effort: effortNow,
-    cacheNow: config.hide.includes('timer') ? null : v.cacheNow,
+    cacheNow: drawn ? null : cacheShown,
     // Desktop draws the context as a ring and a figure (as the swamp band does); the terminal says it in words.
     contextPercent: e.surface === 'terminal' && lastContext && lastContext.window ? lastContext.percent : null,
     reason,
@@ -2142,15 +2157,32 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
             <Text color={DASH_TEXT} bold wrap="truncate">{rest}</Text>
           </Box>
         ) : null}
-        {Svg && lastContext && lastContext.window ? (
-          <Box key="dash-ring" flexShrink={0} marginLeft={2} flexDirection="row" gap={1} alignItems="center">
-            <Svg source={ringSvg(lastContext.percent, DASH_TEXT)} alt={`${Math.round(lastContext.percent)}% of context`} width={16} height={16} />
-            <Text color={DASH_TEXT}>{`${Math.round(lastContext.percent)}%`}</Text>
+        {/* The context ring, then the cache in grey. Hovering either swaps the dim reason for what they mean. */}
+        {Svg && ((lastContext && lastContext.window) || cacheShown !== null) ? (
+          <Box key="dash-ring" flexShrink={0} marginLeft={2} flexDirection="row" gap={1} alignItems="center"
+            hover={{ scope: 'dash-cache', backgroundColor: HOVER_BOX }}>
+            {lastContext && lastContext.window ? (
+              <>
+                <Svg source={ringSvg(lastContext.percent, DASH_TEXT)} alt={`${Math.round(lastContext.percent)}% of context`} width={16} height={16} />
+                <Text color={DASH_TEXT}>{`${Math.round(lastContext.percent)}%`}</Text>
+              </>
+            ) : null}
+            {cacheShown !== null ? (
+              <Text color={cacheShown === 0 ? ICE : (cacheColor(cacheShown) ?? DASH_DIM)}>{` cache ${cacheLabel(cacheShown)}`}</Text>
+            ) : null}
           </Box>
         ) : null}
+        {/* The reason, and over it (shown only while the ring or cache is hovered) what they mean: a hover can only
+            reveal, so the tip is a layer on the band's colour that covers the reason. */}
         {detail ? (
-          <Box flexShrink={100} minWidth={0} marginLeft={2}>
+          <Box key="dash-detail" position="relative" flexShrink={100} minWidth={0} marginLeft={2}>
             <Text dimColor wrap="truncate">{detail}</Text>
+            {drawn ? (
+              <Box key="dash-cache-tip" position="absolute" top={0} left={0} right={0} bottom={0} backgroundColor={DASH_BG}
+                display="none" hover={{ scope: 'dash-cache', display: 'flex' }}>
+                <Text dimColor wrap="truncate">{hoverTips(v).cache.replace(/^Prompt cache/, 'Cache')}</Text>
+              </Box>
+            ) : null}
           </Box>
         ) : null}
       </Box>
@@ -3335,8 +3367,10 @@ Saved to ${out}.md and .json` }
       )
     }
     // A compact running or just done: said above the prompt, where it is seen at once.
-    const compactNow = e.surface === 'terminal' ? null : await compactCard($)
-    if (compactNow) return handoffCardTree($, e, compactNow, undefined)
+    const compactNow = e.surface === 'terminal' ? null : await compactCard($, !!e.props.isWorking)
+    if (compactNow)
+      return handoffCardTree($, e, compactNow, undefined,
+        compactNow.kind === 'compacted' ? () => update($, handoffCard, card => (card?.kind === 'compacted' ? null : card)) : undefined)
     // The cache went cold: the next message rereads the whole chat at full price. Only worth a band on a big chat.
     const compacting = await read($, isCompacting)
     const coldTokens = compacting ? null : await coldWorth($)
