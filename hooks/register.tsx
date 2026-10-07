@@ -2218,7 +2218,7 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
 const COMPACT_CARD_MS = 20_000
 /** A settings part's body on desktop is as tall as the overview's row of cards, so the panel keeps its height going in
  * and out of a part. In lines (a Box height is a number of lines or a percentage) at the app's 19 px line: 56 px makes
- * the band 121.5 px tall in every part, as with the cards, measured on tools/render-band.
+ * the band 121.5 px tall in every part, as with the cards, measured on tools/render-band. */
 const SETTINGS_BODY_H = 56 / 19
 /** The card ✕'s hover: the app's ghost fill is lost on the green and violet cards, so a darker wash of the card itself. */
 const CARD_CLOSE_HOVER = '#00000040'
