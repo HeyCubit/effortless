@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.37.0",
+    "date": "2026-10-07",
+    "note": "Smooth deciding glow, Settings saved card, version in Settings",
+    "public": true
+  },
+  {
     "version": "1.36.0",
     "date": "2026-10-07",
     "note": "Haiku 5.5 picks the model and writes compactions",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.37.0",
+    "date": "2026-10-07",
+    "note": "Smooth deciding glow, Settings saved card, version in Settings",
+    "public": true
+  },
+  {
     "version": "1.36.7",
     "date": "2026-10-07",
     "note": "Agent panel: a map of the code touched, parts that open to their files, total progress"
