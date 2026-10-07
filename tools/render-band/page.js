@@ -98,17 +98,29 @@
 
     // --- Draw ---------------------------------------------------------------------------------------------------
     const host = document.querySelector('[data-plugin-drawn]')
-    const shaped = app.hh(R.tree) // the band's shapeTree (without the host's "Turn off" button)
     const root = app.cd(host, app.Um) // shadow root + the app's engine CSS + the band's surface CSS
-    const marks = app.au()
     const handlers = { press: () => undefined, input: () => undefined, select: () => undefined }
-    const drawn = app.ou(shaped, handlers, app.na, marks, app.Nu(host), true)
-    if (drawn) {
-      drawn.setAttribute('data-engine-tree', '')
-      if (!drawn.matches('a[href],button,input,select,textarea')) drawn.setAttribute('tabindex', '-1')
-      root.insertBefore(drawn, root.children[1] ?? null)
+    // One redraw as the app does it: the tree shaped and built again, the old band swapped out whole (which is why an
+    // image's CSS animation starts over on every redraw).
+    const draw = (tree) => {
+      root.querySelector('[data-engine-tree]')?.remove()
+      const shaped = app.hh(tree) // the band's shapeTree (without the host's "Turn off" button)
+      const marks = app.au()
+      const drawn = app.ou(shaped, handlers, app.na, marks, app.Nu(host), true)
+      if (drawn) {
+        drawn.setAttribute('data-engine-tree', '')
+        if (!drawn.matches('a[href],button,input,select,textarea')) drawn.setAttribute('tabindex', '-1')
+        root.insertBefore(drawn, root.children[1] ?? null)
+      }
+      app.Gc(root, marks.hoverRules)
     }
-    app.Gc(root, marks.hoverRules)
+    draw(R.tree)
+    // --trace: replay the recorded redraws at their clock times (ms after the first act). Renders inside one act come
+    // a frame apart, as the app draws them.
+    window.RIG_PLAY = () => {
+      for (const step of R.trace.slice(1))
+        for (let k = 0; k < step.renders; k++) setTimeout(() => draw(step.tree), step.t + k * 16)
+    }
     await document.fonts.ready
     // Images (the Svg leaves are <img> with data: URLs) decode before the screenshot.
     await Promise.all([...root.querySelectorAll('img')].map((i) => i.decode().catch(() => undefined)))

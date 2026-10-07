@@ -1716,27 +1716,6 @@ describe('handoff', () => {
     await footer.unmount()
   })
 
-  test('New chat & archive asks the model here to start the chat and archive this one', async ($, on) => {
-    const { ran, submitted } = handoffEngine(on)
-    const copied: string[] = []
-    on('ui.copy', (_$, e) => {
-      copied.push(e.text)
-      return { value: { isCopied: true } } as never
-    })
-    const mocked = mock.clock(on)
-    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
-    const footer = await $.ui.mount(FOOTER)
-    await handOff($, footer, [], 'newchat')
-    await mocked.advance(2500)
-    expect(ran).not.toContain('clear')
-    expect(copied[0]).toContain('Goal: quick.')
-    const asked = submitted.at(-1) ?? ''
-    expect(asked).toContain('spawn_task')
-    expect(asked).toContain('archive_session')
-    expect(asked).toContain('Goal: quick.')
-    await footer.unmount()
-  })
-
   test('if the clipboard refuses, the handoff goes in the prompt box', async ($, on) => {
     const { ran } = handoffEngine(on)
     on('ui.copy', () => ({ value: { isCopied: false, reason: 'no clipboard' } }) as never)

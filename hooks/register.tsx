@@ -88,8 +88,8 @@ const handoffPick = atom({ plugin: 'effortless', key: 'handoffPick' } as const, 
 const swamped = atom({ plugin: 'effortless', key: 'swamped' } as const, null)
 // The swamp band was closed at this many tokens; it comes back once the context has grown well past it.
 // The handoff card under the newest reply: shown from the start of a handoff, and once it lands ('done' in the
-// cleared chat, 'copied', 'newchat'). It goes with the reply after it, or HANDOFF_CARD_MS after it was set.
-type HandoffCard = { kind: 'writing' | 'done' | 'copied' | 'newchat' | 'compacting' | 'compacted'; full: boolean; at: number; seen: boolean }
+// cleared chat, 'copied'). It goes with the reply after it, or HANDOFF_CARD_MS after it was set.
+type HandoffCard = { kind: 'writing' | 'done' | 'copied' | 'compacting' | 'compacted'; full: boolean; at: number; seen: boolean }
 // Kinds still under way: they stay until they land, with moving art. Compacting shares the card with the handoff.
 const cardRunning = (kind: HandoffCard['kind']) => kind === 'writing' || kind === 'compacting'
 // Kinds that landed well: the card turns green with a checkmark.
@@ -183,6 +183,13 @@ const INTRO_MS = 1300
 let introKind = ''
 let introAt = 0
 /** Whether the band of `kind` is still in its entrance: true for INTRO_MS after it replaced another band. */
+/** An animated Svg drawn `elapsedMs` into its animations. Every redraw rebuilds the band and starts its images' CSS
+ * animations over; with this, a redraw mid-animation picks it up where it was instead of jumping back. */
+export function inPhase(svg: string, elapsedMs: number): string {
+  return svg.replace('</svg>', `<style>svg *{animation-delay:${(-Math.max(0, elapsedMs) / 1000).toFixed(3)}s !important}</style></svg>`)
+}
+// How far the entrance on screen is, for introLayer.
+let introElapsed = 0
 async function introShows($: EngineInterface, kind: string): Promise<boolean> {
   const now = await $.clock.now()
   if (kind !== introKind) {
@@ -190,7 +197,8 @@ async function introShows($: EngineInterface, kind: string): Promise<boolean> {
     introAt = now
     $.clock.after(INTRO_MS + 100, () => $.ui.invalidate('ui.render'))
   }
-  return now - introAt < INTRO_MS
+  introElapsed = now - introAt
+  return introElapsed < INTRO_MS
 }
 /** The entrance layer (INTRO_SVG) in a band's own colours, or nothing once the entrance is over. */
 function introLayer(els: { Box: unknown; Svg?: unknown }, key: string, show: boolean, wash = '#8b6cff', light = '#b9a7ff') {
@@ -198,7 +206,7 @@ function introLayer(els: { Box: unknown; Svg?: unknown }, key: string, show: boo
   const { Box: B, Svg: S } = els as unknown as { Box: (p: Record<string, unknown>) => unknown; Svg: (p: Record<string, unknown>) => unknown }
   return (
     <B key={`${key}-intro`} position="absolute" top={-1} left={0} right={0} bottom={-1}>
-      <S source={INTRO_SVG.replace('#8b6cff', wash).replace('#b9a7ff', light)} alt="" width={1600} height={240} />
+      <S source={inPhase(INTRO_SVG.replace('#8b6cff', wash).replace('#b9a7ff', light), introElapsed)} alt="" width={1600} height={240} />
     </B>
   )
 }
@@ -478,7 +486,7 @@ export function readConfig(options: unknown): JudgeConfig {
     customModel: str(o.customModel),
     customKey: str(o.customKey),
     handoffSkill: str(o.handoffSkill).replace(/^\//, ''),
-    handoffAfter: (['confirm', 'copy', 'newchat'] as const).find(a => a === str(o.handoffAfter)) ?? 'continue',
+    handoffAfter: (['confirm', 'copy'] as const).find(a => a === str(o.handoffAfter)) ?? 'continue',
     bias: Math.max(-2, Math.min(2, Math.round(Number(str(o.effortBias)) || 0))),
     floor: EFFORTS.includes(str(o.effortFloor) as Effort) ? (str(o.effortFloor) as Effort) : 'low',
     ceiling: EFFORTS.includes(str(o.effortCeiling) as Effort) ? (str(o.effortCeiling) as Effort) : 'max',
@@ -1249,22 +1257,6 @@ export function handoffMessage(handoff: string, after: HandoffAfter, skill?: str
   return `Handoff from the previous chat:\n\n${handoff.trim()}\n\n${ask}`
 }
 
-/** New chat & archive: a plugin cannot start a chat, so the model in this one does it with the app's own tools. */
-export function newChatPrompt(message: string): string {
-  return [
-    'effortless handoff: move this work to a new chat and archive this one. Do exactly this and nothing else:',
-    '1. Start a new chat whose first message is the text between the markers, word for word. Use hand_off_to_session ' +
-      'or start_session when you have one, then show it with open_session_in (target "focus"). Otherwise use ' +
-      'spawn_task, its title a few words on the work, its tldr one sentence, its prompt the text.',
-    '2. Then archive this chat with archive_session, session_id "self", reason "handed off to a new chat".',
-    'Do not read files or run anything else. The handoff is also on the clipboard, in case a step is refused.',
-    '',
-    '<<<HANDOFF',
-    message,
-    'HANDOFF>>>',
-  ].join('\n')
-}
-
 // The handoff's text once its turn has ended, waiting for the chat to go idle so it can be cleared and resent.
 let handoffText: string | undefined
 let handoffDriving = false
@@ -1291,7 +1283,7 @@ async function startHandoff($: EngineInterface, full = false, after: HandoffAfte
 async function lastHandoffChoice($: EngineInterface): Promise<HandoffChoice> {
   const kept = (await $.store.get('handoffChoice').catch(() => null)) as Partial<HandoffChoice> | null
   const kind = kept?.kind === 'full' ? 'full' : 'quick'
-  const after = (['continue', 'confirm', 'copy', 'newchat'] as const).find(a => a === kept?.after) ?? config.handoffAfter
+  const after = (['continue', 'confirm', 'copy'] as const).find(a => a === kept?.after) ?? config.handoffAfter
   return { kind, after }
 }
 
@@ -1322,9 +1314,7 @@ export function handoffWhat(choice: HandoffChoice, skill: string): { by: string;
   const then =
     choice.after === 'copy'
       ? 'Copied, chat stays.'
-      : choice.after === 'newchat'
-        ? 'New chat, this one archived.'
-        : choice.after === 'confirm'
+      : choice.after === 'confirm'
           ? 'Clears chat, then waits.'
           : 'Clears chat, carries on.'
   return { by, then }
@@ -1384,14 +1374,6 @@ export async function finishHandoff($: EngineInterface) {
   const text = handoffText
   handoffText = undefined
   try {
-    if (handoffThen === 'newchat') {
-      // The model here starts the new chat and archives this one; the clipboard keeps the handoff should it fail.
-      const message = handoffMessage(text, 'continue', handoffFull ? config.handoffSkill : undefined)
-      await $.ui.copy({ text: message }).catch(() => undefined)
-      await setHandoffCard($, 'newchat', handoffFull)
-      await $.prompt.submit({ text: newChatPrompt(message) })
-      return
-    }
     if (handoffThen === 'copy') {
       // The chat stays: the handoff goes to the clipboard, ready to paste into another chat. Should the clipboard
       // refuse, it goes in the prompt box instead, to cut from there.
@@ -2039,15 +2021,16 @@ export function dashboardLines(d: {
 /** How long the effort word glows after it changes: held at full colour, then faded out; and the step of the fade. */
 const FLASH_HOLD_MS = 1000
 const FLASH_MS = 3500
-const FLASH_TICK_MS = 100
+/** The fade's steps: when each starts and how far it is from the glow to white. Three redraws in all: every redraw
+ * rebuilds the band, which restarts its images and swaps the buttons under a pointer mid-click. */
+const FLASH_STEPS: readonly (readonly [number, number])[] = [[FLASH_HOLD_MS, 0.35], [2200, 0.75]]
 /** The glow: a stronger violet than the accent, so a switch is seen at a glance. */
 const FLASH_COLOR = '#9b7bff'
 /** The effort word's colour `ms` after it changed: the glow, held, then easing out to the band's white. */
 export function flashColor(ms: number | null): string {
   if (ms === null || ms >= FLASH_MS) return DASH_TEXT
   if (ms <= FLASH_HOLD_MS) return FLASH_COLOR
-  const t = (ms - FLASH_HOLD_MS) / (FLASH_MS - FLASH_HOLD_MS)
-  const k = t * t
+  const k = [...FLASH_STEPS].reverse().find(([at]) => ms >= at)?.[1] ?? 0
   const ch = (hex: string, i: number) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16)
   return `#${[0, 1, 2].map(i => Math.round(ch(FLASH_COLOR, i) + (ch(DASH_TEXT, i) - ch(FLASH_COLOR, i)) * k).toString(16).padStart(2, '0')).join('')}`
 }
@@ -2055,7 +2038,6 @@ export function flashColor(ms: number | null): string {
 // decides: the word it lands on is compared with the one before.
 let flashWord: string | null = null
 let flashAt: number | null = null
-let flashTimer: { cancel(): void } | null = null
 
 async function effortFlash($: EngineInterface, what: string, judging: boolean): Promise<string> {
   const now = await $.clock.now()
@@ -2064,17 +2046,9 @@ async function effortFlash($: EngineInterface, what: string, judging: boolean): 
     flashWord = what
   }
   const since = flashAt === null ? null : now - flashAt
-  if (since !== null && since < FLASH_MS && !flashTimer) {
-    flashTimer = $.clock.every(FLASH_TICK_MS, () => {
-      void $.clock.now().then(t => {
-        if (flashAt === null || t - flashAt >= FLASH_MS) {
-          flashTimer?.cancel()
-          flashTimer = null
-          flashAt = null
-        }
-        $.ui.invalidate('ui.render')
-      })
-    })
+  if (since === 0) {
+    // One redraw at each step of the fade and one at its end, not a tick: see FLASH_STEPS.
+    for (const at of [...FLASH_STEPS.map(([t]) => t), FLASH_MS]) $.clock.after(at + 20, () => $.ui.invalidate('ui.render'))
   }
   return flashColor(since)
 }
@@ -2088,7 +2062,6 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
     writing: ['✦ Handing off…', `${by} handoff being written. ${fresh.full ? 'Your skill takes a little while.' : 'A few seconds.'}`],
     done: ['✦ Handoff complete', 'Carried on from the last chat. The old one is cleared.'],
     copied: ['✦ Handoff copied', 'Paste it into a new chat. This one stays.'],
-    newchat: ['✦ Handoff sent on', 'A new chat starts from it; this one gets archived.'],
     compacting: ['✦ Compacting…', 'The chat is being summed up. Takes a minute or so.'],
     compacted: ['✦ Compact complete', 'The chat is summed up; the next message reads far less.'],
   }[fresh.kind]
@@ -2160,23 +2133,27 @@ const GLOW_LEVELS: ReadonlyArray<{ spread: number; blur: number; peak: number; l
 const GLOW_W = 93
 const GLOW_H = 36
 const GLOW_BUTTON = { w: 77, h: 20, r: 6 }
-export function handoffGlowSvg(step: number): string {
+export function handoffGlowSvg(step: number, nowMs = 0): string {
   const { spread: e, blur, peak, low, period } = GLOW_LEVELS[step]
+  // The pulse's place from the clock, so a redraw does not restart it from the low point.
+  const lock = (svg: string) => inPhase(svg, nowMs % (period * 1000))
   const x = (GLOW_W - GLOW_BUTTON.w) / 2 - e
   const y = (GLOW_H - GLOW_BUTTON.h) / 2 - e
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${GLOW_W}" height="${GLOW_H}" viewBox="0 0 ${GLOW_W} ${GLOW_H}"><style>.g{animation:p ${period}s ease-in-out infinite}@keyframes p{0%,100%{opacity:${low}}50%{opacity:${peak}}}</style><defs><filter id="b" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="${blur}"/></filter></defs><g class="g" filter="url(#b)"><rect x="${x}" y="${y}" width="${GLOW_BUTTON.w + 2 * e}" height="${GLOW_BUTTON.h + 2 * e}" rx="${GLOW_BUTTON.r + e}" fill="${ACCENT}"/></g></svg>`
+  return lock(`<svg xmlns="http://www.w3.org/2000/svg" width="${GLOW_W}" height="${GLOW_H}" viewBox="0 0 ${GLOW_W} ${GLOW_H}"><style>.g{animation:p ${period}s ease-in-out infinite}@keyframes p{0%,100%{opacity:${low}}50%{opacity:${peak}}}</style><defs><filter id="b" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="${blur}"/></filter></defs><g class="g" filter="url(#b)"><rect x="${x}" y="${y}" width="${GLOW_BUTTON.w + 2 * e}" height="${GLOW_BUTTON.h + 2 * e}" rx="${GLOW_BUTTON.r + e}" fill="${ACCENT}"/></g></svg>`)
 }
 
 /** How long the switch's knob takes to slide after a click. */
 const AUTO_SLIDE_MS = 260
 /** Auto as a switch: a pill with its knob right and violet when on, left and grey when off. `slide` draws the move from
  * the other side, for the redraw right after a click only (every redraw replays an image's animation). */
-export function autoSwitchSvg(on: boolean, slide = false): string {
+export function autoSwitchSvg(on: boolean, slideMs: number | null = null): string {
+  const slide = slideMs !== null && slideMs < AUTO_SLIDE_MS
   const t = `${AUTO_SLIDE_MS / 1000}s cubic-bezier(.3,.7,.2,1)`
   const css = slide
     ? `<style>.k{animation:k ${t}}.p{animation:p ${t}}@keyframes k{from{transform:translateX(${on ? -11 : 11}px);fill:${on ? '#8b8b93' : '#ffffff'}}}@keyframes p{from{fill:${on ? '#2c2c31' : ACCENT};stroke:${on ? '#4a4a52' : ACCENT}}}</style>`
     : ''
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="15" viewBox="0 0 26 15">${css}<rect class="p" x=".5" y=".5" width="25" height="14" rx="7" fill="${on ? ACCENT : '#2c2c31'}" stroke="${on ? ACCENT : '#4a4a52'}"/><circle class="k" cx="${on ? 18.5 : 7.5}" cy="7.5" r="5" fill="${on ? '#ffffff' : '#8b8b93'}"/></svg>`
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="15" viewBox="0 0 26 15">${css}<rect class="p" x=".5" y=".5" width="25" height="14" rx="7" fill="${on ? ACCENT : '#2c2c31'}" stroke="${on ? ACCENT : '#4a4a52'}"/><circle class="k" cx="${on ? 18.5 : 7.5}" cy="7.5" r="5" fill="${on ? '#ffffff' : '#8b8b93'}"/></svg>`
+  return slide ? inPhase(svg, slideMs) : svg
 }
 /** How long the bar's edges glow after Auto is switched on. */
 const AUTO_GLOW_MS = 2600
@@ -2189,7 +2166,7 @@ const AUTO_GLOW_H = 37
 export const AUTO_GLOW_SVG = (() => {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
   const rim = `x="0" y="0" width="${W}" height="${H}" rx="8"`
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${AUTO_GLOW_MS / 1000}s ease-in-out}@keyframes r{0%{opacity:0}15%{opacity:1}45%{opacity:.85}100%{opacity:0}}</style><defs><clipPath id="c"><rect ${rim}/></clipPath><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="2.6"/></filter><filter id="s" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation=".8"/></filter></defs><g class="r" clip-path="url(#c)"><rect ${rim} fill="none" stroke="${ACCENT}" stroke-width="9" opacity=".9" filter="url(#b)"/><rect ${rim} fill="none" stroke="#c9bfff" stroke-width="2.4" filter="url(#s)"/></g></svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${AUTO_GLOW_MS / 1000}s ease-in-out}@keyframes r{0%{opacity:0}15%{opacity:1}45%{opacity:.85}100%{opacity:0}}</style><defs><clipPath id="c"><rect ${rim}/></clipPath><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="2.6"/></filter><filter id="s" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation=".8"/></filter></defs><g class="r" clip-path="url(#c)"><rect ${rim} fill="none" stroke="${ACCENT}" stroke-width="7" opacity=".45" filter="url(#b)"/><rect ${rim} fill="none" stroke="#c9bfff" stroke-width="1.4" opacity=".55" filter="url(#s)"/></g></svg>`
 })()
 // When the bar last saw Auto off or on, when Auto came on (for the edge glow), and when it last changed (for the slide).
 let autoSeen: boolean | undefined
@@ -2261,7 +2238,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
               // drawn over the glow: the desktop makes a Box relative only when it has absolute children.
               <Box key="dash-handoff-wrap" flexDirection="row">
                 <Box key="dash-glow" position="absolute" top={0} bottom={0} left={-2} right={-2} alignItems="center" justifyContent="center">
-                  <els.Svg source={handoffGlowSvg(handoffGlowStep(lastContext?.percent ?? 0))} alt="handoff glow" width={GLOW_W} height={GLOW_H} />
+                  <els.Svg source={handoffGlowSvg(handoffGlowStep(lastContext?.percent ?? 0), nowMs)} alt="handoff glow" width={GLOW_W} height={GLOW_H} />
                 </Box>
                 <Box flexDirection="row">
                   <Box position="absolute" top={0} left={0} />
@@ -2296,7 +2273,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
       ) : null}
       {Svg && v.auto && nowMs - autoOnAt < AUTO_GLOW_MS ? (
         <Box key="dash-auto-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={AUTO_GLOW_SVG} alt="" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+          <Svg source={inPhase(AUTO_GLOW_SVG, nowMs - autoOnAt)} alt="" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
       {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
@@ -2368,7 +2345,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
         {Svg ? (
           // Auto as a switch, drawn, with a blank button laid over it to take the click (the cog's pattern).
           <Box key="dash-auto-switch" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}>
-            <Svg source={autoSwitchSvg(v.auto, nowMs - autoFlipAt < AUTO_SLIDE_MS)} alt={v.auto ? 'Auto on' : 'Auto off'} width={26} height={15} />
+            <Svg source={autoSwitchSvg(v.auto, nowMs - autoFlipAt)} alt={v.auto ? 'Auto on' : 'Auto off'} width={26} height={15} />
             <Text color={v.auto ? DASH_TEXT : DASH_DIM}>Auto</Text>
             <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
               <Button key="dash-auto" plain label={' '.repeat(24)} onPress={() => toggleAutoEffort($)} />
@@ -3328,7 +3305,6 @@ Saved to ${out}.md and .json` }
             { value: 'continue', label: 'Clear & carry on' },
             { value: 'confirm', label: 'Clear & wait' },
             { value: 'copy', label: 'Keep chat & copy' },
-            { value: 'newchat', label: 'New chat & archive' },
           ]}
           onSelect={v => setBar({ after: v as HandoffAfter })()} />,
         // Full with no skill to run: the lit button takes you to the place to pick one, instead of a Go that does nothing.
