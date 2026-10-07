@@ -3401,7 +3401,7 @@ Saved to ${out}.md and .json` }
             ) : (
               <Box key="settings-trail" flexDirection="row" alignItems="center" gap={1}>
                 {/* A real button: a dim "Settings" in a trail did not read as a way back. */}
-                <Button key="settings-back" variant="secondary" label="‹ Back" onPress={openCard(null)} />
+                <Button key="settings-back" variant="secondary" label="← Back" onPress={openCard(null)} />
                 <Text color={DASH_TEXT} bold>{CARDS.find(c => c.id === card)?.title}</Text>
               </Box>
             )}
