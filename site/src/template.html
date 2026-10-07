@@ -345,7 +345,31 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .inst-sec .fine{margin:22px 0 0;color:var(--dim);font-size:14px}
 .inst-sec .cta{margin-top:28px}
 .inst-sec code.f{font:13.5px ui-monospace,"Cascadia Code",Consolas,monospace;color:#d8d4ee;background:#1c1b22;padding:2px 6px;border-radius:5px}
-.cmds{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-top:32px;max-width:640px}
+.cmds{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;max-width:640px}
+/* The two ways in: tabs, then the Ask Claude card or the commands, then what happens next. */
+.ways{margin-top:28px;max-width:680px}
+.tabs{display:inline-flex;gap:4px;padding:4px;border-radius:11px;background:#1b1a21}
+.tabs button{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border:0;border-radius:8px;background:none;color:var(--muted);font:500 14px var(--sans);cursor:pointer;transition:background .2s,color .2s}
+.tabs button:hover{color:var(--text)}
+.tabs button[aria-selected="true"]{background:#2e2d36;color:var(--text)}
+.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tabs small{padding:2px 7px;border-radius:999px;background:#a79cf72e;color:#cfc7ff;font-size:11.5px;font-weight:600}
+.pane{margin-top:14px}
+.ask{display:flex;align-items:center;gap:16px;padding:14px 14px 14px 18px;border-radius:12px;background:#1b1a21}
+.ask p{flex:1;min-width:0;margin:0;color:var(--text);font-size:14.5px;line-height:1.55}
+.ask code,.then code,.way-label code{font:13.5px ui-monospace,"Cascadia Code",Consolas,monospace;color:#d8d4ee;background:#26252d;padding:1px 6px;border-radius:5px}
+.copy.main{background:#f4f3f8;color:#141218;font-weight:600;white-space:nowrap}
+.copy.main:hover{background:#fff}
+.help,.way-label{margin:10px 0 0;color:var(--muted);font-size:14px}
+.way-label{margin:0 0 8px}
+.way-label+.cmds{margin-top:0}
+.cmds+.way-label{margin-top:18px}
+.then{margin:16px 0 0;color:var(--muted);font-size:14px}
+.pop .ways{margin-top:0}
+.pop .help,.pop .then{margin:10px 0 0;line-height:1.5}
+.pop .ask{flex-direction:column;align-items:stretch}
+.pop .copy.main{align-self:flex-start}
+@media (max-width:560px){.ask{flex-direction:column;align-items:stretch}.copy.main{align-self:flex-start}.tabs small{display:none}}
 .cmd{display:flex;align-items:center;gap:12px;background:#1b1a21;border-radius:12px;padding:8px 8px 8px 18px}
 .cmd code{flex:1;min-width:0;overflow-x:auto;white-space:nowrap;background:none;padding:6px 0;font:14.5px ui-monospace,"Cascadia Code",Consolas,monospace;color:var(--text)}
 .cmd code:before{content:"›";color:var(--accent);margin-right:10px;user-select:none}
@@ -497,8 +521,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   <a class="name" href="#top">__SPARK__effortless</a>
   <button type="button" class="inst" id="inst" aria-label="Show install commands" aria-expanded="false" aria-controls="pop">Install<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   <div class="pop" id="pop" role="dialog" aria-label="Install effortless">
-    <p>Paste both into Claude Code's chat box, then restart.</p>
-    <div class="cmds"><div class="cmd"><code>/plugin marketplace add HeyCubit/effortless</code><button type="button" class="copy" data-copy="/plugin marketplace add HeyCubit/effortless" aria-label="Copy /plugin marketplace add HeyCubit/effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Copy</span></button></div><div class="cmd"><code>/plugin install effortless@effortless</code><button type="button" class="copy" data-copy="/plugin install effortless@effortless" aria-label="Copy /plugin install effortless@effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Copy</span></button></div></div>
+    __INSTALL__
   </div>
 </header>
 
@@ -529,9 +552,9 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   </section>
 
   <section class="inst-sec" id="install">
-    <h2>Two lines in the chat box.</h2>
-    <p class="lead">No terminal. Paste both into Claude Code, restart, and pick who judges your prompts. Haiku needs no key.</p>
-    <div class="cmds"><div class="cmd"><code>/plugin marketplace add HeyCubit/effortless</code><button type="button" class="copy" data-copy="/plugin marketplace add HeyCubit/effortless" aria-label="Copy /plugin marketplace add HeyCubit/effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Copy</span></button></div><div class="cmd"><code>/plugin install effortless@effortless</code><button type="button" class="copy" data-copy="/plugin install effortless@effortless" aria-label="Copy /plugin install effortless@effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 10.5V4a1.5 1.5 0 011.5-1.5H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Copy</span></button></div></div>
+    <h2>Two ways in.</h2>
+    <p class="lead">Let Claude install it for you, or paste the commands yourself. Haiku judges your prompts by default, so no key is needed.</p>
+    __INSTALL__
     <p class="fine">The whole mod is one file, <code class="f">hooks/register.tsx</code>. A key, if you use one, goes only to the judge you pick. Runs on Opus 5.5 and Sonnet 5.5.</p>
     <p class="fine">Prefer it quiet? Settings → Appearance → Minimal puts effortless back in the footer.</p>
     <div class="cta"><a class="gh" href="https://github.com/HeyCubit/effortless">__GITHUB__<span>Star on GitHub</span></a></div>
@@ -550,12 +573,14 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 <script>
 // The copy buttons put their command on the clipboard and say so for a moment. Where the browser refuses the clipboard,
 // the command is selected and copied the old way, or left selected with a hint to press Ctrl+C.
+// Every copy button remembers its own label, so a reset puts back "Copy for Claude", not "Copy".
+document.querySelectorAll('[data-copy] span').forEach(function(s){s.dataset.label=s.textContent});
 document.addEventListener('click',function(e){
   var b=e.target.closest('[data-copy]');if(!b)return;
-  var s=b.querySelector('span'),code=b.parentNode.querySelector('code');
+  var s=b.querySelector('span'),code=b.parentNode.querySelector('[data-sel]')||b.parentNode.querySelector('code');if(!s.dataset.label)s.dataset.label=s.textContent;
   // Only one button says Copied at a time.
-  document.querySelectorAll('[data-copy]').forEach(function(o){if(o!==b){clearTimeout(o.t);o.classList.remove('ok');o.querySelector('span').textContent='Copy';}});
-  function say(t,ok){b.classList.toggle('ok',ok);s.textContent=t;clearTimeout(b.t);b.t=setTimeout(function(){b.classList.remove('ok');s.textContent='Copy'},ok?1400:3000);}
+  document.querySelectorAll('[data-copy]').forEach(function(o){if(o!==b){clearTimeout(o.t);o.classList.remove('ok');var os=o.querySelector('span');os.textContent=os.dataset.label||'Copy';}});
+  function say(t,ok){b.classList.toggle('ok',ok);s.textContent=t;clearTimeout(b.t);b.t=setTimeout(function(){b.classList.remove('ok');s.textContent=s.dataset.label},ok?1400:3000);}
   function fallback(){
     var r=document.createRange();r.selectNodeContents(code);var sel=getSelection();sel.removeAllRanges();sel.addRange(r);
     var done=false;try{done=document.execCommand('copy')}catch(err){}
@@ -563,6 +588,13 @@ document.addEventListener('click',function(e){
   }
   if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(b.dataset.copy).then(function(){say('Copied',true)},fallback);
   else fallback();
+});
+
+// The two ways in: one tab shows at a time. Each copy of the block (the section and the popover) switches on its own.
+document.addEventListener('click',function(e){
+  var t=e.target.closest('[data-tab]');if(!t)return;var w=t.closest('.ways'),k=t.dataset.tab;
+  w.querySelectorAll('[data-tab]').forEach(function(b){b.setAttribute('aria-selected',String(b===t))});
+  w.querySelectorAll('[data-pane]').forEach(function(p){p.hidden=p.dataset.pane!==k});
 });
 
 // The install bar slides in once the opening has scrolled away; its button opens the two commands.
@@ -672,7 +704,7 @@ var Dash=(function(){
   var HANDOFF='<div class="band brand handoff"><span class="words"><span class="t">⇥ Handoff</span><span class="what">Done in seconds. Clears chat, carries on.</span></span><span class="acts"><span class="qf"><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.5L3.5 9H8l-1 5.5L12.5 7H8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Quick</span><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5l3 3L6 13l-3.5.5L3 10z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Full</span></span><span class="btn pick">Clear &amp; carry on</span><span class="btn primary">Go <span class="k">G</span></span><span class="btn x">✕</span></span></div>';
   var SETT='<div class="sett"><div class="sett-h"><b>effortless</b><span class="sub">Settings</span><span class="save">Save</span><span class="x">✕</span></div><div class="cards">'+
     '<div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 11.5a5.5 5.5 0 1111 0M8 11.5l2.6-3.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Effort</b><span>Balanced · low to max</span></div><div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v11M4.5 13.5h7M3 4.5h10M3 4.5L1.5 9h3zM13 4.5L11.5 9h3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Judge</b><span>Auto · Haiku</span></div>'+
-    '<div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h8.5M7.5 5l3 3-3 3M13.5 3.5v9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Handoff</b><span>Built in · swamped at 50%</span></div><div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8s-2.4 4.5-6.5 4.5S1.5 8 1.5 8zM8 9.8a1.8 1.8 0 100-3.6 1.8 1.8 0 000 3.6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Appearance</b><span>Dashboard · 4 of 4 on</span></div></div></div>';
+    '<div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h8.5M7.5 5l3 3-3 3M13.5 3.5v9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Handoff</b><span>Built in · swamped at 50%</span></div><div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8s-2.4 4.5-6.5 4.5S1.5 8 1.5 8zM8 9.8a1.8 1.8 0 100-3.6 1.8 1.8 0 000 3.6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Appearance</b><span>Dashboard look</span></div></div></div>';
 
   // Every scene shows what it is about at once, so someone scrolling past still sees it, and only then plays it out.
   var scenes=[
