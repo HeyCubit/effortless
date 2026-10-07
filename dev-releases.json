@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.36.10",
+    "date": "2026-10-07",
+    "note": "Version in the settings header"
+  },
+  {
     "version": "1.36.9",
     "date": "2026-10-07",
     "note": "Glow placed by the clock, judge line off by default"
