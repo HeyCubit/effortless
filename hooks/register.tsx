@@ -2,10 +2,10 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelForkResult, Register, RenderInput } from 'claude-code'
 
 import type { AgentRec, Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
-import { agentsPane, demoAgents, toolLine, withWaits } from './agents'
+import { agentsPane, demoAgents, demoFiles, demoSteps, importsOf, relPath, toolLine, touchOf, withTouch, withWaits } from './agents'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
 import { MARK_SVG } from './brand-mark'
-import { PILL_H, stepsFromTodos, thinkingSvg, THINK_W } from './progress'
+import { PILL_H, stepsFromTodos, thinkingSvg, THINK_W, withTaskCreated, withTaskUpdated } from './progress'
 
 // The ladders the two sliders walk, cheapest first.
 export const MODELS: { key: ModelKey; label: string; long: string; id: string }[] = [
@@ -160,6 +160,10 @@ const hotHidden = atom({ plugin: 'effortless', key: 'hotHidden' } as const, null
 // The agent panel: this chat's subagents, and the card opened in it (hooks/agents.tsx).
 const agentsState = atom({ plugin: 'effortless', key: 'agents' } as const, [])
 const agentsOpen = atom({ plugin: 'effortless', key: 'agentsOpen' } as const, null)
+// The panel's map: the files touched, the main chat's own steps, the module opened in its list.
+const agentFiles = atom({ plugin: 'effortless', key: 'agentFiles' } as const, [])
+const agentSteps = atom({ plugin: 'effortless', key: 'agentSteps' } as const, null)
+const agentsModule = atom({ plugin: 'effortless', key: 'agentsModule' } as const, null)
 // Save mode: Auto picks at most medium until this time (ms), when the limit resets.
 const saveUntil = atom({ plugin: 'effortless', key: 'saveUntil' } as const, null)
 const isColdHidden = atom({ plugin: 'effortless', key: 'isColdHidden' } as const, false)
@@ -522,7 +526,7 @@ let config: JudgeConfig = {
   bias: 0,
   floor: 'low',
   ceiling: 'max',
-  hide: [],
+  hide: ['reason'],
   swampAt: 50,
   layout: 'default',
   compactWith: 'haiku',
@@ -549,7 +553,8 @@ export function readConfig(options: unknown): JudgeConfig {
     layout: str(o.layout) === 'minimal' ? 'minimal' : 'default',
     compactWith: str(o.compactWith) === 'session' ? 'session' : 'haiku',
     modelAuto: str(o.modelAuto) === 'off' ? 'off' : 'on',
-    hide: str(o.hide)
+    // The judge's line is off until switched on; an empty string saved from the panel means everything shows.
+    hide: (o.hide === undefined ? 'reason' : str(o.hide))
       .split(',')
       .map(part => part.trim())
       .filter((part): part is Hideable => (HIDEABLE as readonly string[]).includes(part)),
@@ -2644,51 +2649,17 @@ const COLD_GLOW_MS = 4200
  * cache path (…/plugins/cache/<marketplace>/effortless/<version>). */
 const pluginId = ($: EngineInterface) => `effortless@${$.plugin.root.match(/cache[\\/]([^\\/]+)[\\/]/)?.[1] ?? 'effortless'}`
 
-/** The bar's rim lit in the brand's violet while the judge decides: a slow breath, placed by the clock. */
-const JUDGE_GLOW_MS = 1600
+/** The rim lit in the brand's violet when the judge starts: one slow breath, up and back to dark. One fixed sequence that is
+ * started with the judge and neither waits for nor reacts to the verdict, the model or the effort, so there is nothing
+ * to swap or restart. The app swaps the whole band on every redraw and a new image starts its animation over (tested in
+ * Chrome: same source or not), so every draw places it by the clock with inPhase. Longer decisions end dark. */
+export const JUDGE_SEQUENCE_MS = 2400
 export function judgeGlowSvg(): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:.25;animation:r ${JUDGE_GLOW_MS / 1000}s ease-in-out infinite}@keyframes r{0%,100%{opacity:.25}50%{opacity:.85}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ACCENT}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#b9a7ff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${JUDGE_SEQUENCE_MS / 1000}s ease-in-out forwards}@keyframes r{0%{opacity:0}50%{opacity:.85}100%{opacity:0}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ACCENT}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#b9a7ff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
 }
-/** CSS's ease-in-out, cubic-bezier(.42,0,.58,1): the progress at time t (0 to 1), by bisection on the curve's x. */
-export function easeInOut(t: number): number {
-  const at = (a: number, b: number, u: number) => 3 * (1 - u) * (1 - u) * u * a + 3 * (1 - u) * u * u * b + u * u * u
-  let lo = 0, hi = 1
-  for (let i = 0; i < 30; i++) {
-    const mid = (lo + hi) / 2
-    if (at(0.42, 0.58, mid) < t) lo = mid
-    else hi = mid
-  }
-  return at(0, 1, (lo + hi) / 2)
-}
-/** How bright the breathing rim is `phase` (0 to 1) of the way round its breath. The keyframes go .25 to .85 and back,
- * each half eased by the browser's ease-in-out, so this follows that curve exactly (a sine was a little off, and the
- * fade then began from a slightly different brightness: a visible hop). */
-export const judgeBrightness = (phase: number) => {
-  const p = ((phase % 1) + 1) % 1
-  return p < 0.5 ? 0.25 + 0.6 * easeInOut(p / 0.5) : 0.85 - 0.6 * easeInOut((p - 0.5) / 0.5)
-}
-/** The rim once the verdict is in: the breath keeps going where it was, and the whole rim fades out over it. While it
- * is still rising it first reaches its peak, so the fade is seen even when the verdict lands on the dim part of the
- * breath (fading from there went from almost nothing to nothing). Both clocks are set here, not by inPhase, which
- * would give the breath and the fade one shared delay. */
-const JUDGE_FADE_OUT_MS = 1100
-export const judgeFadeMs = (endedAt: number) => {
-  const p = (((endedAt % JUDGE_GLOW_MS) + JUDGE_GLOW_MS) % JUDGE_GLOW_MS) / JUDGE_GLOW_MS
-  return (p < 0.5 ? (0.5 - p) * JUDGE_GLOW_MS : 0) + JUDGE_FADE_OUT_MS
-}
-export function judgeFadeSvg(endedAt: number, nowMs: number): string {
-  const total = judgeFadeMs(endedAt)
-  const hold = ((total - JUDGE_FADE_OUT_MS) / total) * 100
-  const breath = (-(((nowMs % JUDGE_GLOW_MS) + JUDGE_GLOW_MS) % JUDGE_GLOW_MS) / 1000).toFixed(3)
-  const fade = (-Math.max(0, nowMs - endedAt) / 1000).toFixed(3)
-  return judgeGlowSvg()
-    .replace('</style>', `.r{animation-delay:${breath}s}.o{opacity:0;animation:o ${total / 1000}s linear ${fade}s}@keyframes o{0%{opacity:1}${hold.toFixed(2)}%{opacity:1;animation-timing-function:cubic-bezier(.3,0,.5,1)}100%{opacity:0}}</style>`)
-    .replace('<g class="r">', '<g class="o"><g class="r">')
-    .replace('</g></svg>', '</g></g></svg>')
-}
-// When the judge last finished, for the fade.
-let judgeEndedAt = 0
+// When the sequence last started: the judge starting.
+let judgeStartedAt = -JUDGE_SEQUENCE_MS
 
 export function coldGlowSvg(): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
@@ -2832,14 +2803,10 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           <Svg source={inPhase(autoGlowSvg(v.auto), nowMs - autoOnAt)} alt="auto glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
-      {/* While the judge decides, the rim breathes violet; once the verdict is in it fades out. */}
-      {Svg && v.judging ? (
+      {/* The judge started: the violet rim plays its one breath, whatever the verdict. */}
+      {Svg && nowMs - judgeStartedAt >= 0 && nowMs - judgeStartedAt < JUDGE_SEQUENCE_MS ? (
         <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={inPhase(judgeGlowSvg(), nowMs % JUDGE_GLOW_MS)} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
-        </Box>
-      ) : Svg && nowMs - judgeEndedAt < judgeFadeMs(judgeEndedAt) ? (
-        <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={judgeFadeSvg(judgeEndedAt, nowMs)} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+          <Svg source={inPhase(judgeGlowSvg(), nowMs - judgeStartedAt)} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
       {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
@@ -3068,6 +3035,17 @@ async function agentEnded($: EngineInterface, id: string, reason: string) {
 /** Adds a request's weighted tokens to its agent. */
 async function agentCost($: EngineInterface, id: string, cost: number) {
   await agentSet($, id, a => ({ ...a, cost: (a.cost ?? 0) + cost }))
+}
+
+/** A file read or changed by the main chat or an agent: added to the map, its imports read the first time. */
+async function fileTouched($: EngineInterface, path: string, edited: boolean, by: string) {
+  const rel = relPath(path, await $.session.root())
+  if (!rel) return
+  const now = await $.clock.now()
+  const known = (await read($, agentFiles)).find(f => f.path === rel)
+  let imports: string[] | undefined
+  if (!known || edited) imports = importsOf(rel, await $.fs.read(path).then(t => t.slice(0, 512_000), () => ''))
+  await update($, agentFiles, list => withTouch(list, rel, edited, by, now, imports))
 }
 
 /** From the 1 s timer: an agent long in one tool call turns to waiting. Writes only when one changes. */
@@ -3299,6 +3277,8 @@ export const register: Register = (on, options) => {
       if (arg === 'agents demo') {
         const now = await $.clock.now()
         await update($, agentsState, () => demoAgents(now))
+        await update($, agentFiles, () => demoFiles(now))
+        await update($, agentSteps, () => demoSteps())
       }
       await $.ui.open({ id: 'effortless-agents', title: 'Agents' })
       return { text: arg === 'agents demo' ? 'The agent panel shows sample agents (a preview).' : 'The agent panel is open.' }
@@ -3430,6 +3410,8 @@ Saved to ${out}.md and .json` }
       return next(e)
     }
 
+    judgeStartedAt = await $.clock.now().catch(() => Date.now())
+    $.clock.after(JUDGE_SEQUENCE_MS + 100, () => $.ui.invalidate('ui.render'))
     await update($, isJudging, () => true)
     try {
       const inUse = await sessionModel($)
@@ -3485,7 +3467,6 @@ Saved to ${out}.md and .json` }
         }
       }
     } finally {
-      judgeEndedAt = await $.clock.now().catch(() => Date.now())
       await update($, isJudging, () => false)
     }
     return next(e)
@@ -3674,14 +3655,30 @@ Saved to ${out}.md and .json` }
 
   on('tool.call', async ($, e, next) => {
     const id = e.agentId
-    if (id === undefined || !(await read($, agentsState)).some(a => a.id === id)) return next(e)
-    const now = await $.clock.now()
-    const line = toolLine(e.tool, e as unknown as Record<string, unknown>)
-    await agentSet($, id, a => ({ ...a, now: line, toolSince: now }))
+    const input = e as unknown as Record<string, unknown>
+    const touch = touchOf(e.tool, input)
+    const isList = e.tool === 'TodoWrite' || e.tool === 'TaskCreate' || e.tool === 'TaskUpdate'
+    const known = id !== undefined && (await read($, agentsState)).some(a => a.id === id)
+    if (!touch && !known && !(id === undefined && isList)) return next(e)
+    if (known && id !== undefined) {
+      const now = await $.clock.now()
+      const file = touch ? (relPath(touch.path, await $.session.root()) ?? undefined) : undefined
+      await agentSet($, id, a => ({ ...a, now: toolLine(e.tool, input), toolSince: now, file }))
+    }
     const result = await next(e)
     const ok = !('deny' in result && result.deny) && !result.isError
-    const steps = ok && e.tool === 'TodoWrite' ? stepsFromTodos(e.todos) : undefined
-    await agentSet($, id, a => ({ ...a, toolSince: undefined, state: a.state === 'waiting' ? 'running' : a.state, ...(steps ? { steps } : {}) }))
+    if (ok && touch) await fileTouched($, touch.path, touch.edited, id ?? 'main').catch(() => undefined)
+    if (ok && id === undefined && isList) {
+      if (e.tool === 'TodoWrite') await update($, agentSteps, () => stepsFromTodos(e.todos))
+      else if (e.tool === 'TaskCreate') {
+        const taskId = (result.result as { task?: { id?: string } } | undefined)?.task?.id
+        if (taskId) await update($, agentSteps, steps => withTaskCreated(steps ?? [], taskId, e))
+      } else await update($, agentSteps, steps => (steps ? withTaskUpdated(steps, e) : steps))
+    }
+    if (known && id !== undefined) {
+      const steps = ok && e.tool === 'TodoWrite' ? stepsFromTodos(e.todos) : undefined
+      await agentSet($, id, a => ({ ...a, toolSince: undefined, file: undefined, state: a.state === 'waiting' ? 'running' : a.state, ...(steps ? { steps } : {}) }))
+    }
     return result
   })
 
@@ -3700,6 +3697,10 @@ Saved to ${out}.md and .json` }
         ringSvg,
         cardArt: { source: DASH_SVG, width: FROST_WIDTH * 2, height: FROST_HEIGHT * 2 },
         onOpen: (id: string) => update($, agentsOpen, cur => (cur === id ? null : id)),
+        files: await read($, agentFiles),
+        steps: await read($, agentSteps),
+        module: await read($, agentsModule),
+        onModule: (key: string) => update($, agentsModule, cur => (cur === key ? null : key)),
       },
       agents,
     )

@@ -99,6 +99,20 @@ export type AgentRec = {
   why?: string
   /** Weighted tokens so far. */
   cost?: number
+  /** The file its current tool call is in, relative to the project root; absent between calls. */
+  file?: string
+}
+
+/** A file this chat or its agents read or changed, for the agent panel's map. */
+export type FileTouch = {
+  /** Relative to the project root, with forward slashes. */
+  path: string
+  edited: boolean
+  /** Who touched it: agent ids, 'main' for the main chat. */
+  by: string[]
+  lastAt: number
+  /** The project files it imports, relative to the root, without extension. */
+  imports: string[]
 }
 
 declare module 'claude-code' {
@@ -177,6 +191,12 @@ declare module 'claude-code' {
       agents: AgentRec[]
       /** The agent card opened in the panel, or 'done' for the finished ones, or null. */
       agentsOpen: string | null
+      /** The files this chat and its agents touched, newest last, for the panel's map. */
+      agentFiles: FileTouch[]
+      /** The main chat's own task list, for the panel's total progress; null when it keeps none. */
+      agentSteps: ProgressStep[] | null
+      /** The module (folder) opened in the panel's list, or null. */
+      agentsModule: string | null
     }
   }
 }
