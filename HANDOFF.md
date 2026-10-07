@@ -1,9 +1,9 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.35.107, pushed and installed. Direct pushes, no open PRs. Several chats push
+- `main` on HeyCubit/effortless, version 1.35.108, pushed and installed. Direct pushes, no open PRs. Several chats push
   to main: `git pull --rebase --autostash` before every push, and read the version after the pull.
-- Release: `tools/release.sh [--no-install] "<subject>" "<body>"` runs the tests (155 pass) and stops on any failure,
+- Release: `tools/release.sh [--no-install] "<subject>" "<body>"` runs the tests (143 pass) and stops on any failure,
   bumps the version here and in `.claude-plugin/plugin.json`, adds the subject to `releases.json`, commits, pushes and
   installs. `--no-install` leaves this machine a version behind so the update card can be tried. Use `py`, not `python`.
 - Showcase site: https://heycubit.github.io/effortless/ (`gh-pages` = `main:site`). The redesign (bar-first, a
@@ -25,6 +25,8 @@
   mid-turn changes nothing.
 - Startup: session.start reads its settings in one batch (25 ms). The ~3 s before the first draw is the app's; an
   empty chat is never asked for the band (app side, not fixable in the mod).
+- Progress bar and its sounds are switched off (removed from the app, settings and `/effortless progress`);
+  `hooks/progress.tsx` and `sounds/` stay for later. The `/effortless try` test aids and test pane are gone.
 - Per-chat render log `~/.claude/effortless-render-<chat>.log`: session start, first-draw timing, draw times.
 
 ## Not done / unverified in the app
@@ -33,8 +35,7 @@
 - Logo animation on effort change / Auto on: proposed, not built.
 
 ## Next
-1. Agent panel: a background agent is writing `docs/agent-panel/` (PLAN.md + mockups) for a right-side project
-   overview pane that shows subagents and picks their model and effort. Review it with Isac before building.
+1. Agent panel: planned in `docs/agent-panel/` (PLAN.md, mockups, 7 open questions). Built in its own chat, not here.
 2. Isac checks the Compact bar and the Quick/Full switch; fix what he reports in the rig first.
 
 ## Decided, do not redo

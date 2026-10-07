@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.108",
+    "date": "2026-10-07",
+    "note": "Progress bar and sounds off for now; test pane removed"
+  },
+  {
     "version": "1.35.107",
     "date": "2026-10-07",
     "note": "Compact field back to the app's own look"
