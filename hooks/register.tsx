@@ -189,10 +189,9 @@ const DASH_EDGE = '#2a2a2f'
 const SETTINGS_TITLE = `<svg xmlns="http://www.w3.org/2000/svg" width="92" height="28" viewBox="0 0 92 28"><defs><radialGradient id="c" cx="1" cy="1" r=".75" gradientTransform="matrix(.7 0 0 2.3 .3 -1.3)"><stop offset=".2" stop-color="#000"/><stop offset=".9" stop-color="#fff"/></radialGradient><radialGradient id="s" cx=".9" cy=".85" r=".55" gradientTransform="matrix(.7 0 0 2.3 .27 -1.1)"><stop offset=".25" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient><mask id="mc"><rect width="92" height="28" fill="url(#c)"/></mask><mask id="ms"><rect width="92" height="28" fill="url(#s)"/></mask><filter id="g" x="-20%" y="-40%" width="140%" height="180%"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="1" seed="7" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G" result="moved"/><feGaussianBlur in="moved" stdDeviation="1.1" result="soft"/><feComponentTransfer in="noise" result="dots"><feFuncA type="discrete" tableValues="0 0 1 1 1"/></feComponentTransfer><feComposite in="soft" in2="dots" operator="in"/></filter></defs><g font-size="21" font-weight="600" letter-spacing="-.5"><text x="1" y="20" fill="#f4f2ff" mask="url(#mc)">effortless</text><g mask="url(#ms)"><text x="1" y="20" fill="#f4f2ff" filter="url(#g)">effortless</text></g></g></svg>`
 /** The mark as the settings bar shows it: big, tilted and faint, cut off by the bar. */
 const SETTINGS_MARK = MARK_SVG.replace('<g mask=', '<g opacity=".2" transform="rotate(9 50 50)" mask=')
-// The dashboard's mark (see dash-mark): its size, the cells the word keeps clear of it, and its look with Auto off.
-const DASH_MARK_SIZE = 140
-const DASH_MARK_ROOM = 8
-const DASH_MARK_OFF = MARK_SVG.replace('<g mask=', '<g opacity=".1" transform="rotate(9 50 50)" mask=')
+// The dashboard's mark (see dash-mark): its size, and its look with Auto off.
+const DASH_MARK_SIZE = 18
+const DASH_MARK_OFF = MARK_SVG.replace('<g mask=', '<g opacity=".35" mask=')
 /** How long a band's entrance runs: it is drawn only this long after the band appears, since every redraw of the band
  * (a choice, the minute tick) would replay it. */
 const INTRO_MS = 1300
@@ -2384,7 +2383,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           // a blank button over both to take the click. The terminal keeps the plain buttons: grey, white from
           // HANDOFF_LOUD_AT.
           'Svg' in els && e.surface !== 'terminal' ? (
-            <Box key="dash-handoff-wrap" flexDirection="row">
+            <Box key="dash-handoff-wrap" flexShrink={0} flexDirection="row">
               {/* No glow while a reply runs: the band redraws then, and each redraw restarted the glow, so it flickered. */}
               {HANDOFF_GLOW && handoffLoud() && !e.props.isWorking ? (
                 <Box key="dash-glow" position="absolute" top={0} bottom={0} left={-2} right={-2} alignItems="center" justifyContent="center">
@@ -2398,8 +2397,13 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
                   <Button key="dash-handoff-h" plain hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />
                 </Box>
               ) : null}
-              <Box key="dash-handoff-box" flexDirection="row" alignItems="center">
-                <els.Svg source={handoffPillSvg(lastContext?.percent ?? 0)} alt="" width={HANDOFF_PILL_W} height={HANDOFF_PILL_H} />
+              {/* Its width is a spacer in the flow, not the image: the app can lay an image out at no width, and the
+                  label (centred over it) then ran into Auto. */}
+              <Box key="dash-handoff-box" flexShrink={0} flexDirection="row" alignItems="center">
+                <Box width={9} height={1} flexShrink={0} />
+                <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+                  <els.Svg source={handoffPillSvg(lastContext?.percent ?? 0)} alt="" width={HANDOFF_PILL_W} height={HANDOFF_PILL_H} />
+                </Box>
                 <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
                   <Text color={handoffLook(lastContext?.percent ?? 0).label}>Handoff</Text>
                 </Box>
@@ -2433,13 +2437,6 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           </Box>
         ) : null
       ) : null}
-      {Svg ? (
-        // The mark on the left, big, tilted and cut off by the band's edges, as in the settings bar; it stands in for the
-        // ✦. Fainter while Auto is off.
-        <Box key="dash-mark" position="absolute" top={-3} left={-6}>
-          <Svg source={v.auto ? SETTINGS_MARK : DASH_MARK_OFF} alt="effortless mark" width={DASH_MARK_SIZE} height={DASH_MARK_SIZE} />
-        </Box>
-      ) : null}
       {Svg && v.auto && nowMs - autoOnAt < AUTO_GLOW_MS && renderLog.push(`glow ${v.auto ? 'on' : 'off'} at ${nowMs - autoOnAt} ms`) ? (
         <Box key="dash-auto-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
           <Svg source={inPhase(autoGlowSvg(v.auto), nowMs - autoOnAt)} alt="auto glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
@@ -2450,7 +2447,12 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           rather than run under the buttons. Siblings, not nested: a shrunk parent let the word spill under the ring. */}
       <Box key="dash-words" position="relative" flexDirection="row" flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
         <Box flexShrink={0} flexDirection="row">
-          {Svg ? <Text>{' '.repeat(DASH_MARK_ROOM)}</Text> : <Text color={v.auto ? ACCENT : DASH_DIM} bold>✦ </Text>}
+          {Svg ? (
+            // The mark, as it is, where the ✦ stood; faded while Auto is off.
+            <Box key="dash-mark" flexShrink={0} marginRight={1} alignItems="center">
+              <Svg source={v.auto ? MARK_SVG : DASH_MARK_OFF} alt="effortless" width={DASH_MARK_SIZE} height={DASH_MARK_SIZE} />
+            </Box>
+          ) : <Text color={v.auto ? ACCENT : DASH_DIM} bold>✦ </Text>}
           {Svg && !v.judging && flashSince !== null && flashSince < FLASH_MS ? (
             // Changing: the word keeps its place in the flow, unseen, and its image is laid over it.
             <Box key="dash-level-anim" flexDirection="row">
