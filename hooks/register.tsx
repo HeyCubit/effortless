@@ -2156,7 +2156,23 @@ async function effortFlash($: EngineInterface, what: string, judging: boolean, e
     // One redraw at each step of the fade and one at its end, not a tick: see FLASH_STEPS.
     for (const at of [...FLASH_STEPS.map(([t]) => t), FLASH_MS]) $.clock.after(at + 20, () => $.ui.invalidate('ui.render'))
   }
+  flashSince = since
   return flashColor(since)
+}
+// How long ago the word last changed, as effortFlash last worked it out; null when it is not changing.
+let flashSince: number | null = null
+
+/** How wide the effort word's image is: room for the longest word, transparent past it. */
+const WORD_W = 120
+/** The effort word as it changes, drawn as an image (a Text cannot animate): it rises into place in violet with a soft
+ * glow, holds, then fades to the band's white, all inside the image, so the band redraws only once, at the end, to put
+ * the plain word back. `sinceMs` places a redraw inside the animation. */
+export function effortWordSvg(word: string, sinceMs: number): string {
+  const d = `${FLASH_MS / 1000}s`
+  const hold = Math.round((FLASH_HOLD_MS / FLASH_MS) * 100)
+  const font = `font:600 13px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif`
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WORD_W}" height="19" viewBox="0 0 ${WORD_W} 19"><style>text{${font};animation:${d} cubic-bezier(.2,.8,.2,1) both}.w{animation-name:w}.g{animation-name:g;filter:url(#b)}@keyframes w{0%{transform:translateY(9px);opacity:0;fill:${FLASH_COLOR}}18%{transform:none;opacity:1}${hold}%{fill:${FLASH_COLOR}}100%{transform:none;opacity:1;fill:${DASH_TEXT}}}@keyframes g{0%{transform:translateY(9px);opacity:0}18%{transform:none;opacity:.8}${hold}%{opacity:.5}100%{transform:none;opacity:0}}</style><defs><filter id="b" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="2.5"/></filter></defs><text class="g" x="1" y="14" fill="${FLASH_COLOR}">${word}</text><text class="w" x="1" y="14">${word}</text></svg>`
+  return inPhase(svg, sinceMs)
 }
 
 /** The handoff or compact card: words, the moving art while it runs, green with a check once it has landed. `above` is
@@ -2218,6 +2234,31 @@ const HANDOFF_GLOW = true
 /** Context share from which the dashboard's Handoff button turns white: below it a handoff saves little. */
 const HANDOFF_LOUD_AT = 30
 const handoffLoud = () => (lastContext?.percent ?? 0) >= HANDOFF_LOUD_AT
+/** Where Handoff's box is fully lit: from no box on a fresh chat, a step a percent of context, up to here. */
+const HANDOFF_FULL_AT = 80
+const HANDOFF_PILL_W = 66
+const HANDOFF_PILL_H = 19
+/** Handoff's look at `percent` of context, one of 81: no box at 0, the grey box by HANDOFF_LOUD_AT, then lighter up to
+ * white at HANDOFF_FULL_AT. The label goes from dim to white, and dark once the box is light enough to need it. */
+export function handoffLook(percent: number): { fill: string; opacity: number; edge: string; label: string } {
+  const p = Math.max(0, Math.min(HANDOFF_FULL_AT, Math.round(percent)))
+  const mix = (a: string, b: string, k: number) => {
+    const ch = (hex: string, i: number) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16)
+    return `#${[0, 1, 2].map(i => Math.round(ch(a, i) + (ch(b, i) - ch(a, i)) * k).toString(16).padStart(2, '0')).join('')}`
+  }
+  if (p <= HANDOFF_LOUD_AT) {
+    const k = p / HANDOFF_LOUD_AT
+    return { fill: HOVER_BOX, opacity: k, edge: mix(DASH_BG, '#3a3a40', k), label: mix(DASH_DIM, '#ececf0', k) }
+  }
+  const k = (p - HANDOFF_LOUD_AT) / (HANDOFF_FULL_AT - HANDOFF_LOUD_AT)
+  const fill = mix(HOVER_BOX, '#ececf0', k)
+  return { fill, opacity: 1, edge: mix('#3a3a40', '#ffffff', k), label: k > 0.45 ? '#141416' : '#ececf0' }
+}
+/** Handoff's box as drawn (see handoffLook). */
+export function handoffPillSvg(percent: number): string {
+  const l = handoffLook(percent)
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${HANDOFF_PILL_W}" height="${HANDOFF_PILL_H}" viewBox="0 0 ${HANDOFF_PILL_W} ${HANDOFF_PILL_H}"><rect x=".5" y=".5" width="${HANDOFF_PILL_W - 1}" height="${HANDOFF_PILL_H - 1}" rx="6" fill="${l.fill}" fill-opacity="${l.opacity.toFixed(3)}" stroke="${l.edge}" stroke-opacity="${l.opacity.toFixed(3)}"/></svg>`
+}
 /** How hard the glow behind Handoff pulls: 0 below HANDOFF_LOUD_AT, then 1 to 5, one step per 10% of context. */
 export function handoffGlowStep(percent: number): number {
   return percent < HANDOFF_LOUD_AT ? 0 : Math.min(5, 1 + Math.floor((percent - HANDOFF_LOUD_AT) / 10))
@@ -2236,9 +2277,9 @@ const GLOW_LEVELS: ReadonlyArray<{ spread: number; blur: number; peak: number; l
 /** The glow's drawing in CSS px, measured on a faithful render of the desktop band (tools/render-band): the primary
  * Handoff button is 77 by 20 with a 6 px radius, and the band leaves 8 px above and below it. The drawing is no wider
  * than the layer it sits in, so the app never scales it (a Svg is at most as wide as its box). */
-const GLOW_W = 93
-const GLOW_H = 36
-const GLOW_BUTTON = { w: 77, h: 20, r: 6 }
+const GLOW_W = HANDOFF_PILL_W + 16
+const GLOW_H = HANDOFF_PILL_H + 16
+const GLOW_BUTTON = { w: HANDOFF_PILL_W, h: HANDOFF_PILL_H, r: 6 }
 export function handoffGlowSvg(step: number, nowMs = 0): string {
   const { spread: e, blur, peak, low, period } = GLOW_LEVELS[step]
   // The pulse's place from the clock, so a redraw does not restart it from the low point.
@@ -2338,26 +2379,37 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     ...(config.hide.includes('handoff')
       ? []
       : [
-          // Always there, but loud only once a handoff starts to pay: grey on a fresh chat, white from HANDOFF_LOUD_AT.
-          // No hotkey letter on grey, which the app draws faint.
-          handoffLoud() ? (
-            // No glow while a reply runs: the band redraws then, and each redraw restarted the glow, so it flickered.
-            HANDOFF_GLOW && 'Svg' in els && e.surface !== 'terminal' && !e.props.isWorking ? (
-              // The glow sits in a layer the wrapper centres on the button and reaches past it (a Svg is at most as wide
-              // as its box). The button goes in a box of its own made positioned by an empty absolute child, so it is
-              // drawn over the glow: the desktop makes a Box relative only when it has absolute children.
-              <Box key="dash-handoff-wrap" flexDirection="row">
+          // Always there, but loud only once a handoff starts to pay. Desktop draws it: no box on a fresh chat, then a
+          // step a percent of context to a white box at HANDOFF_FULL_AT (handoffLook), the label as Text over the box and
+          // a blank button over both to take the click. The terminal keeps the plain buttons: grey, white from
+          // HANDOFF_LOUD_AT.
+          'Svg' in els && e.surface !== 'terminal' ? (
+            <Box key="dash-handoff-wrap" flexDirection="row">
+              {/* No glow while a reply runs: the band redraws then, and each redraw restarted the glow, so it flickered. */}
+              {HANDOFF_GLOW && handoffLoud() && !e.props.isWorking ? (
                 <Box key="dash-glow" position="absolute" top={0} bottom={0} left={-2} right={-2} alignItems="center" justifyContent="center">
                   <els.Svg source={handoffGlowSvg(handoffGlowStep(lastContext?.percent ?? 0), nowMs)} alt="handoff glow" width={GLOW_W} height={GLOW_H} />
                 </Box>
-                <Box flexDirection="row">
-                  <Box position="absolute" top={0} left={0} />
-                  <Button key="dash-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />
+              ) : null}
+              {/* The H key, once Handoff is loud: on a button of its own, clipped away, since a blank button with a
+                  hotkey draws its letter over the label. */}
+              {handoffLoud() ? (
+                <Box key="dash-handoff-key" width={0} height={1} overflow="hidden">
+                  <Button key="dash-handoff-h" plain hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />
+                </Box>
+              ) : null}
+              <Box key="dash-handoff-box" flexDirection="row" alignItems="center">
+                <els.Svg source={handoffPillSvg(lastContext?.percent ?? 0)} alt="" width={HANDOFF_PILL_W} height={HANDOFF_PILL_H} />
+                <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+                  <Text color={handoffLook(lastContext?.percent ?? 0).label}>Handoff</Text>
+                </Box>
+                <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+                  <Button key="dash-handoff" plain label={' '.repeat(14)} onPress={() => openHandoffBar($)} />
                 </Box>
               </Box>
-            ) : (
-              <Button key="dash-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />
-            )
+            </Box>
+          ) : handoffLoud() ? (
+            <Button key="dash-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />
           ) : (
             <Button key="dash-handoff" variant="secondary" label="Handoff" onPress={() => openHandoffBar($)} />
           ),
@@ -2399,7 +2451,17 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
       <Box key="dash-words" position="relative" flexDirection="row" flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
         <Box flexShrink={0} flexDirection="row">
           {Svg ? <Text>{' '.repeat(DASH_MARK_ROOM)}</Text> : <Text color={v.auto ? ACCENT : DASH_DIM} bold>✦ </Text>}
-          <Text key="dash-level" color={wordColor} bold>{v.judging && Svg ? 'Deciding' : what}</Text>
+          {Svg && !v.judging && flashSince !== null && flashSince < FLASH_MS ? (
+            // Changing: the word keeps its place in the flow, unseen, and its image is laid over it.
+            <Box key="dash-level-anim" flexDirection="row">
+              <Text key="dash-level" color="#00000000" bold>{what}</Text>
+              <Box position="absolute" top={0} left={0}>
+                <Svg source={effortWordSvg(what, flashSince)} alt={what} width={WORD_W} height={19} />
+              </Box>
+            </Box>
+          ) : (
+            <Text key="dash-level" color={wordColor} bold>{v.judging && Svg ? 'Deciding' : what}</Text>
+          )}
           {/* While the judge decides: the progress bar's thinking dots, as a plain image (its CSS still runs, and a
               redraw does not restart it the way an interactive frame does). */}
           {v.judging && Svg ? (
@@ -3391,7 +3453,20 @@ Saved to ${out}.md and .json` }
             // One part: Back, its name and what it does, then its controls.
             <Box key={`settings-${card}`} flexDirection="column" gap={roomy && !term ? 1 : 0}>
               <Box flexDirection="row" gap={1} alignItems="center">
-                <Button key="settings-back" plain label="‹ Back" onPress={openCard(null)} />
+                {Svg && !term ? (
+                  // A drawn chevron and the word in a box of their own, a blank button over both: the hover covers the
+                  // pair with room each side, as the cog's does.
+                  <Box key="settings-back-box" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}
+                    hover={{ backgroundColor: HOVER_BOX }}>
+                    <Svg source={`<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path d="M7.5 2.5 4 6l3.5 3.5" fill="none" stroke="${DASH_TEXT}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`} alt="" width={12} height={12} />
+                    <Text color={DASH_TEXT} hover={{ color: '#ffffff' }}>Back</Text>
+                    <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+                      <Button key="settings-back" plain hover={{ backgroundColor: '#00000000' }} label={' '.repeat(12)} onPress={openCard(null)} />
+                    </Box>
+                  </Box>
+                ) : (
+                  <Button key="settings-back" plain label="‹ Back" onPress={openCard(null)} />
+                )}
                 <Text color={DASH_TEXT} bold>{CARDS.find(c => c.id === card)?.title}</Text>
                 <Text dimColor wrap="truncate">{CARDS.find(c => c.id === card)?.about}</Text>
               </Box>
