@@ -2673,25 +2673,34 @@ export function judgeBrightnessAt(kind: 'rise' | 'fade', elapsedMs: number): num
   const p = Math.min(1, Math.max(0, elapsedMs / (kind === 'rise' ? JUDGE_RISE_MS : JUDGE_FADE_MS)))
   return kind === 'rise' ? JUDGE_GLOW_MAX * easeInOut(p) : JUDGE_GLOW_MAX * (1 - easeInOut(p))
 }
-/** The base opacity is the brightness at this very moment, not the start or the end: a newly drawn image paints one
- * frame before its animation takes over, and that frame must already be right, or each redraw flashes (it showed the
- * full 0.85 at every redraw of a fade). The animation, placed by the clock, then carries on from the same value. */
+/** The rim as one short piece: from its brightness now to its brightness JUDGE_STEP_MS later, in a straight line, then held.
+ * The app draws old copies of the band again at moments the mod does not see (measured on a screen recording: a copy
+ * from 130 ms into a fade came back 570 ms in, and the fade started over from full). A long animation replayed from a
+ * stale copy jumps far; a piece this short is wrong for at most one step, and the schedule draws the next one. The rim
+ * at full is a still image with no animation, so a replay changes nothing. */
+export const JUDGE_STEP_MS = 50
 export function judgeGlowSvg(kind: 'rise' | 'fade', elapsedMs = 0): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
-  const base = judgeBrightnessAt(kind, elapsedMs).toFixed(3)
-  const css = kind === 'rise'
-    ? `.r{opacity:${base};animation:r ${JUDGE_RISE_MS / 1000}s ease-in-out forwards}@keyframes r{from{opacity:0}to{opacity:${JUDGE_GLOW_MAX}}}`
-    : `.r{opacity:${base};animation:r ${JUDGE_FADE_MS / 1000}s ease-in-out forwards}@keyframes r{from{opacity:${JUDGE_GLOW_MAX}}to{opacity:0}}`
+  const dur = kind === 'rise' ? JUDGE_RISE_MS : JUDGE_FADE_MS
+  const from = judgeBrightnessAt(kind, elapsedMs)
+  const to = judgeBrightnessAt(kind, Math.min(dur, elapsedMs + JUDGE_STEP_MS))
+  const still = kind === 'rise' && elapsedMs >= dur
+  const css = still
+    ? `.r{opacity:${JUDGE_GLOW_MAX}}`
+    : `.r{opacity:${from.toFixed(3)};animation:r ${JUDGE_STEP_MS / 1000}s linear forwards}@keyframes r{from{opacity:${from.toFixed(3)}}to{opacity:${to.toFixed(3)}}}`
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>${css}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ACCENT}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#b9a7ff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
 }
-/** What the glow is at `now`: nothing, rising or holding (the rise image, placed), or fading (the fade image, placed).
- * `endedAt` is null while the judge is still deciding. */
+/** What the glow is at `now`: nothing, rising or holding, or fading. `endedAt` is null while the judge decides. */
 export function judgeGlowAt(startedAt: number, endedAt: number | null, now: number): string | null {
   if (now < startedAt) return null
   const fadeFrom = endedAt === null ? Infinity : Math.max(endedAt, startedAt + JUDGE_RISE_MS)
-  if (now < fadeFrom) return inPhase(judgeGlowSvg('rise', now - startedAt), now - startedAt)
-  if (now < fadeFrom + JUDGE_FADE_MS) return inPhase(judgeGlowSvg('fade', now - fadeFrom), now - fadeFrom)
+  if (now < fadeFrom) return judgeGlowSvg('rise', now - startedAt)
+  if (now < fadeFrom + JUDGE_FADE_MS) return judgeGlowSvg('fade', now - fadeFrom)
   return null
+}
+/** Redraws the band every JUDGE_STEP_MS from `from` ms over `span` ms, so each piece of the rise or fade is drawn in turn. */
+function drawGlowSteps($: EngineInterface, from: number, span: number) {
+  for (let at = Math.max(0, from); at <= from + span + JUDGE_STEP_MS; at += JUDGE_STEP_MS) $.clock.after(at + 5, () => $.ui.invalidate('ui.render'))
 }
 // The glow's clock is read as late as the draw allows, and set ahead by how long the rest of a draw takes (measured,
 // smoothed): a fade placed where it was when the draw began showed up that much behind, a little brighter at every
@@ -2708,8 +2717,7 @@ async function endJudgeGlow($: EngineInterface, why: string) {
   judgeEndedAt = await $.clock.now().catch(() => Date.now())
   const fadeAt = Math.max(judgeEndedAt, judgeStartedAt + JUDGE_RISE_MS) - judgeEndedAt
   renderLog.push(`${new Date().toISOString()} ${loadedSession} glow: ${why} ${judgeEndedAt - judgeStartedAt} ms after start, fade in ${fadeAt} ms`)
-  $.clock.after(fadeAt + 30, () => $.ui.invalidate('ui.render'))
-  $.clock.after(fadeAt + JUDGE_FADE_MS + 100, () => $.ui.invalidate('ui.render'))
+  drawGlowSteps($, fadeAt, JUDGE_FADE_MS)
   $.ui.invalidate('ui.render')
 }
 
@@ -3469,6 +3477,7 @@ Saved to ${out}.md and .json` }
     judgeStartedAt = await $.clock.now().catch(() => Date.now())
     judgeEndedAt = null
     renderLog.push(`${new Date().toISOString()} ${loadedSession} glow: start`)
+    drawGlowSteps($, 0, JUDGE_RISE_MS)
     // The band is drawn again as the judge starts, so the rise is placed by the clock from the first frame.
     $.ui.invalidate('ui.render')
     await update($, isJudging, () => true)
