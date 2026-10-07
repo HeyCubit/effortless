@@ -2676,6 +2676,17 @@ export function judgeGlowAt(startedAt: number, endedAt: number | null, now: numb
 // When the judge started, and when it gave its verdict (null while it decides).
 let judgeStartedAt = 0
 let judgeEndedAt: number | null = 0
+/** The verdict is in: the rim starts fading now, together with the effort word's flash, not after the effort and model
+ * are applied (that came a beat later and read as a second glow). Redraws when the fade swaps in and once it is over. */
+async function endJudgeGlow($: EngineInterface, why: string) {
+  if (judgeEndedAt !== null) return
+  judgeEndedAt = await $.clock.now().catch(() => Date.now())
+  const fadeAt = Math.max(judgeEndedAt, judgeStartedAt + JUDGE_RISE_MS) - judgeEndedAt
+  renderLog.push(`${new Date().toISOString()} ${loadedSession} glow: ${why} ${judgeEndedAt - judgeStartedAt} ms after start, fade in ${fadeAt} ms`)
+  $.clock.after(fadeAt + 30, () => $.ui.invalidate('ui.render'))
+  $.clock.after(fadeAt + JUDGE_FADE_MS + 100, () => $.ui.invalidate('ui.render'))
+  $.ui.invalidate('ui.render')
+}
 
 export function coldGlowSvg(): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
@@ -2820,9 +2831,9 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
         </Box>
       ) : null}
       {/* The judge decides: the violet rim lights up, holds, and fades from full once the verdict is in. */}
-      {Svg && judgeGlowAt(judgeStartedAt, v.judging ? null : judgeEndedAt, nowMs) ? (
+      {Svg && judgeGlowAt(judgeStartedAt, judgeEndedAt, nowMs) ? (
         <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={judgeGlowAt(judgeStartedAt, v.judging ? null : judgeEndedAt, nowMs)!} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+          <Svg source={judgeGlowAt(judgeStartedAt, judgeEndedAt, nowMs)!} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
       {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
@@ -3438,6 +3449,7 @@ Saved to ${out}.md and .json` }
         why: '',
         by: 'manual',
       })
+      await endJudgeGlow($, 'verdict')
       const ms = Date.now() - startedAt
       await countPrompt($, wantsEffort && inUse !== 'haiku' ? verdict?.effort : undefined, verdict?.by, ms, judgeTokens)
       void proof(
@@ -3483,11 +3495,8 @@ Saved to ${out}.md and .json` }
         }
       }
     } finally {
-      judgeEndedAt = await $.clock.now().catch(() => Date.now())
-      // The fade starts once the rise is done and ends JUDGE_FADE_MS later; redraw at both, so it swaps in and clears.
-      const fadeAt = Math.max(judgeEndedAt, judgeStartedAt + JUDGE_RISE_MS) - judgeEndedAt
-      $.clock.after(fadeAt + 30, () => $.ui.invalidate('ui.render'))
-      $.clock.after(fadeAt + JUDGE_FADE_MS + 100, () => $.ui.invalidate('ui.render'))
+      // A judge that failed or threw ends the glow here.
+      await endJudgeGlow($, 'end')
       await update($, isJudging, () => false)
     }
     return next(e)
