@@ -1,7 +1,7 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.35.69, pushed and installed. Direct pushes, no open PRs. Several chats push
+- `main` on HeyCubit/effortless, version 1.35.70, pushed and installed. Direct pushes, no open PRs. Several chats push
   to main: `git pull --rebase --autostash` before every push, and read the version after the pull.
 - Release: bump `version` in `.claude-plugin/plugin.json` and this file, `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude
   plugin test .` (145 pass), commit, push, `claude plugin marketplace update effortless`, `claude plugin update
@@ -20,8 +20,8 @@
 
 ## Not done / unverified in the app
 - 1.35.61, rig only: Handoff drawn as a pill that gains its box a step per percent (none at 0, grey at 15, white at
-  30 where the glow starts, `handoffLook`), H on a clipped hidden button; effort change animates as an image (`effortWordSvg`: rises in
-  violet, fades to white, one redraw at the end); drawn Back button; the mark, small and upright, replaces the ✦.
+  30 where the glow starts, `handoffLook`), H on a clipped hidden button; effort change: plain text, violet then white (image animation dropped,
+  looked cheap); drawn Back button; the mark, small and upright, replaces the ✦.
 - Settings cards and built-in Full handoff (1.35.59): rig and tests only. Cards light whole on hover (1.35.60), two blank buttons cover both lines.
 - Auto line corners (1.35.58), no flash after Handoff (1.35.54).
 - Open question to Isac: should built-in Full write HANDOFF.md into users' projects, or only reply?
