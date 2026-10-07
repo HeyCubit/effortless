@@ -15,6 +15,10 @@ type Params = {
   auto: boolean
   bodyColumns: number
   options: Record<string, string>
+  // Buttons pressed on the band, by key, before the dump (e.g. dash-settings opens the settings panel).
+  press: string[]
+  // An /effortless subcommand run before the dump (e.g. 'cold' or 'swamp' to show a test band).
+  command: string
 }
 const P: Params = __PARAMS__
 
@@ -86,6 +90,12 @@ describe('render rig', () => {
       hold = true
       void $.prompt.submit({ text: 'and now the next one', wait: false, origin: { kind: 'composer' } } as never)
       await clock.advance(50)
+    }
+    if (P.command) await $.command.run({ command: 'effortless', args: P.command } as never)
+    for (const key of P.press) {
+      const b = await $.ui.mount(IDLE_BAND)
+      await b.press({ key })
+      await b.unmount()
     }
     const band = await $.ui.mount(DESK_BAND)
     console.log('DUMP-TREE ' + JSON.stringify(await band.drawn()))
