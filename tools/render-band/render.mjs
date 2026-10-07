@@ -179,9 +179,10 @@ function freeze(node, seconds) {
         ...node.props,
         // An element's own delay (a frame of the countdown starts at its second) is kept, shifted by the held time: an
         // inline !important beats the stylesheet's.
+        // The element delays are shifted first, then the hold is put in: shifting after would rewrite the hold's own.
         source: node.props.source
-          .replace(/(<svg\s[^>]*>)/, (m) => m + hold)
-          .replace(/animation-delay:\s*(-?[\d.]+)s/g, (_m, d) => `animation-delay:${(Number(d) - seconds).toFixed(3)}s !important`),
+          .replace(/animation-delay:\s*(-?[\d.]+)s/g, (_m, d) => `animation-delay:${(Number(d) - seconds).toFixed(3)}s !important`)
+          .replace(/(<svg\s[^>]*>)/, (m) => m + hold),
       }
     : node.props
   return { ...node, props, ...(node.children ? { children: node.children.map((c) => freeze(c, seconds)) } : {}) }

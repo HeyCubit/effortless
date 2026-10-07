@@ -523,14 +523,14 @@ export function drawProgress(p: Progress, d: ProgressDraw) {
         backgroundColor={look.bg} borderStyle="round" borderColor={look.edge}>
         {d.Svg ? (
           <Box key="progress-art" position="absolute" top={-1} left={0} bottom={-1}>
-            <d.Svg key={`art-${p.phase}`} source={progressArtSvg(p.phase)} alt="" width={ART_W} height={ART_H} isInteractive />
+            <d.Svg key={`art-${p.phase}`} source={progressArtSvg(p.phase)} alt="" width={ART_W} height={ART_H} />
           </Box>
         ) : null}
         {name}
         {p.phase === 'planning' ? (
           d.Svg ? (
             <Box key="progress-thinking" position="relative" flexShrink={0}>
-              <d.Svg source={thinkingSvg(p.phase)} alt="thinking" width={THINK_W} height={PILL_H} isInteractive />
+              <d.Svg source={thinkingSvg(p.phase)} alt="thinking" width={THINK_W} height={PILL_H} />
             </Box>
           ) : null
         ) : (
@@ -576,7 +576,7 @@ export function drawProgress(p: Progress, d: ProgressDraw) {
       backgroundColor={look.bg} borderStyle="round" borderColor={look.edge}>
       {d.Svg ? (
         <Box key="progress-art" position="absolute" top={-1} left={0} bottom={-1}>
-          <d.Svg key={`art-${p.phase}`} source={progressArtSvg(p.phase)} alt="" width={ART_W} height={ART_H} isInteractive />
+          <d.Svg key={`art-${p.phase}`} source={progressArtSvg(p.phase)} alt="" width={ART_W} height={ART_H} />
         </Box>
       ) : null}
       <Box key="progress-head" position="relative" flexDirection="row" gap={1} alignItems="center">

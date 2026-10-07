@@ -2379,9 +2379,9 @@ describe('progress bar', () => {
     // On desktop the track is one still image, never a row of line characters.
     expect(await drawn(band)).toContain('<svg')
     expect(await drawn(band)).not.toContain('━')
-    // One animated image, the art behind the band, given both sizes (an interactive Svg without them gets a 300 by
-    // 150 frame); the track is a plain image that scales to the band.
-    expect((await drawn(band)).match(/isInteractive/g)?.length).toBe(1)
+    // No interactive frame: the app rebuilds one on every redraw, which made the bar flicker. The art is a plain image
+    // (its CSS animation still runs).
+    expect(await drawn(band)).not.toContain('isInteractive')
     await band.unmount()
     await $.tool.call({ tool: 'TodoWrite', todos: todos(['completed', 'completed', 'completed', 'completed']) } as never)
     await endTurn($, 'All four steps are done.')
