@@ -187,10 +187,10 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 
 /* ---------- The story: one big chat box, one feature at a time ---------- */
 .story{position:relative;height:calc(var(--n) * 90vh + 10vh);overflow-y:clip}
-.pin{--sc:var(--accent);position:sticky;isolation:isolate;top:0;height:100vh;display:flex;flex-direction:column;gap:20px;width:100%;margin:0;padding:calc(var(--bar) * 4.6 + 28px) var(--frame) 0;--z:clamp(15px,2.05vw,44px)}
+.pin{--sc:var(--accent);position:sticky;isolation:isolate;top:0;height:100vh;display:flex;flex-direction:column;gap:20px;width:100%;margin:0;padding:calc(var(--bar) * 4.6 + 28px) var(--frame) 0;--z:clamp(15px,1.5vw,30px)}
 .pin:before{content:"";position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:-1;pointer-events:none;background:radial-gradient(45% 40% at 50% 86%,color-mix(in srgb,var(--sc) 12%,transparent),transparent 72%),radial-gradient(#2a2733 1.1px,transparent 1.5px) 0 0/22px 22px;-webkit-mask-image:radial-gradient(60% 75% at 50% 60%,#000 35%,transparent);mask-image:radial-gradient(60% 75% at 50% 60%,#000 35%,transparent);transition:background .6s}
-.head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px}
-.caps{position:relative;flex:1;min-height:1.2em;font-size:clamp(28px,3.9vw,80px)}
+.head{display:flex;flex-direction:column;gap:clamp(16px,2.4vh,28px)}
+.caps{position:relative;min-height:1.2em;font-size:clamp(28px,2.9vw,56px)}
 .say{position:absolute;left:0;right:0;bottom:0;opacity:0;transform:translateX(-32px);transition:opacity .45s var(--ease),transform .8s var(--ease);pointer-events:none}
 .say.on{opacity:1;transform:none;pointer-events:auto}
 /* The first time the story scrolls into view it plays in: the heading slides in from the left, then the step numbers,
@@ -204,14 +204,18 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .story.in .go{transition-delay:.25s}
 .story.in .slot{transition-delay:.4s}
 .story.in .win .demo-box{transition-delay:.55s}
-.say h3{margin:0;font:500 clamp(28px,3.9vw,80px)/1.08 var(--display);letter-spacing:-.02em;color:#f4f2ff;text-wrap:balance}
+.say h3{margin:0;font:500 clamp(28px,2.9vw,56px)/1.08 var(--display);letter-spacing:-.02em;color:#f4f2ff;text-wrap:balance}
 .say p{margin:0;color:#c3bfd2;font-size:17px;line-height:1.55;max-width:34em}
 .say kbd{font:inherit;padding:1px 6px;border-radius:5px;background:#2a2930;color:var(--text)}
-.go{display:flex;gap:2px;margin-right:-10px;flex-shrink:0}
-.go button{font:500 clamp(15px,1.15vw,19px) var(--display);color:var(--dim);background:none;border:0;padding:6px 10px;cursor:pointer;font-variant-numeric:tabular-nums;transition:color .3s}
-.go button:hover{color:var(--text)}
-.go button[aria-current="step"]{color:var(--sc)}
-.go button:focus-visible{outline:2px solid var(--sc);outline-offset:1px;border-radius:6px}
+/* The steps: one line each that fills as the page scrolls through it, with its name under it, so it is clear there is
+   more to scroll through and where you are. */
+.go{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.go button{display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-width:0;padding:6px 0;background:none;border:0;cursor:pointer;color:var(--dim);font:500 clamp(13px,.8vw,17px)/1.2 var(--sans);text-align:left;transition:color .3s}
+.go i{position:relative;display:block;width:100%;height:2px;border-radius:2px;background:#2b2b31;overflow:hidden}
+.go i:after{content:"";position:absolute;inset:0;background:var(--sc);transform-origin:0 50%;transform:scaleX(var(--f,0));transition:background .6s}
+.go span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.go button:hover,.go button[aria-current="step"]{color:var(--text)}
+.go button:focus-visible{outline:2px solid var(--sc);outline-offset:4px;border-radius:4px}
 
 /* The chat takes whatever height is left, so the box and its bar sit just above the bottom edge. */
 .win{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
@@ -353,9 +357,11 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 /* ---------- Narrow screens ---------- */
 @media (max-width:960px){
   .pin{gap:18px;padding:64px 16px 20px}
-  .head{flex-direction:column;align-items:stretch;gap:6px}
+  .head{gap:14px}
   .caps{min-height:66px}
-  .go{order:-1;margin:0 0 0 -10px}
+  .go{gap:6px}
+  .go span{display:none}
+  .go button{padding:8px 0}
   .say h3{font-size:26px;margin-bottom:8px}
   .say p{font-size:15px}
   .chat{gap:9px}
@@ -500,6 +506,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   <section class="story" id="how" style="--n:6" aria-label="What effortless does">
     <div class="pin">
       <div class="head">
+        <div class="go" aria-label="Steps"><button type="button" data-go="0" aria-label="Effort"><i></i><span>Effort</span></button><button type="button" data-go="1" aria-label="Cold cache"><i></i><span>Cold cache</span></button><button type="button" data-go="2" aria-label="Swamped"><i></i><span>Heavy chat</span></button><button type="button" data-go="3" aria-label="Running hot"><i></i><span>Near the limit</span></button><button type="button" data-go="4" aria-label="Handoff"><i></i><span>Handoff</span></button><button type="button" data-go="5" aria-label="Settings"><i></i><span>Settings</span></button></div>
         <div class="caps">
           <div class="say" data-i="0"><h3>One bar. Every prompt gets the effort it needs.</h3></div>
           <div class="say" data-i="1"><h3>It tells you when the cache goes cold.</h3></div>
@@ -508,7 +515,6 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
           <div class="say" data-i="4"><h3>Handoff glows when a fresh chat pays off.</h3></div>
           <div class="say" data-i="5"><h3>Everything else sits behind the gear.</h3></div>
         </div>
-        <div class="go"><button type="button" data-go="0" aria-label="Effort">1</button><button type="button" data-go="1" aria-label="Cold cache">2</button><button type="button" data-go="2" aria-label="Swamped">3</button><button type="button" data-go="3" aria-label="Running hot">4</button><button type="button" data-go="4" aria-label="Handoff">5</button><button type="button" data-go="5" aria-label="Settings">6</button></div>
       </div>
       <div class="win" aria-hidden="true">
         <div class="chat" id="w-chat"></div>
@@ -705,6 +711,7 @@ var Dash=(function(){
     gos.forEach(function(b,k){b.setAttribute('aria-current',k===i?'step':'false')});
     scenes[i]();}
   function onScroll(){var r=story.getBoundingClientRect(),span=story.offsetHeight-innerHeight,p=span>0?-r.top/span:0;
+    gos.forEach(function(b,k){b.style.setProperty('--f',Math.max(0,Math.min(1,p*n-k)).toFixed(3))});
     show(Math.max(0,Math.min(n-1,Math.floor(p*n))));}
   gos.forEach(function(b,k){b.addEventListener('click',function(){var span=story.offsetHeight-innerHeight;
     scrollTo(0,story.offsetTop+span*(k+.5)/n);});});
