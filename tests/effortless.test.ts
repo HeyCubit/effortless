@@ -2896,6 +2896,35 @@ describe('updates', () => {
     expect(latestRelease('[{"version":"latest"}]')).toBeUndefined()
   })
 
+  test('Check for updates in Settings looks now, past a Later, and offers the install in the same place', DESK, async ($, on) => {
+    world(on, { installed: '1.0.0', latest: '1.0.1' })
+    await start($)
+    await settle()
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await pastSetup(ui)
+    await ui.press({ key: 'update-later' })
+    expect(await drawn(ui)).not.toContain('is out')
+    await $.command.run({ command: 'effortless', args: 'settings' } as never)
+    const panel = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    expect(await panel.find({ key: 'settings-check-update' })).toBeDefined()
+    await panel.press({ key: 'settings-check-update' })
+    await settle()
+    expect((await panel.find({ key: 'settings-update' }))?.text).toContain('Update to 1.0.1')
+  })
+
+  test('Check for updates says Up to date when there is nothing newer', DESK, async ($, on) => {
+    world(on, { installed: '1.0.1', latest: '1.0.1' })
+    await start($)
+    await settle()
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await pastSetup(ui)
+    await $.command.run({ command: 'effortless', args: 'settings' } as never)
+    const panel = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await panel.press({ key: 'settings-check-update' })
+    await settle()
+    expect(await drawn(panel)).toContain('Up to date')
+  })
+
   test('a newer version is offered; ✕ puts it away for a day, then it is offered again', DESK, async ($, on) => {
     world(on, { installed: '1.0.0', latest: '1.0.1' })
     await start($)

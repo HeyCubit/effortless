@@ -2420,6 +2420,18 @@ async function checkUpdate($: EngineInterface) {
   if (updateSnoozed(hidden, latest.version, now)) return
   if (shown?.version !== latest.version) await update($, updateCard, () => ({ stage: 'offer', version: latest.version, note: latest.note, at: now }))
 }
+// The Settings header's "Check for updates": idle, checking, up to date, or the version found (then the button installs it).
+const updateCheck = atom({ plugin: 'effortless', key: 'updateCheck' } as const, 'idle')
+/** Looks now, ignoring a Later pressed earlier (asking is a decision to look), and says what it found in the button. */
+async function checkUpdateNow($: EngineInterface) {
+  await update($, updateCheck, () => 'checking')
+  await $.store.set('updateHidden', null).catch(() => undefined)
+  await checkUpdate($).catch(() => undefined)
+  const card = await read($, updateCard)
+  await update($, updateCheck, () => (card && card.stage === 'offer' ? `found ${card.version}` : 'newest'))
+  // "Up to date" goes back to the button after a few seconds; a found version stays until it is installed or put away.
+  if (!(card && card.stage === 'offer')) $.clock.after(5000, () => void update($, updateCheck, cur => (cur === 'newest' ? 'idle' : cur)))
+}
 /** Update pressed: the marketplace and the plugin are updated as `claude plugin` does, then the plugins reloaded so
  * the new version runs in this chat. The new module shows "Updated" (see session.start). */
 async function runUpdate($: EngineInterface, card: UpdateCard) {
@@ -3875,6 +3887,7 @@ Saved to ${out}.md and .json` }
       const skillNames = await read($, installedSkills)
       const hasKey = Boolean(await jevKey($).catch(() => undefined)) || Boolean(await typesafeKeyAnywhere($).catch(() => undefined))
       // A plain button with its own handler: a dismiss-role button may be taken by the app before onPress runs.
+      const checking = await read($, updateCheck)
       const close = async () => {
         await update($, settingsDraft, () => ({}))
         await update($, judgeTest, () => null)
@@ -4021,6 +4034,20 @@ Saved to ${out}.md and .json` }
             {dirty ? <Text dimColor> · unsaved changes</Text> : null}
           </Box>
           <Box key="settings-actions" position="absolute" top={0} right={2} height={term ? 2 : 2.5} flexDirection="row" gap={2} alignItems="center">
+            {checking === 'checking' ? (
+              <Text dimColor>Checking…</Text>
+            ) : checking === 'newest' ? (
+              <Text dimColor>✓ Up to date</Text>
+            ) : checking.startsWith('found ') ? (
+              <Button key="settings-update" variant="primary" label={`Update to ${checking.slice(6)}`} onPress={async () => {
+                const card = await read($, updateCard)
+                await update($, updateCheck, () => 'idle')
+                if (card) void runUpdate($, card)
+                await close()
+              }} />
+            ) : (
+              <Button key="settings-check-update" plain label="Check for updates" onPress={() => void checkUpdateNow($)} />
+            )}
             <Text color="#9a9aa3"><Link href={ownVersion ? `${REPORT_BUG_URL}?effortless=${encodeURIComponent(ownVersion)}` : REPORT_BUG_URL} label="Report a bug" /></Text>
             {/* Grey and inert until something changed: there is nothing to save. */}
             {dirty ? (
