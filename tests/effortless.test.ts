@@ -2689,30 +2689,22 @@ describe('dashboard', () => {
     expect(flashColor(1800)).toBe('#d4d4d8')
   })
 
-  test('desktop: the effort word lights up when the effort changes, then goes back to white', DASH, async ($, on) => {
+  test('desktop: Auto switched off does not light the word up: it turns Off in white', DASH, async ($, on) => {
     engine(on)
-    const mocked = mock.clock(on)
+    mock.clock(on)
     on('prompt.read', () => ({ value: { text: '', cursor: 0 } }) as never)
     on('prompt.fill', () => ({ isFilled: true }) as never)
     await start($, on)
     await closeSetup($, DESK_BAND)
-    const color = async () => {
-      const band = await $.ui.mount(DESK_BAND)
-      const text = await drawn(band)
-      await band.unmount()
-      // Picking an effort by hand turns Auto off, so the word becomes Off.
-      return text.includes('"color":"#9b7bff","bold":true},"children":["Off"]') ? 'accent' : text.includes('"color":"#d4d4d8","bold":true},"children":["Off"]') ? 'white' : text
-    }
     const first = await $.ui.mount(DESK_BAND)
     await first.unmount()
+    // Picking an effort by hand turns Auto off, so the word becomes Off: the switch says so, no flash.
     const rows = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
     await rows.press({ key: 'e-low' })
     await rows.unmount()
-    expect(await color()).toBe('accent')
-    await mocked.advance(1500)
-    expect(await color()).not.toBe('white')
-    await mocked.advance(2500)
-    expect(await color()).toBe('white')
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('"color":"#d4d4d8","bold":true},"children":["Off"]')
+    await band.unmount()
   })
 
   test("desktop: the band above the prompt at rest, with Auto, Handoff and settings; the footer is the app's own", DASH, async ($, on) => {
@@ -2731,7 +2723,8 @@ describe('dashboard', () => {
     // A drawn icon on desktop, not the word.
     expect(await band.find({ key: 'dash-settings-icon' })).toBeDefined()
     expect(await drawn(band)).not.toContain('"label":"Settings"')
-    expect(await drawn(band)).toContain('✦ ')
+    // The mark stands in for the ✦ on desktop.
+    expect(await band.find({ key: 'dash-mark' })).toBeDefined()
     await band.press({ key: 'dash-auto' })
     expect(await drawn(band)).toContain('Auto off')
     await band.press({ key: 'dash-handoff' })
