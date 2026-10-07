@@ -170,6 +170,8 @@ const DASH_SVG = BRAND_SVG.replace(/stop-opacity="([0-9.]+)"/g, (_m, v: string) 
   .replace(/#(7c6cf0|8f7ff0|b3a6ff|c9bdff|9a86ff)/g, '#9a9aa2')
 const DASH_BG = '#141416'
 const DASH_EDGE = '#2a2a2f'
+/** The mark as the settings bar shows it: tilted and faint, to be cut off by the bar. */
+const SETTINGS_MARK = MARK_SVG.replace('<g mask=', '<g opacity=".2" transform="rotate(-16 50 50)" mask=')
 /** The settings panel's top bar: a shade above the band. */
 const DASH_HEAD = '#202024'
 const DASH_TEXT = '#d4d4d8'
@@ -3122,15 +3124,11 @@ Saved to ${out}.md and .json` }
       const frameOnly = probeLevel === 2
       const bare = probeLevel === 3
       return (
-        // The dashboard's look: the neutral band, its quiet edge and grey art, purple only on the star. The entrance
+        // The dashboard's look: the neutral band and its quiet edge, purple only on the star, no art behind the rows (it
+        // made them busy). The entrance
         // sweep plays once, behind everything, as the panel opens.
         <Box key="settings" position="relative" flexDirection="column" gap={roomy && !term ? 1 : 0} paddingX={term ? 1 : 2} overflow="hidden"
           backgroundColor={DASH_BG} borderStyle="round" borderColor={DASH_EDGE}>
-          {Svg && !term ? (
-            <Box key="settings-art" position="absolute" top={-1} right={0} bottom={-1}>
-              <Svg source={DASH_SVG} alt="effortless" width={FROST_WIDTH * 3} height={FROST_HEIGHT * 5} />
-            </Box>
-          ) : null}
           {Svg && !term ? (
             <Box key="settings-intro" position="absolute" top={-1} left={0} right={0} bottom={-1}>
               <Svg source={INTRO_SVG} alt="" width={1600} height={240} />
@@ -3138,18 +3136,15 @@ Saved to ${out}.md and .json` }
           ) : null}
           {/* The top bar: a strip a shade lighter than the band, holding the title, Save and the cross. */}
           {!term ? (
-            <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={3} backgroundColor={DASH_HEAD} />
-          ) : null}
-          {/* A hairline under the bar: a one-pixel image stretched across (a Box cannot draw a single pixel). */}
-          {Svg && !term ? (
-            <Box key="settings-rule" position="absolute" top={2} left={0} right={0} height={1}>
-              <Svg source={`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1" viewBox="0 0 1600 1" preserveAspectRatio="none"><rect width="1600" height="1" fill="${DASH_EDGE}"/></svg>`} alt="" width={1600} height={1} />
-            </Box>
-          ) : null}
-          {/* The mark, large and faint, behind the right of the panel: the brand without a second logo in the way. */}
-          {Svg && !term ? (
-            <Box key="settings-mark" position="absolute" top={-1} right={6} bottom={-1} alignItems="center">
-              <Svg source={MARK_SVG.replace('<g mask=', '<g opacity=".06" mask=')} alt="" width={150} height={150} />
+            <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={3.5} overflow="hidden" backgroundColor={DASH_HEAD}>
+              {/* The mark, big, tilted and cut off by the bar's edges, behind the title and the buttons. */}
+              <Box key="settings-bar-mark" position="absolute" top={-4} right={18}>
+                <Svg source={SETTINGS_MARK} alt="effortless mark" width={240} height={240} />
+              </Box>
+              {/* A hairline along the bar's bottom: a one-pixel image stretched across (a Box cannot draw one pixel). */}
+              <Box key="settings-rule" position="absolute" bottom={0} left={0} right={0} height={1} alignItems="flex-end">
+                <Svg source={`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1" viewBox="0 0 1600 1" preserveAspectRatio="none"><rect width="1600" height="1" fill="${DASH_EDGE}"/></svg>`} alt="rule" width={1600} height={1} />
+              </Box>
             </Box>
           ) : null}
           <Box key="settings-title" position="absolute" top={0} left={2} height={2} flexDirection="row" alignItems="center" gap={1}>
@@ -3271,6 +3266,10 @@ Saved to ${out}.md and .json` }
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
             <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+          </Box>
+          {/* The entrance as the bar opens (it replays on a choice too: each one redraws the bar). */}
+          <Box key="handoff-intro" position="absolute" top={-1} left={0} right={0} bottom={-1}>
+            <Svg source={INTRO_SVG} alt="" width={1600} height={240} />
           </Box>
           <Box key="handoff-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
             <Text color={ACCENT} bold wrap="truncate">
