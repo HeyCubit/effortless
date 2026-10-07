@@ -25,8 +25,8 @@ export type Pick = {
   sure?: number
 }
 
-/** What follows a handoff: clear and carry on, clear and wait, keep the chat and copy it, or a new chat and archive. */
-export type HandoffAfter = 'continue' | 'confirm' | 'copy' | 'newchat'
+/** What follows a handoff: clear and carry on, clear and wait, or keep the chat and copy it. */
+export type HandoffAfter = 'continue' | 'confirm' | 'copy'
 
 /** A choice in the handoff bar: quick (a fork) or full (the person's skill), then what follows. */
 export type HandoffChoice = { kind: 'quick' | 'full'; after: HandoffAfter }
@@ -113,7 +113,7 @@ declare module 'claude-code' {
       /** What the newest reply cost: tokens weighted by price over the main thread's requests, and its time. */
       lastTurn: { cost: number; ms: number } | null
       /** The handoff card under the newest reply, from the start of a handoff until the reply after it lands. */
-      handoffCard: { kind: 'writing' | 'done' | 'copied' | 'newchat'; full: boolean; at: number; seen: boolean } | null
+      handoffCard: { kind: 'writing' | 'done' | 'copied'; full: boolean; at: number; seen: boolean } | null
       /** The setup guide's step, or null when it is closed. */
       setupStep: 'pick' | 'jev' | 'custom' | 'lean' | 'handoff' | 'done' | null
       /** Choices made in the setup guide, saved together at Done or the cross. */

@@ -44,6 +44,7 @@ const params = {
   bodyColumns: 100,
   press: (opt('press', '') || '').split(',').filter(Boolean),
   command: opt('command', '') || '',
+  trace: Number(opt('trace', '0')),
   options: Object.fromEntries((opt('options', '') || '').split(',').filter(Boolean).map((kv) => kv.split('='))),
 }
 const width = Number(opt('width', '768')) // CSS px of the band slot (the composer column; 768 at a wide window)
@@ -103,7 +104,8 @@ const dumped = treeFile ? JSON.parse(readFileSync(treeFile, 'utf8')) : dumpTree(
 // --at <seconds>: hold every CSS animation inside the Svg leaves (the glow's pulse, the thinking dots) at that moment,
 // so a screenshot is repeatable. Without it they run, and the shot lands wherever the pulse is.
 const at = opt('at', null)
-const tree = at === null ? dumped : freeze(dumped, Number(at))
+const trace = dumped.trace ?? null
+const tree = trace ? trace[0].tree : at === null ? dumped : freeze(dumped, Number(at))
 
 // --- 2. The page --------------------------------------------------------------------------------------------------------
 mkdirSync(dirname(out), { recursive: true })
@@ -115,6 +117,7 @@ const rig = {
   windowImport: keyOf(windowImport),
   elementImport: keyOf(elementImport),
   used: [],
+  trace,
 }
 const page = `<!doctype html>
 <html lang="en" data-theme="claude" data-mode="${mode}" data-density="comfortable" data-color-version="v2" class="cds-root antialiased">
@@ -188,6 +191,22 @@ function freeze(node, seconds) {
   return { ...node, props, ...(node.children ? { children: node.children.map((c) => freeze(c, seconds)) } : {}) }
 }
 
+/** The redraws of a --trace run, in order: each RIG-STEP line (time, act, tree) with the RIG-RENDER lines before it. */
+function traceOf(text) {
+  const steps = []
+  let renders = 0
+  for (const line of text.split(/\r?\n/)) {
+    if (line.includes('RIG-RENDER')) renders++
+    const i = line.indexOf('RIG-STEP ')
+    if (i !== -1) {
+      steps.push({ renders, ...JSON.parse(line.slice(i + 'RIG-STEP '.length)) })
+      renders = 0
+    }
+  }
+  if (!steps.length) fail(`--trace: the mod logged no steps:\n${text.slice(-3000)}`)
+  return steps
+}
+
 function fail(message) {
   console.error(`render-band: ${message}`)
   process.exit(1)
@@ -227,6 +246,14 @@ function dumpTree() {
       if (patched === src && !/const HANDOFF_GLOW = true/.test(src)) fail('--glow: no HANDOFF_GLOW constant in hooks/register.tsx')
       writeFileSync(file, patched)
     }
+    if (params.trace) {
+      // Each ui.render of the band says so on stdout, between the template's RIG-STEP lines.
+      const file = join(work, 'hooks', 'register.tsx')
+      const src = readFileSync(file, 'utf8')
+      const patched = src.replace(/(\r?\n\s*)renderCalls\+\+/, "$1renderCalls++$1void $.store.set('__rigRenders', renderCalls)")
+      if (patched === src) fail('--trace: no renderCalls++ in the AbovePrompt hook')
+      writeFileSync(file, patched)
+    }
     mkdirSync(join(work, 'tests'), { recursive: true })
     const test = readFileSync(join(HERE, 'dump.template.ts'), 'utf8').replace('const P: Params = __PARAMS__', () => `const P: Params = ${JSON.stringify(params)}`)
     writeFileSync(join(work, 'tests', 'dump.test.ts'), test)
@@ -238,6 +265,7 @@ function dumpTree() {
       maxBuffer: 64 * 1024 * 1024,
     })
     const text = `${run.stdout}\n${run.stderr}`
+    if (params.trace) return { trace: traceOf(text) }
     const line = text.split(/\r?\n/).find((l) => l.includes('DUMP-TREE '))
     if (!line) fail(`the mod did not draw a band:\n${text.slice(-3000)}`)
     return JSON.parse(line.slice(line.indexOf('DUMP-TREE ') + 'DUMP-TREE '.length))
@@ -324,6 +352,22 @@ async function screenshot(pageUrl, png) {
     )
     const pad = 12
     const clip = { x: Math.max(0, rect.x - pad), y: Math.max(0, rect.y - pad), width: rect.width + 2 * pad, height: rect.height + 2 * pad, scale: 1 }
+    if (trace) {
+      // --trace: start the replay and shoot frames as fast as the browser gives them, each named by its time (ms).
+      const frames = png.replace(/\.png$/, '-frames')
+      rmSync(frames, { recursive: true, force: true })
+      mkdirSync(frames, { recursive: true })
+      const end = trace[trace.length - 1].t + 400
+      await send('Runtime.evaluate', { expression: 'RIG_PLAY()' })
+      const t0 = Date.now()
+      for (let n = 0; Date.now() - t0 < end; n++) {
+        const t = Date.now() - t0
+        const { data } = await send('Page.captureScreenshot', { format: 'png', clip, captureBeyondViewport: true })
+        writeFileSync(join(frames, `${String(n).padStart(4, '0')}-${String(t).padStart(5, '0')}.png`), Buffer.from(data, 'base64'))
+      }
+      console.log(`frames    ${frames}`)
+      console.log(`redraws   ${trace.map((s) => `${s.t}ms ${s.label}: ${s.renders}`).filter((l) => !l.endsWith(': 0')).join(', ')}`)
+    }
     const { data } = await send('Page.captureScreenshot', { format: 'png', clip, captureBeyondViewport: true })
     writeFileSync(png, Buffer.from(data, 'base64'))
     ws.close()

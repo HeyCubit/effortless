@@ -37,6 +37,7 @@ update it either keeps working or exits and says which of these it could not fin
 | `--glow` | off | render with `HANDOFF_GLOW = true` (temporary copy only) |
 | `--at S` | live | freezes the CSS animations inside Svg leaves at S seconds, for repeatable shots (0 = start of the glow's pulse, the low point) |
 | `--wait S` | 0 | let S seconds of real time pass before the shot: use it for animations that run once (an entrance), which `--at` cannot hold past their end |
+| `--trace MS` | | simulates clicks: presses the `--press` buttons on the drawn band, records every redraw for MS ms of the mod's clock, then replays each one at its time with the app's renderer (a redraw swaps the whole band, as in the app) and shoots frames into `out/<name>-frames/` (named by ms). Prints the redraws per step. Use it for flicker, animations across redraws and clicks that get lost |
 | `--cache M` / `--cache off` | 59 | minutes left on a 1 h cache |
 | `--effort E`, `--reason "..."` | medium | the judge's verdict (Haiku judge) |
 | `--auto off`, `--fresh`, `--judging`, `--working` | | other states |
@@ -54,6 +55,7 @@ update it either keeps working or exits and says which of these it could not fin
   little.
 - Interactive Svgs (`isInteractive`) go through the app's sandboxed iframe path using the real DOMPurify. The band uses
   none: every Svg there is a plain `<img>`, as in the app.
+- `--trace` counts redraws through a patched copy (each band `ui.render` writes a store key the test takes). Real time between redraws inside one act is a guess (16 ms).
 - Hover states, hover cards and the host's "Turn off" button (added only when the band root is a plain layout box) are
   not drawn.
 - Needs the desktop app installed (Windows Store build), Chrome or Edge, and `claude` on PATH.

@@ -19,6 +19,9 @@ type Params = {
   press: string[]
   // An /effortless subcommand run before the dump (e.g. 'cold' or 'swamp' to show a test band).
   command: string
+  // --trace MS: press on the drawn band itself and log the tree after every act and every 20 ms of the clock for MS,
+  // so the page can replay each redraw in time (the patched copy logs RIG-RENDER on each ui.render of the band).
+  trace: number
 }
 const P: Params = __PARAMS__
 
@@ -31,7 +34,19 @@ const IDLE_BAND = { plugin: 'effortless', surface: 'desktop', ...BAND, props: { 
 
 describe('render rig', () => {
   test('dump the desktop band', { options: { layout: 'default', ...P.options } } as never, async ($, on) => {
-    mock.store(on)
+    // --trace: the patched copy reports each ui.render of the band as a store write of '__rigRenders', taken here (the
+    // test's hooks are the one channel the mod's module and this one share).
+    let rigRenders = 0
+    // mock.store's own store, with that one key counted instead of kept.
+    const kept = new Map<string, unknown>()
+    on('store.get', ((_$: unknown, e: { key: string }) => ({ value: kept.get(e.key) })) as never)
+    on('store.set', ((_$: unknown, e: { key: string; value: unknown }) => {
+      if (e.key === '__rigRenders') rigRenders++
+      else kept.set(e.key, e.value)
+      return { value: undefined }
+    }) as never)
+    on('store.delete', ((_$: unknown, e: { key: string }) => (kept.delete(e.key), { value: undefined })) as never)
+    on('store.keys', (() => ({ value: [...kept.keys()] })) as never)
     mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
     on('prompt.submit', (_$, e) => ({ text: e.text }))
     on('ui.status', () => ({ value: undefined }))
@@ -92,6 +107,27 @@ describe('render rig', () => {
       await clock.advance(50)
     }
     if (P.command) await $.command.run({ command: 'effortless', args: P.command } as never)
+    if (P.trace) {
+      const band = await $.ui.mount(DESK_BAND)
+      let t = 0
+      let seen = rigRenders
+      const log = async (label: string) => {
+        const renders = rigRenders - seen
+        seen = rigRenders
+        console.log('RIG-STEP ' + JSON.stringify({ t, label, renders, tree: await band.drawn() }))
+      }
+      await log('before')
+      for (const key of P.press) {
+        await band.press({ key })
+        await log('press ' + key)
+      }
+      for (; t < P.trace; ) {
+        await clock.advance(20)
+        t += 20
+        await log('tick')
+      }
+      return
+    }
     for (const key of P.press) {
       const b = await $.ui.mount(IDLE_BAND)
       await b.press({ key })
