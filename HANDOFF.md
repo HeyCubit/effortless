@@ -3,9 +3,12 @@
 ## Branch and PRs
 - `main` on HeyCubit/effortless, version 1.35.111, pushed and installed. Direct pushes, no open PRs. Several chats push
   to main: `git pull --rebase --autostash` before every push, and read the version after the pull.
-- Release: `tools/release.sh [--no-install] "<subject>" "<body>"` runs the tests (143 pass) and stops on any failure,
-  bumps the version here and in `.claude-plugin/plugin.json`, adds the subject to `releases.json`, commits, pushes and
-  installs. `--no-install` leaves this machine a version behind so the update card can be tried. Use `py`, not `python`.
+- Release: `tools/release.sh [--no-install] [--dry-run] --files <your paths> -- "<subject>" "<body>"` (or `--all`
+  instead of `--files ... --`). Commits only the named paths plus the version bump, so other chats' half-done work stays
+  out; without `--files`/`--all` it lists the changed files and stops. Runs the tests (143 pass) and stops on any
+  failure, bumps the version here and in `.claude-plugin/plugin.json`, adds the subject to `releases.json`, commits,
+  pushes and installs. `--dry-run` shows what it would stage. `tools/release-selfcheck.sh` tests the gate. `--no-install`
+  leaves this machine a version behind so the update card can be tried. Use `py`, not `python`.
 - Showcase site: https://heycubit.github.io/effortless/ (`gh-pages` = `main:site`), the bar-first redesign with a
   /whats-new/ page built from releases.json. Build: `node site/src/build.mjs`. Not yet in `tools/release.sh`: after a
   release, rebuild and republish so What's new lists it. Design notes: ai-setup `memory/effortless/site-design.md`.
