@@ -237,6 +237,8 @@ const DASH_DIM = '#8b8b93'
 // A settings card under the pointer: a shade up from the band, its edge a shade up from that.
 const CARD_HOVER = '#1c1c20'
 const CARD_HOVER_EDGE = '#3b3b42'
+// Blanks on the button laid over Back's chevron and word: enough for its own (rounded, app-drawn) hover to cover both.
+const BACK_BLANKS = 16
 const DONE_SVG = BRAND_SVG
   .replace(/#7c6cf0/g, '#2fae62').replace(/#8f7ff0/g, '#3cc472').replace(/#b3a6ff/g, '#7fe0a4')
   .replace(/#c9bdff/g, '#b4f0c8').replace(/#9a86ff/g, '#4fd486')
@@ -3463,12 +3465,11 @@ Saved to ${out}.md and .json` }
                 {Svg && !term ? (
                   // A drawn chevron and the word in a box of their own, a blank button over both: the hover covers the
                   // pair with room each side, as the cog's does.
-                  <Box key="settings-back-box" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}
-                    hover={{ backgroundColor: HOVER_BOX }}>
+                  <Box key="settings-back-box" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}>
                     <Svg source={`<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path d="M7.5 2.5 4 6l3.5 3.5" fill="none" stroke="${DASH_TEXT}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`} alt="Back" width={12} height={12} />
                     <Text color={DASH_TEXT} hover={{ color: '#ffffff' }}>Back</Text>
                     <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                      <Button key="settings-back" plain hover={{ backgroundColor: '#00000000' }} label={' '.repeat(12)} onPress={openCard(null)} />
+                      <Button key="settings-back" plain label={' '.repeat(BACK_BLANKS)} onPress={openCard(null)} />
                     </Box>
                   </Box>
                 ) : (
