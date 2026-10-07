@@ -2167,19 +2167,34 @@ export function handoffGlowSvg(step: number): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${GLOW_W}" height="${GLOW_H}" viewBox="0 0 ${GLOW_W} ${GLOW_H}"><style>.g{animation:p ${period}s ease-in-out infinite}@keyframes p{0%,100%{opacity:${low}}50%{opacity:${peak}}}</style><defs><filter id="b" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="${blur}"/></filter></defs><g class="g" filter="url(#b)"><rect x="${x}" y="${y}" width="${GLOW_BUTTON.w + 2 * e}" height="${GLOW_BUTTON.h + 2 * e}" rx="${GLOW_BUTTON.r + e}" fill="${ACCENT}"/></g></svg>`
 }
 
-/** Auto as a switch: a pill with its knob right and violet when on, left and grey when off. */
-export function autoSwitchSvg(on: boolean): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="15" viewBox="0 0 26 15"><rect x=".5" y=".5" width="25" height="14" rx="7" fill="${on ? ACCENT : '#2c2c31'}" stroke="${on ? ACCENT : '#4a4a52'}"/><circle cx="${on ? 18.5 : 7.5}" cy="7.5" r="5" fill="${on ? '#ffffff' : '#8b8b93'}"/></svg>`
+/** How long the switch's knob takes to slide after a click. */
+const AUTO_SLIDE_MS = 260
+/** Auto as a switch: a pill with its knob right and violet when on, left and grey when off. `slide` draws the move from
+ * the other side, for the redraw right after a click only (every redraw replays an image's animation). */
+export function autoSwitchSvg(on: boolean, slide = false): string {
+  const t = `${AUTO_SLIDE_MS / 1000}s cubic-bezier(.3,.7,.2,1)`
+  const css = slide
+    ? `<style>.k{animation:k ${t}}.p{animation:p ${t}}@keyframes k{from{transform:translateX(${on ? -11 : 11}px);fill:${on ? '#8b8b93' : '#ffffff'}}}@keyframes p{from{fill:${on ? '#2c2c31' : ACCENT};stroke:${on ? '#4a4a52' : ACCENT}}}</style>`
+    : ''
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="15" viewBox="0 0 26 15">${css}<rect class="p" x=".5" y=".5" width="25" height="14" rx="7" fill="${on ? ACCENT : '#2c2c31'}" stroke="${on ? ACCENT : '#4a4a52'}"/><circle class="k" cx="${on ? 18.5 : 7.5}" cy="7.5" r="5" fill="${on ? '#ffffff' : '#8b8b93'}"/></svg>`
 }
 /** How long the bar's edges glow after Auto is switched on. */
-const AUTO_GLOW_MS = 1800
-/** The glow along the bar's edges as Auto comes on: a violet rim that flares and fades once. Drawn for AUTO_GLOW_MS only
- * (every redraw would replay it). Stretched across the band's width (preserveAspectRatio none: the app scales a Svg to
- * its box's width and keeps its height), so its height is the band's. */
-export const AUTO_GLOW_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="37" viewBox="0 0 1600 37" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${AUTO_GLOW_MS / 1000}s ease-out}@keyframes r{0%{opacity:0}18%{opacity:1}100%{opacity:0}}</style><defs><filter id="b" x="-5%" y="-50%" width="110%" height="200%"><feGaussianBlur stdDeviation="2.5"/></filter></defs><g class="r"><rect x="2" y="2" width="1596" height="33" rx="9" fill="none" stroke="${ACCENT}" stroke-width="4" filter="url(#b)"/><rect x="1" y="1" width="1598" height="35" rx="9" fill="none" stroke="#c9bfff" stroke-width="1.2"/></g></svg>`
-// When the bar last saw Auto off, and when Auto came on (for the edge glow).
+const AUTO_GLOW_MS = 2600
+const AUTO_GLOW_W = 760
+const AUTO_GLOW_H = 37
+/** The glow inside the bar's edges as Auto comes on: a violet light that rises along the rim, holds, and fades once. Drawn
+ * for AUTO_GLOW_MS only (every redraw would replay it). Stretched across the band's width (preserveAspectRatio none: the
+ * app scales a Svg to its box's width and keeps its height); drawn at about the band's real width so the sides stay
+ * as thick as the top and bottom. Clipped to the bar's inside, so the light falls inward. */
+export const AUTO_GLOW_SVG = (() => {
+  const W = AUTO_GLOW_W, H = AUTO_GLOW_H
+  const rim = `x="0" y="0" width="${W}" height="${H}" rx="8"`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${AUTO_GLOW_MS / 1000}s ease-in-out}@keyframes r{0%{opacity:0}15%{opacity:1}45%{opacity:.85}100%{opacity:0}}</style><defs><clipPath id="c"><rect ${rim}/></clipPath><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="2.6"/></filter><filter id="s" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation=".8"/></filter></defs><g class="r" clip-path="url(#c)"><rect ${rim} fill="none" stroke="${ACCENT}" stroke-width="9" opacity=".9" filter="url(#b)"/><rect ${rim} fill="none" stroke="#c9bfff" stroke-width="2.4" filter="url(#s)"/></g></svg>`
+})()
+// When the bar last saw Auto off or on, when Auto came on (for the edge glow), and when it last changed (for the slide).
 let autoSeen: boolean | undefined
 let autoOnAt = 0
+let autoFlipAt = 0
 
 /** The dashboard: what effortless is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
 async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
@@ -2188,9 +2203,14 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   const v = await snap($)
   await introShows($, 'dash')
   const nowMs = await $.clock.now()
-  if (autoSeen === false && v.auto) {
-    autoOnAt = nowMs
-    $.clock.after(AUTO_GLOW_MS + 100, () => $.ui.invalidate('ui.render'))
+  if (autoSeen !== undefined && autoSeen !== v.auto) {
+    autoFlipAt = nowMs
+    // Redraw once the slide is over, so a later redraw draws the switch still.
+    $.clock.after(AUTO_SLIDE_MS + 50, () => $.ui.invalidate('ui.render'))
+    if (v.auto) {
+      autoOnAt = nowMs
+      $.clock.after(AUTO_GLOW_MS + 100, () => $.ui.invalidate('ui.render'))
+    }
   }
   autoSeen = v.auto
   const effortNow = effortOf(v, v.modelNow ?? (await sessionModel($)))
@@ -2276,7 +2296,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
       ) : null}
       {Svg && v.auto && nowMs - autoOnAt < AUTO_GLOW_MS ? (
         <Box key="dash-auto-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={AUTO_GLOW_SVG} alt="" width={1600} height={37} />
+          <Svg source={AUTO_GLOW_SVG} alt="" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
       {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
@@ -2348,10 +2368,10 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
         {Svg ? (
           // Auto as a switch, drawn, with a blank button laid over it to take the click (the cog's pattern).
           <Box key="dash-auto-switch" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}>
-            <Svg source={autoSwitchSvg(v.auto)} alt={v.auto ? 'Auto on' : 'Auto off'} width={26} height={15} />
+            <Svg source={autoSwitchSvg(v.auto, nowMs - autoFlipAt < AUTO_SLIDE_MS)} alt={v.auto ? 'Auto on' : 'Auto off'} width={26} height={15} />
             <Text color={v.auto ? DASH_TEXT : DASH_DIM}>Auto</Text>
             <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-              <Button key="dash-auto" plain label={' '.repeat(10)} onPress={() => toggleAutoEffort($)} />
+              <Button key="dash-auto" plain label={' '.repeat(24)} onPress={() => toggleAutoEffort($)} />
             </Box>
           </Box>
         ) : null}
