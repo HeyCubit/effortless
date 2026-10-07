@@ -36,6 +36,7 @@ update it either keeps working or exits and says which of these it could not fin
 | `--width N` | 768 | CSS px of the band slot (the composer column; 768 in a wide window) |
 | `--glow` | off | render with `HANDOFF_GLOW = true` (temporary copy only) |
 | `--at S` | live | freezes the CSS animations inside Svg leaves at S seconds, for repeatable shots (0 = start of the glow's pulse, the low point) |
+| `--wait S` | 0 | let S seconds of real time pass before the shot: use it for animations that run once (an entrance), which `--at` cannot hold past their end |
 | `--cache M` / `--cache off` | 59 | minutes left on a 1 h cache |
 | `--effort E`, `--reason "..."` | medium | the judge's verdict (Haiku judge) |
 | `--auto off`, `--fresh`, `--judging`, `--working` | | other states |

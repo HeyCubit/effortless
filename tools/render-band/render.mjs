@@ -315,7 +315,8 @@ async function screenshot(pageUrl, png) {
       const err = (await send('Runtime.evaluate', { expression: 'document.body.innerText.slice(-2000)', returnByValue: true })).result.value
       fail(`the page did not draw (${state || 'timeout'}): ${err}`)
     }
-    await sleep(300)
+    // --wait S: let S seconds of real time pass before the shot, so animations that run once can be seen at their end.
+    await sleep(300 + Number(opt("wait", "0") || 0) * 1000)
     const measure = JSON.parse((await send('Runtime.evaluate', { expression: 'JSON.stringify(RIG_MEASURE)', returnByValue: true })).result.value)
     const rect = JSON.parse(
       (await send('Runtime.evaluate', { expression: 'JSON.stringify(document.querySelector("[data-rig-band]").getBoundingClientRect())', returnByValue: true })).result.value,
