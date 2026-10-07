@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.96",
+    "date": "2026-10-07",
+    "note": "Faster start: session start reads its settings at once"
+  },
+  {
     "version": "1.35.95",
     "date": "2026-10-07",
     "note": "Render log: one file per chat"
