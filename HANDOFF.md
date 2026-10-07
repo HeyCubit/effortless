@@ -1,7 +1,7 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, version 1.35.113, pushed and installed. Direct pushes, no open PRs. Several chats push
+- `main` on HeyCubit/effortless, version 1.35.114, pushed and installed. Direct pushes, no open PRs. Several chats push
   to main: `git pull --rebase --autostash` before every push, and read the version after the pull.
 - Release: `tools/release.sh [--no-install] [--dry-run] --files <your paths> -- "<subject>" "<body>"` (or `--all`
   instead of `--files ... --`). Commits only the named paths plus the version bump, so other chats' half-done work stays
