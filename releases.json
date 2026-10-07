@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.35.103",
+    "date": "2026-10-07",
+    "note": "Compact bar title has its star back; HANDOFF rewritten"
+  },
+  {
     "version": "1.35.102",
     "date": "2026-10-07",
     "note": "Compact bar: the field sits clear of the button; the swamp colours fade into it"

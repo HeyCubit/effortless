@@ -3920,7 +3920,7 @@ Saved to ${out}.md and .json` }
           {introLayer({ Box, Svg }, 'compact', await introShows($, 'compact'))}
           {/* One line, as tall as the bands: the name, then the field and the buttons on the right. */}
           <Box key="compact-words" position="relative" flexShrink={0}>
-            <Text color={ACCENT} bold>Compact</Text>
+            <Text color={ACCENT} bold>✦ Compact</Text>
           </Box>
           <Box key="compact-controls" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end" alignItems="center" gap={1}>
             <Box position="absolute" top={0} left={0} />
