@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed } from '../hooks/register'
+import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, compactTranscript } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
 
@@ -1042,6 +1042,7 @@ describe('judge choice (plugin settings)', () => {
       hide: [],
       swampAt: 50,
       layout: 'default',
+      compactWith: 'haiku',
     })
     expect(readConfig({ swampAt: '20' })).toMatchObject({ swampAt: 20 })
     expect(readConfig({ swampAt: '33' }).swampAt).toBe(50)
@@ -1509,6 +1510,72 @@ describe('images', () => {
     await $.prompt.submit({ text: 'fix this', wait: false, origin: { kind: 'composer' }, attachments: [{ type: 'image', mediaType: 'image/png' }] } as never)
     expect(asked.length).toBe(2)
     expect(asked[1]).toContain('1 image')
+  })
+})
+
+describe('compaction by Haiku', () => {
+  const SUMMARY = '1. Primary request: rename userId across the app. ' + 'Details. '.repeat(40)
+  const said = [
+    { role: 'user', text: 'rename this variable to userId', toolUses: [] },
+    { role: 'assistant', text: 'Renamed in 4 files.', toolUses: [{ tool_use_id: 't1', tool: 'Edit', input: { file_path: 'a.ts' }, text: 'x'.repeat(5000) }] },
+  ]
+  /** Claude Code's own compaction beneath the mod, and whether it ran. */
+  const core = (on: On) => {
+    const ran = { core: 0 }
+    on('session.compact', (_$, e) => {
+      ran.core++
+      return { messages: [{ role: 'user', text: 'core summary', toolUses: [] }] } as never
+    })
+    return ran
+  }
+
+  test('the transcript names each tool call and cuts long results', () => {
+    const text = compactTranscript(said as never)
+    expect(text).toContain('USER: rename this variable to userId')
+    expect(text).toContain('[Edit {"file_path":"a.ts"}]')
+    expect(text).toContain('[3000 more characters]')
+  })
+
+  test('Haiku 5.5 writes the summary, with the note typed after /compact; Claude Code does not compact', async ($, on) => {
+    engine(on, {}, 'claude-opus-5-5', said as never)
+    const ran = core(on)
+    const asked: { model: string; prompt: string }[] = []
+    on('model.complete', (_$, e) => {
+      asked.push({ model: e.model, prompt: e.prompt })
+      return { value: { isAnswered: true as const, text: SUMMARY, usage: USAGE } }
+    })
+    const out = (await $.session.compact({ instructions: 'keep the API decisions' })) as { messages?: { text: string }[] }
+    expect(ran.core).toBe(0)
+    expect(asked[0].model).toBe('claude-haiku-5-5')
+    expect(asked[0].prompt).toContain('keep the API decisions')
+    expect(out.messages?.[0].text).toContain('rename userId across the app')
+  })
+
+  test('when Haiku fails, Claude Code compacts as usual and a toast says why', async ($, on) => {
+    engine(on)
+    const ran = core(on)
+    const toasts: string[] = []
+    on('ui.toast', (_$, e) => {
+      toasts.push(String((e as { text?: string }).text ?? JSON.stringify(e)))
+      return { value: undefined } as never
+    })
+    on('model.complete', () => ({ value: { isAnswered: false as const, reason: 'api-error', status: 500 } }) as never)
+    await $.session.compact({})
+    expect(ran.core).toBe(1)
+    expect(toasts.join(' ')).toContain('Haiku could not compact')
+  })
+
+  test("set to the chat's model, Claude Code compacts and Haiku is never asked", { options: { compactWith: 'session' } } as never, async ($, on) => {
+    engine(on)
+    const ran = core(on)
+    let asked = 0
+    on('model.complete', () => {
+      asked++
+      return { value: { isAnswered: true as const, text: SUMMARY, usage: USAGE } }
+    })
+    await $.session.compact({})
+    expect(ran.core).toBe(1)
+    expect(asked).toBe(0)
   })
 })
 
@@ -2850,5 +2917,62 @@ describe('updates', () => {
     expect(text).toContain('network down')
     expect((await ui.find({ key: 'update-go' }))?.text).toContain('Try again')
     await ui.unmount()
+  })
+})
+
+describe('agent panel', () => {
+  const PANE = {
+    plugin: 'effortless',
+    surface: 'desktop',
+    component: 'Pane',
+    requestId: 'effortless-agents',
+    props: { title: 'Agents', isFocused: false, bodyColumns: 46, placement: 'dock', scroll: { offset: 0, bodyRows: 40 }, view: {} },
+  } as never
+  const start = async ($: Engine, on: On) => {
+    engine(on)
+    mock.clock(on)
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    on('classic.SessionStart', () => ({}) as never)
+    on('ui.open', () => ({ value: { isPlaced: true } }) as never)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+  }
+
+  test('the demo shows a card per agent still going and folds the finished ones into one', async ($, on) => {
+    await start($, on)
+    const reply = await $.command.run({ command: 'effortless', args: 'agents demo' })
+    expect(String(reply.text)).toContain('agent panel')
+    const pane = await $.ui.mount(PANE)
+    const text = await drawn(pane)
+    // A tree for tools/render-band (--tree), when asked for.
+    if (text && (globalThis as { AGENT_TREE?: boolean }).AGENT_TREE) console.log(`AGENT_TREE ${text}`)
+    for (const id of ['demo-1', 'demo-2', 'demo-3']) expect(await pane.find({ key: `agent-${id}` })).toBeDefined()
+    expect(await pane.find({ key: 'agent-demo-4' })).toBeUndefined()
+    expect(text).toContain('✓ 2 done')
+    expect(text).toContain('1 waiting')
+    expect(text).toContain('waiting on Bash npm test')
+    // Pressing a card opens it: the pick and why show.
+    await pane.press({ key: 'agent-demo-2-press' })
+    expect(await drawn(pane)).toContain('a review before merge')
+    await pane.unmount()
+  })
+
+  test('a spawned agent runs, waits on a long tool, and is done when its loop answers', async ($, on) => {
+    on('agent.spawn', () => ({ agentId: 'a1', model: 'claude-haiku-5-5' }) as never)
+    on('tool.call', () => ({ result: 'ok', isError: false }) as never)
+    on('turn.complete', () => ({ text: '' }))
+    await start($, on)
+    await $.agent.spawn({ prompt: 'look around', description: 'find the hooks', subagentType: 'Explore' } as never)
+    await $.command.run({ command: 'effortless', args: 'agents' })
+    const pane = await $.ui.mount(PANE)
+    expect(await drawn(pane)).toContain('1 working')
+    expect(await drawn(pane)).toContain('find the hooks')
+    await $.tool.call({ tool: 'Grep', pattern: 'agentId', agentId: 'a1' } as never)
+    expect(await drawn(pane)).toContain('Grep agentId')
+    await $.turn.complete({ turnId: 'x', agentId: 'a1', answer: 'found', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    const text = await drawn(pane)
+    expect(text).toContain('All done')
+    expect(text).toContain('✓ 1 done')
+    await pane.unmount()
   })
 })

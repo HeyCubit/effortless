@@ -76,7 +76,7 @@ git and saves `HANDOFF.md` (or runs your own skill). Then clear and carry on, cl
 
 <p align="center"><img src="docs/readme/handoff.png" alt="The Handoff bar with Quick and Full" width="100%"></p>
 
-**Compact** takes an optional note for what the summary should keep, passed to `/compact`:
+**Compact** takes an optional note for what the summary should keep. Every compaction, also `/compact` and the automatic one, is written by **Haiku 5.5** by default, which Anthropic recommends for compaction at a fraction of the chat model's price; if Haiku fails, Claude Code compacts as usual. Switch it in Settings → Handoff → Compact with.
 
 <p align="center"><img src="docs/readme/compact.png" alt="The Compact bar with an optional summary field" width="100%"></p>
 

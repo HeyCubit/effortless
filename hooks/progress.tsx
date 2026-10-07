@@ -14,7 +14,7 @@ export const MIN_STEPS = 3
 const SEGMENTS_MAX = 12
 
 // The brand purple, as in register.tsx, and the two signal sets: yellow when Claude asks, green when it is done.
-const LOOKS: Record<Progress['phase'], { color: string; bg: string; edge: string }> = {
+export const LOOKS: Record<Progress['phase'], { color: string; bg: string; edge: string }> = {
   planning: { color: '#a79cf7', bg: '#15121f', edge: '#4a3f80' },
   working: { color: '#a79cf7', bg: '#15121f', edge: '#4a3f80' },
   paused: { color: '#7d76a8', bg: '#15121f', edge: '#3a3360' },
