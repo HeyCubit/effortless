@@ -28,7 +28,6 @@ const releases = JSON.parse(fs.readFileSync(repo + "/releases.json", "utf8")).fi
 const row = r => `<li>${esc(r.note)} <small>${esc(r.version)} · <time datetime="${esc(r.date)}">${esc(r.date)}</time></small></li>`
 const news = `<ol class="rel">${releases.slice(0, 10).map(row).join("")}</ol>` + (releases.length > 10 ? `<details class="more"><summary>Show all</summary><ol class="rel">${releases.slice(10).map(row).join("")}</ol></details>` : "")
 const map = {
-  __WHATSNEW__: news,
   __STARS__: heroArt, 
   __ART_BRAND__: uri(grab('BRAND_SVG')), __ART_FROST__: uri(grab('FROST_SVG')), __ART_SWAMP__: uri(grab('SWAMP_SVG')),
   __ART_EMBER__: uri(grab('EMBER_SVG')), __ART_DOWN__: uri(grab('DOWN_SVG')),
@@ -41,4 +40,9 @@ for (const [k, v] of Object.entries(map)) out = out.split(k).join(v)
 if (/__[A-Z_]+__/.test(out)) throw Error('left: ' + out.match(/__[A-Z_]+__/)[0])
 fs.mkdirSync(repo + '/site', { recursive: true })
 fs.writeFileSync(repo + '/site/index.html', out)
+// What's new has its own page, at whats-new/. The main page forwards old #whats-new links there.
+let page = fs.readFileSync(new URL('./whats-new.html', import.meta.url), 'utf8').replace(/__SPARK__/g, mark).split('__ICON__').join(map.__ICON__).split('__WHATSNEW__').join(news)
+if (/__[A-Z_]+__/.test(page)) throw Error('left: ' + page.match(/__[A-Z_]+__/)[0])
+fs.mkdirSync(repo + '/site/whats-new', { recursive: true })
+fs.writeFileSync(repo + '/site/whats-new/index.html', page)
 console.log('bytes', out.length)

@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
-<script>document.documentElement.classList.add('js')</script>
+<script>document.documentElement.classList.add('js');if(location.hash==='#whats-new')location.replace('whats-new/')</script>
 <style>
 /* The band art below is the plugin's own SVG, copied unchanged from hooks/register.tsx. */
 :root{
@@ -325,17 +325,6 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .copy:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .copy.ok{color:var(--bog)}
 
-/* ---------- What's new: a plain list, newest first, from releases.json ---------- */
-.news{max-width:1080px;margin:0 auto;padding:96px 24px 0;scroll-margin-top:64px}
-.news h2{margin:0;font:500 clamp(26px,3vw,36px)/1.1 var(--display);letter-spacing:-.02em;color:#f4f2ff}
-.rel{list-style:none;margin:20px 0 0;padding:0;max-width:720px;color:var(--text);font-size:15.5px;line-height:1.5}
-.rel li{margin:0 0 8px}
-.rel small{margin-left:.5em;color:var(--dim);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.more{margin-top:4px}
-.more summary{cursor:pointer;color:var(--muted);font-size:14px}
-.more summary:hover{color:var(--text)}
-.more .rel{margin-top:10px}
-
 /* ---------- Narrow screens ---------- */
 @media (max-width:960px){
   .pin{gap:18px;padding:64px 16px 20px}
@@ -517,16 +506,12 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
     <div class="cta"><a class="gh" href="https://github.com/HeyCubit/effortless">__GITHUB__<span>Star on GitHub</span></a></div>
   </section>
 
-  <section class="news" id="whats-new">
-    <h2>What's new</h2>
-    __WHATSNEW__
-  </section>
 </main>
 
 <footer class="site-foot">
   <div class="foot-row">
     <span class="name">__SPARK__effortless<small>A Claude Code mod</small></span>
-    <nav><a href="#how">How it works</a><a href="#install">Install</a><a href="#whats-new">What's new</a><a href="https://github.com/HeyCubit/effortless">__GITHUB__GitHub</a></nav>
+    <nav><a href="#how">How it works</a><a href="#install">Install</a><a href="whats-new/">What's new</a><a href="https://github.com/HeyCubit/effortless">__GITHUB__GitHub</a></nav>
   </div>
   <div class="foot-word" aria-hidden="true"><span class="soft">effortless</span><span class="crisp">effortless</span></div>
 </footer>

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What's new · effortless</title>
+<meta name="description" content="What changed in each release of effortless, the Claude Code mod.">
+<meta name="theme-color" content="#121214">
+<link rel="icon" href="__ICON__">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500&display=swap" rel="stylesheet">
+<style>
+/* What's new: a plain list, newest first, from releases.json. */
+:root{--page:#121214;--text:#ececef;--muted:#9a9aa4;--dim:#82828c;--accent:#a79cf7;--sans:Inter,"Segoe UI",system-ui,-apple-system,sans-serif;--display:Outfit,Inter,"Segoe UI",system-ui,sans-serif;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--text);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.top{max-width:760px;margin:0 auto;padding:22px 24px 0;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.name{display:inline-flex;align-items:center;gap:8px;font:500 17px var(--display);text-decoration:none}
+.name .spark{width:32px;height:32px;margin:-6px -2px -6px -6px}
+.back{color:var(--muted);text-decoration:none;font-size:14.5px}
+.back:hover{color:var(--text)}
+main{max-width:760px;margin:0 auto;padding:72px 24px 96px}
+h1{margin:0;font:500 clamp(30px,4vw,42px)/1.1 var(--display);letter-spacing:-.02em;color:#f4f2ff}
+.rel{list-style:none;margin:28px 0 0;padding:0;font-size:15.5px;line-height:1.5}
+.rel li{margin:0 0 10px}
+.rel small{margin-left:.5em;color:var(--dim);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.more{margin-top:6px}
+.more summary{cursor:pointer;color:var(--muted);font-size:14px}
+.more summary:hover{color:var(--text)}
+.more .rel{margin-top:12px}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+@media (max-width:560px){.top{padding:16px 16px 0}main{padding:48px 16px 72px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="name" href="../">__SPARK__effortless</a>
+  <a class="back" href="../">Back to the site</a>
+</header>
+<main>
+  <h1>What's new</h1>
+  __WHATSNEW__
+</main>
+</body>
+</html>
