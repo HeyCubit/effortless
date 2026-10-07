@@ -2178,7 +2178,7 @@ export function autoGlowSvg(on: boolean): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
   const rim = `x="0" y="0" width="${W}" height="${H}" rx="8"`
   const [wash, line, strength] = on ? [ACCENT, '#c9bfff', 1] : ['#8b8b93', '#c8c8d0', 0.6]
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${AUTO_GLOW_MS / 1000}s ease-in-out}@keyframes r{0%{opacity:0}15%{opacity:${strength}}45%{opacity:${(strength * 0.85).toFixed(2)}}100%{opacity:0}}</style><defs><clipPath id="c"><rect ${rim}/></clipPath><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="2.8"/></filter><filter id="s" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation=".8"/></filter></defs><g class="r" clip-path="url(#c)"><rect ${rim} fill="none" stroke="${wash}" stroke-width="8" opacity=".7" filter="url(#b)"/><rect ${rim} fill="none" stroke="${line}" stroke-width="1.8" opacity=".8" filter="url(#s)"/></g></svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${AUTO_GLOW_MS / 1000}s ease-in-out}@keyframes r{0%{opacity:0}15%{opacity:${strength}}45%{opacity:${(strength * 0.85).toFixed(2)}}100%{opacity:0}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="2.8"/></filter><filter id="s" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation=".8"/></filter></defs><g class="r"><rect ${rim} fill="none" stroke="${wash}" stroke-width="8" opacity=".7" filter="url(#b)"/><rect ${rim} fill="none" stroke="${line}" stroke-width="1.8" opacity=".8" filter="url(#s)"/></g></svg>`
 }
 // When the bar last saw Auto off or on, when Auto came on (for the edge glow), and when it last changed (for the slide).
 let autoSeen: boolean | undefined
@@ -2282,7 +2282,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
       ) : null}
       {Svg && nowMs - autoOnAt < AUTO_GLOW_MS && renderLog.push(`glow ${v.auto ? 'on' : 'off'} at ${nowMs - autoOnAt} ms`) ? (
         <Box key="dash-auto-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={inPhase(autoGlowSvg(v.auto), nowMs - autoOnAt)} alt="" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+          <Svg source={inPhase(autoGlowSvg(v.auto), nowMs - autoOnAt)} alt="auto glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
       {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
@@ -3211,8 +3211,8 @@ Saved to ${out}.md and .json` }
           {!term ? (
             <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={3.5} overflow="hidden" backgroundColor={DASH_HEAD}>
               {/* The mark, big, tilted and cut off by the bar's edges, behind the title and the buttons. */}
-              <Box key="settings-bar-mark" position="absolute" top={-3} right={18} marginTop={1}>
-                <Svg source={SETTINGS_MARK} alt="effortless mark" width={180} height={180} />
+              <Box key="settings-bar-mark" position="absolute" top={-2} right={20} marginTop={1}>
+                <Svg source={SETTINGS_MARK} alt="effortless mark" width={140} height={140} />
               </Box>
               {/* A hairline along the bar's bottom: a one-pixel image stretched across (a Box cannot draw one pixel). */}
               <Box key="settings-rule" position="absolute" bottom={0} left={0} right={0} height={1} alignItems="flex-end">
