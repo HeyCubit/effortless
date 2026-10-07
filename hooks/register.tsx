@@ -176,6 +176,32 @@ const DASH_EDGE = '#2a2a2f'
 const SETTINGS_TITLE = `<svg xmlns="http://www.w3.org/2000/svg" width="92" height="28" viewBox="0 0 92 28"><defs><radialGradient id="c" cx="1" cy="1" r=".75" gradientTransform="matrix(.7 0 0 2.3 .3 -1.3)"><stop offset=".2" stop-color="#000"/><stop offset=".9" stop-color="#fff"/></radialGradient><radialGradient id="s" cx=".9" cy=".85" r=".55" gradientTransform="matrix(.7 0 0 2.3 .27 -1.1)"><stop offset=".25" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient><mask id="mc"><rect width="92" height="28" fill="url(#c)"/></mask><mask id="ms"><rect width="92" height="28" fill="url(#s)"/></mask><filter id="g" x="-20%" y="-40%" width="140%" height="180%"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="1" seed="7" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G" result="moved"/><feGaussianBlur in="moved" stdDeviation="1.1" result="soft"/><feComponentTransfer in="noise" result="dots"><feFuncA type="discrete" tableValues="0 0 1 1 1"/></feComponentTransfer><feComposite in="soft" in2="dots" operator="in"/></filter></defs><g font-size="21" font-weight="600" letter-spacing="-.5"><text x="1" y="20" fill="#f4f2ff" mask="url(#mc)">effortless</text><g mask="url(#ms)"><text x="1" y="20" fill="#f4f2ff" filter="url(#g)">effortless</text></g></g></svg>`
 /** The mark as the settings bar shows it: big, tilted and faint, cut off by the bar. */
 const SETTINGS_MARK = MARK_SVG.replace('<g mask=', '<g opacity=".2" transform="rotate(9 50 50)" mask=')
+/** How long a band's entrance runs: it is drawn only this long after the band appears, since every redraw of the band
+ * (a choice, the minute tick) would replay it. */
+const INTRO_MS = 1300
+// The band last drawn above the prompt, and when it appeared (see introShows).
+let introKind = ''
+let introAt = 0
+/** Whether the band of `kind` is still in its entrance: true for INTRO_MS after it replaced another band. */
+async function introShows($: EngineInterface, kind: string): Promise<boolean> {
+  const now = await $.clock.now()
+  if (kind !== introKind) {
+    introKind = kind
+    introAt = now
+    $.clock.after(INTRO_MS + 100, () => $.ui.invalidate('ui.render'))
+  }
+  return now - introAt < INTRO_MS
+}
+/** The entrance layer (INTRO_SVG) in a band's own colours, or nothing once the entrance is over. */
+function introLayer(els: { Box: unknown; Svg?: unknown }, key: string, show: boolean, wash = '#8b6cff', light = '#b9a7ff') {
+  if (!els.Svg || !show) return null
+  const { Box: B, Svg: S } = els as unknown as { Box: (p: Record<string, unknown>) => unknown; Svg: (p: Record<string, unknown>) => unknown }
+  return (
+    <B key={`${key}-intro`} position="absolute" top={-1} left={0} right={0} bottom={-1}>
+      <S source={INTRO_SVG.replace('#8b6cff', wash).replace('#b9a7ff', light)} alt="" width={1600} height={240} />
+    </B>
+  )
+}
 /** The settings panel's top bar: a shade above the band. */
 const DASH_HEAD = '#202024'
 const DASH_TEXT = '#d4d4d8'
@@ -2160,6 +2186,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   const els = $.ui.resolve(e)
   const { Box, Text, Button } = els
   const v = await snap($)
+  await introShows($, 'dash')
   const nowMs = await $.clock.now()
   if (autoSeen === false && v.auto) {
     autoOnAt = nowMs
@@ -3171,11 +3198,7 @@ Saved to ${out}.md and .json` }
         // sweep plays once, behind everything, as the panel opens.
         <Box key="settings" position="relative" flexDirection="column" gap={roomy && !term ? 1 : 0} paddingX={term ? 1 : 2} overflow="hidden"
           backgroundColor={DASH_BG} borderStyle="round" borderColor={DASH_EDGE}>
-          {Svg && !term ? (
-            <Box key="settings-intro" position="absolute" top={-1} left={0} right={0} bottom={-1}>
-              <Svg source={INTRO_SVG} alt="" width={1600} height={240} />
-            </Box>
-          ) : null}
+          {term ? null : introLayer({ Box, Svg }, 'settings', await introShows($, 'settings'))}
           {/* The top bar: a strip a shade lighter than the band, holding the title, Save and the cross. */}
           {!term ? (
             <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={3.5} overflow="hidden" backgroundColor={DASH_HEAD}>
@@ -3311,10 +3334,8 @@ Saved to ${out}.md and .json` }
           <Box key="handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
             <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
           </Box>
-          {/* The entrance as the bar opens (it replays on a choice too: each one redraws the bar). */}
-          <Box key="handoff-intro" position="absolute" top={-1} left={0} right={0} bottom={-1}>
-            <Svg source={INTRO_SVG} alt="" width={1600} height={240} />
-          </Box>
+          {/* The entrance as the bar opens, only then: a choice redraws the bar. */}
+          {introLayer({ Box, Svg }, 'handoff', await introShows($, 'handoff'))}
           <Box key="handoff-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
             <Text color={ACCENT} bold wrap="truncate">
               ⇥ Handoff
@@ -3489,6 +3510,7 @@ Saved to ${out}.md and .json` }
           <Box key="down-art" position="absolute" top={-1} right={0} bottom={-1}>
             <Svg source={DOWN_SVG} alt="judge down" width={FROST_WIDTH} height={FROST_HEIGHT} />
           </Box>
+          {introLayer({ Box, Svg }, 'down', await introShows($, 'down'), '#7d8aa8', '#e6ecf8')}
           <Box flexShrink={0}>
             <Text color={SLATE} bold wrap="truncate">
               ✦ Judge down
@@ -3526,6 +3548,7 @@ Saved to ${out}.md and .json` }
           <Box key="ember" position="absolute" top={-1} right={0} bottom={-1}>
             <Svg source={EMBER_SVG} alt="embers" width={FROST_WIDTH} height={FROST_HEIGHT} />
           </Box>
+          {introLayer({ Box, Svg }, 'hot', await introShows($, 'hot'), EMBER, '#ffd2a8')}
           <Box flexShrink={0}>
             <Text color={EMBER} bold wrap="truncate">
               ✦ Running hot
@@ -3585,9 +3608,7 @@ Saved to ${out}.md and .json` }
           <Box key="frost" position="absolute" top={-1} right={0} bottom={-1}>
             <Svg source={FROST_SVG} alt="frost" width={FROST_WIDTH} height={FROST_HEIGHT} />
           </Box>
-          <Box key="cold-intro" position="absolute" top={-1} left={0} right={0} bottom={-1}>
-            <Svg source={INTRO_SVG.replace('#8b6cff', ICE).replace('#b9a7ff', '#cfeeff')} alt="" width={1600} height={240} />
-          </Box>
+          {introLayer({ Box, Svg }, 'cold', await introShows($, 'cold'), ICE, '#cfeeff')}
           <Box flexShrink={0}>
             <Text color={ICE} bold wrap="truncate">
               ✦ Chat went cold
@@ -3635,6 +3656,7 @@ Saved to ${out}.md and .json` }
           <Box key="bog" position="absolute" top={-1} right={0} bottom={-1}>
             <Svg source={SWAMP_SVG} alt="swamp" width={FROST_WIDTH} height={FROST_HEIGHT} />
           </Box>
+          {introLayer({ Box, Svg }, 'swamp', await introShows($, 'swamp'), '#6f9a4f', '#d6ecc2')}
           <Box flexShrink={0}>
             <Text color={BOG} bold wrap="truncate">
               ✦ Chat is getting swamped
@@ -3653,7 +3675,7 @@ Saved to ${out}.md and .json` }
           <Box flexGrow={1} minWidth={34} />
           <Box key="swamp-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
             <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => compactCold($)} />
-            <Button key="swamp-handoff" hotkey="h" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />
+            <Button key="swamp-handoff" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />
             <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />
           </Box>
         </Box>
@@ -3674,6 +3696,8 @@ Saved to ${out}.md and .json` }
         </Box>
       ) : dash
     }
+    // The minimal look draws no dashboard: mark the rest here, so the next band plays its entrance.
+    introKind = 'rest'
     const { question, rows } = await effortRows($, e)
     if (e.surface !== 'terminal') return question ?? next(e)
     return rows
