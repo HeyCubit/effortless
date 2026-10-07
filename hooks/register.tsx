@@ -2313,12 +2313,33 @@ async function installedVersion($: EngineInterface): Promise<string | undefined>
   }
 }
 /** Looks for a newer version and offers it, unless ✕ put that version away less than UPDATE_SNOOZE_MS ago. */
+// What the last check found, for /effortless update to say.
+let lastUpdateCheck = 'not checked yet'
+/** The newest release: releases.json on main over the web, else the marketplace's own copy of the repo after `claude
+ * plugin marketplace update` (git, so it works where the host's web fetch is refused or cached). */
+async function latestAvailable($: EngineInterface): Promise<{ latest?: { version: string; note: string }; how: string }> {
+  const res = await $.http.fetch(RELEASES_URL).catch((error: unknown) => ({ ok: false, status: 0, text: String(error) }))
+  const fromWeb = res.ok ? latestRelease(res.text) : undefined
+  const web = res.ok ? (fromWeb ? `web ${fromWeb.version}` : 'web: unreadable') : `web refused (${res.status || res.text.slice(0, 80)})`
+  const marketplace = `${$.plugin.root.replace(/[\\/]cache[\\/].*$/, '')}/marketplaces/effortless/releases.json`
+  const readLocal = async () => {
+    const text = await $.fs.read(marketplace).catch(() => '')
+    return latestRelease(typeof text === 'string' ? text : '')
+  }
+  let local = await readLocal()
+  if (!local || !fromWeb || isNewer(fromWeb.version, local.version)) {
+    await $.process.run(['claude', 'plugin', 'marketplace', 'update', 'effortless'], { timeoutMs: 120_000 }).catch(() => null)
+    local = await readLocal()
+  }
+  const best = fromWeb && (!local || !isNewer(local.version, fromWeb.version)) ? fromWeb : local
+  return { latest: best, how: `${web}; marketplace ${local?.version ?? 'unreadable'}` }
+}
 async function checkUpdate($: EngineInterface) {
   const shown = await read($, updateCard)
   if (shown && shown.stage !== 'offer') return
-  const res = await $.http.fetch(RELEASES_URL).catch(() => null)
-  const latest = res?.ok ? latestRelease(res.text) : undefined
+  const { latest, how } = await latestAvailable($)
   const mine = await installedVersion($)
+  lastUpdateCheck = `installed ${mine ?? 'unreadable'}; ${how}`
   if (!latest || !mine || !isNewer(latest.version, mine)) {
     if (shown) await update($, updateCard, () => null)
     return
@@ -3056,7 +3077,7 @@ export const register: Register = (on, options) => {
     if (arg === 'update') {
       await checkUpdate($).catch(() => undefined)
       const card = await read($, updateCard)
-      if (!card || card.stage === 'done') return { text: `effortless ${(await installedVersion($)) ?? ''} is the newest.` }
+      if (!card || card.stage === 'done') return { text: `effortless ${(await installedVersion($)) ?? ''} is the newest (${lastUpdateCheck}).` }
       void runUpdate($, card)
       return { text: `Updating to ${card.version}…` }
     }
