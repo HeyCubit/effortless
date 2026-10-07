@@ -32,7 +32,11 @@
   --display:Outfit,Inter,"Segoe UI",system-ui,sans-serif;
   --ease:cubic-bezier(.16,1,.3,1);
   color-scheme:dark;
+  /* One frame for the whole page: the story's width. The top bar, the opening, the story, the install section and the
+     footer all start and end on it. */
+  --frame:max(32px,calc((100vw - 1536px)/2));
 }
+@media (max-width:960px){:root{--frame:16px}}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--page);color:var(--text);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
@@ -40,7 +44,7 @@ a{color:inherit}
 .wrap{max-width:920px;margin:0 auto;padding:0 24px}
 
 /* ---------- Stage: the full-screen opening ---------- */
-.stage{--gut:max(48px,calc((100vw - 1280px)/2 + 48px));position:relative;min-height:min(100vh,920px);min-height:min(100svh,920px);display:flex;flex-direction:column;overflow:hidden;isolation:isolate}
+.stage{--gut:var(--frame);position:relative;min-height:min(100vh,920px);min-height:min(100svh,920px);display:flex;flex-direction:column;overflow:hidden;isolation:isolate}
 .stage{background:radial-gradient(55% 75% at 88% 52%,#1d1934 0%,#16141f 45%,transparent 75%),var(--page)}
 .stage:before{content:"";position:absolute;inset:0;z-index:-2;pointer-events:none;background-image:radial-gradient(#2a2733 1.1px,transparent 1.5px);background-size:22px 22px;-webkit-mask-image:radial-gradient(60% 70% at 22% 50%,#000,transparent);mask-image:radial-gradient(60% 70% at 22% 50%,#000,transparent)}
 .demo{margin-top:48px;width:min(440px,100%)}
@@ -160,7 +164,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 @keyframes blink{50%{opacity:0}}
 
 /* ---------- The install bar: appears once the opening has scrolled away ---------- */
-.topbar{position:fixed;top:0;left:0;right:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:.9em max(24px,calc((100vw - 1536px)/2));font-size:clamp(15px,1.05vw,20px);background:#121214e0;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transform:translateY(-110%);transition:transform .4s var(--ease)}
+.topbar{position:fixed;top:0;left:0;right:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:.9em var(--frame);font-size:clamp(15px,1.05vw,20px);background:#121214e0;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transform:translateY(-110%);transition:transform .4s var(--ease)}
 .topbar.on{transform:none}
 .topbar .name{display:inline-flex;align-items:center;gap:10px;color:var(--text);font:500 1.5em var(--display);letter-spacing:-.01em;text-decoration:none}
 .topbar .name svg{width:1.9em;height:1.9em;margin:-.35em -.12em -.35em -.35em}
@@ -169,7 +173,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .inst:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .inst svg{width:12px;height:12px;transition:transform .25s}
 .inst[aria-expanded="true"] svg{transform:rotate(180deg)}
-.pop{position:absolute;right:max(24px,calc((100vw - 1536px)/2));top:calc(100% + 8px);width:min(540px,calc(100vw - 32px));padding:18px;border-radius:14px;background:#17161c;box-shadow:0 30px 60px -20px #000;display:none}
+.pop{position:absolute;right:var(--frame);top:calc(100% + 8px);width:min(540px,calc(100vw - 32px));padding:18px;border-radius:14px;background:#17161c;box-shadow:0 30px 60px -20px #000;display:none}
 .pop.open{display:block}
 .pop p{margin:0;color:var(--muted);font-size:14px}
 .pop .cmds{margin-top:12px}
@@ -313,7 +317,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .btn.pick:after{content:"";width:5px;height:5px;margin:-3px 1px 0 2px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg)}
 
 /* ---------- Install ---------- */
-.inst-sec{max-width:1080px;margin:0 auto;padding:120px 24px 40px;scroll-margin-top:40px}
+.inst-sec{padding:120px var(--frame) 40px;scroll-margin-top:40px}
 .inst-sec h2{margin:0;font:500 clamp(30px,3.8vw,46px)/1.1 var(--display);letter-spacing:-.02em;color:#f4f2ff}
 .inst-sec .lead{margin:14px 0 0;max-width:34em;color:var(--muted);font-size:17px;line-height:1.55}
 .inst-sec .fine{margin:22px 0 0;color:var(--dim);font-size:14px}
@@ -357,8 +361,8 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   .demo-foot .opt{display:none}
 }
 @media (max-width:560px){
-  .topbar{padding:8px 16px}
-  .inst-sec{padding:88px 16px 24px}
+  .topbar{padding:8px var(--frame)}
+  .inst-sec{padding:88px var(--frame) 24px}
   .cmd{padding-left:12px}.cmd code{font-size:12.5px}
   .copy span{display:none}
 }
@@ -366,7 +370,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 /* ---------- Footer: the name, huge, sinking into a purple haze at the bottom of the page ---------- */
 .site-foot{position:relative;isolation:isolate;overflow:hidden;margin-top:140px;padding-top:28px}
 .site-foot:before{content:"";position:absolute;left:50%;bottom:-30%;width:120%;height:110%;transform:translateX(-50%);z-index:-1;pointer-events:none;background:radial-gradient(50% 55% at 50% 100%,#6d5fd666,#3a2f7a33 45%,transparent 75%)}
-.foot-row{max-width:1180px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.foot-row{padding:0 var(--frame);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .foot-row .name{display:inline-flex;align-items:center;gap:8px;color:var(--text);font:500 17px var(--display)}
 .foot-row .name svg{width:32px;height:32px;margin:-6px -2px -6px -6px}
 .foot-row .name small{margin-left:6px;color:var(--dim);font:400 14px var(--sans)}
@@ -383,18 +387,18 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 /* ---------- Narrow screens: the deck stands below the words ---------- */
 @media (max-width:1080px){
   .stage-inner{grid-template-columns:minmax(0,1fr);gap:56px}
-  .stage-inner{padding:72px 0 40px 32px}
-  .stack{position:relative;left:auto;top:auto;bottom:auto;padding:0 0 88px 32px}
+  .stage-inner{padding:72px 0 40px var(--frame)}
+  .stack{position:relative;left:auto;top:auto;bottom:auto;padding:0 0 88px var(--frame)}
   .stack-in{position:relative;top:auto;left:0;width:auto;margin-right:-90px;transform:none}
   .stack{--from:calc(100% - 200px)}
   .chip{margin-left:calc(var(--i)*24px)}
-  .intro{padding-right:32px}
+  .intro{padding-right:var(--frame)}
 }
 @media (max-width:720px){
   .wrap{padding:0 16px}
-  .stage-inner{padding:56px 0 32px 16px}
-  .stack{padding:0 0 72px 16px}
-  .intro{padding-right:16px}
+  .stage-inner{padding:56px 0 32px var(--frame)}
+  .stack{padding:0 0 72px var(--frame)}
+  .intro{padding-right:var(--frame)}
   .demo{margin-top:32px}
   .chip{margin-left:calc(var(--i)*14px)}
   .stack{--from:calc(100% - 110px)}
@@ -440,7 +444,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
       <p class="kind"><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%20248%20248%22%3E%3Cstyle%3Esvg%7Bbackground%3Atransparent%3Bdisplay%3Ablock%7D%3C%2Fstyle%3E%3Cpath%20d%3D%22M52.4285%20162.873L98.7844%20136.879L99.5485%20134.602L98.7844%20133.334H96.4921L88.7237%20132.862L62.2346%20132.153L39.3113%20131.207L17.0249%20130.026L11.4214%20128.844L6.2%20121.873L6.7094%20118.447L11.4214%20115.257L18.171%20115.847L33.0711%20116.911L55.485%20118.447L71.6586%20119.392L95.728%20121.873H99.5485L100.058%20120.337L98.7844%20119.392L97.7656%20118.447L74.5877%20102.732L49.4995%2086.1905L36.3823%2076.62L29.3779%2071.7757L25.8121%2067.2858L24.2839%2057.3608L30.6515%2050.2716L39.3113%2050.8623L41.4763%2051.4531L50.2636%2058.1879L68.9842%2072.7209L93.4357%2090.6804L97.0015%2093.6343L98.4374%2092.6652L98.6571%2091.9801L97.0015%2089.2625L83.757%2065.2772L69.621%2040.8192L63.2534%2030.6579L61.5978%2024.632C60.9565%2022.1032%2060.579%2020.0111%2060.579%2017.4246L67.8381%207.49965L71.9133%206.19995L81.7193%207.49965L85.7946%2011.0443L91.9074%2024.9865L101.714%2046.8451L116.996%2076.62L121.453%2085.4816L123.873%2093.6343L124.764%2096.1155H126.292V94.6976L127.566%2077.9197L129.858%2057.3608L132.15%2030.8942L132.915%2023.4505L136.608%2014.4708L143.994%209.62643L149.725%2012.344L154.437%2019.0788L153.8%2023.4505L150.998%2041.6463L145.522%2070.1215L141.957%2089.2625H143.994L146.414%2086.7813L156.093%2074.0206L172.266%2053.698L179.398%2045.6635L187.803%2036.802L193.152%2032.5484H203.34L210.726%2043.6549L207.415%2055.1159L196.972%2068.3492L188.312%2079.5739L175.896%2096.2095L168.191%20109.585L168.882%20110.689L170.738%20110.53L198.755%20104.504L213.91%20101.787L231.994%2098.7149L240.144%20102.496L241.036%20106.395L237.852%20114.311L218.495%20119.037L195.826%20123.645L162.07%20131.592L161.696%20131.893L162.137%20132.547L177.36%20133.925L183.855%20134.279H199.774L229.447%20136.524L237.215%20141.605L241.8%20147.867L241.036%20152.711L229.065%20158.737L213.019%20154.956L175.45%20145.977L162.587%20142.787H160.805V143.85L171.502%20154.366L191.242%20172.089L215.82%20195.011L217.094%20200.682L213.91%20205.172L210.599%20204.699L188.949%20188.394L180.544%20181.069L161.696%20165.118H160.422V166.772L164.752%20173.152L187.803%20207.771L188.949%20218.405L187.294%20221.832L181.308%20223.959L174.813%20222.777L161.187%20203.754L147.305%20182.486L136.098%20163.345L134.745%20164.2L128.075%20235.42L125.019%20239.082L117.887%20241.8L111.902%20237.31L108.718%20229.984L111.902%20215.452L115.722%20196.547L118.779%20181.541L121.58%20162.873L123.291%20156.636L123.14%20156.219L121.773%20156.449L107.699%20175.752L86.304%20204.699L69.3663%20222.777L65.291%20224.431L58.2867%20220.768L58.9235%20214.27L62.8713%20208.48L86.304%20178.705L100.44%20160.155L109.551%20149.507L109.462%20147.967L108.959%20147.924L46.6977%20188.512L35.6182%20189.93L30.7788%20185.44L31.4156%20178.115L33.7079%20175.752L52.4285%20162.873Z%22%20fill%3D%22%23ffffff%22%2F%3E%3C%2Fsvg%3E" alt="" width="22" height="22">A Claude Code mod</p>
       <p class="lede">One bar above the prompt. It picks the reasoning effort for every prompt, and tells you when the cache goes cold or the chat gets heavy.</p>
       <div class="cta">
-        <a class="gh" href="https://github.com/HeyCubit/effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span>Star on GitHub</span><span class="stars" id="stars" hidden></span></a>
+        <a class="gh" href="https://github.com/HeyCubit/effortless"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span>Star on GitHub</span></a>
         <a class="ghost" href="#install">Install<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
       </div>
       <div class="demo" aria-hidden="true">
@@ -676,8 +680,6 @@ var Dash=(function(){
   addEventListener('scroll',onScroll,{passive:true});addEventListener('resize',onScroll);onScroll();
 })();
 
-// The star count, live from GitHub. Hidden until there is at least one.
-fetch('https://api.github.com/repos/HeyCubit/effortless').then(function(r){return r.ok?r.json():null}).then(function(d){var n=d&&d.stargazers_count;if(n>0){var s=document.getElementById('stars');s.textContent=n>=1000?(n/1000).toFixed(1)+'k':String(n);s.hidden=false;}}).catch(function(){});
 
 // The little prompt box: a prompt is typed, the bar says Deciding, then flashes the effort it picked. The chat fills up
 // prompt by prompt, Handoff's box comes in and starts to glow, and a handoff starts it fresh.

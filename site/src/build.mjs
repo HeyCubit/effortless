@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 const repo = fileURLToPath(new URL('../../', import.meta.url))
 const src = fs.readFileSync(repo + '/hooks/register.tsx', 'utf8')
@@ -27,7 +28,15 @@ const TEST_NOTES = ["Releases can skip the local install"]
 const releases = JSON.parse(fs.readFileSync(repo + "/releases.json", "utf8")).filter(r => !/^A version /.test(r.note) && !TEST_NOTES.includes(r.note))
 const row = r => `<li>__SPARK__<b class="v">${esc(r.version)}</b><span class="n">${esc(r.note)}</span><time datetime="${esc(r.date)}">${esc(r.date)}</time></li>`
 const news = `<ol class="rel">${releases.slice(0, 10).map(row).join("")}</ol>` + (releases.length > 10 ? `<details class="more"><summary>Show all</summary><ol class="rel">${releases.slice(10).map(row).join("")}</ol></details>` : "")
+// The star count, read once at build time so the page never calls the GitHub API (it is rate limited per visitor IP).
+// gh is signed in and allowed far more calls; without it the plain API is tried. No count, or zero, shows no badge.
+let stars = 0
+try { stars = Number(execSync('gh api repos/HeyCubit/effortless --jq .stargazers_count', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()) || 0 } catch {
+  try { const r = await fetch('https://api.github.com/repos/HeyCubit/effortless'); if (r.ok) stars = (await r.json()).stargazers_count || 0 } catch {}
+}
+const starsBadge = stars > 0 ? `<span class="stars">${stars >= 1000 ? (stars / 1000).toFixed(1) + 'k' : stars}</span>` : ''
 const map = {
+  __STARS_BADGE__: starsBadge,
   __STARS__: heroArt, 
   __ART_BRAND__: uri(grab('BRAND_SVG')), __ART_FROST__: uri(grab('FROST_SVG')), __ART_SWAMP__: uri(grab('SWAMP_SVG')),
   __ART_EMBER__: uri(grab('EMBER_SVG')), __ART_DOWN__: uri(grab('DOWN_SVG')),
