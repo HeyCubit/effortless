@@ -2187,7 +2187,7 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
       </Box>
       {onDismiss ? (
         <Box key="reply-handoff-close" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end">
-          <Button key="card-close" plain role="dismiss" label="✕" onPress={onDismiss} />
+          <Button key="card-close" plain role="dismiss" label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={onDismiss} />
         </Box>
       ) : null}
     </Box>
@@ -2203,6 +2203,8 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
 
 /** How long "Compact complete" stays above the prompt when nothing else clears it. */
 const COMPACT_CARD_MS = 20_000
+/** The card ✕'s hover: the app's ghost fill is lost on the green and violet cards, so a darker wash of the card itself. */
+const CARD_CLOSE_HOVER = '#00000040'
 /** A compact's card for the band above the prompt: while it runs, and once done until the next message is sent, the
  * ✕ is pressed or COMPACT_CARD_MS has passed. */
 async function compactCard($: EngineInterface, working = false) {
