@@ -97,8 +97,8 @@ const handoffPick = atom({ plugin: 'effortless', key: 'handoffPick' } as const, 
 // The context is swamped: tokens read per request, or null below the line. Drives the swamp band.
 const swamped = atom({ plugin: 'effortless', key: 'swamped' } as const, null)
 // The swamp band was closed at this many tokens; it comes back once the context has grown well past it.
-// The handoff card under the newest reply: shown from the start of a handoff, and once it lands ('done' in the
-// cleared chat, 'copied'). It goes with the reply after it, or HANDOFF_CARD_MS after it was set.
+// The handoff card above the prompt: shown from the start of a handoff, and once it lands ('done' in the
+// cleared chat, 'copied'). It goes with the next message, its ✕, or HANDOFF_CARD_MS after it was set.
 type HandoffCard = { kind: 'writing' | 'done' | 'copied' | 'compacting' | 'compacted'; full: boolean; at: number; seen: boolean }
 // Kinds still under way: they stay until they land, with moving art. Compacting shares the card with the handoff.
 const cardRunning = (kind: HandoffCard['kind']) => kind === 'writing' || kind === 'compacting'
@@ -2463,12 +2463,13 @@ const COMPACT_CARD_MS = 20_000
 const SETTINGS_BODY_H = 56 / 19
 /** The card ✕'s hover: the app's ghost fill is lost on the green and violet cards, so a darker wash of the card itself. */
 const CARD_CLOSE_HOVER = '#00000040'
-/** A compact's card for the band above the prompt: while it runs, and once done until the next message is sent, the
- * ✕ is pressed or COMPACT_CARD_MS has passed. */
+/** A handoff's or compact's card for the band above the prompt: while it runs, and once landed until the next message
+ * is sent, the ✕ is pressed or its time has passed (COMPACT_CARD_MS, HANDOFF_CARD_MS). */
 async function compactCard($: EngineInterface, working = false) {
   const card = await read($, handoffCard)
-  if (!card || (card.kind !== 'compacting' && card.kind !== 'compacted')) return null
-  if (card.kind === 'compacted' && (working || card.seen || (await $.clock.now()) - card.at >= COMPACT_CARD_MS)) return null
+  if (!card || cardRunning(card.kind)) return card
+  const keep = card.kind === 'compacted' ? COMPACT_CARD_MS : HANDOFF_CARD_MS
+  if (working || (card.kind === 'compacted' && card.seen) || (await $.clock.now()) - card.at >= keep) return null
   return card
 }
 
@@ -2588,6 +2589,13 @@ const AUTO_GLOW_H = 37
  * for AUTO_GLOW_MS only (every redraw would replay it). Stretched across the band's width (preserveAspectRatio none: the
  * app scales a Svg to its box's width and keeps its height); drawn at about the band's real width so the sides stay
  * as thick as the top and bottom. Clipped to the bar's inside, so the light falls inward. */
+/** The cold band's rim: the Auto glow's light in ice, breathing slowly for as long as the band shows, so a cold chat
+ * looks alive rather than parked. Placed by the clock (inPhase), so a redraw picks up where the breath was. */
+const COLD_GLOW_MS = 4200
+export function coldGlowSvg(): string {
+  const W = AUTO_GLOW_W, H = AUTO_GLOW_H
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:.15;animation:r ${COLD_GLOW_MS / 1000}s ease-in-out infinite}@keyframes r{0%,100%{opacity:.15}50%{opacity:.6}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ICE}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#cfeeff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
+}
 export function autoGlowSvg(on: boolean): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
   const rim = `x="0" y="0" width="${W}" height="${H}" rx="8"`
@@ -3170,6 +3178,9 @@ Saved to ${out}.md and .json` }
   on('prompt.submit', async ($, e, next) => {
     await setTurnBusy($, true)
     turnCost = 0
+    // A landed handoff's card goes once the next message is sent.
+    const card = await read($, handoffCard)
+    if (card && (card.kind === 'done' || card.kind === 'copied')) await update($, handoffCard, () => null)
     const byPerson = e.origin.kind === 'composer' || e.origin.kind === 'bridge' || e.origin.kind === 'sdk'
     const wantsEffort = await read($, isAuto)
     const wantsModel = await read($, isAutoModel)
@@ -3423,14 +3434,7 @@ Saved to ${out}.md and .json` }
     const answer = await read($, lastAnswer)
     const text = e.props.text.trim()
     if (!answer || !text || !answer.endsWith(text)) return next(e)
-    const card = await read($, handoffCard)
-    const fresh = card && (cardRunning(card.kind) || (await $.clock.now()) - card.at < HANDOFF_CARD_MS) ? card : null
-    // A compact's card goes above the prompt (see compactCard): after a compact no reply sits past the boundary to hang
-    // it under, so here it came only with the next answer.
-    if (fresh && fresh.kind !== 'compacting' && fresh.kind !== 'compacted') {
-      const drawn = await next(e)
-      return handoffCardTree($, e, fresh, drawn)
-    }
+    // The handoff's and compact's cards are above the prompt (see compactCard), not under the reply.
     const warn = await turnWarning($)
     if (!warn || turnBusy()) return next(e)
     const { Box, Text, Svg } = $.ui.resolve(e)
@@ -4118,7 +4122,7 @@ Saved to ${out}.md and .json` }
         </Box>
       )
     }
-    // A compact running or just done: said above the prompt, where it is seen at once.
+    // A handoff or compact running or just done: said above the prompt, where it is seen at once.
     // A new version: offered, updating, or just updated (gone after UPDATED_CARD_MS or ✕). Desktop only; the terminal
     // has /effortless update.
     const upd = e.surface === 'terminal' ? null : await read($, updateCard)
@@ -4126,7 +4130,7 @@ Saved to ${out}.md and .json` }
     const compactNow = e.surface === 'terminal' ? null : await compactCard($, !!e.props.isWorking)
     if (compactNow)
       return handoffCardTree($, e, compactNow, undefined,
-        compactNow.kind === 'compacted' ? () => update($, handoffCard, card => (card?.kind === 'compacted' ? null : card)) : undefined)
+        !cardRunning(compactNow.kind) ? () => update($, handoffCard, card => (card && !cardRunning(card.kind) ? null : card)) : undefined)
     // The cache went cold: the next message rereads the whole chat at full price. Only worth a band on a big chat.
     const compacting = await read($, isCompacting)
     const coldTokens = compacting ? null : await coldWorth($)
@@ -4159,6 +4163,9 @@ Saved to ${out}.md and .json` }
           {/* Taller than the band and clipped by it, so the frost reaches every edge on the right. */}
           <Box key="frost" position="absolute" top={-1} right={0} bottom={-1}>
             <Svg source={FROST_SVG} alt="frost" width={FROST_WIDTH} height={FROST_HEIGHT} />
+          </Box>
+          <Box key="cold-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
+            <Svg source={inPhase(coldGlowSvg(), (await $.clock.now()) % COLD_GLOW_MS)} alt="cold glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
           </Box>
           {introLayer({ Box, Svg }, 'cold', await introShows($, 'cold'), ICE, '#cfeeff')}
           <Box flexShrink={0}>
