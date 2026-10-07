@@ -42,12 +42,29 @@ const copyIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" 
 const termIcon = '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="1.5" y="3" width="17" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 8l2.5 2-2.5 2M10 12.5h4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 const ask = 'Install the effortless plugin for me: run `claude plugin marketplace add HeyCubit/effortless` and then `claude plugin install effortless@effortless`. When both succeed, tell me to run /reload-plugins.'
 const term = 'claude plugin marketplace add HeyCubit/effortless; claude plugin install effortless@effortless'
-const install = '<div class="ways">'
+// effortless follows one chat; split view breaks it. Said before the two ways in, in the section and the popover.
+const soloIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4" width="19" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 4v16" stroke="currentColor" stroke-width="1.6"/><path d="M4 21L20 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+const solo = `<p class="solo">${soloIcon}<span><b>One chat at a time.</b>effortless doesn't work in split view yet. Keep a single Claude Code chat open.</span></p>`
+const install = solo + '<div class="ways">'
   + `<div class="way way-claude"><p class="way-k"><img src="__CLAUDE_ORANGE__" alt="" width="20" height="20">Ask Claude</p><p class="way-t">Claude installs it for you.</p><button type="button" class="big claude" data-copy="${ask}" aria-label="Copy the install request for Claude"><img src="__CLAUDE_DARK__" alt="" width="20" height="20"><span>Copy for Claude</span></button><p class="way-h">Paste into Claude Code, press Enter.</p></div>`
   + `<div class="way way-cmd"><p class="way-k">${termIcon}Terminal</p><p class="way-t">Run one command.</p><button type="button" class="big term" data-copy="${term}" aria-label="Copy the install command">${copyIcon}<span>Copy command</span></button><p class="way-h"><code>${term}</code></p></div>`
   + '</div><p class="then">Then run <code>/reload-plugins</code> in Claude Code.</p>'
+// The opening's background: a ribbon of thin purple lines, each one wave repeated across three periods so sliding it
+// by one period loops without a seam. Lines drift at slightly different speeds, so the ribbon slowly twists. The
+// plugin's small four-point stars twinkle between them, as they do on the Handoff bar.
+const P = 900
+const wave = (y, a, x0) => `M${x0 - P} ${y} Q${x0 - P + P / 4} ${y - 2 * a} ${x0 - P / 2} ${y}` + ' T'.repeat(1) + Array.from({ length: 6 }, (_, k) => `${x0 + k * P / 2} ${y}`).join(' T')
+const lines = Array.from({ length: 11 }, (_, i) => {
+  const t = i / 10, y = 250 + i * 13, a = 70 + 40 * Math.sin(t * Math.PI), x0 = Math.round(i * 22)
+  const op = (0.06 + 0.14 * Math.sin(t * Math.PI)).toFixed(2), w = (i % 3 === 1 ? 1.6 : 1).toFixed(1)
+  return `<path d="${wave(y, a, x0)}" stroke-opacity="${op}" stroke-width="${w}" style="animation-duration:${(46 + (i * 7) % 23)}s"/>`
+}).join('')
+const star = (x, y, r, dur, delay) => `<path class="tw" style="transform-origin:${x}px ${y}px;animation-duration:${dur}s;animation-delay:${delay}s" d="M${x} ${y - r} L${x + r * .21} ${y - r * .21} L${x + r} ${y} L${x + r * .21} ${y + r * .21} L${x} ${y + r} L${x - r * .21} ${y + r * .21} L${x - r} ${y} L${x - r * .21} ${y - r * .21} Z"/>`
+const twinkles = [[160, 190, 7, 5.2, .4], [430, 420, 5, 4.4, 2.2], [620, 230, 6, 6.1, 1.1], [300, 470, 4, 4.8, 3.3], [760, 380, 5, 5.6, .9]].map(a => star(...a)).join('')
+const waves = `<svg class="waves" viewBox="0 0 1000 600" preserveAspectRatio="xMinYMid slice" aria-hidden="true"><defs><linearGradient id="wv" x1="0" x2="1"><stop offset="0" stop-color="#7566d8"/><stop offset=".5" stop-color="#a79cf7"/><stop offset="1" stop-color="#cfc7ff"/></linearGradient></defs><g class="ln" fill="none" stroke="url(#wv)" stroke-linecap="round">${lines}</g><g fill="#cfc7ff">${twinkles}</g></svg>`
 const map = {
   __INSTALL__: install,
+  __WAVES__: waves,
   __STARS_BADGE__: starsBadge,
   __STARS__: heroArt, 
   __ART_BRAND__: uri(grab('BRAND_SVG')), __ART_FROST__: uri(grab('FROST_SVG')), __ART_SWAMP__: uri(grab('SWAMP_SVG')),
