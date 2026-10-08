@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.54.0",
+    "date": "2026-10-08",
+    "note": "Updated card polish: textured green, Share icon, dividers",
+    "public": true
+  },
+  {
     "version": "1.53.0",
     "date": "2026-10-08",
     "note": "Updated card redesign: green mark, near-black card",
