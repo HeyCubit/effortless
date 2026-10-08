@@ -29,6 +29,11 @@ while [ $# -gt 0 ]; do
 done
 [ $# -ge 1 ] || { echo "usage: tools/release.sh [--no-install] [--dry-run] (--files <path>... -- | --all) \"<subject>\" [\"<body>\"]" >&2; exit 2; }
 cd "$(dirname "$0")/.."
+# A test branch (the agent panel) must never reach main or stable: these scripts run only from main.
+if [ "$(git branch --show-current)" != main ]; then
+  echo "stopped: $(basename "$0") runs only on main, this is $(git branch --show-current)" >&2
+  exit 1
+fi
 
 # Every changed path, untracked ones included. -z keeps odd names intact; a rename carries its old path as an extra field.
 changed=()

@@ -13,6 +13,11 @@ dry=0
 if [ "${1:-}" = "--dry-run" ]; then dry=1; shift; fi
 [ $# -ge 1 ] || { echo "usage: tools/publish.sh [--dry-run] \"<what's new>\" [\"<detail>\"]" >&2; exit 2; }
 cd "$(dirname "$0")/.."
+# A test branch (the agent panel) must never reach main or stable: these scripts run only from main.
+if [ "$(git branch --show-current)" != main ]; then
+  echo "stopped: $(basename "$0") runs only on main, this is $(git branch --show-current)" >&2
+  exit 1
+fi
 
 git diff --cached --quiet || { echo "publish stopped: the index holds staged changes" >&2; exit 1; }
 git fetch -q origin
