@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.40.1",
+    "date": "2026-10-08",
+    "note": "Star on GitHub link at the foot of Appearance"
+  },
+  {
     "version": "1.39.1",
     "date": "2026-10-08",
     "note": "Settings no longer offers an older version; publish syncs the site"

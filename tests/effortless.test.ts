@@ -3007,6 +3007,23 @@ describe('updates', () => {
     await ui.unmount()
   })
 
+  test('Appearance ends with one quiet Star on GitHub link and no star anywhere else', DESK, async ($, on) => {
+    world(on, { installed: '1.0.1', latest: '1.0.1' })
+    await start($)
+    await settle()
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await pastSetup(ui)
+    expect(await drawn(ui)).not.toContain('Star on GitHub')
+    await ui.press({ key: 'dash-settings' })
+    expect(await drawn(ui)).not.toContain('Star on GitHub')
+    await ui.press({ key: 'settings-card-show' })
+    const text = await drawn(ui)
+    expect(text).toContain('Appearance')
+    expect(text).toContain('Star on GitHub')
+    expect(text).toContain('https://github.com/HeyCubit/effortless')
+    await ui.unmount()
+  })
+
   test('Uninstall in Appearance asks for a second press, then uninstalls and reloads', DESK, async ($, on) => {
     const w = world(on, { installed: '1.0.1', latest: '1.0.1' })
     on('ui.toast', () => ({ value: undefined }) as never)
