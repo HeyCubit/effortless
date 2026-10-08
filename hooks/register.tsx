@@ -33,13 +33,21 @@ function applyTheme() {
   BRAND_EDGE = tintHex('#4a3f80')
   BRAND_HEAD = tintHex('#221c3a')
   FLASH_COLOR = tintHex('#9b7bff')
+  // The panel greys lean blue beside the violet; with Claude orange they are the app's own neutral greys.
+  const neutral = config.theme === 'orange'
+  DASH_BG = neutral ? '#151515' : '#141416'
+  DASH_EDGE = neutral ? '#2a2a2a' : '#2a2a2f'
+  DASH_HEAD = neutral ? '#191919' : '#18181b'
+  CARD_HOVER = neutral ? '#1c1c1c' : '#1c1c20'
+  CARD_HOVER_EDGE = neutral ? '#3b3b3b' : '#3b3b42'
+  HOVER_BOX = neutral ? '#2b2b2b' : '#2b2b2f'
 }
 let BRAND_BG = '#15121f'
 let BRAND_EDGE = '#4a3f80'
 // The settings panel's header bar: a shade lighter than the panel, so it reads as a title bar.
 let BRAND_HEAD = '#221c3a'
 // The box behind the level while it is hovered: the grey of the app's own pills.
-const HOVER_BOX = '#2b2b2f'
+let HOVER_BOX = '#2b2b2f'
 const EFFORT_LABELS: Record<Effort, string> = { low: 'Low', medium: 'Medium', high: 'High', xhigh: 'XHigh', max: 'Max' }
 
 // Auto is two switches. `isAuto` is effort (the name stays: it is what the store and state hold);
@@ -208,8 +216,8 @@ const BRAND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="6
 // art is the brand's, in grey and at 40% of its strength; only the ✦ keeps the accent.
 const DASH_SVG = BRAND_SVG.replace(/stop-opacity="([0-9.]+)"/g, (_m, v: string) => `stop-opacity="${(Number(v) * 0.4).toFixed(3)}"`)
   .replace(/#(7c6cf0|8f7ff0|b3a6ff|c9bdff|9a86ff)/g, '#9a9aa2')
-const DASH_BG = '#141416'
-const DASH_EDGE = '#2a2a2f'
+let DASH_BG = '#141416'
+let DASH_EDGE = '#2a2a2f'
 /** The settings title's word in the website hero's style: crisp, going soft and grainy at its bottom right (a radial
  * mask fades the crisp copy out there and a copy through the site's #grainy filter takes over). The app gives the image
  * the band's font. */
@@ -257,13 +265,13 @@ function introLayer(els: { Box: unknown; Svg?: unknown }, key: string, show: boo
   )
 }
 /** The settings panel's top bar: a shade above the band. */
-const DASH_HEAD = '#18181b'
+let DASH_HEAD = '#18181b'
 const DASH_TEXT = '#d4d4d8'
 /** The dashboard's quieter figures: the cache countdown while it has time left. */
 const DASH_DIM = '#8b8b93'
 // A settings card under the pointer: a shade up from the band, its edge a shade up from that.
-const CARD_HOVER = '#1c1c20'
-const CARD_HOVER_EDGE = '#3b3b42'
+let CARD_HOVER = '#1c1c20'
+let CARD_HOVER_EDGE = '#3b3b42'
 const DONE_SVG = BRAND_SVG
   .replace(/#7c6cf0/g, '#2fae62').replace(/#8f7ff0/g, '#3cc472').replace(/#b3a6ff/g, '#7fe0a4')
   .replace(/#c9bdff/g, '#b4f0c8').replace(/#9a86ff/g, '#4fd486')
