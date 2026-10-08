@@ -1208,7 +1208,11 @@ async function restoreCache($: EngineInterface) {
   if (cacheRestored) return
   cacheRestored = true
   const memo = await read($, cacheMemo)
-  if (!memo || cacheExpires !== 0 || memo.expires <= 0) return
+  if (!memo || cacheExpires !== 0 || memo.expires <= 0) {
+    // Nothing to go on: a "Cold" left in the shared state by the copy before is not this chat's cache.
+    if (cacheExpires === 0 && !coldForced && (await read($, cacheLeft)) === 0) await update($, cacheLeft, () => null)
+    return
+  }
   cacheExpires = memo.expires
   cacheTtl = memo.ttl
   lastResponseAt = memo.last
@@ -2505,6 +2509,43 @@ async function latestAvailable($: EngineInterface): Promise<{ latest?: { version
   const best = fromWeb && (!local || !isNewer(local.version, fromWeb.version)) ? fromWeb : local
   return { latest: best, how: `git failed; ${web}; marketplace ${local?.version ?? 'unreadable'}` }
 }
+/** The session's timers. A reload starts the module over, maybe with no session start (the countdown froze on "Cold"),
+ * so the band's first draw starts them too. A session start always starts them: a timer started inside a request may
+ * end with it. */
+let timersFrom: 'start' | 'draw' | null = null
+function startTimers($: EngineInterface, from: 'start' | 'draw') {
+  if (timersFrom === 'start' || (timersFrom === 'draw' && from === 'draw')) return
+  timersFrom = from
+  $.clock.every(UPDATE_CHECK_MS, () => void checkUpdate($).catch(() => undefined))
+  // The cache countdown's clock. A timer started inside a request ends with that request, so it lives here.
+  $.clock.every(CACHE_TICK_MS, () => void showCache($).catch(() => undefined))
+  $.clock.every(CACHE_TICK_MS, () => void checkSwamp($).catch(() => undefined))
+  // Read the usage at once too, so the context ring is there from the start rather than a tick later.
+  void checkSwamp($).then(() => $.ui.invalidate('ui.render')).catch(() => undefined)
+  // A written handoff is cleared and resent from here: a hook the turn waits on may not run commands.
+  handoffTimer?.cancel()
+  handoffTimer = $.clock.every(HANDOFF_POLL_MS, () => {
+    void agentWaits($).catch(() => undefined)
+    if (redrawsOwed > 0) {
+      redrawsOwed--
+      $.ui.invalidate('ui.render')
+    }
+    // Right after a start the app may not have the usage yet: ask each second until it has, so the ring shows.
+    if (!lastContext || !lastContext.window) void checkSwamp($).then(() => lastContext?.window && $.ui.invalidate('ui.render')).catch(() => undefined)
+    // The dashboard's countdown ticks inside its own image; the band is redrawn once a minute to start the next one.
+    if (cacheExpires > 0 && !config.hide.includes('timer'))
+      void $.clock.now().then(now => {
+        const minute = Math.floor((cacheExpires - now) / 60_000)
+        if (now < cacheExpires + HANDOFF_POLL_MS && minute !== clockMinute) {
+          clockMinute = minute
+          $.ui.invalidate('ui.render')
+        }
+      })
+    void writeRenderLog($).catch(() => undefined)
+    void finishHandoff($).catch(() => undefined)
+  })
+}
+
 // /reload-plugins loads the module again without a session start, so the band's first draw runs afterLoad too.
 let loadChecked = false
 /** Once per load: "Updated" when this load is the version the card installed, then a look for a newer one. */
@@ -2513,6 +2554,7 @@ async function afterLoad($: EngineInterface) {
   loadChecked = true
   // A reload has no session start, so this load reads its own version here too.
   ownVersion = (await installedVersion($)) ?? ownVersion
+  startTimers($, 'draw')
   const updatedTo = (await $.store.get('updatedTo').catch(() => null)) as { version: string; note: string; at: number } | null
   if (updatedTo) {
     await $.store.set('updatedTo', null)
@@ -3463,35 +3505,8 @@ export const register: Register = (on, options) => {
     void $.command.register({ name: 'effortless', description: 'effortless: settings, debug, handoff, setup, bench, auto, stats.' }).catch(() => undefined)
     void $.fs.read(`${$.plugin.root}/.claude-plugin/plugin.json`).then(t => { ownVersion = String(JSON.parse(String(t)).version ?? '') }).catch(() => undefined)
     void afterLoad($).catch(() => undefined)
-    $.clock.every(UPDATE_CHECK_MS, () => void checkUpdate($).catch(() => undefined))
     void drainSetupSave($).catch(() => undefined)
-    // The cache countdown's clock. A timer started inside a request ends with that request, so it lives here.
-    $.clock.every(CACHE_TICK_MS, () => void showCache($).catch(() => undefined))
-    $.clock.every(CACHE_TICK_MS, () => void checkSwamp($).catch(() => undefined))
-    // Read the usage at once too, so the context ring is there from the start rather than a tick later.
-    void checkSwamp($).then(() => $.ui.invalidate('ui.render')).catch(() => undefined)
-    // A written handoff is cleared and resent from here: a hook the turn waits on may not run commands.
-    handoffTimer?.cancel()
-    handoffTimer = $.clock.every(HANDOFF_POLL_MS, () => {
-      void agentWaits($).catch(() => undefined)
-      if (redrawsOwed > 0) {
-        redrawsOwed--
-        $.ui.invalidate('ui.render')
-      }
-      // Right after a start the app may not have the usage yet: ask each second until it has, so the ring shows.
-      if (!lastContext || !lastContext.window) void checkSwamp($).then(() => lastContext?.window && $.ui.invalidate('ui.render')).catch(() => undefined)
-      // The dashboard's countdown ticks inside its own image; the band is redrawn once a minute to start the next one.
-      if (cacheExpires > 0 && !config.hide.includes('timer'))
-        void $.clock.now().then(now => {
-          const minute = Math.floor((cacheExpires - now) / 60_000)
-          if (now < cacheExpires + HANDOFF_POLL_MS && minute !== clockMinute) {
-            clockMinute = minute
-            $.ui.invalidate('ui.render')
-          }
-        })
-      void writeRenderLog($).catch(() => undefined)
-      void finishHandoff($).catch(() => undefined)
-    })
+    startTimers($, 'start')
     // Clear the status entry older versions set.
     $.ui.status(undefined)
     void $.session.model().then(m => modelIs($, m)).catch(() => undefined)

@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.60.1",
+    "date": "2026-10-08",
+    "note": "No stuck Cold after a reload: timers restart and a stale Cold is cleared"
+  },
+  {
     "version": "1.59.1",
     "date": "2026-10-08",
     "note": "Update loads into this chat, no false Cold after a reload, Handoff button setting"
