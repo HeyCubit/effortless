@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.46.1",
+    "date": "2026-10-08",
+    "note": "Star on GitHub is a plain link with the mark"
+  },
+  {
     "version": "1.45.10",
     "date": "2026-10-08",
     "note": "Appearance becomes Customize, with a pencil"
