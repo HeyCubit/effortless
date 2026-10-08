@@ -2306,17 +2306,21 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
     compacting: ['✦ Compacting…', 'The chat is being summed up. Takes a minute or so.'],
     compacted: ['✦ Compact complete', 'The chat is summed up; the next message reads far less.'],
   }[fresh.kind]
+  // Compacting is a wait in the background, not a result: one quiet line over the band's calm art, not the loud glow.
+  const quiet = fresh.kind === 'compacting'
   const card = (
     <Box key="reply-handoff" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
       backgroundColor={cardLanded(fresh.kind) ? DONE_BG : BRAND_BG} borderStyle="round" borderColor={cardLanded(fresh.kind) ? DONE_EDGE : BRAND_EDGE}>
       <Box key="reply-handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
-        {cardRunning(fresh.kind) ? (
-          <Svg source={HANDOFF_SVG} alt={fresh.kind === 'compacting' ? 'compacting' : 'handing off'} width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+        {quiet ? (
+          <Svg source={DASH_SVG} alt="compacting" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+        ) : cardRunning(fresh.kind) ? (
+          <Svg source={HANDOFF_SVG} alt="handing off" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         ) : (
           <Svg source={cardLanded(fresh.kind) ? DONE_SVG : BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         )}
       </Box>
-      <Box key="reply-handoff-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
+      <Box key="reply-handoff-words" position="relative" flexDirection={quiet ? 'row' : 'column'} gap={quiet ? 1 : 0} flexShrink={1} minWidth={0}>
         <Text color={cardLanded(fresh.kind) ? DONE_ACCENT : ACCENT} bold wrap="truncate">{words[0]}</Text>
         <Text wrap="truncate">{words[1]}</Text>
       </Box>

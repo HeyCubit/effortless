@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.45.3",
+    "date": "2026-10-08",
+    "note": "Compacting card is one quiet line"
+  },
+  {
     "version": "1.45.2",
     "date": "2026-10-08",
     "note": "Calmer Settings top bar"
