@@ -3211,7 +3211,8 @@ describe('agent panel', () => {
     await start($, on)
     await $.command.run({ command: 'effortless', args: 'agents demo' })
     const pane = await $.ui.mount(PANE)
-    const scale = async () => Number(/scale\(([\d.]+)\)/.exec(await drawn(pane))?.[1])
+    // The map's own zoom: its camera group's scale (the pane's CSS animations hold other scale()s).
+    const scale = async () => Number(/id=\\"pan\\"[^>]*><g transform=\\"scale\(([\d.]+)\)/.exec(await drawn(pane))?.[1])
     // A click on a node's spot focuses it: the spot is where the node's hit box is drawn, as a share of the map.
     type Node = { type?: string; props?: Record<string, unknown>; children?: Node[] }
     const findBox = (n: Node, key: string): Node | undefined =>
@@ -3266,6 +3267,29 @@ describe('agent panel', () => {
     // Released: the camera has moved the other way (this translate is minus the camera), the map drawn from rest there.
     expect(Number((await camera())?.[1])).toBeGreaterThan(cam0 + 20)
     expect(Number(pan(await map())?.[1])).toBe(Number(rest?.[1]))
+    await pane.unmount()
+  })
+
+  test('a double-click on the map zooms in on that spot, shift zooms out', async ($, on) => {
+    await start($, on)
+    await $.command.run({ command: 'effortless', args: 'agents demo' })
+    const pane = await $.ui.mount(PANE)
+    // The map's own zoom: its camera group's scale (the pane's CSS animations hold other scale()s).
+    const scale = async () => Number(/id=\\"pan\\"[^>]*><g transform=\\"scale\(([\d.]+)\)/.exec(await drawn(pane))?.[1])
+    const click = async (shift = false) => {
+      await pane.pointer({ in: 'agents-map', type: 'down', x: 4, y: 3, button: 'left', ...(shift ? { shift: true } : {}) } as never)
+      await pane.pointer({ in: 'agents-map', type: 'up', x: 4, y: 3, button: 'left', ...(shift ? { shift: true } : {}) } as never)
+    }
+    const z0 = await scale()
+    await click()
+    expect(await scale()).toBe(z0)
+    await click()
+    expect(Math.round((await scale()) * 100)).toBe(Math.round(Math.min(2.4, z0 * 1.6) * 100))
+    const z1 = await scale()
+    await click(true)
+    await click(true)
+    expect(z0).toBeGreaterThan(0)
+    expect(await scale()).toBeLessThan(z1)
     await pane.unmount()
   })
 

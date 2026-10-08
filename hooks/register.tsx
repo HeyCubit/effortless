@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelForkResult, Register, RenderInput } from 'claude-code'
 
 import type { AgentNote, AgentRec, Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
-import { agentsPane, camFit, camGlide, camNow, camSet, camStart, demoAgents, demoFiles, demoSteps, importsOf, mapSize, nodeAt, noteReach, relPath, toolLine, touchOf, withTouch, withWaits, worldLayout } from './agents'
+import { agentsPane, camFit, camGlide, camNow, camSet, camStart, demoAgents, demoFiles, demoSteps, importsOf, mapSize, nodeAt, noteReach, relPath, toolLine, touchOf, withTouch, withWaits, worldLayout, ZOOM_MAX, ZOOM_MIN } from './agents'
 import type { MapClientProps } from './agents'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
 import { MARK_SVG } from './brand-mark'
@@ -3224,8 +3224,6 @@ async function agentWaits($: EngineInterface) {
 let mapBox = mapSize(46, 40)
 /** The map's Client failed on this surface: the pane draws without it (buttons still focus and zoom). */
 let mapBroken = false
-/** The pointer is over the map (its Client says so): the pane's wheel zooms the map then, not the pane. */
-let mapHover = false
 /** Pane draws and map messages, for the render log: how often the app really redraws the pane, and how long each took. */
 let paneDraws = 0
 let paneDrawAt = 0
@@ -3290,6 +3288,22 @@ async function agentZoom($: EngineInterface, factor: number) {
   await update($, agentsCam, c => {
     const base = c ?? camStart(nodes, mapBox.w, mapBox.h)
     return camGlide(base, now, { z: camNow(base, now).z * factor })
+  })
+  $.ui.invalidate('ui.render')
+}
+
+/** Zooms the overview by `factor` about a spot given as shares of the map, which stays where it is drawn. */
+async function agentZoomAt($: EngineInterface, sx: number, sy: number, factor: number) {
+  const now = await $.clock.now()
+  const nodes = worldLayout(await read($, agentsState))
+  await update($, agentsCam, c => {
+    const base = c ?? camStart(nodes, mapBox.w, mapBox.h)
+    const at = camNow(base, now)
+    const z = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, at.z * factor))
+    // The world point under the spot, before and after: the camera moves so it stays put.
+    const px = at.x + ((sx - 0.5) * mapBox.w) / at.z
+    const py = at.y + ((sy - 0.5) * mapBox.h) / at.z
+    return camGlide(base, now, { x: px - ((sx - 0.5) * mapBox.w) / z, y: py - ((sy - 0.5) * mapBox.h) / z, z })
   })
   $.ui.invalidate('ui.render')
 }
@@ -3977,21 +3991,13 @@ Saved to ${out}.md and .json` }
   })
 
 
-  // The wheel over the map zooms it. The app scrolls the pane first and asks after, and hands a Client no wheel, so
-  // while the map's Client says the pointer is on it the pane is put back where it was and the map zooms a step instead.
-  on('ui.scroll', { component: 'Pane', requestId: 'effortless-agents' }, async ($, e, next) => {
-    if (!mapHover || !e.by) return next(e)
-    renderLog.push(`${new Date().toISOString()} ${loadedSession} wheel on the map: ${e.by}`)
-    await agentZoom($, Math.pow(1.15, -Math.sign(e.by) * Math.min(3, Math.abs(e.by))))
-    return next({ ...e, offset: e.offset - e.by })
-  })
-
   // The overview's Client: a click focuses the node under it, a drag pans, hovering hands the wheel to the map.
   on('ui.message', async ($, e, next) => {
     if (e.element !== 'agents-map') return next(e)
-    const data = (e.data ?? {}) as { hover?: boolean; click?: [number, number]; pan?: [number, number] }
+    const data = (e.data ?? {}) as { hover?: boolean; click?: [number, number]; pan?: [number, number]; zoom?: [number, number]; out?: boolean }
+    // A double-click: zoom in on that spot (out with shift), the spot staying under the pointer.
+    if (data.zoom) await agentZoomAt($, data.zoom[0], data.zoom[1], data.out ? 1 / 1.6 : 1.6)
     renderLog.push(`${new Date().toISOString()} ${loadedSession} map says ${JSON.stringify(data)}`)
-    if (typeof data.hover === 'boolean') mapHover = data.hover
     if (data.click) {
       const now = await $.clock.now()
       const nodes = worldLayout(await read($, agentsState))

@@ -644,8 +644,8 @@ export function worldLayout(agents: readonly AgentRec[]): NetNode[] {
 
 /** How long a glide of the overview takes, in ms. */
 export const CAM_MS = 560
-const ZOOM_MIN = 0.45
-const ZOOM_MAX = 2.4
+export const ZOOM_MIN = 0.45
+export const ZOOM_MAX = 2.4
 /** The overview before anyone moves it: this chat in the middle. */
 export const CAM_HOME: AgentsCam = { x: 0, y: 0, z: 1, fx: 0, fy: 0, fz: 1, at: 0 }
 

@@ -33,6 +33,10 @@ type Drag = {
   down: boolean
   /** Released and caught up: the pan is told, the slid map shown until the hooks' new map (this source) is replaced. */
   heldFor: string | null
+  /** The last click that did not travel, for a double-click: when and where. */
+  clickAt: number
+  cx: number
+  cy: number
 }
 type MapState = { drag: Drag }
 
@@ -43,6 +47,9 @@ const EASE = 0.45
 const LEAD_MS = 70
 /** Close enough to stop drawing, px. */
 const SETTLED = 0.4
+/** A second click this soon (ms) and this near (px) is a double-click: zoom in there, out with shift. */
+const DOUBLE_MS = 350
+const DOUBLE_PX = 24
 
 /** The newest props, for the frame clock (it outlives the call that started it). */
 const latest: { props: MapProps | null } = { props: null }
@@ -71,7 +78,7 @@ export default function AgentsMap(props: MapProps | null, s: ClientSurface<MapSt
   if (s.state === undefined) {
     // Says it loaded, for the render log: whether the app runs this module at all.
     s.post({ hello: true })
-    const d: Drag = { x: 0, y: 0, tx: 0, ty: 0, at: 0, vx: 0, vy: 0, ox: 0, oy: 0, moved: false, down: false, heldFor: null }
+    const d: Drag = { x: 0, y: 0, tx: 0, ty: 0, at: 0, vx: 0, vy: 0, ox: 0, oy: 0, moved: false, down: false, heldFor: null, clickAt: -Infinity, cx: 0, cy: 0 }
     // One frame clock for the instance: it draws only while the slide is still catching up.
     s.every(FRAME_MS, () => {
       if (!d.moved || d.heldFor !== null) return
@@ -114,9 +121,6 @@ export default function AgentsMap(props: MapProps | null, s: ClientSurface<MapSt
     const x = (e.fine?.x ?? e.x + 0.5) * pxX
     const y = (e.fine?.y ?? e.y + 0.5) * pxY
     const t = now()
-    // Over the map or not, for the hooks: the pane's wheel zooms the map while the pointer is on it.
-    if (e.type === 'enter') s.post({ hover: true })
-    else if (e.type === 'leave' && !d.down) s.post({ hover: false })
     if (e.type === 'down' && e.button === 'left') {
       Object.assign(d, { x, y, tx: 0, ty: 0, at: t, vx: 0, vy: 0, ox: 0, oy: 0, moved: false, down: true, heldFor: null })
     } else if (e.type === 'move' && d.down) {
@@ -130,7 +134,11 @@ export default function AgentsMap(props: MapProps | null, s: ClientSurface<MapSt
       Object.assign(d, { tx, ty, at: t, moved: true })
     } else if (e.type === 'up' && d.down) {
       d.down = false
-      if (!d.moved) s.post({ click: [x / p.w, y / p.h] })
+      if (!d.moved) {
+        const double = t - d.clickAt < DOUBLE_MS && Math.abs(x - d.cx) + Math.abs(y - d.cy) < DOUBLE_PX
+        s.post(double ? { zoom: [x / p.w, y / p.h], out: e.shift === true } : { click: [x / p.w, y / p.h] })
+        Object.assign(d, { clickAt: double ? -Infinity : t, cx: x, cy: y })
+      }
       // A drag is told once the slide has caught up (the frame clock), so the hooks' map lands where it stands.
     }
   })
