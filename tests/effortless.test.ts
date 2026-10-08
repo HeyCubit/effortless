@@ -2894,7 +2894,12 @@ describe('updates', () => {
       commands.push(`/${e.command}`)
       return { text: 'ok' }
     })
-    return { clock, ran, envs, commands }
+    const copied: string[] = []
+    on('ui.copy', (_$, e) => {
+      copied.push((e as { text: string }).text)
+      return { value: { isCopied: true as const } } as never
+    })
+    return { clock, ran, envs, commands, copied }
   }
   const settle = () => new Promise(resolve => setTimeout(resolve, 30))
   /** Through the setup guide a first session opens, which takes the band before any card. */
@@ -3077,6 +3082,9 @@ describe('updates', () => {
     expect(text).toContain('Updated to 1.0.1')
     expect(text).toContain('/whats-new/')
     expect(text).toContain('Star on GitHub')
+    await ui.press({ key: 'update-share' })
+    await settle()
+    expect(w.copied).toEqual(['https://heycubit.github.io/effortless/'])
     expect(text).toContain('github.com/HeyCubit/effortless')
     await ui.unmount()
   })

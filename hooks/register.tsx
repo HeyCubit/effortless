@@ -281,6 +281,10 @@ const DONE_SVG = BRAND_SVG
   .replace('</g></svg>', '<path d="M323 15.5 L330 22 L345 7.5" fill="none" stroke="#0c3a20" stroke-opacity=".8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g></svg>')
 const DONE_ACCENT = '#7fe0a4'
 const DONE_BG = '#0f1c15'
+// The Updated card: near black, a dim green edge; the green is in its title, the check and the sparkles.
+const UPDATED_BG = '#08090a'
+const UPDATED_SVG = DONE_SVG.replace(/stop-opacity="([0-9.]+)"/g, (_m, v: string) => `stop-opacity="${(Number(v) * 0.3).toFixed(3)}"`)
+const UPDATED_EDGE = '#1f4a33'
 const DONE_EDGE = '#2f7a4c'
 
 const JUDGE_SYSTEM = `You choose which Claude model and reasoning effort an agentic assistant (it reads files, runs tools and edits things, not only code) should use for the user's next message. Pick the cheapest pair that will still do the job well.
@@ -2379,6 +2383,8 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
 // The API, not raw.githubusercontent.com: the raw file sits behind a cache that lagged two releases behind.
 const RELEASES_URL = 'https://api.github.com/repos/HeyCubit/effortless/contents/public.json?ref=main'
 const WHATS_NEW_URL = 'https://heycubit.github.io/effortless/whats-new/'
+/** The site, the link Share copies for a friend. */
+const SITE_URL = 'https://heycubit.github.io/effortless/'
 /** Where a bug is reported: a page on the site that opens a prefilled GitHub issue. */
 const REPORT_BUG_URL = 'https://heycubit.github.io/effortless/report/'
 /** This install's version, read from its plugin.json at session start: the report page fills it in. */
@@ -2549,6 +2555,10 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
     done: [`✦ Updated to ${card.version}`, card.detail ?? (card.note || 'Loaded in this chat.')],
     failed: ['✦ Update failed', card.detail ?? 'Try again, or run claude plugin update effortless@effortless.'],
   }[card.stage]
+  const share = async () => {
+    const r = await $.ui.copy({ text: SITE_URL, surface: e.surface }).catch(() => ({ isCopied: false as const }))
+    $.ui.toast(r.isCopied ? 'Link copied. Send it to a friend.' : 'effortless: could not copy the link')
+  }
   const hide = async () => {
     if (card.stage === 'offer') await $.store.set('updateHidden', { version: card.version, at: await $.clock.now() })
     await update($, updateCard, () => null)
@@ -2577,18 +2587,24 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
           ? [
               // White and bold: the app's blue link was hard to see on the green and the check.
               own('update-link-box', <Text color="#ffffff" bold><Link href={WHATS_NEW_URL} label="What's new →" /></Text>),
-              // Room for the black GitHub panel laid over the card's right end (drawn below, after the controls).
-              own('update-star-room', <Box key="update-star-room" width={STAR_PANEL} />),
+              own('update-share-box', <Button key="update-share" plain label="Share" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={share} />),
+              own('update-star-box', (
+                <Box key="update-star" flexDirection="row" alignItems="center" gap={1}>
+                  <Svg source={GITHUB_MARK_SVG} alt="GitHub" width={14} height={14} />
+                  <Link href={REPO_URL} label="Star on GitHub" />
+                </Box>
+              )),
+              own('update-close-box', <Button key="update-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={hide} />),
             ]
           : []
   return (
     <Box key="update-card" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
-      backgroundColor={landed ? DONE_BG : BRAND_BG} borderStyle="round" borderColor={landed ? GITHUB_BLACK : BRAND_EDGE}>
+      backgroundColor={landed ? UPDATED_BG : BRAND_BG} borderStyle="round" borderColor={landed ? UPDATED_EDGE : BRAND_EDGE}>
       <Box key="update-art" position="absolute" top={-1} right={0} bottom={-1}>
         {card.stage === 'updating' ? (
           <Svg source={HANDOFF_SVG} alt="updating" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         ) : (
-          <Svg source={landed ? DONE_SVG : BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+          <Svg source={landed ? UPDATED_SVG : BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         )}
       </Box>
       <Box key="update-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
@@ -2600,18 +2616,6 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
         <Box position="absolute" top={0} left={0} />
         {controls}
       </Box>
-      {/* The whole right end in GitHub's own black, the mark and the star link in it, ✕ at its end: the app draws links in its
-          own colour, so the colour of the ground is the one thing we can set to make the link read. */}
-      {landed ? (
-        <Box key="update-star-panel" position="absolute" top={0} bottom={0} right={0} width={STAR_PANEL} flexDirection="row" alignItems="center" justifyContent="space-between" paddingX={2} backgroundColor={GITHUB_BLACK} borderStyle="round" borderColor={GITHUB_BLACK}>
-          <Box position="absolute" top={0} left={0} />
-          <Box key="update-star-link" flexDirection="row" alignItems="center" gap={1}>
-            <Svg source={GITHUB_MARK_SVG} alt="GitHub" width={14} height={14} />
-            <Link href={REPO_URL} label="Star on GitHub" />
-          </Box>
-          <Button key="update-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={hide} />
-        </Box>
-      ) : null}
     </Box>
   )
 }
