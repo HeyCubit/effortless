@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.45.0",
+    "date": "2026-10-08",
+    "note": "Update check reads the release list with git",
+    "public": true
+  },
+  {
     "version": "1.44.0",
     "date": "2026-10-08",
     "note": "Star on GitHub as a white pill with the GitHub mark",
