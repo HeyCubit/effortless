@@ -1,0 +1,19 @@
+[
+  { "click": "node-demo-2-press" },
+  { "shot": "glide-000", "settle": 0 },
+  { "wait": 120 }, { "shot": "glide-150", "settle": 0 },
+  { "wait": 150 }, { "shot": "glide-300", "settle": 0 },
+  { "wait": 400 }, { "shot": "glide-700", "settle": 0 },
+  { "wheel": 300, "at": [0.5, 0.35] },
+  { "wait": 300 },
+  { "eval": "'scrollTop over map: ' + document.querySelector('[data-engine-site]').scrollTop" },
+  { "wheel": -300, "at": [0.5, 0.35] },
+  { "click": "row-demo-1-press" },
+  { "wait": 700 },
+  { "shot": "focus-explore" },
+  { "click": "node-main-press" },
+  { "wait": 700 },
+  { "click": "done-press" },
+  { "type": "check the tests first", "enter": true },
+  { "shot": "after-note" }
+]

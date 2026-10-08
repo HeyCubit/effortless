@@ -1,0 +1,10 @@
+[
+  { "shot": "home" },
+  { "wheel": 500, "at": [0.5, 0.7] },
+  { "wait": 300 },
+  { "eval": "document.querySelector('[data-engine-site]').scrollTop + ' of ' + (document.querySelector('[data-engine-site]').scrollHeight - document.querySelector('[data-engine-site]').clientHeight)" },
+  { "shot": "home-scrolled" },
+  { "wheel": 500, "at": [0.5, 0.3] },
+  { "wait": 300 },
+  { "eval": "document.querySelector('[data-engine-site]').scrollTop" }
+]

@@ -399,7 +399,7 @@ export type AgentsDraw = {
 
 const TEXT = '#d4d4d8'
 /** The pane's ground: the dashboard's dark, not the brand violet; the violet is kept for the wordmark and the accents. */
-const PANE_BG = '#0f0f11'
+const PANE_BG = '#141416'
 const DIM = '#8b8b93'
 const CARD_BG = '#141416'
 const CARD_EDGE = '#2a2a2f'
@@ -651,7 +651,7 @@ export function camFit(nodes: readonly NetNode[], w: number, h: number, nowMs: n
 
 /** The overview's size in pixels for a pane body of `cols` by `rows` cells: the card's border and padding taken off. */
 export function mapSize(cols: number, rows: number): { w: number; h: number; cols: number; rows: number } {
-  const c = Math.max(24, cols - 6)
+  const c = Math.max(24, cols - 1)
   const r = Math.max(10, Math.min(17, Math.round(rows * 0.4)))
   return { w: Math.round(c * CELL_W), h: r * CELL_H, cols: c, rows: r }
 }
@@ -698,6 +698,13 @@ export function mapSvg(nodes: readonly NetNode[], w: number, h: number, c: Agent
   const move = glide && (cam.fx !== cam.x || cam.fy !== cam.y)
     ? `<animateTransform attributeName="transform" type="translate" from="${f(-cam.fx)} ${f(-cam.fy)}" to="${f(-cam.x)} ${f(-cam.y)}" ${spline}/>`
     : ''
+  // The dot grid covers only what the camera sees on its way (from and to), not a huge plane: a big patterned rect
+  // under a moving transform is repainted every frame and stalls the glide.
+  const zMin = Math.min(cam.z, cam.fz)
+  const gx = Math.min(cam.x, cam.fx) - w / 2 / zMin - 20
+  const gy = Math.min(cam.y, cam.fy) - h / 2 / zMin - 20
+  const gw = Math.abs(cam.x - cam.fx) + w / zMin + 40
+  const gh = Math.abs(cam.y - cam.fy) + h / zMin + 40
   const byId = new Map(nodes.map(n => [n.id, n]))
   const links = nodes
     .filter(n => n.agent)
@@ -744,7 +751,7 @@ export function mapSvg(nodes: readonly NetNode[], w: number, h: number, c: Agent
     if (live) parts.push(`<circle class="br" cx="${f(x)}" cy="${f(y)}" r="18" fill="${col}" fill-opacity=".14" stroke="none"/>`)
     if (on) parts.push(`<circle cx="${f(x)}" cy="${f(y)}" r="16" stroke="#cfc7ff" stroke-opacity=".55" stroke-width="1"/>`)
     parts.push(`<circle cx="${f(x)}" cy="${f(y)}" r="8" fill="#141416" stroke="${col}" stroke-opacity=".5" stroke-width="1.2"/>`)
-    parts.push(ring(x, y, 11, agentShare(a), col, a.state === 'waiting' ? 'pl' : a.state === 'picking' ? 'sp' : ''))
+    parts.push(ring(x, y, 11, agentShare(a), col, a.state === 'waiting' || a.state === 'picking' ? 'pl' : ''))
     if (a.state === 'done') parts.push(`<path d="M${f(x - 3.6)} ${f(y)} l2.6 2.6 l4.8 -5" stroke="${col}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`)
     else if (a.state === 'failed') parts.push(`<path d="M${f(x - 3)} ${f(y - 3)} l6 6 M${f(x + 3)} ${f(y - 3)} l-6 6" stroke="${col}" stroke-width="1.7" stroke-linecap="round"/>`)
     else parts.push(`<circle class="br" cx="${f(x)}" cy="${f(y)}" r="3" fill="${col}" stroke="none"/>`)
@@ -764,7 +771,7 @@ export function mapSvg(nodes: readonly NetNode[], w: number, h: number, c: Agent
     '<pattern id="dots" width="18" height="18" patternUnits="userSpaceOnUse"><circle cx="9" cy="9" r=".8" fill="#ffffff" fill-opacity=".08"/></pattern></defs>' +
     `<g transform="translate(${f(w / 2)} ${f(h / 2)})"><g transform="scale(${cam.z})">${scale}` +
     `<g transform="translate(${f(-cam.x)} ${f(-cam.y)})" fill="none">${move}` +
-    `<rect x="-4000" y="-4000" width="8000" height="8000" fill="url(#dots)"/>${links}${parts.join('')}</g></g></g></svg>`
+    `<rect x="${f(gx)}" y="${f(gy)}" width="${f(gw)}" height="${f(gh)}" fill="url(#dots)"/>${links}${parts.join('')}</g></g></g></svg>`
   )
 }
 
@@ -796,76 +803,117 @@ function statusOf(a: AgentRec, nowMs: number): string {
     : a.now ?? 'starting'
 }
 
+/** The camera before anyone moves the map: every node in view, the chat's ring centred. */
+export function camStart(nodes: readonly NetNode[], w: number, h: number): AgentsCam {
+  const fit = camFit(nodes, w, h, 0, null)
+  return camSet(fit.x, fit.y, fit.z)
+}
+
+/** The dashboard's muted text and its quiet line between parts. */
+const MUTED = '#8b8b93'
+const RULE = '#232327'
+
+/** One quiet control in its own box, as the bar's buttons stand (each hoverable control apart). */
+function quiet(d: AgentsDraw, key: string, label: string, onPress: () => unknown) {
+  const { Box, Button } = d
+  return (
+    <Box key={`${key}-box`} flexShrink={0} marginLeft={1}>
+      <Button key={key} plain label={label} onPress={onPress} />
+    </Box>
+  )
+}
+
+/** A thin line across the card between two parts, as the settings bar's rule under its title. */
+function rule(d: AgentsDraw, key: string) {
+  const { Svg } = d
+  // A Box draws a whole border or none, so the line is an image, as wide as the card (max-width keeps it inside).
+  return Svg ? <Svg key={key} source={RULE_SVG} alt="rule" width={1000} height={1} /> : null
+}
+const RULE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1" viewBox="0 0 1000 1" preserveAspectRatio="none"><rect width="1000" height="1" fill="${RULE}"/></svg>`
+
+/** A part's title: small, muted, with what it counts on the right. */
+function partHead(d: AgentsDraw, title: string, aside: string) {
+  const { Box, Text } = d
+  return (
+    <Box flexDirection="row">
+      <Text color={MUTED}>{title}</Text>
+      <Box flexGrow={1} />
+      <Text color={MUTED}>{aside}</Text>
+    </Box>
+  )
+}
+
 /**
- * The top of the pane follows the node in focus: its name, its share done and the progress band's own track of its
- * steps. This chat shows the whole job (its step list), an agent its own.
+ * The top row is the dashboard's: the mark, one bold word (the node in focus), the context ring's look for its share
+ * and the share, then what it does now, muted. The progress band's own track follows when it keeps steps.
  */
 function focusHead(d: AgentsDraw, focus: AgentRec | null, agents: readonly AgentRec[]) {
   const { Box, Text, Svg } = d
   const phase = phaseOf(agents, d.steps)
   const share = focus ? agentShare(focus) : phase.share
-  const steps: ProgressStep[] = focus
-    ? focus.steps?.length ? [...focus.steps] : [{ id: focus.id, label: focus.task, doing: focus.task, status: focus.state === 'done' || focus.state === 'failed' ? 'completed' : focus.state === 'picking' ? 'pending' : 'in_progress' }]
-    : d.steps && d.steps.length ? [...d.steps] : agentsAsSteps(agents)
+  const steps: ProgressStep[] | null = focus ? (focus.steps?.length ? [...focus.steps] : null) : d.steps && d.steps.length ? [...d.steps] : null
   const look: Progress['phase'] = share >= 1 ? 'done' : focus?.state === 'waiting' ? 'asking' : focus?.state === 'picking' ? 'planning' : 'working'
-  const color = focus ? STATE_COLOR[focus.state] : accent()
-  const live = agents.filter(a => a.state !== 'done' && a.state !== 'failed').length
-  const line1 = focus ? focus.task : phase.title
-  const line2 = focus
-    ? [focus.model ? (focus.effort ? `${focus.model} ${focus.effort}` : focus.model) : '', statusOf(focus, d.nowMs)].filter(Boolean).join(' · ')
-    : agents.length ? `${agents.length} agent${agents.length > 1 ? 's' : ''}, ${live} still going` : 'No agents yet'
+  const pct = Math.round(share * 100)
+  const doing = focus ? statusOf(focus, d.nowMs) : phase.title
+  const what = focus ? focus.task : agents.length ? `${agents.length} agent${agents.length > 1 ? 's' : ''}, ${agents.filter(a => a.state !== 'done' && a.state !== 'failed').length} going` : 'No agents yet'
+  // Two spaces in a row draw the text as code (monospace) in the app: words are kept one space apart, gaps are boxes.
   return (
-    <Box key="agents-focus" flexDirection="column">
+    <Box key="agents-focus" position="relative" flexDirection="column" paddingX={1} overflow="hidden" backgroundColor={PANE_BG} borderStyle="round" borderColor={CARD_EDGE}>
+      {Svg && d.cardArt ? (
+        <Box key="agents-art" position="absolute" top={-1} right={0} bottom={-1}>
+          <Svg source={d.cardArt.source} alt="effortless" width={d.cardArt.width} height={d.cardArt.height} />
+        </Box>
+      ) : null}
       <Box flexDirection="row" alignItems="center">
-        <Text color={color} bold>{focus ? '● ' : '✦ '}</Text>
-        <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
+        {Svg ? (
+          <Box flexShrink={0} marginRight={1} alignItems="center">
+            <Svg source={MARK_SVG} alt="effortless" width={18} height={18} />
+          </Box>
+        ) : null}
+        <Box flexShrink={1} minWidth={0} overflow="hidden">
           <Text color={TEXT} bold wrap="truncate">{focus ? focus.type : 'This chat'}</Text>
         </Box>
-        <Text color={TEXT} bold>{`  ${Math.round(share * 100)}%`}</Text>
+        {Svg && d.ringSvg ? (
+          <Box flexShrink={0} marginLeft={2} marginRight={1} alignItems="center">
+            <Svg source={d.ringSvg(pct, focus && focus.state === 'waiting' ? STATE_COLOR.waiting : TEXT)} alt={`${pct}% done`} width={16} height={16} />
+          </Box>
+        ) : null}
+        <Text color={TEXT}>{`${pct}%`}</Text>
+        <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden" marginLeft={2}>
+          <Text color={focus?.state === 'waiting' ? STATE_COLOR.waiting : MUTED} wrap="truncate">{doing}</Text>
+        </Box>
       </Box>
-      {Svg && steps.length ? <Svg source={progressTrackSvg({ phase: look, steps })} alt={`${Math.round(share * 100)}% done`} width={1000} height={24} /> : null}
-      <Text color={TEXT} wrap="truncate">{line1}</Text>
-      <Text color={focus ? color : DIM} wrap="truncate">{line2}</Text>
-    </Box>
-  )
-}
-
-/** One small control in its own box, as the bar draws its buttons (each hoverable control apart). */
-function tool(d: AgentsDraw, key: string, label: string, onPress: () => unknown) {
-  const { Box, Button } = d
-  return (
-    <Box key={`${key}-box`} flexShrink={0} marginLeft={1}>
-      <Button key={key} variant="secondary" label={label} onPress={onPress} />
+      {Svg && steps ? <Svg source={progressTrackSvg({ phase: look, steps })} alt={`${pct}% of the steps`} width={1000} height={24} /> : null}
+      <Text color={MUTED} wrap="truncate">{focus?.model ? `${what} · ${focus.effort ? `${focus.model} ${focus.effort}` : focus.model}` : what}</Text>
     </Box>
   )
 }
 
 /**
- * The overview: the map in a card of its own. A click on a node puts it in focus and glides it to the middle; a drag
- * pans and the wheel zooms where the surface hands the pointer to the Client laid over it; −, + and Fit always do.
+ * The map, open on the card with no frame of its own. A click on a node puts it in focus and glides it to the middle;
+ * a drag pans where the surface hands the pointer to the Client laid over it; −, + and Fit always work.
  */
 function overview(d: AgentsDraw, nodes: readonly NetNode[], focus: string, mainShare: number) {
   const { Box, Text, Button, Svg } = d
   const m = mapSize(d.cols, d.rows)
-  const cam = camNow(d.cam, Number.MAX_SAFE_INTEGER)
+  const cam = d.cam ?? camStart(nodes, m.w, m.h)
+  const at = camNow(cam, Number.MAX_SAFE_INTEGER)
   const hits = nodes
-    .map(n => ({ n, px: m.w / 2 + (n.x - cam.x) * cam.z, py: m.h / 2 + (n.y - cam.y) * cam.z }))
+    .map(n => ({ n, px: m.w / 2 + (n.x - at.x) * at.z, py: m.h / 2 + (n.y - at.y) * at.z }))
     .filter(p => p.px > 10 && p.px < m.w - 10 && p.py > 10 && p.py < m.h - 10)
   return (
-    <Box key="agents-overview" flexDirection="column" paddingX={1} backgroundColor={CARD_BG} borderStyle="round" borderColor={CARD_EDGE}>
+    <Box key="agents-overview" flexDirection="column">
       <Box flexDirection="row" alignItems="center">
-        <Text color={TEXT} bold>Overview</Text>
-        <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
-          <Text dimColor wrap="truncate">{d.mapClient ? '  drag, scroll to zoom' : ''}</Text>
-        </Box>
-        {tool(d, 'map-out', '−', () => d.onZoom(1 / 1.3))}
-        {tool(d, 'map-in', '+', () => d.onZoom(1.3))}
-        {tool(d, 'map-fit', 'Fit', () => d.onFit())}
+        <Text color={MUTED}>Map</Text>
+        <Box flexGrow={1} />
+        {quiet(d, 'map-out', '−', () => d.onZoom(1 / 1.3))}
+        {quiet(d, 'map-in', '+', () => d.onZoom(1.3))}
+        {quiet(d, 'map-fit', 'Fit', () => d.onFit())}
       </Box>
       <Box key="agents-map-box" position="relative" width={m.cols} height={m.rows} overflow="hidden">
         {Svg ? (
           <Box position="absolute" top={0} left={0}>
-            <Svg source={mapSvg(nodes, m.w, m.h, d.cam, d.nowMs, focus, mainShare)} alt={`this chat and ${nodes.length - 1} agents`} width={m.w} height={m.h} />
+            <Svg source={mapSvg(nodes, m.w, m.h, cam, d.nowMs, focus, mainShare)} alt={`this chat and ${nodes.length - 1} agents`} width={m.w} height={m.h} />
           </Box>
         ) : null}
         {/* Two rows of hit area per node: a Box sits on whole cells, so one row could miss the node by half a row. */}
@@ -887,128 +935,97 @@ function overview(d: AgentsDraw, nodes: readonly NetNode[], focus: string, mainS
   )
 }
 
-/** One agent as a row of the status card: its state mark, name, task, and on the right the one thing worth seeing. */
+/** One agent as a row: a small dot in its state's colour, the name, the task muted, and the one thing worth seeing. */
 function agentRow(d: AgentsDraw, a: AgentRec, focus: string) {
   const { Box, Text, Button } = d
   const c = STATE_COLOR[a.state]
-  const mark = a.state === 'done' ? '✓' : a.state === 'failed' ? '✕' : a.state === 'waiting' ? '◉' : '◐'
   const right =
     a.state === 'waiting' ? `on ${short(a.now ?? 'a tool', 16)}`
     : a.state === 'failed' ? 'failed'
     : a.state === 'picking' ? 'picking'
     : a.state === 'done' ? clockText((a.endedAt ?? d.nowMs) - a.startedAt)
     : a.steps?.length ? `${Math.round(progressShare(a.steps) * 100)}%`
-    : 'working'
+    : clockText(d.nowMs - a.startedAt)
+  const on = focus === a.id
   return (
-    <Box key={`row-${a.id}`} position="relative" flexDirection="row" backgroundColor={focus === a.id ? '#222228' : undefined}>
-      <Text color={c} bold>{`${mark} `}</Text>
-      <Text color={a.state === 'done' ? DIM : TEXT} bold={a.state !== 'done'}>{a.type}</Text>
-      <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
-        <Text dimColor wrap="truncate">{`  ${a.task}`}</Text>
+    <Box key={`row-${a.id}`} position="relative" flexDirection="row">
+      <Box flexShrink={0} marginRight={1}>
+        <Text color={c}>●</Text>
       </Box>
-      <Box flexShrink={0}>
-        <Text color={a.state === 'done' ? DIM : c} wrap="truncate">{`  ${right}`}</Text>
+      <Text color={a.state === 'done' ? MUTED : TEXT} bold={on}>{a.type}</Text>
+      <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden" marginLeft={1}>
+        <Text color={MUTED} wrap="truncate">{a.task}</Text>
+      </Box>
+      <Box flexShrink={0} marginLeft={2}>
+        <Text color={a.state === 'waiting' || a.state === 'failed' ? c : MUTED}>{right}</Text>
       </Box>
       <Box position="absolute" top={0} left={0} right={0} bottom={0}>
-        <Button key={`row-${a.id}-press`} plain label={' '.repeat(60)} hover={{ backgroundColor: '#ffffff0d' }} onPress={() => d.onFocus(a.id)} />
+        <Button key={`row-${a.id}-press`} plain label={' '.repeat(60)} hover={{ backgroundColor: '#ffffff0a' }} onPress={() => d.onFocus(a.id)} />
       </Box>
     </Box>
   )
 }
 
-/** A group of the status card: a title with its count, then its rows. Nothing when it has none. */
-function group(d: AgentsDraw, key: string, title: string, color: string, rows: readonly AgentRec[], focus: string) {
-  const { Box, Text } = d
-  if (!rows.length) return null
-  return (
-    <Box key={`sec-${key}`} flexDirection="column">
-      <Box flexDirection="row">
-        <Text color={color} bold>{title}</Text>
-        <Text dimColor>{`  ${rows.length}`}</Text>
-      </Box>
-      {rows.map(a => agentRow(d, a, focus))}
-    </Box>
-  )
-}
-
-/** A card under the overview: a bold title, a dim note on the right, its body. */
-function card(d: AgentsDraw, key: string, title: string, aside: string, body: unknown) {
-  const { Box, Text } = d
-  return (
-    <Box key={key} flexDirection="column" paddingX={1} backgroundColor={CARD_BG} borderStyle="round" borderColor={CARD_EDGE}>
-      <Box flexDirection="row">
-        <Text color={TEXT} bold>{title}</Text>
-        <Box flexGrow={1} />
-        <Text dimColor>{aside}</Text>
-      </Box>
-      {body}
-    </Box>
-  )
-}
-
-/** The status card: what needs you, what works, what is done (folded to its title until pressed). */
-function statusCard(d: AgentsDraw, agents: readonly AgentRec[], focus: string) {
+/** The agents, worst news first: waiting or failed, then working, then done folded to one line until pressed. */
+function agentList(d: AgentsDraw, agents: readonly AgentRec[], focus: string) {
   const { Box, Text, Button } = d
   const needs = agents.filter(a => a.state === 'waiting' || a.state === 'failed')
   const working = agents.filter(a => a.state === 'running' || a.state === 'picking')
   const done = agents.filter(a => a.state === 'done')
   const aside = needs.length ? `${needs.length} need${needs.length > 1 ? '' : 's'} you` : working.length ? `${working.length} working` : agents.length ? 'All done' : ''
-  return card(d, 'agents-status', 'Status', aside, (
-    <Box flexDirection="column">
-      {group(d, 'needs', 'Needs you', STATE_COLOR.waiting, needs, focus)}
-      {group(d, 'working', 'Working', accent(), working, focus)}
+  return (
+    <Box key="agents-list" flexDirection="column">
+      {partHead(d, 'Agents', aside)}
+      {[...needs, ...working].map(a => agentRow(d, a, focus))}
       {done.length ? (
         <Box key="sec-done" position="relative" flexDirection="column">
           <Box position="relative" flexDirection="row">
-            <Text color={STATE_COLOR.done} bold>{d.doneOpen ? '▾ Done' : '▸ Done'}</Text>
-            <Text dimColor>{`  ${done.length}`}</Text>
+            <Box flexShrink={0} marginRight={1}>
+              <Text color={STATE_COLOR.done}>●</Text>
+            </Box>
+            <Text color={MUTED}>{`${done.length} done ${d.doneOpen ? '▾' : '▸'}`}</Text>
             <Box flexGrow={1} />
             <Box position="absolute" top={0} left={0} right={0} bottom={0}>
-              <Button key="done-press" plain label={' '.repeat(60)} hover={{ backgroundColor: '#ffffff0d' }} onPress={() => d.onDone()} />
+              <Button key="done-press" plain label={' '.repeat(60)} hover={{ backgroundColor: '#ffffff0a' }} onPress={() => d.onDone()} />
             </Box>
           </Box>
           {d.doneOpen ? done.map(a => agentRow(d, a, focus)) : null}
         </Box>
       ) : null}
-      {!agents.length ? <Text dimColor>Agents show here when Claude sends some off.</Text> : null}
+      {!agents.length ? <Text color={MUTED}>Agents show here when Claude sends some off.</Text> : null}
     </Box>
-  ))
+  )
 }
 
-/** The usage card: weighted tokens in all, and who spent them, the biggest first, as bars. */
-function usageCard(d: AgentsDraw, agents: readonly AgentRec[]) {
+/** Weighted tokens in all and who spent them, the biggest first, as thin bars in one colour. */
+function usage(d: AgentsDraw, agents: readonly AgentRec[]) {
   const { Box, Text, Svg } = d
-  const rows = [
-    { id: 'main', name: 'This chat', cost: d.mainCost, color: accent() },
-    ...agents.map(a => ({ id: a.id, name: a.type, cost: a.cost ?? 0, color: STATE_COLOR[a.state] })),
-  ]
+  const rows = [{ id: 'main', name: 'This chat', cost: d.mainCost }, ...agents.map(a => ({ id: a.id, name: a.type, cost: a.cost ?? 0 }))]
     .filter(r => r.cost > 0)
     .sort((a, b) => b.cost - a.cost)
   const total = rows.reduce((s, r) => s + r.cost, 0)
   if (!total) return null
   const top = rows[0].cost
-  const barCols = Math.max(6, d.cols - 6 - 16 - 7)
-  const bar = (share: number, color: string) => {
-    const w = Math.round(barCols * CELL_W)
-    const len = Math.max(3, Math.round(w * share))
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${CELL_H}" viewBox="0 0 ${w} ${CELL_H}"><rect x="0" y="7" width="${w}" height="5" rx="2.5" fill="#ffffff" fill-opacity=".06"/><rect x="0" y="7" width="${len}" height="5" rx="2.5" fill="${color}"/></svg>`
-  }
-  return card(d, 'agents-usage', 'Usage', `${tokensText(total)} tokens`, (
-    <Box flexDirection="column">
-      {rows.slice(0, 5).map(r => (
+  const barCols = Math.max(6, d.cols - 1 - 16 - 6)
+  const w = Math.round(barCols * CELL_W)
+  const bar = (share: number) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${CELL_H}" viewBox="0 0 ${w} ${CELL_H}"><rect x="0" y="8.5" width="${w}" height="2" rx="1" fill="#ffffff" fill-opacity=".07"/><rect x="0" y="8.5" width="${Math.max(2, Math.round(w * share))}" height="2" rx="1" fill="${accent()}"/></svg>`
+  return (
+    <Box key="agents-usage" flexDirection="column">
+      {partHead(d, 'Usage', `${tokensText(total)} tokens`)}
+      {rows.slice(0, 4).map(r => (
         <Box key={`use-${r.id}`} flexDirection="row">
           <Box width={16} flexShrink={0} overflow="hidden">
             <Text color={TEXT} wrap="truncate">{r.name}</Text>
           </Box>
-          {Svg ? <Svg source={bar(r.cost / top, r.color)} alt={`${Math.round((r.cost / total) * 100)}%`} width={Math.round(barCols * CELL_W)} height={CELL_H} /> : <Box flexGrow={1} />}
-          <Box width={7} flexShrink={0} justifyContent="flex-end">
-            <Text dimColor>{tokensText(r.cost)}</Text>
+          {Svg ? <Svg source={bar(r.cost / top)} alt={`${Math.round((r.cost / total) * 100)}%`} width={w} height={CELL_H} /> : <Box flexGrow={1} />}
+          <Box width={6} flexShrink={0} justifyContent="flex-end">
+            <Text color={MUTED}>{tokensText(r.cost)}</Text>
           </Box>
         </Box>
       ))}
-      {rows.length > 5 ? <Text dimColor>{`and ${rows.length - 5} more`}</Text> : null}
     </Box>
-  ))
+  )
 }
 
 /** Who a note reaches: this chat, and every agent still going when it was sent. */
@@ -1016,39 +1033,59 @@ export function noteReach(note: AgentNote, agents: readonly AgentRec[]): string[
   return ['main', ...agents.filter(a => a.startedAt <= note.at && (a.endedAt === undefined || a.endedAt > note.at)).map(a => a.id)]
 }
 
-/** The note card: a field whose Enter sends a note to every agent, read with their next tool result; the last few. */
-function noteCard(d: AgentsDraw, agents: readonly AgentRec[]) {
+/** A field whose Enter sends a note to every agent, read with their next tool result; the last one under it. */
+function note(d: AgentsDraw, agents: readonly AgentRec[]) {
   const { Box, Text, Input } = d
   if (!Input) return null
-  const notes = d.notes.slice(-3).reverse()
-  return card(d, 'agents-note', 'Note to every agent', 'read with their next step', (
-    <Box flexDirection="column">
-      <Input key={`agents-note-input-${d.notes.length}`} placeholder="Type a note, Enter sends it" submitLabel="send" value="" onSubmit={(text: string) => d.onNote(text)} />
-      {notes.map(n => {
-        const reach = noteReach(n, agents)
-        const read = n.seen.filter(id => reach.includes(id)).length
-        return (
-          <Box key={`note-${n.id}`} flexDirection="row">
-            <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
-              <Text color={TEXT} wrap="truncate">{`“${n.text}”`}</Text>
-            </Box>
-            <Text color={read >= reach.length ? STATE_COLOR.done : DIM}>{`  read by ${read} of ${reach.length}`}</Text>
+  const last = d.notes[d.notes.length - 1]
+  const reach = last ? noteReach(last, agents) : []
+  const read = last ? last.seen.filter(id => reach.includes(id)).length : 0
+  return (
+    <Box key="agents-note" flexDirection="column">
+      <Input key={`agents-note-input-${d.notes.length}`} placeholder="A note for every agent" submitLabel="send" value="" onSubmit={(text: string) => d.onNote(text)} />
+      {last ? (
+        <Box flexDirection="row">
+          <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
+            <Text color={MUTED} wrap="truncate">{`“${last.text}”`}</Text>
           </Box>
-        )
-      })}
+          <Box flexShrink={0} marginLeft={2}>
+            <Text color={MUTED}>{`read by ${read} of ${reach.length}`}</Text>
+          </Box>
+        </Box>
+      ) : null}
     </Box>
-  ))
-}
-
-/** The settings bar's wordmark, recoloured to the brand's violet and drawn across the pane's whole width. */
-function wordmarkSvg(source: string, w: number): { source: string; w: number; h: number } {
-  const h = Math.round((w * 28) / 92)
-  return { source: source.replace('width="92" height="28"', `width="${w}" height="${h}"`).replace(/#f4f2ff/g, accent()), w, h }
+  )
 }
 
 /**
- * The whole pane on the dashboard's dark ground, padded: the focused node's progress on top, the overview under it,
- * then the status, usage and note cards, and the wordmark across the bottom.
+ * The settings bar's wordmark drawn wide in the brand's violet. Scaling the 92 px original would scale its grain with
+ * it (blobs, not grain), so the filter's numbers are divided by the scale: the grain stays the size it is in the bar.
+ */
+export function wordmarkSvg(w: number, color: string): { source: string; w: number; h: number } {
+  const k = w / 92
+  const h = Math.round(28 * k)
+  const n = (v: number) => +v.toFixed(3)
+  const source =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 92 28"><defs>` +
+    '<radialGradient id="c" cx="1" cy="1" r=".75" gradientTransform="matrix(.7 0 0 2.3 .3 -1.3)"><stop offset=".35" stop-color="#000"/><stop offset="1" stop-color="#fff"/></radialGradient>' +
+    '<radialGradient id="s" cx=".9" cy=".85" r=".55" gradientTransform="matrix(.7 0 0 2.3 .27 -1.1)"><stop offset=".4" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient>' +
+    '<mask id="mc"><rect width="92" height="28" fill="url(#c)"/></mask><mask id="ms"><rect width="92" height="28" fill="url(#s)"/></mask>' +
+    `<filter id="g" x="-20%" y="-40%" width="140%" height="180%"><feTurbulence type="fractalNoise" baseFrequency="${n(1.4 * k)}" numOctaves="1" seed="7" result="noise"/>` +
+    `<feDisplacementMap in="SourceGraphic" in2="noise" scale="${n(2.5 / k)}" xChannelSelector="R" yChannelSelector="G" result="moved"/>` +
+    `<feGaussianBlur in="moved" stdDeviation="${n(0.35 / k)}" result="soft"/><feComponentTransfer in="noise" result="dots"><feFuncA type="discrete" tableValues="0 1 1 1 1"/></feComponentTransfer>` +
+    '<feComposite in="soft" in2="dots" operator="in"/></filter></defs>' +
+    `<g font-size="21" font-weight="600" letter-spacing="-.5"><text x="1" y="20" fill="${color}" mask="url(#mc)">effortless</text>` +
+    `<g mask="url(#ms)"><text x="1" y="20" fill="${color}" filter="url(#g)">effortless</text></g></g></svg>`
+  return { source, w, h }
+}
+
+/** The settings bar's mark: big, tilted and faint, cut off by the card's corner. */
+const BIG_MARK = MARK_SVG.replace('<g mask=', '<g opacity=".12" transform="rotate(9 50 50)" mask=')
+
+/**
+ * The whole pane is one card in the dashboard's dress (its dark, its edge, its art in the top corner). Parts follow one
+ * another with a thin rule between: the node in focus, the map, the agents, the usage, a note; then the wordmark across
+ * the bottom with the big faint mark behind it.
  */
 export function agentsPane(d: AgentsDraw, agents: readonly AgentRec[]) {
   const { Box, Text, Svg } = d
@@ -1056,17 +1093,24 @@ export function agentsPane(d: AgentsDraw, agents: readonly AgentRec[]) {
   const focusId = d.focus && nodes.some(n => n.id === d.focus) ? d.focus : 'main'
   const focus = agents.find(a => a.id === focusId) ?? null
   const phase = phaseOf(agents, d.steps)
-  const mark = wordmarkSvg(d.wordmark, Math.round((d.cols - 4) * CELL_W))
+  const mark = wordmarkSvg(Math.round((d.cols - 1) * CELL_W), accent())
+  const parts = [
+    focusHead(d, focus, agents),
+    overview(d, nodes, focusId, phase.share),
+    agentList(d, agents, focusId),
+    usage(d, agents),
+    note(d, agents),
+  ].filter(Boolean)
   return (
-    <Box key="agents" position="relative" flexDirection="column" minHeight={d.rows} paddingX={1} paddingY={1} gap={1}
-      backgroundColor={PANE_BG} borderStyle="round" borderColor={CARD_EDGE}>
-      {focusHead(d, focus, agents)}
-      {overview(d, nodes, focusId, phase.share)}
-      {statusCard(d, agents, focusId)}
-      {usageCard(d, agents)}
-      {noteCard(d, agents)}
+    <Box key="agents" position="relative" flexDirection="column" minHeight={d.rows} gap={1} overflow="hidden">
+      {Svg ? (
+        <Box key="agents-big-mark" position="absolute" bottom={-4} right={-6}>
+          <Svg source={BIG_MARK} alt="effortless mark" width={180} height={180} />
+        </Box>
+      ) : null}
+      {parts.flatMap((p, i) => (i ? [rule(d, `agents-rule-${i}`), p] : [p]))}
       <Box flexGrow={1} />
-      <Box flexDirection="row" justifyContent="center">
+      <Box key="agents-wordmark" flexDirection="row" justifyContent="center">
         {Svg ? <Svg source={mark.source} alt="effortless" width={mark.w} height={mark.h} /> : <Text color={accent()} bold>effortless</Text>}
       </Box>
     </Box>

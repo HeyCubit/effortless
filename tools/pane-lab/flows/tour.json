@@ -1,0 +1,19 @@
+[
+  { "shot": "01-home" },
+  { "wheel": 400, "at": [0.5, 0.75] },
+  { "shot": "02-scrolled" },
+  { "wheel": -800, "at": [0.5, 0.5] },
+  { "wheel": 300, "at": [0.5, 0.3] },
+  { "eval": "document.querySelector('[data-engine-site]').scrollTop" },
+  { "wheel": -800, "at": [0.5, 0.5] },
+  { "click": "node-demo-2-press" },
+  { "wait": 700 },
+  { "shot": "03-focus-reviewer" },
+  { "drag": [[0.5, 0.5], [0.2, 0.4]], "in": "agents-map", "steps": 6 },
+  { "shot": "04-dragged" },
+  { "click": "map-fit" },
+  { "wait": 700 },
+  { "click": "done-press" },
+  { "type": "check the tests before you report", "enter": true },
+  { "shot": "05-done-open-note" }
+]

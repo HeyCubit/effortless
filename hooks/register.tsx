@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelForkResult, Register, RenderInput } from 'claude-code'
 
 import type { AgentNote, AgentRec, Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
-import { agentsPane, camFit, camGlide, camNow, camSet, demoAgents, demoFiles, demoSteps, importsOf, mapSize, nodeAt, noteReach, relPath, toolLine, touchOf, withTouch, withWaits, worldLayout } from './agents'
+import { agentsPane, camFit, camGlide, camNow, camSet, camStart, demoAgents, demoFiles, demoSteps, importsOf, mapSize, nodeAt, noteReach, relPath, toolLine, touchOf, withTouch, withWaits, worldLayout } from './agents'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
 import { MARK_SVG } from './brand-mark'
 import { accent, setTheme, themedEls, type ThemeName, THEMES, tintHex } from './theme'
@@ -3217,8 +3217,6 @@ async function agentWaits($: EngineInterface) {
 
 /** The overview's size as last drawn, so a click or drag on its Client can be turned into the map's pixels. */
 let mapBox = mapSize(46, 40)
-/** Whether the pointer is over the overview: the pane's wheel then zooms the map instead of scrolling. */
-let mapHover = false
 /** The map's Client failed on this surface: the pane draws without it (buttons still focus and zoom). */
 let mapBroken = false
 /** The drag under way: its number from the Client, and the camera when it began. */
@@ -3229,14 +3227,19 @@ async function agentFocus($: EngineInterface, id: string) {
   const node = worldLayout(await read($, agentsState)).find(n => n.id === id)
   if (!node) return
   const now = await $.clock.now()
+  const nodes = worldLayout(await read($, agentsState))
   await update($, agentsOpen, () => id)
-  await update($, agentsCam, c => camGlide(c, now, { x: node.x, y: node.y }))
+  await update($, agentsCam, c => camGlide(c ?? camStart(nodes, mapBox.w, mapBox.h), now, { x: node.x, y: node.y }))
 }
 
 /** Zooms the overview by `factor`, gliding. */
 async function agentZoom($: EngineInterface, factor: number) {
   const now = await $.clock.now()
-  await update($, agentsCam, c => camGlide(c, now, { z: camNow(c, now).z * factor }))
+  const nodes = worldLayout(await read($, agentsState))
+  await update($, agentsCam, c => {
+    const base = c ?? camStart(nodes, mapBox.w, mapBox.h)
+    return camGlide(base, now, { z: camNow(base, now).z * factor })
+  })
 }
 
 /** A note for every agent: this chat and each agent still going read it with their next tool result. */
@@ -3926,7 +3929,7 @@ Saved to ${out}.md and .json` }
         onFit: async () => {
           const now = await $.clock.now()
           const nodes = worldLayout(await read($, agentsState))
-          await update($, agentsCam, c => camFit(nodes, mapBox.w, mapBox.h, now, c))
+          await update($, agentsCam, c => camFit(nodes, mapBox.w, mapBox.h, now, c ?? camStart(nodes, mapBox.w, mapBox.h)))
         },
         mapClient: Client && !mapBroken ? <Client key="agents-map" module="./agents-map.tsx" width="100%" height="100%" /> : null,
         steps: await read($, agentSteps),
@@ -3936,6 +3939,8 @@ Saved to ${out}.md and .json` }
         notes: await read($, agentsNotes),
         onNote: (text: string) => agentNote($, text),
         wordmark: SETTINGS_TITLE,
+        ringSvg,
+        cardArt: { source: DASH_SVG, width: FROST_WIDTH * 2, height: FROST_HEIGHT * 2 },
       },
       agents,
     )
@@ -3945,26 +3950,22 @@ Saved to ${out}.md and .json` }
   on('ui.message', async ($, e, next) => {
     if (e.element !== 'agents-map') return next(e)
     const data = (e.data ?? {}) as { hover?: boolean; click?: [number, number]; drag?: number; dx?: number; dy?: number; end?: boolean }
-    if (typeof data.hover === 'boolean') mapHover = data.hover
     if (data.click) {
       const now = await $.clock.now()
-      const id = nodeAt(worldLayout(await read($, agentsState)), await read($, agentsCam), mapBox.w, mapBox.h, data.click[0], data.click[1], now)
+      const nodes = worldLayout(await read($, agentsState))
+      const id = nodeAt(nodes, (await read($, agentsCam)) ?? camStart(nodes, mapBox.w, mapBox.h), mapBox.w, mapBox.h, data.click[0], data.click[1], now)
       if (id) await agentFocus($, id)
     }
     if (typeof data.drag === 'number') {
       const now = await $.clock.now()
-      if (!dragBase || dragBase.drag !== data.drag) dragBase = { drag: data.drag, ...camNow(await read($, agentsCam), now) }
+      if (!dragBase || dragBase.drag !== data.drag) {
+        const c = (await read($, agentsCam)) ?? camStart(worldLayout(await read($, agentsState)), mapBox.w, mapBox.h)
+        dragBase = { drag: data.drag, ...camNow(c, now) }
+      }
       const b = dragBase
       await update($, agentsCam, () => camSet(b.x - ((data.dx ?? 0) * mapBox.w) / b.z, b.y - ((data.dy ?? 0) * mapBox.h) / b.z, b.z))
       if (data.end) dragBase = null
     }
-    return {}
-  })
-
-  // The wheel over the overview zooms it; anywhere else in the pane it scrolls as ever.
-  on('ui.scroll', { requestId: 'effortless-agents' }, async ($, e, next) => {
-    if (!mapHover || mapBroken || !e.by) return next(e)
-    await agentZoom($, e.by < 0 ? 1.15 : 1 / 1.15)
     return {}
   })
 

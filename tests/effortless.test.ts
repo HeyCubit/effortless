@@ -3157,8 +3157,8 @@ describe('agent panel', () => {
     if (text && (globalThis as { AGENT_TREE?: boolean }).AGENT_TREE) console.log(`AGENT_TREE ${text}`)
     // This chat in focus: its current step, the sections, the usage, the note, the map.
     expect(text).toContain('Draw the pane')
-    expect(text).toContain('Needs you')
-    expect(text).toContain('Working')
+    expect(text).toContain('1 needs you')
+    expect(text).toContain('find the pane and agent hooks')
     expect(text).toContain('997k tokens')
     expect(text).toContain('keep the tests green')
     expect(text).toContain('this chat and 5 agents')
@@ -3174,7 +3174,8 @@ describe('agent panel', () => {
     const open = await drawn(pane)
     if ((globalThis as { AGENT_TREE?: boolean }).AGENT_TREE) console.log(`AGENT_OPEN ${open}`)
     expect(open).toContain('review the agent-panel branch')
-    expect(open).toContain('Opus High · waiting on Bash npm test')
+    expect(open).toContain('waiting on Bash npm test')
+    expect(open).toContain('review the agent-panel branch · Opus High')
     expect(open).toContain('animateTransform')
     // A row does the same; this chat's node brings the whole job back.
     await pane.press({ key: 'row-demo-1-press' })
@@ -3190,20 +3191,28 @@ describe('agent panel', () => {
     await $.command.run({ command: 'effortless', args: 'agents demo' })
     const pane = await $.ui.mount(PANE)
     const scale = async () => Number(/scale\(([\d.]+)\)/.exec(await drawn(pane))?.[1])
-    // A click on a node's spot focuses it. The clock stands still here, so the map is still where it set out from:
-    // this chat in the middle.
-    await pane.press({ key: 'row-demo-2-press' })
+    // A click on a node's spot focuses it: the spot is where the node's hit box is drawn, as a share of the map.
+    type Node = { type?: string; props?: Record<string, unknown>; children?: Node[] }
+    const findBox = (n: Node, key: string): Node | undefined =>
+      n?.props?.key === key ? n : (n?.children ?? []).map(c => findBox(c, key)).find(Boolean)
+    const tree = (await pane.drawn()) as Node
+    const map = findBox(tree, 'agents-map-box')!.props as { width: number; height: number }
+    const spot = (id: string) => {
+      const p = findBox(tree, `node-${id}`)!.props as { top: number; left: number }
+      return [(p.left + 2.5) / map.width, (p.top + 1) / map.height] as [number, number]
+    }
+    await pane.post({ click: spot('demo-2') })
     expect(await drawn(pane)).toContain('Opus High')
-    await pane.post({ click: [0.5, 0.5] })
+    await pane.post({ click: spot('main') })
     expect(await drawn(pane)).toContain('Draw the pane')
     await pane.post({ click: [0.02, 0.02] })
     expect(await drawn(pane)).toContain('Draw the pane')
-    expect(await scale()).toBe(1)
+    const z0 = await scale()
     await pane.press({ key: 'map-in' })
-    expect(Math.round((await scale()) * 1000)).toBe(1300)
+    expect(Math.round((await scale()) * 1000)).toBe(Math.round(z0 * 1.3 * 1000))
     await pane.press({ key: 'map-out' })
     await pane.press({ key: 'map-out' })
-    expect(Math.round((await scale()) * 1000)).toBe(769)
+    expect(Math.round((await scale()) * 1000)).toBe(Math.round((z0 / 1.3) * 1000))
     expect(await pane.find({ key: 'agents-map' })).toBeDefined()
     // A drag: the world moves with the pointer, so the camera moves the other way.
     await pane.post({ drag: 1, dx: 0.1, dy: 0 })

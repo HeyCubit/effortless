@@ -1,0 +1,7 @@
+[
+  { "type": "check the tests first", "enter": true },
+  { "eval": "document.querySelector('[data-lab-side]').textContent.slice(0, 120)" },
+  { "wheel": 900, "at": [0.5, 0.7] },
+  { "wait": 300 },
+  { "shot": "note-sent" }
+]
