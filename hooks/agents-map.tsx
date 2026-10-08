@@ -10,7 +10,7 @@ import type { ClientSurface, RenderElement } from 'claude-code'
 
 type MapState = { ready: true }
 
-export default function AgentsMap(_props: unknown, s: ClientSurface<MapState>): RenderElement {
+export default function AgentsMap(props: { cols?: number; rows?: number } | null, s: ClientSurface<MapState>): RenderElement {
   if (s.state === undefined) {
     let down: { x: number; y: number; moved: boolean } | null = null
     let drag = 0
@@ -19,7 +19,8 @@ export default function AgentsMap(_props: unknown, s: ClientSurface<MapState>): 
       const r = Math.max(1, s.rows)
       const x = e.fine?.x ?? e.x + 0.5
       const y = e.fine?.y ?? e.y + 0.5
-      if (e.type === 'enter') s.post({ hover: true })
+      if (e.type === 'down') s.post({ down: [e.x, e.y, s.columns, s.rows] })
+      if (e.type === 'enter') s.post({ hover: true, size: [s.columns, s.rows] })
       else if (e.type === 'leave' && !down) s.post({ hover: false })
       else if (e.type === 'down' && e.button === 'left') {
         down = { x, y, moved: false }
@@ -37,5 +38,7 @@ export default function AgentsMap(_props: unknown, s: ClientSurface<MapState>): 
     s.post({ hello: true })
     s.setState({ ready: true })
   }
-  return s.elements.Box({ width: '100%', height: '100%' })
+  // The app's frame is only as tall as what is drawn here (it does not grow), so a share of nothing is one row: draw
+  // a box of the map's own size, which the hooks pass as props.
+  return s.elements.Box({ width: props?.cols ?? '100%', height: props?.rows ?? '100%' })
 }

@@ -118,7 +118,7 @@
         const res = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
         const out = await res.json()
         // As the app: an act after which the mod asked for no redraw leaves the old drawing up.
-        if (out.tree && out.redraw !== false) draw(out.tree)
+        if (out.tree && out.redraw !== false) draw(out.tree, out.clients)
         else if (out.tree) document.documentElement.dataset.labStale = String(Number(document.documentElement.dataset.labStale || 0) + 1)
         say(`${out.error ? 'ERROR\n' + out.error : ''}last: ${JSON.stringify(payload.act ?? 'reset')}\n${out.ms} ms\n${(out.log ?? []).slice(-12).join('\n')}`)
         window.LAB_LAST = out
@@ -132,7 +132,7 @@
     window.LAB = { act, reset: (setup) => send('/reset', { ...fit(), ...(setup ? { setup } : {}) }), idle: () => busy, root }
 
     // --- Drawing ----------------------------------------------------------------------------------------------------
-    const draw = (tree) => {
+    const draw = (tree, clients) => {
       const keep = site.scrollTop
       root.querySelector('[data-engine-tree]')?.remove()
       const marks = app.au()
@@ -143,7 +143,7 @@
         root.insertBefore(drawn, root.children[1] ?? null)
       }
       app.Gc(root, marks.hoverRules)
-      for (const h of root.querySelectorAll('[data-client-key]')) client(h)
+      for (const h of root.querySelectorAll('[data-client-key]')) client(h, clients?.[h.getAttribute('data-client-key')])
       site.scrollTop = keep
       window.LAB_DRAWS = (window.LAB_DRAWS ?? 0) + 1
     }
@@ -153,17 +153,26 @@
     // keeps one div per key and moves it into each new host: a fresh div under a resting pointer would say "enter"
     // on every redraw.
     const frames = new Map()
-    const client = (hostEl) => {
+    const client = (hostEl, inner) => {
       const key = hostEl.getAttribute('data-client-key')
+      // What the module drew goes in the frame, as in the app: the frame is only as tall as that.
+      const fill = (frame) => {
+        frame.replaceChildren()
+        if (!inner) return
+        const d = app.ou(app.wm(inner), handlers, app.na, app.au(), app.Nu(host), true)
+        if (d) frame.appendChild(d)
+      }
       const kept = frames.get(key)
       if (kept) {
+        fill(kept)
         hostEl.replaceChildren(kept)
         return
       }
       const s = document.createElement('div')
       frames.set(key, s)
       s.setAttribute('data-lab-client', key)
-      s.setAttribute('style', 'display:flex;flex-direction:column;min-width:0;min-height:1lh;outline:none;touch-action:none;contain:layout paint;flex:1 1 auto')
+      s.setAttribute('style', 'display:flex;flex-direction:column;min-width:0;min-height:1lh;outline:none;touch-action:none;contain:layout paint;--engine-row-unit:1lh')
+      fill(s)
       hostEl.replaceChildren(s)
       const at = (e) => {
         const c = app.ai(s)

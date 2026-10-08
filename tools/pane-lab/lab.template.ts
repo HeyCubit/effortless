@@ -73,6 +73,10 @@ describe('pane lab', () => {
     const last = L.acts[L.acts.length - 1]
     console.log('LAB-REDRAW ' + JSON.stringify(!last || last.kind === 'size' || last.kind === 'resize' || lastAsked > 0))
     console.log('LAB-LOG ' + JSON.stringify(log))
+    // What each Client's surface module drew: the app puts it in the Client's frame, which is only as big as it.
+    const clients: Record<string, unknown> = {}
+    for (const key of ['agents-map']) clients[key] = await pane.drawn({ in: key } as never).catch(() => null)
+    console.log('LAB-CLIENTS ' + JSON.stringify(clients))
     console.log('LAB-TREE ' + JSON.stringify(await pane.drawn()))
   })
 })

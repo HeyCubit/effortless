@@ -3256,7 +3256,7 @@ async function agentsPaneDraw($: EngineInterface, e: RenderInput<'Pane'>) {
         await update($, agentsCam, c => camFit(nodes, mapBox.w, mapBox.h, now, c ?? camStart(nodes, mapBox.w, mapBox.h)))
         $.ui.invalidate('ui.render')
       },
-      mapClient: Client && !mapBroken ? <Client key="agents-map" module="./agents-map.tsx" width="100%" height="100%" /> : null,
+      mapClient: Client && !mapBroken ? <Client key="agents-map" module="./agents-map.tsx" width={mapBox.cols} height={mapBox.rows} props={{ cols: mapBox.cols, rows: mapBox.rows }} /> : null,
       steps: await read($, agentSteps),
       doneOpen: await read($, agentsDoneOpen),
       onDone: async () => {

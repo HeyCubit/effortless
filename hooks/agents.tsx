@@ -943,7 +943,7 @@ function overview(d: AgentsDraw, nodes: readonly NetNode[], focus: string, mainS
         ) : null}
         {/* The Client under the nodes' buttons: a drag on open map pans, a click on a node is the button's, as in the list. */}
         {d.mapClient ? (
-          <Box key="agents-map-touch" position="absolute" top={0} left={0} right={0} bottom={0}>
+          <Box key="agents-map-touch" position="absolute" top={0} left={0} width={m.cols} height={m.rows}>
             {d.mapClient}
           </Box>
         ) : null}

@@ -92,7 +92,7 @@ function replay(at) {
     return line ? JSON.parse(line.slice(line.indexOf(tag + ' ') + tag.length + 1)) : null
   }
   const tree = pick('LAB-TREE')
-  return { tree, redraw: pick('LAB-REDRAW') !== false, log: pick('LAB-LOG'), ms: Date.now() - started, error: tree ? null : text.slice(-4000) }
+  return { tree, clients: pick('LAB-CLIENTS'), redraw: pick('LAB-REDRAW') !== false, log: pick('LAB-LOG'), ms: Date.now() - started, error: tree ? null : text.slice(-4000) }
 }
 
 // --- The page ------------------------------------------------------------------------------------------------------------
