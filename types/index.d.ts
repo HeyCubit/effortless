@@ -75,6 +75,12 @@ export type Progress = {
 export type AgentState = 'picking' | 'running' | 'waiting' | 'done' | 'failed'
 
 /** One subagent of this chat, for the agent panel. */
+/** The overview's camera: the world point in the middle, the zoom, and the glide it is in (from, started at ms). */
+export type AgentsCam = { x: number; y: number; z: number; fx: number; fy: number; fz: number; at: number }
+
+/** A note for every agent: its text, when it was sent, and who has read it (agent ids, 'main' for this chat). */
+export type AgentNote = { id: string; text: string; at: number; seen: string[] }
+
 export type AgentRec = {
   id: string
   /** The agent type (Explore, general-purpose, a plugin's agent). */
@@ -199,6 +205,14 @@ declare module 'claude-code' {
       agentSteps: ProgressStep[] | null
       /** The module (folder) opened in the panel's list, or null. */
       agentsModule: string | null
+      /** Where the panel's overview looks, and where it moved from (for the glide). Null until first moved. */
+      agentsCam: AgentsCam | null
+      /** Whether the panel's Done section is unfolded. */
+      agentsDoneOpen: boolean
+      /** Notes the person sent every agent from the panel, newest last. */
+      agentsNotes: AgentNote[]
+      /** The main chat's weighted tokens since the panel started counting. */
+      agentsMainCost: number
     }
   }
 }

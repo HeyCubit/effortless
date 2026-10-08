@@ -3147,7 +3147,7 @@ describe('agent panel', () => {
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
   }
 
-  test('the demo shows a card per agent still going and folds the finished ones into one', async ($, on) => {
+  test('the demo: the focus sets the progress on top, a node or a row moves the focus and glides the map there', async ($, on) => {
     await start($, on)
     const reply = await $.command.run({ command: 'effortless', args: 'agents demo' })
     expect(String(reply.text)).toContain('agent panel')
@@ -3155,18 +3155,84 @@ describe('agent panel', () => {
     const text = await drawn(pane)
     // A tree for tools/render-band (--tree), when asked for.
     if (text && (globalThis as { AGENT_TREE?: boolean }).AGENT_TREE) console.log(`AGENT_TREE ${text}`)
-    for (const id of ['demo-1', 'demo-2', 'demo-3']) expect(await pane.find({ key: `agent-${id}` })).toBeDefined()
-    expect(await pane.find({ key: 'agent-demo-4' })).toBeUndefined()
-    expect(text).toContain('✓ 2 done')
-    expect(text).toContain('1 waiting')
-    expect(text).toContain('waiting on Bash npm test')
-    // Pressing a card opens it: the pick and why show.
-    await pane.press({ key: 'agent-demo-2-press' })
-    expect(await drawn(pane)).toContain('a review before merge')
+    // This chat in focus: its current step, the sections, the usage, the note, the map.
+    expect(text).toContain('Draw the pane')
+    expect(text).toContain('Needs you')
+    expect(text).toContain('Working')
+    expect(text).toContain('997k tokens')
+    expect(text).toContain('keep the tests green')
+    expect(text).toContain('this chat and 5 agents')
+    expect(text).not.toContain('animateTransform')
+    expect(text).not.toContain('read the tests')
+    await pane.press({ key: 'done-press' })
+    expect(await drawn(pane)).toContain('read the tests')
+    await pane.press({ key: 'done-press' })
+    for (const id of ['main', 'demo-1', 'demo-2', 'demo-3', 'demo-4']) expect(await pane.find({ key: `node-${id}-press` })).toBeDefined()
+    expect(text).not.toContain('Opus High')
+    // A node puts its agent on top and glides the map to it.
+    await pane.press({ key: 'node-demo-2-press' })
+    const open = await drawn(pane)
+    if ((globalThis as { AGENT_TREE?: boolean }).AGENT_TREE) console.log(`AGENT_OPEN ${open}`)
+    expect(open).toContain('review the agent-panel branch')
+    expect(open).toContain('Opus High · waiting on Bash npm test')
+    expect(open).toContain('animateTransform')
+    // A row does the same; this chat's node brings the whole job back.
+    await pane.press({ key: 'row-demo-1-press' })
+    expect(await drawn(pane)).toContain('find the pane and agent hooks')
+    await pane.press({ key: 'map-fit' })
+    await pane.press({ key: 'node-main-press' })
+    expect(await drawn(pane)).toContain('Draw the pane')
     await pane.unmount()
   })
 
-  test('a spawned agent runs, waits on a long tool, and is done when its loop answers', async ($, on) => {
+  test('the map zooms with its buttons and pans with a drag on its Client', async ($, on) => {
+    await start($, on)
+    await $.command.run({ command: 'effortless', args: 'agents demo' })
+    const pane = await $.ui.mount(PANE)
+    const scale = async () => Number(/scale\(([\d.]+)\)/.exec(await drawn(pane))?.[1])
+    // A click on a node's spot focuses it. The clock stands still here, so the map is still where it set out from:
+    // this chat in the middle.
+    await pane.press({ key: 'row-demo-2-press' })
+    expect(await drawn(pane)).toContain('Opus High')
+    await pane.post({ click: [0.5, 0.5] })
+    expect(await drawn(pane)).toContain('Draw the pane')
+    await pane.post({ click: [0.02, 0.02] })
+    expect(await drawn(pane)).toContain('Draw the pane')
+    expect(await scale()).toBe(1)
+    await pane.press({ key: 'map-in' })
+    expect(Math.round((await scale()) * 1000)).toBe(1300)
+    await pane.press({ key: 'map-out' })
+    await pane.press({ key: 'map-out' })
+    expect(Math.round((await scale()) * 1000)).toBe(769)
+    expect(await pane.find({ key: 'agents-map' })).toBeDefined()
+    // A drag: the world moves with the pointer, so the camera moves the other way.
+    await pane.post({ drag: 1, dx: 0.1, dy: 0 })
+    await pane.post({ drag: 1, dx: 0.25, dy: 0, end: true })
+    const shift = /translate\((-?[\d.]+) (-?[\d.]+)\)\\" fill/.exec(await drawn(pane))
+    expect(Number(shift?.[1])).toBeGreaterThan(50)
+    await pane.unmount()
+  })
+
+  test('a note reaches this chat and each running agent once, with its next tool result', async ($, on) => {
+    on('agent.spawn', () => ({ agentId: 'a1', model: 'claude-haiku-5-5' }) as never)
+    on('tool.call', () => ({ result: 'ok', isError: false }) as never)
+    await start($, on)
+    await $.agent.spawn({ prompt: 'look around', description: 'find the hooks', subagentType: 'Explore' } as never)
+    await $.command.run({ command: 'effortless', args: 'agents' })
+    const pane = await $.ui.mount(PANE)
+    await pane.input({ key: 'agents-note-input-0', text: 'use the worktree' })
+    expect(await drawn(pane)).toContain('read by 0 of 2')
+    const first = (await $.tool.call({ tool: 'Grep', pattern: 'x', agentId: 'a1' } as never)) as { context?: string[] }
+    expect(first.context?.join(' ')).toContain('use the worktree')
+    const again = (await $.tool.call({ tool: 'Grep', pattern: 'y', agentId: 'a1' } as never)) as { context?: string[] }
+    expect(again.context?.join(' ') ?? '').not.toContain('use the worktree')
+    const main = (await $.tool.call({ tool: 'Grep', pattern: 'z' } as never)) as { context?: string[] }
+    expect(main.context?.join(' ')).toContain('use the worktree')
+    expect(await drawn(pane)).toContain('read by 2 of 2')
+    await pane.unmount()
+  })
+
+  test('a spawned agent joins the map and counts as done when its loop answers', async ($, on) => {
     on('agent.spawn', () => ({ agentId: 'a1', model: 'claude-haiku-5-5' }) as never)
     on('tool.call', () => ({ result: 'ok', isError: false }) as never)
     on('turn.complete', () => ({ text: '' }))
@@ -3175,45 +3241,14 @@ describe('agent panel', () => {
     await $.command.run({ command: 'effortless', args: 'agents' })
     const pane = await $.ui.mount(PANE)
     expect(await drawn(pane)).toContain('1 working')
-    expect(await drawn(pane)).toContain('find the hooks')
+    expect(await pane.find({ key: 'node-a1-press' })).toBeDefined()
     await $.tool.call({ tool: 'Grep', pattern: 'agentId', agentId: 'a1' } as never)
-    expect(await drawn(pane)).toContain('Grep agentId')
+    await pane.press({ key: 'node-a1-press' })
+    expect(await drawn(pane)).toContain('find the hooks')
     await $.turn.complete({ turnId: 'x', agentId: 'a1', answer: 'found', durationMs: 1, isAborted: false, reason: 'answer' } as never)
     const text = await drawn(pane)
     expect(text).toContain('All done')
-    expect(text).toContain('✓ 1 done')
-    await pane.unmount()
-  })
-
-  test('the demo map shows the parts touched; a part opens to its files', async ($, on) => {
-    await start($, on)
-    await $.command.run({ command: 'effortless', args: 'agents demo' })
-    const pane = await $.ui.mount(PANE)
-    const text = await drawn(pane)
-    expect(text).toContain('Map')
-    expect(text).toContain('5 parts touched')
-    expect(text).toContain('map of 5 parts of the code')
-    // The main chat's own list is the total progress: 2 of 5 steps.
-    expect(text).toContain('2 of 5 steps')
-    expect(text).not.toContain('register.tsx')
-    await pane.press({ key: 'mod-hooks-press' })
-    const open = await drawn(pane)
-    expect(open).toContain('register.tsx')
-    expect(open).toContain('agents.tsx')
-    await pane.unmount()
-  })
-
-  test("a file the main chat reads lands on the map under its folder", async ($, on) => {
-    on('tool.call', () => ({ result: 'ok', isError: false }) as never)
-    on('fs.read', () => ({ value: "import { a } from '../types'" }) as never)
-    on('session.root', () => ({ value: '/proj' }) as never)
-    await start($, on)
-    await $.tool.call({ tool: 'Read', file_path: '/proj/hooks/x.ts' } as never)
-    await $.command.run({ command: 'effortless', args: 'agents' })
-    const pane = await $.ui.mount(PANE)
-    const text = await drawn(pane)
-    expect(text).toContain('1 part touched')
-    expect(text).toContain('hooks')
+    expect(text).toContain('done in')
     await pane.unmount()
   })
 
