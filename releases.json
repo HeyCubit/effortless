@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.59.0",
+    "date": "2026-10-08",
+    "note": "Update reloads the new version in the same chat",
+    "public": true
+  },
+  {
     "version": "1.58.0",
     "date": "2026-10-08",
     "note": "Update card tells the truth",
