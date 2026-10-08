@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.38.1",
+    "date": "2026-10-08",
+    "note": "Updates work without a GitHub SSH key"
+  },
+  {
     "version": "1.37.2",
     "date": "2026-10-07",
     "note": "Theme in Appearance: violet or Claude orange"

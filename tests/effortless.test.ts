@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { setTheme, themedSvg, tint, tintHex } from '../hooks/theme'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
@@ -2869,8 +2869,10 @@ describe('updates', () => {
       return { value: { status: 404, ok: false, headers: {}, text: '' } } as never
     })
     const ran: string[] = []
+    const envs: (Record<string, string> | undefined)[] = []
     on('process.run', (_$, e) => {
       ran.push(e.argv.join(' '))
+      envs.push(e.init?.env)
       return { value: v.fails ? { exitCode: 1, stdout: '', stderr: v.fails } : { exitCode: 0, stdout: '', stderr: '' } } as never
     })
     const commands: string[] = []
@@ -2878,7 +2880,7 @@ describe('updates', () => {
       commands.push(`/${e.command}`)
       return { text: 'ok' }
     })
-    return { clock, ran, commands }
+    return { clock, ran, envs, commands }
   }
   const settle = () => new Promise(resolve => setTimeout(resolve, 30))
   /** Through the setup guide a first session opens, which takes the band before any card. */
@@ -3017,6 +3019,37 @@ describe('updates', () => {
     expect((await ui.find({ key: 'update-go' }))?.text).toContain('Try again')
     await ui.unmount()
   })
+
+  test('a failed clone names git\'s own reason, not the tail of a wrapped sentence', () => {
+    const ssh = [
+      '✘ Failed to install plugin "effortless@effortless": Failed to clone repository: Cloning into \'C:\\x\\temp_github_1\'...',
+      'git@github.com: Permission denied (publickey).',
+      'fatal: Could not read from remote repository.',
+      '',
+      'Please make sure you have the correct access rights',
+      'and the repository exists.',
+    ].join('\r\n')
+    expect(updateFailure(ssh)).toBe('Could not read from remote repository.')
+    expect(updateFailure('✘ Plugin "effortless" not found in marketplace\n')).toBe('Plugin "effortless" not found in marketplace')
+    expect(updateFailure('network down')).toBe('network down')
+    expect(updateFailure('x'.repeat(300))).toHaveLength(160)
+    expect(updateFailure('')).toBe('')
+  })
+
+  test('the update reaches GitHub over HTTPS, so users without an SSH key there can update', DESK, async ($, on) => {
+    const w = world(on, { installed: '1.0.0', latest: '1.0.1' })
+    await start($)
+    await settle()
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await pastSetup(ui)
+    await ui.press({ key: 'update-go' })
+    await settle()
+    const steps = w.ran.map((r, i) => [r, w.envs[i]] as const).filter(([r]) => r.startsWith('claude plugin'))
+    expect(steps.slice(-2).map(([r]) => r)).toEqual(['claude plugin marketplace update effortless', 'claude plugin update effortless@effortless'])
+    for (const [, env] of steps) expect(env).toMatchObject({ GIT_CONFIG_KEY_0: 'url.https://github.com/HeyCubit/.insteadOf', GIT_CONFIG_VALUE_0: 'git@github.com:HeyCubit/' })
+    await ui.unmount()
+  })
+
 })
 
 describe('agent panel', () => {

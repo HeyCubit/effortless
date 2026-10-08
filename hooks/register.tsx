@@ -2403,7 +2403,7 @@ async function latestAvailable($: EngineInterface): Promise<{ latest?: { version
     return latestRelease(typeof text === 'string' ? text : '')
   }
   // Always refreshed: the host's web fetch can answer from its own cache, git does not.
-  await $.process.run(['claude', 'plugin', 'marketplace', 'update', 'effortless'], { timeoutMs: 120_000 }).catch(() => null)
+  await $.process.run(['claude', 'plugin', 'marketplace', 'update', 'effortless'], { timeoutMs: 120_000, env: GITHUB_OVER_HTTPS }).catch(() => null)
   const local = await readLocal()
   const best = fromWeb && (!local || !isNewer(local.version, fromWeb.version)) ? fromWeb : local
   return { latest: best, how: `${web}; marketplace ${local?.version ?? 'unreadable'}` }
@@ -2449,13 +2449,24 @@ async function checkUpdateNow($: EngineInterface) {
   // "Up to date" goes back to the button after a few seconds; a found version stays until it is installed or put away.
   if (!(card && card.stage === 'offer')) $.clock.after(5000, () => void update($, updateCheck, cur => (cur === 'newest' ? 'idle' : cur)))
 }
+// The repo is public, so HTTPS needs no key (only this repo's address is rewritten). Without it, git reaches GitHub
+// over SSH and fails for anyone with no SSH key there ("make sure you have the correct access rights").
+const GITHUB_OVER_HTTPS = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'url.https://github.com/HeyCubit/.insteadOf', GIT_CONFIG_VALUE_0: 'git@github.com:HeyCubit/' }
+/** The line of a failed `claude plugin` run that says what went wrong: git's own `fatal:`/`error:` line, else the
+ * CLI's ✘ line, else the last line. The last line alone was often the tail of a wrapped sentence. */
+export function updateFailure(output: string): string {
+  const lines = output.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+  const line = lines.find(l => /^(fatal|error):/i.test(l)) ?? lines.find(l => l.startsWith('✘')) ?? lines.at(-1) ?? ''
+  const why = line.replace(/^(fatal|error):\s*/i, '').replace(/^✘\s*/, '')
+  return why.length > 160 ? `${why.slice(0, 159)}…` : why
+}
 /** Update pressed: the marketplace and the plugin are updated as `claude plugin` does, then the plugins reloaded so
  * the new version runs in this chat. The new module shows "Updated" (see session.start). */
 async function runUpdate($: EngineInterface, card: UpdateCard) {
   await update($, updateCard, () => ({ ...card, stage: 'updating' }))
   const step = async (argv: string[]) => {
-    const r = await $.process.run(argv, { timeoutMs: 180_000 })
-    if (r.exitCode !== 0) throw new Error((r.stderr || r.stdout).trim().split('\n').pop() || `${argv.join(' ')} failed`)
+    const r = await $.process.run(argv, { timeoutMs: 180_000, env: GITHUB_OVER_HTTPS })
+    if (r.exitCode !== 0) throw new Error(updateFailure(r.stderr || r.stdout) || `${argv.join(' ')} failed`)
   }
   try {
     // This install's own marketplace: effortless for users, effortless-dev on the dev channel.
