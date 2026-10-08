@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.42.0",
+    "date": "2026-10-08",
+    "note": "Star link next to the name in Settings",
+    "public": true
+  },
+  {
     "version": "1.41.0",
     "date": "2026-10-08",
     "note": "Star on GitHub in Appearance and the Updated card",
