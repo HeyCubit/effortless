@@ -304,6 +304,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .dash.off .sw:after{right:1.3em}
 /* Handoff: no box on a fresh chat, a grey box fading in by 15%, white from 30%, then a violet glow that grows and
    pulses faster every 10% (GLOW_LEVELS in hooks/register.tsx). */
+.dash .co{padding:.12em .5em;color:#b4b4bc}
 .dash .ho{position:relative;padding:.12em .5em;border-radius:6px;color:#b4b4bc}
 .dash .ho:before{content:"";position:absolute;inset:0;border-radius:inherit;background:#9b7bff;opacity:0;inset:calc(var(--ge,0) * -1px);filter:blur(var(--gb,0));pointer-events:none}
 .dash .ho.glow:before{animation:glow var(--gt,3s) ease-in-out infinite}
@@ -552,14 +553,14 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
     <div class="stack" id="stack" aria-label="The bar effortless shows above the prompt, and what it turns into"><div class="stack-in" id="stack-in">
       <div class="chip" style="--i:0;--d:.7"><div class="dash-host" data-dash="stack"></div></div>
       <div class="chip" style="--i:1;--d:.6"><div class="band ice"><span class="t">✦ Chat went cold</span><span class="d">Compact first.</span><span class="acts"><span class="btn">Not now</span><span class="btn primary">Compact</span></span></div></div>
-      <div class="chip" style="--i:2;--d:1"><div class="band bog"><span class="t">✦ Chat is getting swamped</span><span class="ring"><img src="__RING__" alt="">72%</span><span class="acts"><span class="btn primary">Compact</span></span></div></div>
+      <div class="chip" style="--i:2;--d:1"><div class="band bog"><span class="t">✦ Chat is getting swamped</span><span class="ring"><img src="__RING__" alt="">82%</span><span class="acts"><span class="btn primary">Compact</span></span></div></div>
       <div class="chip" style="--i:3;--d:.45"><div class="band ember"><span class="t">✦ Running hot</span><span class="d">84% of 5h limit</span><span class="acts"><span class="btn primary">Save mode</span></span></div></div>
       <div class="chip" style="--i:4;--d:.55"><div class="band brand handoff"><span class="words"><span class="t">⇥ Handoff</span><span class="what">Done in seconds.</span></span><span class="acts"><span class="qf"><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.5L3.5 9H8l-1 5.5L12.5 7H8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Quick</span><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5l3 3L6 13l-3.5.5L3 10z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Full</span></span><span class="btn primary">Go</span></span></div></div>
     </div></div>
   </div>
 </section>
 
-<template id="dash-tpl"><div class="dash">__SPARK__<span class="w">Medium</span><span class="pc"><i></i><b>22%</b></span><span class="cache">cache 59:00</span><span class="why">Haiku 5.5: a small fix in one file</span><span class="end"><span class="auto"><span class="sw"></span><span class="al">Auto</span></span><span class="ho"><span>Handoff</span></span><svg class="gear" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" d="M12.91 6.63L14.44 6.56 14.44 9.44 12.91 9.37 12.44 10.5 13.57 11.54 11.54 13.57 10.5 12.44 9.37 12.91 9.44 14.44 6.56 14.44 6.63 12.91 5.5 12.44 4.46 13.57 2.43 11.54 3.56 10.5 3.09 9.37 1.56 9.44 1.56 6.56 3.09 6.63 3.56 5.5 2.43 4.46 4.46 2.43 5.5 3.56 6.63 3.09 6.56 1.56 9.44 1.56 9.37 3.09 10.5 3.56 11.54 2.43 13.57 4.46 12.44 5.5Z"/><circle cx="8" cy="8" r="2.1" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></span></div></template>
+<template id="dash-tpl"><div class="dash">__SPARK__<span class="w">Medium</span><span class="pc"><i></i><b>22%</b></span><span class="cache">cache 59:00</span><span class="why">Haiku 5.5: a small fix in one file</span><span class="end"><span class="auto"><span class="sw"></span><span class="al">Auto</span></span><span class="co">Compact</span><span class="ho"><span>Handoff</span></span><svg class="gear" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" d="M12.91 6.63L14.44 6.56 14.44 9.44 12.91 9.37 12.44 10.5 13.57 11.54 11.54 13.57 10.5 12.44 9.37 12.91 9.44 14.44 6.56 14.44 6.63 12.91 5.5 12.44 4.46 13.57 2.43 11.54 3.56 10.5 3.09 9.37 1.56 9.44 1.56 6.56 3.09 6.63 3.56 5.5 2.43 4.46 4.46 2.43 5.5 3.56 6.63 3.09 6.56 1.56 9.44 1.56 9.37 3.09 10.5 3.56 11.54 2.43 13.57 4.46 12.44 5.5Z"/><circle cx="8" cy="8" r="2.1" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></span></div></template>
 
 <header class="topbar" id="topbar">
   <a class="name" href="#top">__SPARK__effortless<span class="tag">Beta</span></a>
@@ -576,7 +577,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
         <div class="go" aria-label="Steps"><button type="button" data-go="0" aria-label="Effort"><i></i><span>Effort</span></button><button type="button" data-go="1" aria-label="Handoff"><i></i><span>Handoff</span></button><button type="button" data-go="2" aria-label="Cold cache"><i></i><span>Cold cache</span></button><button type="button" data-go="3" aria-label="Swamped"><i></i><span>Heavy chat</span></button><button type="button" data-go="4" aria-label="Running hot"><i></i><span>Near the limit</span></button><button type="button" data-go="5" aria-label="Settings"><i></i><span>Settings</span></button></div>
         <div class="caps">
           <div class="say" data-i="0"><h3>One bar. Every prompt gets the effort it needs.</h3></div>
-          <div class="say" data-i="1"><h3>Handoff glows when a fresh chat pays off.</h3></div>
+          <div class="say" data-i="1"><h3>Haiku tells you when a fresh chat pays off.</h3></div>
           <div class="say" data-i="2"><h3>It tells you when the cache goes cold.</h3></div>
           <div class="say" data-i="3"><h3>And when the chat gets heavy.</h3></div>
           <div class="say" data-i="4"><h3>It eases off before you hit the limit.</h3></div>
@@ -599,7 +600,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
     <h2>Powered by Haiku&nbsp;5.5<img class="cm" src="__CLAUDE_ORANGE__" alt="Claude" width="96" height="96"><span class="or">or Jev</span><img class="jm" src="__TYPESAFE_VIOLET__" alt="Jev" width="64" height="96"></h2>
     <p>Haiku 5.5 is about 75% cheaper than Haiku 4.5 and does three jobs. Jev, with a TypeSafe key, judges about 4x faster.</p>
     <ul class="uses">
-      <li><b>Judges every prompt</b><span>Picks the effort, on your own Claude login.</span></li>
+      <li><b>Judges every prompt</b><span>Picks the effort, and lights up Handoff when a fresh chat would pay off. On your own Claude login.</span></li>
       <li><b>Runs the simple ones</b><span>A quick prompt runs on Haiku. Your chat keeps its model and its warm cache.</span></li>
       <li><b>Writes your compactions</b><span>Every compact, by hand or automatic, is summarized by Haiku 5.5.</span></li>
     </ul>
@@ -750,12 +751,12 @@ var Dash=(function(){
   new MutationObserver(function(){if(aimed.length)swell();}).observe(d.el,{subtree:true,childList:true,characterData:true});
 
   var COLD='<div class="band ice"><span class="t">✦ Chat went cold</span><span class="d">Next message costs full price. Compact first.</span><span class="acts"><span class="btn">Not now</span><span class="btn primary">Compact</span></span></div>';
-  var SWAMP='<div class="band bog"><span class="t">✦ Chat is getting swamped</span><span class="ring"><img src="__RING__" alt="">72%</span><span class="d">180k tokens re-read every message.</span><span class="acts"><span class="btn primary">Compact <span class="k">C</span></span><span class="btn">Handoff <span class="k">H</span></span></span></div>';
+  var SWAMP='<div class="band bog"><span class="t">✦ Chat is getting swamped</span><span class="ring"><img src="__RING__" alt="">82%</span><span class="d">180k tokens re-read every message.</span><span class="acts"><span class="btn primary">Compact</span><span class="btn">Handoff</span></span></div>';
   var HOT='<div class="band ember"><span class="t">✦ Running hot</span><span class="d">84% of your 5h limit used · resets 16:20</span><span class="acts"><span class="btn primary">Save mode</span></span></div>';
-  var HANDOFF='<div class="band brand handoff"><span class="words"><span class="t">⇥ Handoff</span><span class="what">Done in seconds. Clears chat, carries on.</span></span><span class="acts"><span class="qf"><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.5L3.5 9H8l-1 5.5L12.5 7H8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Quick</span><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5l3 3L6 13l-3.5.5L3 10z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Full</span></span><span class="btn pick">Clear &amp; carry on</span><span class="btn primary">Go <span class="k">G</span></span><span class="btn x">✕</span></span></div>';
+  var HANDOFF='<div class="band brand handoff"><span class="words"><span class="t">⇥ Handoff</span><span class="what">Haiku: the work moved on. Clears chat, carries on.</span></span><span class="acts"><span class="qf"><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.5L3.5 9H8l-1 5.5L12.5 7H8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Quick</span><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5l3 3L6 13l-3.5.5L3 10z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Full</span></span><span class="btn pick">Clear &amp; carry on</span><span class="btn primary">Go</span><span class="btn x">✕</span></span></div>';
   var SETT='<div class="sett"><div class="sett-h"><b>effortless</b><span class="sub">Settings</span><span class="save">Save</span><span class="x">✕</span></div><div class="cards">'+
     '<div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 11.5a5.5 5.5 0 1111 0M8 11.5l2.6-3.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Effort</b><span>Balanced · low to max</span></div><div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v11M4.5 13.5h7M3 4.5h10M3 4.5L1.5 9h3zM13 4.5L11.5 9h3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Judge</b><span>Auto · Haiku 5.5</span></div>'+
-    '<div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h8.5M7.5 5l3 3-3 3M13.5 3.5v9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Handoff</b><span>Built in · swamped at 50%</span></div><div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11 2.4 13.6 5 5.6 13 2.4 13.6 3 10.4ZM9.3 4.1 11.9 6.7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Customize</b><span>Dashboard look</span></div></div></div>';
+    '<div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h8.5M7.5 5l3 3-3 3M13.5 3.5v9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Handoff</b><span>Built in · swamped at 80%</span></div><div class="card"><b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11 2.4 13.6 5 5.6 13 2.4 13.6 3 10.4ZM9.3 4.1 11.9 6.7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Customize</b><span>Dashboard look</span></div></div></div>';
 
   // Each step swaps the bar for its own band the moment it scrolls in; nothing is typed or pressed first. Only the
   // effort step plays prompts, since the bar itself is what it shows. Settings walks its cards.
@@ -767,7 +768,7 @@ var Dash=(function(){
           ask('add a test for the date parser','Medium','a small fix in one file','Added 6 cases, including leap days.',function(){again(effort);});});});});},
     function handoff(){only(HANDOFF);d.pct(48);},
     function cold(){only(COLD);d.secs(0);},
-    function swamp(){only(SWAMP);d.pct(72);},
+    function swamp(){only(SWAMP);d.pct(82);},
     function hot(){only(HOT);},
     function settings(){var cards=only(SETT).querySelectorAll('.card'),k=0;
       (function next(){cards.forEach(function(c,j){c.classList.toggle('on',j===k%4)});k++;if(!still)later(900,next);})();}
