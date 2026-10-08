@@ -3202,7 +3202,7 @@ describe('agent panel', () => {
       expect(`${key} ${asked > before}`).toBe(`${key} true`)
     }
     const before = asked
-    await pane.post({ drag: 1, dx: 0.1, dy: 0, end: true })
+    await pane.post({ pan: [0.1, 0] })
     expect(asked).toBeGreaterThan(before)
     await pane.unmount()
   })
@@ -3236,24 +3236,32 @@ describe('agent panel', () => {
     expect(Math.round((await scale()) * 1000)).toBe(Math.round((z0 / 1.3) * 1000))
     expect(await pane.find({ key: 'agents-map' })).toBeDefined()
     // A drag: the world moves with the pointer, so the camera moves the other way.
-    await pane.post({ drag: 1, dx: 0.1, dy: 0 })
-    await pane.post({ drag: 1, dx: 0.25, dy: 0, end: true })
+    await pane.post({ pan: [0.25, 0] })
     const shift = /translate\((-?[\d.]+) (-?[\d.]+)\)\\" fill/.exec(await drawn(pane))
     expect(Number(shift?.[1])).toBeGreaterThan(50)
     await pane.unmount()
   })
 
-  test('a drag draws the pane still, and it moves again once the drag has rested', async ($, on) => {
-    const clock = await start($, on)
+  test('the map slides under the hand while the button is down, and the camera follows once it comes up', async ($, on) => {
+    await start($, on)
     await $.command.run({ command: 'effortless', args: 'agents demo' })
     const pane = await $.ui.mount(PANE)
-    expect(await drawn(pane)).toContain('animation:')
-    await pane.post({ drag: 1, dx: 0.1, dy: 0 })
-    expect(await drawn(pane)).not.toContain('animation:')
-    await pane.post({ drag: 1, dx: 0.2, dy: 0, end: true })
-    expect(await drawn(pane)).not.toContain('animation:')
-    await clock.advance(600)
-    expect(await drawn(pane)).toContain('animation:')
+    const pan = (tree: string) => /id=\\"pan\\" transform=\\"translate\((-?[\d.]+) (-?[\d.]+)\)/.exec(tree)
+    const map = async () => JSON.stringify(await pane.drawn({ in: 'agents-map' } as never))
+    const camera = async () => /translate\((-?[\d.]+) (-?[\d.]+)\)\\" fill/.exec(await drawn(pane))
+    const rest = pan(await map())
+    const cam0 = Number((await camera())?.[1])
+    expect(rest).not.toBeNull()
+    // The map is the Client's own drawing, so the pane need not redraw for it to move.
+    await pane.pointer({ in: 'agents-map', type: 'down', x: 10, y: 5, button: 'left' } as never)
+    await pane.pointer({ in: 'agents-map', type: 'move', x: 20, y: 5, button: 'left' } as never)
+    const held = pan(await map())
+    expect(Number(held?.[1])).toBeGreaterThan(Number(rest?.[1]) + 40)
+    expect(Number((await camera())?.[1])).toBe(cam0)
+    await pane.pointer({ in: 'agents-map', type: 'up', x: 20, y: 5, button: 'left' } as never)
+    // Released: the camera has moved the other way (this translate is minus the camera), the map drawn from rest there.
+    expect(Number((await camera())?.[1])).toBeGreaterThan(cam0 + 20)
+    expect(Number(pan(await map())?.[1])).toBe(Number(rest?.[1]))
     await pane.unmount()
   })
 

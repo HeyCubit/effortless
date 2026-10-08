@@ -94,6 +94,9 @@ export function splitAgents(agents: readonly AgentRec[]): { live: AgentRec[]; do
 /** The mark, big, tilted and faint, as the settings bar shows it: cut off by the pane's bottom-right corner. */
 const CORNER_MARK = MARK_SVG.replace('<g mask=', '<g opacity=".16" transform="rotate(9 50 50)" mask=')
 
+/** What the map's Client draws: its size in cells and px, the map moving and still, and what it says. */
+export type MapClientProps = { cols: number; rows: number; w: number; h: number; source: string; still: string; alt: string }
+
 /** An SVG with its CSS animations and SMIL animate elements taken out: what the image shows before anything moves. */
 export function stillSvg(source: string): string {
   return source
@@ -397,8 +400,8 @@ export type AgentsDraw = {
   cam: AgentsCam | null
   onZoom: (factor: number) => unknown
   onFit: () => unknown
-  /** The Client that takes the map's pointer (drag, click, wheel), where the surface draws one; null elsewhere. */
-  mapClient: unknown
+  /** The Client that draws the map and takes its pointer (drag, click), given the map; null where the surface has none. */
+  mapClient: ((map: MapClientProps) => unknown) | null
   /** The main chat's own task list, for its progress; null when it keeps none. */
   steps: readonly ProgressStep[] | null
   /** Whether Done is unfolded. */
@@ -713,7 +716,7 @@ export function agentShare(a: AgentRec): number {
  * The overview as one image: the nodes in their world, seen through the camera. A camera that moved within CAM_MS
  * glides there (SMIL, started as far in as the time since), so a click on a node slides it into the middle.
  */
-export function mapSvg(nodes: readonly NetNode[], w: number, h: number, c: AgentsCam | null, nowMs: number, focus: string, mainShare: number): string {
+export function mapSvg(nodes: readonly NetNode[], w: number, h: number, c: AgentsCam | null, nowMs: number, focus: string, mainShare: number, reach = 0): string {
   const cam = c ?? CAM_HOME
   const f = (v: number) => v.toFixed(1)
   const since = nowMs - cam.at
@@ -726,10 +729,12 @@ export function mapSvg(nodes: readonly NetNode[], w: number, h: number, c: Agent
   // The dot grid covers only what the camera sees on its way (from and to), not a huge plane: a big patterned rect
   // under a moving transform is repainted every frame and stalls the glide.
   const zMin = Math.min(cam.z, cam.fz)
-  const gx = Math.min(cam.x, cam.fx) - w / 2 / zMin - 20
-  const gy = Math.min(cam.y, cam.fy) - h / 2 / zMin - 20
-  const gw = Math.abs(cam.x - cam.fx) + w / zMin + 40
-  const gh = Math.abs(cam.y - cam.fy) + h / zMin + 40
+  // reach (px) widens it on every side, for a drag that slides the whole picture by up to that much.
+  const pad = 20 + reach / zMin
+  const gx = Math.min(cam.x, cam.fx) - w / 2 / zMin - pad
+  const gy = Math.min(cam.y, cam.fy) - h / 2 / zMin - pad
+  const gw = Math.abs(cam.x - cam.fx) + w / zMin + 2 * pad
+  const gh = Math.abs(cam.y - cam.fy) + h / zMin + 2 * pad
   const byId = new Map(nodes.map(n => [n.id, n]))
   const links = nodes
     .filter(n => n.agent)
@@ -794,7 +799,7 @@ export function mapSvg(nodes: readonly NetNode[], w: number, h: number, c: Agent
     '.sp{transform-box:fill-box;transform-origin:center;animation:sp 1.4s linear infinite}@keyframes sp{to{transform:rotate(270deg)}}</style>' +
     '<defs><radialGradient id="halo"><stop offset="0" stop-color="#a79cf7" stop-opacity=".35"/><stop offset="1" stop-color="#a79cf7" stop-opacity="0"/></radialGradient>' +
     '<pattern id="dots" width="18" height="18" patternUnits="userSpaceOnUse"><circle cx="9" cy="9" r=".8" fill="#ffffff" fill-opacity=".08"/></pattern></defs>' +
-    `<g transform="translate(${f(w / 2)} ${f(h / 2)})"><g transform="scale(${cam.z})">${scale}` +
+    `<g id="pan" transform="translate(${f(w / 2)} ${f(h / 2)})"><g transform="scale(${cam.z})">${scale}` +
     `<g transform="translate(${f(-cam.x)} ${f(-cam.y)})" fill="none">${move}` +
     `<rect x="${f(gx)}" y="${f(gy)}" width="${f(gw)}" height="${f(gh)}" fill="url(#dots)"/>${links}${parts.join('')}</g></g></g></svg>`
   )
@@ -936,15 +941,19 @@ function overview(d: AgentsDraw, nodes: readonly NetNode[], focus: string, mainS
         {quiet(d, 'map-fit', 'Fit', () => d.onFit())}
       </Box>
       <Box key="agents-map-box" position="relative" width={m.cols} height={m.rows} overflow="hidden">
-        {Svg ? (
-          <Box position="absolute" top={0} left={0}>
-            <Svg source={mapSvg(nodes, m.w, m.h, cam, d.nowMs, focus, mainShare)} alt={`this chat and ${nodes.length - 1} agents`} width={m.w} height={m.h} />
-          </Box>
-        ) : null}
-        {/* The Client under the nodes' buttons: a drag on open map pans, a click on a node is the button's, as in the list. */}
+        {/* Where the surface has a Client, it draws the map itself: the app holds a pane's drawing while a button is
+            down in it, but not a Client's, so only the Client can slide the map under the hand. Under the nodes'
+            buttons: a click on a node is the button's, as in the list. */}
         {d.mapClient ? (
           <Box key="agents-map-touch" position="absolute" top={0} left={0} width={m.cols} height={m.rows}>
-            {d.mapClient}
+            {(() => {
+              const source = mapSvg(nodes, m.w, m.h, cam, d.nowMs, focus, mainShare, Math.max(m.w, m.h))
+              return d.mapClient({ cols: m.cols, rows: m.rows, w: m.w, h: m.h, source, still: stillSvg(source), alt: `this chat and ${nodes.length - 1} agents` })
+            })()}
+          </Box>
+        ) : Svg ? (
+          <Box position="absolute" top={0} left={0}>
+            <Svg source={mapSvg(nodes, m.w, m.h, cam, d.nowMs, focus, mainShare)} alt={`this chat and ${nodes.length - 1} agents`} width={m.w} height={m.h} />
           </Box>
         ) : null}
         {/* Two rows of hit area per node: a Box sits on whole cells, so one row could miss the node by half a row. */}

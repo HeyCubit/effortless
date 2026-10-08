@@ -8,7 +8,7 @@
 //   { "shot": "name" }                       a PNG of the pane tile: <out>/<name>.png
 //   { "click": "button-key" }                a real click in the middle of the drawn button with that key
 //   { "clickAt": [fx, fy], "in": "key" }     a click at a share of a Client's box (the map), or of the pane tile
-//   { "drag": [[fx, fy], [tx, ty]], "in": "key", "steps": 8 }   press, move, release across a Client (or the tile)
+//   { "drag": [[fx, fy], [tx, ty]], "in": "key", "steps": 8, "midShot": "name" }   press, move, (shot), release
 //   { "wheel": 300, "at": [fx, fy] }         a wheel turn over the tile (px; positive scrolls down)
 //   { "type": "text", "enter": true, "into": "key-prefix" }     click the field, type, Enter
 //   { "wait": 600 }                          real time, for a glide or the lab's answer
@@ -95,13 +95,16 @@ try {
   const log = { push: (line) => console.log(line), join: () => "" }
   for (const step of steps) {
     if (process.env.LAB_TRACE) console.log('step ' + JSON.stringify(step))
-    if (step.shot) {
-      await sleep(step.settle ?? 250)
+    const shoot = async (name, settle) => {
+      await sleep(settle ?? 250)
       const t = await tileBox()
       const { data } = await send('Page.captureScreenshot', { format: 'png', clip: { x: t.x, y: t.y, width: t.w, height: t.h, scale: 1 } })
-      const png = join(out, `${step.shot}.png`)
+      const png = join(out, `${name}.png`)
       writeFileSync(png, Buffer.from(data, 'base64'))
       log.push(`shot ${png}`)
+    }
+    if (step.shot) {
+      await shoot(step.shot, step.settle)
     } else if (step.click) {
       const b = await buttonBox(step.click)
       if (!b) {
@@ -128,6 +131,11 @@ try {
       for (let i = 1; i <= n; i++) {
         await mouse('mouseMoved', from[0] + ((to[0] - from[0]) * i) / n, from[1] + ((to[1] - from[1]) * i) / n)
         await sleep(70)
+      }
+      // A picture with the button still down: what the app shows mid-drag (the pane held, the Client live).
+      if (step.midShot) {
+        await idle()
+        await shoot(step.midShot)
       }
       await mouse('mouseReleased', to[0], to[1])
       log.push(step.drag ? `drag ${step.in ?? 'tile'} ${JSON.stringify(step.drag)}` : `clickAt ${step.in ?? 'tile'} ${JSON.stringify(step.clickAt)}`)

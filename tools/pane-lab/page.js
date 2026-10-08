@@ -118,7 +118,11 @@
         const res = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
         const out = await res.json()
         // As the app: an act after which the mod asked for no redraw leaves the old drawing up.
-        if (out.tree && out.redraw !== false) draw(out.tree, out.clients)
+        // As the app: while a button is down in the pane its drawing is held (only a Client redraws), till it comes up.
+        // A Client redraws on its own in the app (its state, not the pane's redraw), so its frame always takes the newest.
+        if (out.tree && out.redraw !== false && held.down) { held.tree = out.tree; held.clients = out.clients; refill(out.clients) }
+        else if (out.tree && out.redraw !== false) draw(out.tree, out.clients)
+        else if (out.clients) refill(out.clients)
         else if (out.tree) document.documentElement.dataset.labStale = String(Number(document.documentElement.dataset.labStale || 0) + 1)
         say(`${out.error ? 'ERROR\n' + out.error : ''}last: ${JSON.stringify(payload.act ?? 'reset')}\n${out.ms} ms\n${(out.log ?? []).slice(-12).join('\n')}`)
         window.LAB_LAST = out
@@ -152,14 +156,29 @@
     // The app keeps a Client's frame across redraws (the instance lives while its key stays in the tree), so the lab
     // keeps one div per key and moves it into each new host: a fresh div under a resting pointer would say "enter"
     // on every redraw.
+    // The app's hold on a pane (tc in c95e4d2cf-*.js): a left press anywhere in it, not on a select, holds its drawing
+    // until the button comes up; the newest tree then draws. A Client's own drawing is not held.
+    const held = { down: false, tree: null, clients: null }
+    site.addEventListener('pointerdown', (e) => {
+      if (e.button === 0 && !e.composedPath().some((n) => n.tagName === 'SELECT')) held.down = true
+    }, { capture: true })
+    const letGo = () => {
+      if (!held.down) return
+      held.down = false
+      if (held.tree) setTimeout(() => { draw(held.tree, held.clients); held.tree = null }, 0)
+    }
+    document.addEventListener('pointerup', letGo, { capture: true })
+    document.addEventListener('pointercancel', letGo, { capture: true })
     const frames = new Map()
+    const fillers = new Map()
+    const refill = (clients) => { for (const [key, fill] of fillers) fill(clients?.[key]) }
     const client = (hostEl, inner) => {
       const key = hostEl.getAttribute('data-client-key')
       // What the module drew goes in the frame, as in the app: the frame is only as tall as that.
-      const fill = (frame) => {
+      const fill = (frame, tree = inner) => {
         frame.replaceChildren()
-        if (!inner) return
-        const d = app.ou(app.wm(inner), handlers, app.na, app.au(), app.Nu(host), true)
+        if (!tree) return
+        const d = app.ou(app.wm(tree), handlers, app.na, app.au(), app.Nu(host), true)
         if (d) frame.appendChild(d)
       }
       const kept = frames.get(key)
@@ -173,6 +192,7 @@
       s.setAttribute('data-lab-client', key)
       s.setAttribute('style', 'display:flex;flex-direction:column;min-width:0;min-height:1lh;outline:none;touch-action:none;contain:layout paint;--engine-row-unit:1lh')
       fill(s)
+      fillers.set(key, (tree) => fill(s, tree))
       hostEl.replaceChildren(s)
       const at = (e) => {
         const c = app.ai(s)
