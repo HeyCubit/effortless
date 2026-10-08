@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.56.0",
+    "date": "2026-10-08",
+    "note": "Fix stacked dots on Settings cards",
+    "public": true
+  },
+  {
     "version": "1.55.0",
     "date": "2026-10-08",
     "note": "Fix false Cold countdown",
