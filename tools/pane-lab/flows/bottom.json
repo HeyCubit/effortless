@@ -1,0 +1,1 @@
+[{"wheel":3000,"at":[0.5,0.8]},{"wait":400},{"eval":"(()=>{const s=document.querySelector(\"[data-engine-site]\");return s.scrollTop+\"/\"+(s.scrollHeight-s.clientHeight)})()"},{"shot":"bottom"}]

@@ -1,0 +1,12 @@
+[
+  { "shot": "drag-0-before" },
+  { "drag": [[0.85, 0.85], [0.45, 0.45]], "in": "agents-map", "steps": 8 },
+  { "wait": 300 },
+  { "shot": "drag-1-after" },
+  { "clickAt": [0.5, 0.5], "in": "agents-map" },
+  { "wait": 900 },
+  { "shot": "drag-2-click" },
+  { "click": "map-fit" },
+  { "wait": 900 },
+  { "shot": "drag-3-fit" }
+]
