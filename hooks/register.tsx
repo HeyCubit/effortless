@@ -258,6 +258,23 @@ async function introShows($: EngineInterface, kind: string): Promise<boolean> {
   return introElapsed < INTRO_MS
 }
 /** The entrance layer (INTRO_SVG) in a band's own colours, or nothing once the entrance is over. */
+// The mark beside a card's title, sized to one line of text.
+const TITLE_MARK_SIZE = 16
+
+/** A card's title with the effortless mark where the ✦ stood; the ✦ stays where the surface draws no images. */
+function markTitle(els: { Box: unknown; Text: unknown; Svg?: unknown }, key: string, color: string, title: string) {
+  const { Box: B, Text: T, Svg: S } = els as unknown as { Box: (p: Record<string, unknown>) => unknown; Text: (p: Record<string, unknown>) => unknown; Svg?: (p: Record<string, unknown>) => unknown }
+  if (!S) return <T key={key} color={color} bold wrap="truncate">{title}</T>
+  return (
+    <B key={key} flexDirection="row" alignItems="center" flexShrink={1} minWidth={0}>
+      <B flexShrink={0} marginRight={1} alignItems="center">
+        <S source={MARK_SVG} alt="effortless" width={TITLE_MARK_SIZE} height={TITLE_MARK_SIZE} />
+      </B>
+      <T color={color} bold wrap="truncate">{title.replace(/^✦ /, '')}</T>
+    </B>
+  )
+}
+
 function introLayer(els: { Box: unknown; Svg?: unknown }, key: string, show: boolean, wash = '#8b6cff', light = '#b9a7ff') {
   if (!els.Svg || !show) return null
   const { Box: B, Svg: S } = els as unknown as { Box: (p: Record<string, unknown>) => unknown; Svg: (p: Record<string, unknown>) => unknown }
@@ -1295,7 +1312,15 @@ function redrawSoon(times = 5) {
 }
 
 async function showCache($: EngineInterface) {
-  if (cacheExpires === 0) return
+  // No response seen by this copy yet (it loaded mid-chat, after a plugin switch or reload): a 0 left in the shared
+  // state by an earlier copy is not this chat's cache, so the countdown goes blank until the next response.
+  if (cacheExpires === 0) {
+    if (!coldForced && (await read($, cacheLeft)) !== null) {
+      await update($, cacheLeft, () => null)
+      $.ui.invalidate('ui.render')
+    }
+    return
+  }
   const minutes = await cacheMinutes($)
   const was = await read($, cacheLeft)
   if (minutes === was) return
@@ -2354,7 +2379,7 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
         )}
       </Box>
       <Box key="reply-handoff-words" position="relative" flexDirection={quiet ? 'row' : 'column'} gap={quiet ? 1 : 0} flexShrink={1} minWidth={0}>
-        <Text color={cardLanded(fresh.kind) ? DONE_ACCENT : ACCENT} bold wrap="truncate">{words[0]}</Text>
+        {markTitle({ Box, Text, Svg }, 'reply-handoff-title', cardLanded(fresh.kind) ? DONE_ACCENT : ACCENT, words[0])}
         <Text wrap="truncate">{words[1]}</Text>
       </Box>
       {onDismiss ? (
@@ -2608,7 +2633,7 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
         )}
       </Box>
       <Box key="update-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
-        <Text color={landed ? DONE_ACCENT : ACCENT} bold wrap="truncate">{words[0]}</Text>
+        {markTitle({ Box, Text, Svg }, 'update-title', landed ? DONE_ACCENT : ACCENT, words[0])}
         <Text wrap="truncate">{words[1]}</Text>
       </Box>
       <Box key="update-controls" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end" alignItems="center" gap={1}>
@@ -4309,7 +4334,7 @@ Saved to ${out}.md and .json` }
           {introLayer({ Box, Svg }, 'compact', await introShows($, 'compact'))}
           {/* One line, as tall as the bands: the name, then the field and the buttons on the right. */}
           <Box key="compact-words" position="relative" flexShrink={0}>
-            <Text color={ACCENT} bold>✦ Compact</Text>
+            {markTitle({ Box, Text, Svg }, 'compact-title', ACCENT, '✦ Compact')}
           </Box>
           <Box key="compact-controls" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end" alignItems="center" gap={1}>
             <Box position="absolute" top={0} left={0} />
