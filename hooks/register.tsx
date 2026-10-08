@@ -262,13 +262,13 @@ async function introShows($: EngineInterface, kind: string): Promise<boolean> {
 const TITLE_MARK_SIZE = 16
 
 /** A card's title with the effortless mark where the ✦ stood; the ✦ stays where the surface draws no images. */
-function markTitle(els: { Box: unknown; Text: unknown; Svg?: unknown }, key: string, color: string, title: string) {
+function markTitle(els: { Box: unknown; Text: unknown; Svg?: unknown }, key: string, color: string, title: string, mark = MARK_SVG) {
   const { Box: B, Text: T, Svg: S } = els as unknown as { Box: (p: Record<string, unknown>) => unknown; Text: (p: Record<string, unknown>) => unknown; Svg?: (p: Record<string, unknown>) => unknown }
   if (!S) return <T key={key} color={color} bold wrap="truncate">{title}</T>
   return (
     <B key={key} flexDirection="row" alignItems="center" flexShrink={1} minWidth={0}>
       <B flexShrink={0} marginRight={1} alignItems="center">
-        <S source={MARK_SVG} alt="effortless" width={TITLE_MARK_SIZE} height={TITLE_MARK_SIZE} />
+        <S source={mark} alt="effortless" width={TITLE_MARK_SIZE} height={TITLE_MARK_SIZE} />
       </B>
       <T color={color} bold wrap="truncate">{title.replace(/^✦ /, '')}</T>
     </B>
@@ -300,9 +300,10 @@ const DONE_ACCENT = '#7fe0a4'
 const DONE_BG = '#0f1c15'
 // The Updated card: near black, a dim green edge; the green is in its title, the check and the sparkles.
 const UPDATED_BG = '#08090a'
-const UPDATED_SVG = DONE_SVG.replace(/stop-opacity="([0-9.]+)"/g, (_m, v: string) => `stop-opacity="${(Number(v) * 0.3).toFixed(3)}"`)
 const UPDATED_EDGE = '#1f4a33'
 const DONE_EDGE = '#2f7a4c'
+// The mark in the done green, for the titles of cards that have landed.
+const DONE_MARK_SVG = MARK_SVG.replace(/#7566d8/g, '#2f9a5e').replace(/#a79cf7/g, '#7fe0a4').replace(/#cfc7ff/g, '#c8f4d8')
 
 const JUDGE_SYSTEM = `You choose which Claude model and reasoning effort an agentic assistant (it reads files, runs tools and edits things, not only code) should use for the user's next message. Pick the cheapest pair that will still do the job well.
 
@@ -2379,7 +2380,7 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
         )}
       </Box>
       <Box key="reply-handoff-words" position="relative" flexDirection={quiet ? 'row' : 'column'} gap={quiet ? 1 : 0} flexShrink={1} minWidth={0}>
-        {markTitle({ Box, Text, Svg }, 'reply-handoff-title', cardLanded(fresh.kind) ? DONE_ACCENT : ACCENT, words[0])}
+        {markTitle({ Box, Text, Svg }, 'reply-handoff-title', cardLanded(fresh.kind) ? DONE_ACCENT : ACCENT, words[0], cardLanded(fresh.kind) ? DONE_MARK_SVG : MARK_SVG)}
         <Text wrap="truncate">{words[1]}</Text>
       </Box>
       {onDismiss ? (
@@ -2577,7 +2578,7 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
   const words = {
     offer: [`✦ effortless ${card.version} is out`, card.note || 'A new version is ready.'],
     updating: ['✦ Updating…', `Getting ${card.version}. Takes a few seconds.`],
-    done: [`✦ Updated to ${card.version}`, card.detail ?? (card.note || 'Loaded in this chat.')],
+    done: [`✦ Updated to ${card.version}`, card.detail ?? 'Loaded in this chat.'],
     failed: ['✦ Update failed', card.detail ?? 'Try again, or run claude plugin update effortless@effortless.'],
   }[card.stage]
   const share = async () => {
@@ -2628,12 +2629,12 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
       <Box key="update-art" position="absolute" top={-1} right={0} bottom={-1}>
         {card.stage === 'updating' ? (
           <Svg source={HANDOFF_SVG} alt="updating" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
-        ) : (
-          <Svg source={landed ? UPDATED_SVG : BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+        ) : landed ? null : (
+          <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         )}
       </Box>
       <Box key="update-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
-        {markTitle({ Box, Text, Svg }, 'update-title', landed ? DONE_ACCENT : ACCENT, words[0])}
+        {markTitle({ Box, Text, Svg }, 'update-title', landed ? DONE_ACCENT : ACCENT, words[0], landed ? DONE_MARK_SVG : MARK_SVG)}
         <Text wrap="truncate">{words[1]}</Text>
       </Box>
       <Box key="update-controls" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end" alignItems="center" gap={1}>

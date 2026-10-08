@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.52.1",
+    "date": "2026-10-08",
+    "note": "Updated card: green mark, short line, no art"
+  },
+  {
     "version": "1.51.1",
     "date": "2026-10-08",
     "note": "Logo on the update, handoff and compact cards; no stale Cold after a plugin switch"
