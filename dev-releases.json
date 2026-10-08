@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.48.1",
+    "date": "2026-10-08",
+    "note": "GitHub panel: black, rounded, close at the far right"
+  },
+  {
     "version": "1.47.2",
     "date": "2026-10-08",
     "note": "Star on GitHub in a black panel on the Updated card"

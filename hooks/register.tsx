@@ -2260,8 +2260,8 @@ const GITHUB_MARK = 'M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.
 const GITHUB_MARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path fill="#ffffff" d="${GITHUB_MARK}"/></svg>`
 const REPO_URL = 'https://github.com/HeyCubit/effortless'
 // GitHub's own dark ground, and the width of the panel that carries the star link on the Updated card.
-const GITHUB_BLACK = '#0d1117'
-const STAR_PANEL = 30
+const GITHUB_BLACK = '#000000'
+const STAR_PANEL = 32
 function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui']['resolve']>) {
   const { Box, Text, Button, Svg } = els
   const armed = Date.now() - uninstallArmedAt < UNINSTALL_ARM_MS
@@ -2569,7 +2569,7 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
           : []
   return (
     <Box key="update-card" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
-      backgroundColor={landed ? DONE_BG : BRAND_BG} borderStyle="round" borderColor={landed ? DONE_EDGE : BRAND_EDGE}>
+      backgroundColor={landed ? DONE_BG : BRAND_BG} borderStyle="round" borderColor={landed ? GITHUB_BLACK : BRAND_EDGE}>
       <Box key="update-art" position="absolute" top={-1} right={0} bottom={-1}>
         {card.stage === 'updating' ? (
           <Svg source={HANDOFF_SVG} alt="updating" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
@@ -2589,10 +2589,12 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
       {/* The whole right end in GitHub's own black, the mark and the star link in it, ✕ at its end: the app draws links in its
           own colour, so the colour of the ground is the one thing we can set to make the link read. */}
       {landed ? (
-        <Box key="update-star-panel" position="absolute" top={-1} bottom={-1} right={-1} width={STAR_PANEL} flexDirection="row" alignItems="center" justifyContent="center" gap={1} backgroundColor={GITHUB_BLACK} borderStyle="round" borderColor={GITHUB_BLACK}>
+        <Box key="update-star-panel" position="absolute" top={0} bottom={0} right={0} width={STAR_PANEL} flexDirection="row" alignItems="center" justifyContent="space-between" paddingX={2} backgroundColor={GITHUB_BLACK} borderStyle="round" borderColor={GITHUB_BLACK}>
           <Box position="absolute" top={0} left={0} />
-          <Svg source={GITHUB_MARK_SVG} alt="GitHub" width={14} height={14} />
-          <Link href={REPO_URL} label="Star on GitHub" />
+          <Box key="update-star-link" flexDirection="row" alignItems="center" gap={1}>
+            <Svg source={GITHUB_MARK_SVG} alt="GitHub" width={14} height={14} />
+            <Link href={REPO_URL} label="Star on GitHub" />
+          </Box>
           <Button key="update-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={hide} />
         </Box>
       ) : null}
