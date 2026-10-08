@@ -56,11 +56,12 @@ Or in a terminal, in one line:
 claude plugin marketplace add HeyCubit/effortless; claude plugin install effortless@effortless
 ```
 
-Then run `/reload-plugins` (or restart Claude Code). A short setup opens above the prompt: pick **Haiku** (one click,
-no key, runs on your own Claude login), **Jev** (a TypeSafe key, about 4x faster) or **your own AI**, lean cheaper or
+Then run `/reload-plugins` (or restart Claude Code). A short setup opens above the prompt: keep **Haiku** alone (one click,
+no key, runs on your own Claude login) or add **Jev** (a TypeSafe key, about 4x faster effort calls), lean cheaper or
 smarter, and pick how handoffs are written. Run `/effortless setup` to go through it again, or change any of it in ⚙.
 
-Updates come to you: when a new version is out, a card above the prompt offers **Update** or **Later**.
+Updates come to you: when a new version is out, a card above the prompt offers **Update** or **Later**. Update loads the
+new version in the chat you pressed it in, with nothing to type.
 
 ## What the bar shows
 
@@ -73,7 +74,7 @@ Updates come to you: when a new version is out, a card above the prompt offers *
 | **cache 59:00** | time until the prompt cache goes cold, after which the next message pays full price to re-read the chat |
 | *Haiku: a refactor…* | who judged and why |
 | **Auto** | switches the judge on and off. Changing effort in the app yourself also turns Auto off: you always win |
-| **Handoff** | appears as the chat fills: a grey box from 15%, white from 30%, with a glow that grows to 80% |
+| **Compact** | compacts the chat. It turns into a glowing **Handoff** when Haiku says a fresh chat would pay off, with Compact as quiet text beside it. Set Settings → Handoff → Handoff button to **Always** to keep Handoff on the bar |
 | **⚙** | settings |
 
 Prefer it quiet? Settings → Customize has a **Minimal** look with no bar.
@@ -102,7 +103,7 @@ limit passes 80% (with a Save mode that caps effort at Medium), and when your ju
 
 ## Haiku, and Jev if you add it
 
-Haiku 5.5 runs on your own Claude login and needs no key. It always makes the handoff call: from 30% of context, every second message, it reads what the chat was for, the trail of topics, the last reply and how full the context is, and says a fresh chat would suit only for a clear reason. Then the Compact button turns into a lit Handoff with the reason.
+Haiku 5.5 runs on your own Claude login and needs no key. It always makes the handoff call: from 30% of context, every second message, it reads what the chat was for, the trail of topics, the last reply and how full the context is, and says a fresh chat would suit only for a clear reason. Then the Compact button turns into a lit Handoff with the reason. Want Handoff on the bar all the time? Settings → Handoff → Handoff button → **Always**.
 
 Haiku also picks the effort, unless you add Jev, TypeSafe's faster judge (about 0.25 s against about 1 s). With a key, Jev answers the effort first and Haiku steps in whenever Jev is unsure. Run `/plugin configure effortless@effortless` in Claude Code, or use the setup guide or the Judge card in Settings.
 
@@ -121,7 +122,7 @@ Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and 
 - The default judge needs **no key**: Haiku runs on your own Claude login.
 - A key is only needed to add Jev. Enter it with `/plugin configure`, never on the command line, so it stays out of your shell history. Claude Code keeps it in its secure storage, not in a file.
 - A key is sent only to TypeSafe, and to nothing else. Use a key with a spending limit if your provider offers one.
-- Like any Claude Code plugin, this mod runs code on your machine. Its code is in [`hooks/`](hooks/): read it before you install if you do not know the author. The only program it starts is `claude` itself, to update or uninstall the mod when you press those buttons.
+- Like any Claude Code plugin, this mod runs code on your machine. Its code is in [`hooks/`](hooks/): read it before you install if you do not know the author. The programs it starts are `claude` itself (to update or uninstall the mod when you press those buttons), `git` (to see if a new version is out) and, on Update, a plain file copy of the new version into the folder your open chat runs from.
 
 ## What it saves, honestly
 
