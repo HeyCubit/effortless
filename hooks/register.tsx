@@ -2321,8 +2321,8 @@ function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui
       return
     }
     $.ui.toast('effortless is uninstalled. Thanks for trying it.')
-    const reloaded = await $.command.run({ command: 'reload-plugins', args: '' } as never).then(() => true, () => false)
-    if (!reloaded) await typeCommand($, '/reload-plugins')
+    const reloaded = await $.command.run({ command: 'reload-plugins', args: RELOAD_ARGS } as never).then(() => true, () => false)
+    if (!reloaded) await typeCommand($, `/reload-plugins ${RELOAD_ARGS}`)
   }
   const label = uninstalling ? 'Uninstalling…' : armed ? 'Press again to uninstall' : 'Uninstall'
   if (!Svg) return <Button key="settings-uninstall" plain dimColor={!armed} label={label} onPress={press} />
@@ -2564,13 +2564,16 @@ async function runUpdate($: EngineInterface, card: UpdateCard) {
   // Installed, not yet running: only the new code, once loaded, says "Loaded in this chat" (afterLoad).
   await update($, updateCard, () => ({ ...card, stage: 'done', at: now, detail: UPDATE_LOADING }))
   // The reload loads the new version here; where the app takes no command from a plugin, it is typed for Enter.
-  const reloaded = await $.command.run({ command: 'reload-plugins', args: '' } as never).then(() => true, () => false)
-  if (!reloaded && (await typeCommand($, '/reload-plugins')))
+  const reloaded = await $.command.run({ command: 'reload-plugins', args: RELOAD_ARGS } as never).then(() => true, () => false)
+  if (!reloaded && (await typeCommand($, `/reload-plugins ${RELOAD_ARGS}`)))
     await update($, updateCard, c => (c ? { ...c, detail: 'Press Enter to load it' } : c))
   // Still this code's words after a while: the reload did not load the new version, so a new chat has to.
   $.clock.after(UPDATE_LOAD_WAIT_MS, () => void update($, updateCard, c => (c && c.at === now && c.detail === UPDATE_LOADING ? { ...c, detail: 'Installed. Open a new chat to load it.' } : c)))
 }
 const UPDATE_LOADING = 'Installed. Loading it…'
+/** A plain /reload-plugins holds back a change that would make the next message re-read the chat without the cache
+ * (new commands do), says "installed but not applied" and keeps the old code running. Update was pressed: apply it. */
+export const RELOAD_ARGS = '--force'
 const UPDATE_LOAD_WAIT_MS = 15_000
 /** The update card above the prompt: the offer, the moving art while it updates, green once done. */
 function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card: UpdateCard) {

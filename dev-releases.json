@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.58.1",
+    "date": "2026-10-08",
+    "note": "Update forces the reload so the chat runs the new version"
+  },
+  {
     "version": "1.57.1",
     "date": "2026-10-08",
     "note": "Update card no longer claims the new version loaded before it has"

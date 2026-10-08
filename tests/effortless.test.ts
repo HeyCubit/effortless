@@ -2874,8 +2874,10 @@ describe('updates', () => {
       return { value: v.fails ? { exitCode: 1, stdout: '', stderr: v.fails } : { exitCode: 0, stdout, stderr: '' } } as never
     })
     const commands: string[] = []
+    const commandArgs: string[] = []
     on('command.run', (_$, e) => {
       commands.push(`/${e.command}`)
+      if (e.args) commandArgs.push(`/${e.command} ${e.args}`)
       return { text: 'ok' }
     })
     const copied: string[] = []
@@ -2883,7 +2885,7 @@ describe('updates', () => {
       copied.push((e as { text: string }).text)
       return { value: { isCopied: true as const } } as never
     })
-    return { clock, ran, envs, commands, copied }
+    return { clock, ran, envs, commands, commandArgs, copied }
   }
   const settle = () => new Promise(resolve => setTimeout(resolve, 30))
   /** Through the setup guide a first session opens, which takes the band before any card. */
@@ -3056,6 +3058,8 @@ describe('updates', () => {
     await settle()
     expect(w.ran).toEqual(['claude plugin marketplace update effortless', 'claude plugin update effortless@effortless'])
     expect(w.commands).toContain('/reload-plugins')
+    // Forced: a plain reload holds the new version back to keep the cache, and the old code would go on running.
+    expect(w.commandArgs).toContain('/reload-plugins --force')
 
     // The reload: the new version on disk starts again.
     v.installed = '1.0.1'
