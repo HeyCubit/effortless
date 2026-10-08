@@ -4271,9 +4271,15 @@ Saved to ${out}.md and .json` }
                       so three blank ones are spread from the top edge to the bottom one and overlap. The card lights as a
                       whole (its own hover); two, spaced around, left its edges and a stripe between the lines dead. */}
                   <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="column" justifyContent="space-between">
-                    <Button key={`settings-card-${c.id}`} plain hover={{ backgroundColor: '#00000000' }} label={'\u00a0'.repeat(60)} onPress={openCard(c.id)} />
-                    <Button key={`settings-card-${c.id}-2`} plain hover={{ backgroundColor: '#00000000' }} label={'\u00a0'.repeat(60)} onPress={openCard(c.id)} />
-                    <Button key={`settings-card-${c.id}-3`} plain hover={{ backgroundColor: '#00000000' }} label={'\u00a0'.repeat(60)} onPress={openCard(c.id)} />
+                    {/* Each button sits in a clipping box and does not shrink: in a narrow card a shrunk button cut its
+                        blank label to "\u2026", three stacked dots on the card. */}
+                    {['', '-2', '-3'].map(n => (
+                      <Box key={`settings-card-box-${c.id}${n}`} flexDirection="row" justifyContent="center" overflow="hidden">
+                        <Box flexShrink={0}>
+                          <Button key={`settings-card-${c.id}${n}`} plain hover={{ backgroundColor: '#00000000' }} label={'\u00a0'.repeat(60)} onPress={openCard(c.id)} />
+                        </Box>
+                      </Box>
+                    ))}
                   </Box>
                 </Box>
               ))}
