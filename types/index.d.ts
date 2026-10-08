@@ -11,7 +11,7 @@ export type Spent = {
   out: number
   byEffort: Partial<Record<Effort, { prompts: number; cost: number }>>
   /** How often each judge decided, the time it took in all (ms), and its tokens. */
-  judge: { jev: number; haiku: number; custom: number; ms: number; tokens: number }
+  judge: { jev: number; haiku: number; ms: number; tokens: number }
 }
 
 /** What the next turn runs with, and who decided it. */
@@ -20,7 +20,7 @@ export type Pick = {
   effort: Effort
   /** A few words on why, shown dim in the band. */
   why: string
-  by: 'jev' | 'haiku' | 'custom' | 'manual'
+  by: 'jev' | 'haiku' | 'manual'
   /** How sure the judge was of the effort, 0-1, when it said. */
   sure?: number
   /** Haiku only: why a handoff would suit now (a few words), when it said it would. */
@@ -177,7 +177,7 @@ declare module 'claude-code' {
       /** A new version above the prompt: offered, updating, updated or failed, or null. */
       updateCard: { stage: 'offer' | 'updating' | 'done' | 'failed'; version: string; note: string; at: number; detail?: string } | null
       /** The setup guide's step, or null when it is closed. */
-      setupStep: 'pick' | 'jev' | 'custom' | 'lean' | 'handoff' | 'done' | null
+      setupStep: 'pick' | 'jev' | 'lean' | 'handoff' | 'done' | null
       /** Choices made in the setup guide, saved together at Done or the cross. */
       setupDraft: SettingsDraft
       /** Auto on model: the judge may suggest another model (never switched without a yes). Off by default. */

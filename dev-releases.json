@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.56.3",
+    "date": "2026-10-08",
+    "note": "Haiku always judges, Jev is an optional add-on; the Custom judge is gone"
+  },
+  {
     "version": "1.56.2",
     "date": "2026-10-08",
     "note": "One Compact/Handoff button; a Haiku check decides when a handoff would suit"

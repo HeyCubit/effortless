@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { setTheme, themedSvg, tint, tintHex } from '../hooks/theme'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
@@ -569,7 +569,7 @@ describe('footer text', () => {
     expect(text).toContain('1 prompts, 1 requests, cost about 5.1k')
     expect(text).toContain('cache reads 20 %, cache writes 20 %, output 59 %')
     expect(text).toContain('Low 1, average 5.1k')
-    expect(text).toContain('Judge: Jev 0, Haiku 1, custom 0')
+    expect(text).toContain('Judge: Jev 0, Haiku 1')
     expect(text).not.toContain('saved about')
   })
 
@@ -659,7 +659,7 @@ describe('follow-ups', () => {
 describe('state from an older version', () => {
   test('the pre-0.2.0 tally { requests, actual, baseline } reads as an empty tally, never throws', () => {
     const old = { requests: 3, actual: 900, baseline: 1500 } as never
-    expect(asSpent(old).judge).toEqual({ jev: 0, haiku: 0, custom: 0, ms: 0, tokens: 0 })
+    expect(asSpent(old).judge).toEqual({ jev: 0, haiku: 0, ms: 0, tokens: 0 })
     expect(asSpent(old).byEffort).toEqual({})
     expect(() => savedText(old)).not.toThrow()
     expect(asSpent(undefined).prompts).toBe(0)
@@ -1055,12 +1055,12 @@ describe('judge choice (plugin settings)', () => {
   test('readConfig: an unknown or empty judge is auto, values are trimmed', () => {
     expect(readConfig(undefined).judge).toBe('auto')
     expect(readConfig({ judge: 'gpt' }).judge).toBe('auto')
-    expect(readConfig({ judge: 'custom', customUrl: ' http://x/v1/chat/completions ' })).toEqual({
-      judge: 'custom',
+    // The Custom judge is gone: a saved 'custom' reads as auto.
+    expect(readConfig({ judge: 'custom' }).judge).toBe('auto')
+    expect(readConfig({ judge: ' jev ' }).judge).toBe('jev')
+    expect(readConfig({})).toEqual({
+      judge: 'auto',
       typesafeKey: '',
-      customUrl: 'http://x/v1/chat/completions',
-      customModel: '',
-      customKey: '',
       handoffSkill: '',
       handoffAfter: 'continue',
       bias: 0,
@@ -1079,41 +1079,6 @@ describe('judge choice (plugin settings)', () => {
       handoffSkill: 'session-handoff',
       handoffAfter: 'confirm',
     })
-    expect(parseChatCompletion(chat('{"model":"opus","effort":"high","why":"x"}'))?.effort).toBe('high')
-    expect(parseChatCompletion('nope')).toBeUndefined()
-  })
-
-  test('custom: the OpenAI-compatible endpoint decides, with its model and key, and Haiku is not asked', { options: { judge: 'custom', customUrl: 'http://localhost:11434/v1/chat/completions', customModel: 'llama3.2', customKey: 'sk-test' } } as never, async ($, on) => {
-    engine(on)
-    mock.clock(on)
-    const asked = judgeSays(on, '{"model":"haiku","effort":"low","why":"x"}')
-    const calls: { url: string; auth?: string; body: Record<string, any> }[] = []
-    on('http.fetch', (_$, e) => {
-      calls.push({ url: e.url, auth: (e.init?.headers as Record<string, string> | undefined)?.authorization, body: JSON.parse(String(e.init?.body)) })
-      return { value: { status: 200, ok: true, headers: {}, text: chat('{"model":"opus","effort":"xhigh","why":"big"}') } }
-    })
-    const sent = recordSteps(on)
-    await $.prompt.submit({ text: 'refactor the whole relay', wait: false, origin: { kind: 'composer' } })
-    await step($)
-    expect(calls.length).toBe(1)
-    expect(calls[0].url).toBe('http://localhost:11434/v1/chat/completions')
-    expect(calls[0].auth).toBe('Bearer sk-test')
-    expect(calls[0].body.model).toBe('llama3.2')
-    expect(calls[0].body.messages[0].role).toBe('system')
-    expect(asked.length).toBe(0)
-    expect(sent[0].effort).toBe('xhigh')
-  })
-
-  test('custom endpoint failing falls back to Haiku', { options: { judge: 'custom', customUrl: 'http://localhost:1/v1/chat/completions' } } as never, async ($, on) => {
-    engine(on)
-    mock.clock(on)
-    const asked = judgeSays(on, '{"model":"sonnet","effort":"low","why":"x"}')
-    on('http.fetch', () => ({ value: { status: 500, ok: false, headers: {}, text: 'down' } }))
-    const sent = recordSteps(on)
-    await $.prompt.submit({ text: 'hello there', wait: false, origin: { kind: 'composer' } })
-    await step($)
-    expect(asked.length).toBe(1)
-    expect(sent[0].effort).toBe('low')
   })
 
   test('haiku: a TypeSafe key in the environment is not used', { options: { judge: 'haiku' } } as never, async ($, on) => {
@@ -1267,16 +1232,16 @@ describe('setup guide', () => {
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
     await $.command.run({ command: 'effortless', args: 'settings' })
     const panel = await $.ui.mount(DESK)
-    expect(await drawn(panel)).toContain('Auto · Haiku')
+    expect(await drawn(panel)).toContain('Haiku')
     await panel.press({ key: 'settings-card-judge' })
-    expect(await drawn(panel)).toContain('{"value":"custom","label":"custom"}],"value":"auto"}')
+    expect(await drawn(panel)).toContain('Haiku only')
+    expect(await drawn(panel)).not.toContain('custom')
     await panel.unmount()
   })
 
   test('the steps run judge, lean, handoff, done; Back goes one step back', () => {
     expect(setupNext('pick')).toBe('lean')
     expect(setupNext('jev')).toBe('lean')
-    expect(setupNext('custom')).toBe('lean')
     expect(setupNext('lean')).toBe('handoff')
     expect(setupNext('handoff')).toBe('done')
     expect(setupNext('done')).toBeNull()
@@ -1297,13 +1262,13 @@ describe('setup guide', () => {
     await start($, on)
     const band = await $.ui.mount(DESK)
     expect(await band.find({ key: 'setup-haiku' })).toBeDefined()
-    expect(await band.find({ key: 'setup-custom' })).toBeDefined()
+    expect(await band.find({ key: 'setup-custom' })).toBeUndefined()
     expect(await band.find({ key: 'setup-back' })).toBeUndefined()
     await clickable(band, 'setup-actions')
     // Branded: the name in the footer's purple, the step counter beside it.
     expect(await drawn(band)).toContain('"color":"#a79cf7"')
     expect(await drawn(band)).toContain('✦ effortless setup  1/3')
-    expect(await drawn(band)).toContain('Haiku 5.5 (no key)')
+    expect(await drawn(band)).toContain('Just Haiku (no key)')
     // The right side: a still SVG (every click redraws the band, and a redrawn animation flickers) with the gradient.
     const first = await drawn(band)
     expect(first).toContain('"type":"Svg"')
@@ -1371,21 +1336,6 @@ describe('setup guide', () => {
     // The cross keeps what was picked so far.
     await band.press({ key: 'setup-close' })
     expect(set).toEqual([{ key: 'effortless.judge', value: 'jev' }])
-    await band.unmount()
-  })
-
-  test('Custom asks for the URL and the model in the band', async ($, on) => {
-    engine(on)
-    mock.clock(on)
-    const set = settings(on)
-    await start($, on)
-    const band = await $.ui.mount(DESK)
-    await band.press({ key: 'setup-custom' })
-    expect(set).toEqual([])
-    expect(await band.find({ key: 'setup-url' })).toBeDefined()
-    expect(await band.find({ key: 'setup-model' })).toBeDefined()
-    await band.press({ key: 'setup-next' })
-    expect(await band.find({ key: 'setup-bias2' })).toBeDefined()
     await band.unmount()
   })
 

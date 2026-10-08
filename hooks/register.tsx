@@ -55,7 +55,7 @@ const EFFORT_LABELS: Record<Effort, string> = { low: 'Low', medium: 'Medium', hi
 const isAuto = atom({ plugin: 'effortless', key: 'isAuto' } as const, true)
 const JEV_TIMEOUT_MS = 3000
 const JEV_URL = 'https://api.typesafe.ai/v1/systemone'
-const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, read: 0, out: 0, byEffort: {}, judge: { jev: 0, haiku: 0, custom: 0, ms: 0, tokens: 0 } }
+const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, read: 0, out: 0, byEffort: {}, judge: { jev: 0, haiku: 0, ms: 0, tokens: 0 } }
 const SWITCHED_MS = 2500
 // The prompt cache lives this long after the last request read or wrote it. A response may say which lifetime its
 // cache writes got (usage.cache_creation: ephemeral_1h / ephemeral_5m); until one does, 1 hour is assumed: 99% of
@@ -167,7 +167,7 @@ const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits.' },
   { id: 'handoff', title: 'Handoff', about: 'The skill that writes a full handoff, and at what share of context to suggest compacting or handing off.' },
   { id: 'show', title: 'Customize', about: 'How effortless looks and which parts it shows. Uninstall removes it.' },
-  { id: 'judge', title: 'Judge', about: 'Who reads each prompt and picks the effort and model. Test checks it answers.' },
+  { id: 'judge', title: 'Judge', about: 'Haiku judges prompts and handoffs. Add Jev for quicker effort calls. Test checks it answers.' },
 ]
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
 // The settings panel's judge test: running, or what it found. Null before a test and once the panel closes.
@@ -535,11 +535,8 @@ function warnJudge($: EngineInterface, reason: string) {
 
 /** Which judge the person picked in the plugin's settings, and what it needs. */
 export type JudgeConfig = {
-  judge: 'auto' | 'haiku' | 'jev' | 'custom'
+  judge: 'auto' | 'haiku' | 'jev'
   typesafeKey: string
-  customUrl: string
-  customModel: string
-  customKey: string
   /** A skill or slash command that writes the handoff instead of the built-in prompt, e.g. "session-handoff". */
   handoffSkill: string
   /** What follows the handoff: clear and carry on, clear and wait, or keep the chat and copy the handoff. The handoff
@@ -578,9 +575,6 @@ let pluginOptions: Record<string, unknown> = {}
 let config: JudgeConfig = {
   judge: 'auto',
   typesafeKey: '',
-  customUrl: '',
-  customModel: '',
-  customKey: '',
   handoffSkill: '',
   handoffAfter: 'continue',
   bias: 0,
@@ -600,11 +594,8 @@ export function readConfig(options: unknown): JudgeConfig {
   const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
   const picked = str(o.judge)
   return {
-    judge: picked === 'haiku' || picked === 'jev' || picked === 'custom' ? picked : 'auto',
+    judge: picked === 'haiku' || picked === 'jev' ? picked : 'auto',
     typesafeKey: str(o.typesafeKey),
-    customUrl: str(o.customUrl),
-    customModel: str(o.customModel),
-    customKey: str(o.customKey),
     handoffSkill: str(o.handoffSkill).replace(/^\//, ''),
     handoffAfter: (['confirm', 'copy'] as const).find(a => a === str(o.handoffAfter)) ?? 'continue',
     bias: Math.max(-2, Math.min(2, Math.round(Number(str(o.effortBias)) || 0))),
@@ -634,72 +625,14 @@ function judgeQuestion(prompt: string, current: Pick | null, context: string): s
     .join('\n\n')
 }
 
-/** Reads the verdict out of an OpenAI-compatible chat completion. */
-export function parseChatCompletion(text: string): ReturnType<typeof parseVerdict> {
-  try {
-    const json = JSON.parse(text) as { choices?: { message?: { content?: string } }[] }
-    const content = json.choices?.[0]?.message?.content
-    return typeof content === 'string' ? parseVerdict(content) : undefined
-  } catch {
-    return undefined
-  }
-}
-
-/** A judge the person brought: any OpenAI-compatible endpoint (OpenAI, Groq, OpenRouter, a local Ollama, ...). */
-async function askCustom($: EngineInterface, prompt: string, current: Pick | null, context: string): Promise<Judged | undefined> {
-  if (!config.customUrl) return undefined
-  try {
-    const res = await Promise.race([
-      $.http.fetch(config.customUrl, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          ...(config.customKey ? { authorization: `Bearer ${config.customKey}` } : {}),
-        },
-        body: JSON.stringify({
-          model: config.customModel || undefined,
-          temperature: 0,
-          max_tokens: 120,
-          messages: [
-            { role: 'system', content: JUDGE_SYSTEM },
-            { role: 'user', content: judgeQuestion(prompt, current, context) },
-          ],
-        }),
-      }),
-      $.clock.sleep(JEV_TIMEOUT_MS).then(() => {
-        throw new Error('custom judge timeout')
-      }),
-    ])
-    if (!res.ok) warnJudge($, judgeFailure('Your judge', res.status))
-    const verdict = res.ok ? parseChatCompletion(res.text) : undefined
-    if (!verdict) return undefined
-    let used = 0
-    try {
-      const usage = (JSON.parse(res.text) as { usage?: { prompt_tokens?: number; completion_tokens?: number } }).usage
-      used = (usage?.prompt_tokens ?? 0) + (usage?.completion_tokens ?? 0)
-    } catch {
-      // No usage in the reply: counted as 0.
-    }
-    if (await read($, judgeDown)) await update($, judgeDown, () => null)
-    return { verdict: { ...verdict, by: 'custom' }, tokens: used }
-  } catch (error) {
-    warnJudge($, String(error).includes('timeout') ? judgeFailure('Your judge', 'timeout') : 'Your judge could not be reached')
-    return undefined
-  }
-}
-
 /**
- * Asks the judge picked in the settings: a custom endpoint, Jev (with a TypeSafe key), or Haiku. "auto" asks Jev
- * when a key is found and Haiku otherwise. Any judge that fails or takes longer than JEV_TIMEOUT_MS falls back to
+ * Haiku always judges; Jev is the optional quick one. Jev is asked first when a TypeSafe key is found (unless the
+ * setting is haiku), and Haiku makes the call whenever Jev is unsure, down or slow. Any judge that fails or takes longer than JEV_TIMEOUT_MS falls back to
  * Haiku, which needs nothing but the session's own login. Never throws.
  */
 async function judge($: EngineInterface, prompt: string, current: Pick | null): Promise<Judged> {
   const context = await recentContext($).catch(() => '')
-  if (config.judge === 'custom') {
-    const custom = await askCustom($, prompt, current, context)
-    if (custom) return custom
-  }
-  const key = config.judge === 'auto' || config.judge === 'jev' ? await jevKey($).catch(() => undefined) : undefined
+  const key = config.judge !== 'haiku' ? await jevKey($).catch(() => undefined) : undefined
   if (key) {
     const jev = await askJev($, key, prompt, current, context)
     if (jev) return jev.verdict?.why === UNSURE ? haikuAfter($, jev, prompt, current, context) : jev
@@ -767,26 +700,13 @@ const JUDGE_TEST_PROMPT = 'rename one variable in a single file'
 
 /** Asks the judge picked in the panel (its unsaved key, URL and model included) one sample prompt, and says in a line
  * whether it answered, with what and how fast, or why not. Never falls back to Haiku: the point is the judge itself. */
-async function testJudge($: EngineInterface, judgeKind: string, draftKey: string, url: string, model: string): Promise<{ ok: boolean; text: string }> {
+async function testJudge($: EngineInterface, judgeKind: string, draftKey: string): Promise<{ ok: boolean; text: string }> {
   const start = await $.clock.now()
   const took = async () => `${(((await $.clock.now()) - start) / 1000).toFixed(1)} s`
   const said = (name: string, j: Judged | undefined) =>
     j?.verdict?.why === UNSURE ? `${name} answered, unsure on the sample` : `${name} answered: ${j?.verdict?.effort}`
   judgeTesting = {}
   try {
-    if (judgeKind === 'custom') {
-      if (!url) return { ok: false, text: 'No URL set' }
-      const saved = { url: config.customUrl, model: config.customModel }
-      config.customUrl = url
-      config.customModel = model
-      try {
-        const j = await askCustom($, JUDGE_TEST_PROMPT, null, '')
-        return j?.verdict ? { ok: true, text: `${said('Your judge', j)} in ${await took()}` } : { ok: false, text: judgeTesting.reason ?? 'Your judge gave no usable answer' }
-      } finally {
-        config.customUrl = saved.url
-        config.customModel = saved.model
-      }
-    }
     if (judgeKind === 'jev' || judgeKind === 'auto') {
       const key = parseJevKey(draftKey) ?? (draftKey.trim() || undefined) ?? (await jevKey($).catch(() => undefined)) ?? (await typesafeKeyAnywhere($).catch(() => undefined))
       if (!key && judgeKind === 'jev') return { ok: false, text: 'No TypeSafe key found' }
@@ -967,7 +887,6 @@ async function runBench($: EngineInterface, cases: BenchCase[]): Promise<BenchAn
         return jev.verdict?.why === UNSURE ? haikuAfter($, jev, c.message, c.current, c.context ?? '') : jev
       },
     ])
-  if (config.customUrl) judges.push(['custom', c => askCustom($, c.message, c.current, c.context ?? '')])
   const answers: BenchAnswer[] = []
   // Baselines: what a fixed effort would score on the same labels.
   for (const fixed of ['medium', 'high'] as Effort[])
@@ -1117,7 +1036,7 @@ export function asSpent(t: unknown): Spent {
     read: num(v.read),
     out: num(v.out),
     byEffort: v.byEffort && typeof v.byEffort === 'object' ? v.byEffort : {},
-    judge: { jev: num(judged.jev), haiku: num(judged.haiku), custom: num(judged.custom), ms: num(judged.ms), tokens: num(judged.tokens) },
+    judge: { jev: num(judged.jev), haiku: num(judged.haiku), ms: num(judged.ms), tokens: num(judged.tokens) },
   }
 }
 
@@ -1162,7 +1081,6 @@ async function countPrompt($: EngineInterface, effort: Effort | undefined, by: P
     const judged = {
       jev: t.judge.jev + (by === 'jev' ? 1 : 0),
       haiku: t.judge.haiku + (by === 'haiku' ? 1 : 0),
-      custom: t.judge.custom + (by === 'custom' ? 1 : 0),
       ms: t.judge.ms + ms,
       tokens: t.judge.tokens + judgeTokens,
     }
@@ -1726,8 +1644,6 @@ const SETTING_FIELDS = {
   ceiling: 'effortCeiling',
   handoffAfter: 'handoffAfter',
   handoffSkill: 'handoffSkill',
-  customUrl: 'customUrl',
-  customModel: 'customModel',
   hide: 'hide',
   swampAt: 'swampAt',
   layout: 'layout',
@@ -1756,8 +1672,6 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     effortCeiling: config.ceiling,
     handoffAfter: config.handoffAfter,
     handoffSkill: config.handoffSkill,
-    customUrl: config.customUrl,
-    customModel: config.customModel,
     hide: config.hide.join(','),
     swampAt: String(config.swampAt),
     layout: config.layout,
@@ -1766,7 +1680,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     theme: config.theme,
     [SETTING_FIELDS[field]]: value,
   }
-  config = { ...readConfig(raw), typesafeKey: config.typesafeKey, customKey: config.customKey }
+  config = { ...readConfig(raw), typesafeKey: config.typesafeKey }
   applyTheme()
   $.ui.invalidate('ui.render')
 }
@@ -1857,7 +1771,7 @@ async function typesafeKeyAnywhere($: EngineInterface): Promise<string | undefin
   return parseJevKey(typeof text === 'string' ? text : '')
 }
 
-export type SetupStep = 'pick' | 'jev' | 'custom' | 'lean' | 'handoff' | 'done'
+export type SetupStep = 'pick' | 'jev' | 'lean' | 'handoff' | 'done'
 
 /** The lean's five stops, cheaper to smarter: a name, and what it does to the judge's pick (see tipped). */
 export const LEAN_STOPS = [
@@ -1870,7 +1784,7 @@ export const LEAN_STOPS = [
 
 /** The guide's step after this one: the judge (with its key or URL), the lean, the handoff, then done. */
 export function setupNext(step: SetupStep): SetupStep | null {
-  if (step === 'pick' || step === 'jev' || step === 'custom') return 'lean'
+  if (step === 'pick' || step === 'jev') return 'lean'
   if (step === 'lean') return 'handoff'
   if (step === 'handoff') return 'done'
   return null
@@ -1878,7 +1792,7 @@ export function setupNext(step: SetupStep): SetupStep | null {
 
 /** The step Back goes to: the judge's key or URL goes back to the pick, as does the lean. */
 export function setupBack(step: SetupStep): SetupStep | null {
-  if (step === 'jev' || step === 'custom' || step === 'lean') return 'pick'
+  if (step === 'jev' || step === 'lean') return 'pick'
   if (step === 'handoff') return 'lean'
   if (step === 'done') return 'handoff'
   return null
@@ -1886,7 +1800,7 @@ export function setupBack(step: SetupStep): SetupStep | null {
 
 /** "2/3" for the step shown; the closing step has no number. */
 export function setupCounter(step: SetupStep): string {
-  const n = { pick: 1, jev: 1, custom: 1, lean: 2, handoff: 3, done: 0 }[step]
+  const n = { pick: 1, jev: 1, lean: 2, handoff: 3, done: 0 }[step]
   return n ? `${n}/3` : ''
 }
 
@@ -1903,8 +1817,6 @@ export function setupShown(draft: SettingsDraft, saved: JudgeConfig) {
     bias: draft.bias !== undefined ? Number(draft.bias) : saved.bias,
     handoffSkill: draft.handoffSkill ?? saved.handoffSkill,
     hide: (draft.hide ?? saved.hide.join(',')).split(',').filter(Boolean) as Hideable[],
-    customUrl: draft.customUrl ?? saved.customUrl,
-    customModel: draft.customModel ?? saved.customModel,
   }
 }
 
@@ -1917,11 +1829,9 @@ async function flushSetup($: EngineInterface) {
     bias: String(config.bias),
     handoffSkill: config.handoffSkill,
     hide: config.hide.join(','),
-    customUrl: config.customUrl,
-    customModel: config.customModel,
   }
   const changes: Record<string, string> = {}
-  for (const field of ['hide', 'judge', 'bias', 'handoffSkill', 'customUrl', 'customModel'] as const) {
+  for (const field of ['hide', 'judge', 'bias', 'handoffSkill'] as const) {
     const value = draft[field]
     if (value !== undefined && value.trim() !== saved[field]) changes[field] = value.trim()
   }
@@ -1971,7 +1881,7 @@ async function closeSetup($: EngineInterface) {
 }
 
 /** The person picked a judge in the guide: then the judge's key or URL, or the next step. Saved at the end. */
-async function pickJudge($: EngineInterface, choice: 'haiku' | 'jev' | 'custom') {
+async function pickJudge($: EngineInterface, choice: 'haiku' | 'jev') {
   // Haiku is saved as Auto: Jev whenever a TypeSafe key is there, Haiku otherwise and whenever Jev does not answer.
   await update($, setupDraft, d => ({ ...d, judge: choice === 'haiku' ? 'auto' : choice }))
   await markSetupDone($)
@@ -2002,7 +1912,7 @@ const share = (part: number, whole: number) => `${Math.round((part / whole) * 10
  */
 export function savedText(raw: Spent): string {
   const t = asSpent(raw)
-  const judged = t.judge.jev + t.judge.haiku + t.judge.custom
+  const judged = t.judge.jev + t.judge.haiku
   if (t.prompts === 0 && judged === 0) return 'nothing measured yet'
   const input = t.input * WEIGHT.input
   const write = t.write * WEIGHT.write
@@ -2019,7 +1929,7 @@ export function savedText(raw: Spent): string {
   })
   if (per.length) lines.push(`Per prompt: ${per.join('; ')}`)
   if (judged) {
-    lines.push(`Judge: Jev ${t.judge.jev}, Haiku ${t.judge.haiku}, custom ${t.judge.custom}, average ${Math.round(t.judge.ms / judged)} ms, ${tokens(t.judge.tokens)} tokens in all`)
+    lines.push(`Judge: Jev ${t.judge.jev}, Haiku ${t.judge.haiku}, average ${Math.round(t.judge.ms / judged)} ms, ${tokens(t.judge.tokens)} tokens in all`)
   }
   return lines.join('\n')
 }
@@ -3007,7 +2917,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   const effortNow = effortOf(v, v.modelNow ?? (await sessionModel($)))
   const by = v.current?.by
   const reason = v.current
-    ? `${by === 'manual' ? 'You' : by === 'jev' ? 'Jev' : by === 'custom' ? 'Judge' : 'Haiku'}: ${v.current.why}`
+    ? `${by === 'manual' ? 'You' : by === 'jev' ? 'Jev' : 'Haiku'}: ${v.current.why}`
     : v.auto
       ? 'Auto picks the effort at the next prompt'
       : 'You pick the effort'
@@ -3277,7 +3187,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
     : notAligned
       ? `/effort shows ${EFFORT_LABELS[shownByApp as Effort] ?? shownByApp}`
       : current
-        ? `${current.by === 'manual' ? 'You' : current.by === 'jev' ? 'Jev' : current.by === 'custom' ? 'Judge' : 'Haiku'}: ${current.why}`
+        ? `${current.by === 'manual' ? 'You' : current.by === 'jev' ? 'Jev' : 'Haiku'}: ${current.why}`
         : auto
           ? 'Picks the effort at the next prompt'
           : 'Pick an effort'
@@ -3818,15 +3728,6 @@ Saved to ${out}.md and .json` }
     return next(e)
   })
 
-  // In /config the custom judge's rows only show while the custom judge is picked.
-  on('config.describe', async ($, e, next) => {
-    const described = await next(e)
-    if ((e.key === 'effortless.customUrl' || e.key === 'effortless.customModel') && config.judge !== 'custom') {
-      return { ...described, isHidden: true }
-    }
-    return described
-  })
-
   // A switch from anywhere (the app's picker, /model, a fallback) moves the pick at once.
   on('classic.PostModelSwitch', async ($, e, next) => {
     const result = await next(e)
@@ -4172,8 +4073,6 @@ Saved to ${out}.md and .json` }
         judge: (draft.judge ?? config.judge) as JudgeConfig['judge'],
         handoffAfter: draft.handoffAfter ?? config.handoffAfter,
         handoffSkill: draft.handoffSkill ?? config.handoffSkill,
-        customUrl: draft.customUrl ?? config.customUrl,
-        customModel: draft.customModel ?? config.customModel,
         swampAt: draft.swampAt ?? String(config.swampAt),
         layout: draft.layout ?? config.layout,
         compactWith: draft.compactWith ?? config.compactWith,
@@ -4188,7 +4087,7 @@ Saved to ${out}.md and .json` }
         : field === 'hide' ? !sameSet(value, config.hide.join(','))
         : value !== String(config[field as Exclude<keyof SettingsDraft, 'key' | 'hide'>] ?? ''))
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
-      const judgeName = shown.judge === 'custom' ? 'Your endpoint' : shown.judge === 'auto' ? `Auto · ${hasKey ? 'Jev' : 'Haiku'}` : shown.judge === 'jev' ? 'Jev' : 'Haiku'
+      const judgeName = shown.judge === 'haiku' ? 'Haiku' : hasKey || shown.judge === 'jev' ? 'Haiku + Jev' : 'Haiku'
       const summaries: Record<SettingsCard, string> = {
         effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}`,
         judge: tested && tested.ok !== null ? `${judgeName} · ${tested.ok ? 'working' : 'failing'}` : judgeName,
@@ -4370,29 +4269,21 @@ Saved to ${out}.md and .json` }
                   <Select key="settings-ceiling" label="Max" value={shown.ceiling} options={opts(EFFORTS)} onSelect={set('ceiling')} />,
                 ]),
 ] : card === 'judge' ? (bare ? [] : [
-            <Select key="settings-judge-pick" value={shown.judge} options={opts(['auto', 'haiku', 'jev', 'custom'])}
-              onSelect={set('judge')} />,
+            <Select key="settings-judge-pick" value={shown.judge} options={[{ value: 'auto', label: hasKey ? 'Haiku + Jev' : 'Haiku (Jev if added)' }, { value: 'haiku', label: 'Haiku only' }]}
+              onSelect={v => set('judge')(v === 'haiku' ? 'haiku' : 'auto')} />,
             <Select key="settings-model-auto" label="Model" value={shown.modelAuto}
               options={[{ value: 'on', label: 'Cheaper when it can' }, { value: 'off', label: "Always the chat's" }]}
               onSelect={set('modelAuto')} />,
-            ...(shown.judge === 'jev' || shown.judge === 'auto'
+            ...(shown.judge !== 'haiku'
               ? [field('key-field', <Input key="settings-key" placeholder={hasKey ? 'Key saved. Paste to replace' : 'Paste TypeSafe key'}
                   value={draft.key ?? ''} submitLabel="ok" onInput={set('key')} onSubmit={set('key')} />, 30)]
-              : []),
-            ...(shown.judge === 'custom'
-              ? [
-                  field('url-field', <Input key="settings-url" placeholder="Chat completions URL" value={shown.customUrl} submitLabel="ok"
-                    onInput={set('customUrl')} onSubmit={set('customUrl')} />, 30),
-                  field('model-field', <Input key="settings-model" placeholder="Model" value={shown.customModel} submitLabel="ok"
-                    onInput={set('customModel')} onSubmit={set('customModel')} />, 16),
-                ]
               : []),
             <Button key="settings-judge-test" variant="secondary" dimColor={tested?.ok === null} label={tested?.ok === null ? 'Testing…' : 'Test'}
               onPress={async () => {
                 if (tested?.ok === null) return
                 await update($, judgeTest, () => ({ ok: null, text: '' }))
                 $.ui.invalidate('ui.render')
-                const result = await testJudge($, shown.judge, draft.key ?? '', shown.customUrl, shown.customModel)
+                const result = await testJudge($, shown.judge, draft.key ?? '')
                 await update($, judgeTest, () => result)
                 $.ui.invalidate('ui.render')
               }} />,
@@ -4634,18 +4525,17 @@ Saved to ${out}.md and .json` }
         </Box>
       )
       if (step === 'pick')
-        return band('Who picks the effort and model?', 62, [
+        return band('Haiku judges. Add Jev too?', 62, [
           // Haiku first and filled: it needs no key. Jev is the optional faster one; with a key, it is tried first and
           // Haiku stands in whenever it does not answer. Each mark sits tight against its own button.
           <Box key="pick-haiku" flexDirection="row" gap={1} alignItems="center">
             <Svg source={CLAUDE_MARK} alt="Claude" width={16} height={16} />
-            <Button key="setup-haiku" variant="primary" label="Haiku 5.5 (no key)" onPress={() => pickJudge($, 'haiku')} />
+            <Button key="setup-haiku" variant="primary" label="Just Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />
           </Box>,
           <Box key="pick-jev" flexDirection="row" gap={1} alignItems="center">
             <Svg source={TYPESAFE_MARK} alt="TypeSafe" width={12} height={18} />
-            <Button key="setup-jev" variant="secondary" label="Jev (optional, faster)" onPress={() => pickJudge($, 'jev')} />
+            <Button key="setup-jev" variant="secondary" label="Add Jev (needs a key)" onPress={() => pickJudge($, 'jev')} />
           </Box>,
-          <Button key="setup-custom" plain label="Custom" onPress={() => pickJudge($, 'custom')} />,
           ...nav(
             <Button key="setup-skip" plain dimColor label="Skip" onPress={async () => {
               await markSetupDone($)
@@ -4666,22 +4556,6 @@ Saved to ${out}.md and .json` }
               }} />
           </Box>,
           ...nav(<Button key="setup-skip" plain label="Skip" onPress={go('lean')} />),
-        ])
-      if (step === 'custom')
-        return band('Your judge, URL and model:', 70, [
-          <Box key="url-field" width={28} flexShrink={1}>
-            <Input key="setup-url" placeholder="URL" value={shown.customUrl} submitLabel="ok"
-              onInput={(v: string) => pick('customUrl', v)}
-              onSubmit={(v: string) => pick('customUrl', v)} />
-          </Box>,
-          <Box key="model-field" width={16} flexShrink={1}>
-            <Input key="setup-model" placeholder="Model" value={shown.customModel} submitLabel="ok"
-              onInput={(v: string) => pick('customModel', v)}
-              onSubmit={(v: string) => pick('customModel', v)} />
-          </Box>,
-          ...nav(
-            nextButton,
-          ),
         ])
       if (step === 'lean') {
         // Five stops, the marker on the one picked. The track is lit in purple from the middle out to the marker, so it

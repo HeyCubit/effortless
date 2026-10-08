@@ -100,35 +100,27 @@ limit passes 80% (with a Save mode that caps effort at Medium), and when your ju
 
 <p align="center"><img src="docs/readme/settings.png" alt="The settings panel: Effort, Judge, Handoff, Customize" width="100%"></p>
 
-## Pick your judge
+## Haiku, and Jev if you add it
 
-Run `/plugin configure effortless@effortless` in Claude Code. Left unset, `auto` applies.
+Haiku 5.5 runs on your own Claude login and needs no key. It always makes the handoff call: from 30% of context, every second message, it reads what the chat was for, the trail of topics, the last reply and how full the context is, and says a fresh chat would suit only for a clear reason. Then the Compact button turns into a lit Handoff with the reason.
 
-| Judge | What it needs | Speed |
-|---|---|---|
-| `auto` (default) | Jev when a TypeSafe key is set, Haiku otherwise | |
-| `haiku` | nothing, uses your Claude login | about 1 s |
-| `jev` | a [TypeSafe](https://typesafe.ai) key, in the settings or `TYPESAFE_API_KEY` (with `jev` picked, also `~/.config/jev/.env`) | about 0.25 s |
-| `custom` | any OpenAI-compatible chat completions endpoint: URL, model and key | depends |
+Haiku also picks the effort, unless you add Jev, TypeSafe's faster judge (about 0.25 s against about 1 s). With a key, Jev answers the effort first and Haiku steps in whenever Jev is unsure. Run `/plugin configure effortless@effortless` in Claude Code, or use the setup guide or the Judge card in Settings.
 
-Custom examples:
+| Setting | What it does |
+|---|---|
+| `auto` (default) | Haiku, and Jev too when a [TypeSafe](https://typesafe.ai) key is set in the settings or `TYPESAFE_API_KEY` |
+| `haiku` | Haiku only, a key is never used |
+| `jev` | Haiku and Jev, and the key may also come from `~/.config/jev/.env` |
 
-| Provider | URL | Model |
-|---|---|---|
-| OpenAI | `https://api.openai.com/v1/chat/completions` | `gpt-4o-mini` |
-| Groq | `https://api.groq.com/openai/v1/chat/completions` | `llama-3.1-8b-instant` |
-| OpenRouter | `https://openrouter.ai/api/v1/chat/completions` | any |
-| Ollama (local) | `http://localhost:11434/v1/chat/completions` | `llama3.2`, no key |
-
-Keys are stored as secret settings by Claude Code, never in a file of this repo. If a judge fails or takes longer than 3 seconds, effortless falls back to Haiku for that prompt and tells you why once per session (out of credits, key rejected, no answer).
+Keys are stored as secret settings by Claude Code, never in a file of this repo. If Jev fails or takes longer than 3 seconds, Haiku judges that prompt and effortless tells you why once per session (out of credits, key rejected, no answer).
 
 Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and ask no judge.
 
 ## Keys and trust
 
 - The default judge needs **no key**: Haiku runs on your own Claude login.
-- A key is only needed for `jev` or `custom`. Enter it with `/plugin configure`, never on the command line, so it stays out of your shell history. Claude Code keeps it in its secure storage, not in a file.
-- A key is sent only to the judge you picked (TypeSafe, or the custom URL you entered), and to nothing else. Use a key with a spending limit if your provider offers one.
+- A key is only needed to add Jev. Enter it with `/plugin configure`, never on the command line, so it stays out of your shell history. Claude Code keeps it in its secure storage, not in a file.
+- A key is sent only to TypeSafe, and to nothing else. Use a key with a spending limit if your provider offers one.
 - Like any Claude Code plugin, this mod runs code on your machine. Its code is in [`hooks/`](hooks/): read it before you install if you do not know the author. The only program it starts is `claude` itself, to update or uninstall the mod when you press those buttons.
 
 ## What it saves, honestly
