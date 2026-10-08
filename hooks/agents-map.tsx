@@ -8,8 +8,13 @@ import type { ClientSurface, RenderElement } from 'claude-code'
 // click: the hooks focus the node under it.
 //
 // The app reports the pointer in whole cells (about 8 px across, a line down), never between, so a map pinned to it
-// moves in steps. The slide is drawn on a frame clock instead: it eases towards where the pointer is and leads it by
-// the drag's speed since the last step, so it glides between the steps; the lead fades when the pointer rests.
+// moves in steps. The slide is drawn on a frame clock instead: it eases towards where the pointer is, led by the drag's
+// speed since the last report but never past the half cell the pointer can really be in, so it glides between the
+// steps and has nothing to pull back when the hand stops.
+//
+// Each frame moves a box, not the picture: one still map drawn oversized (a map's width of room on every side) sits in
+// a box whose margins carry the slide. The app takes fractional margins (ch across, lines down), so the slide is finer
+// than a cell, and the image is decoded once per drag instead of once per frame.
 //
 // The Svg is not in a Client's typed element table (ClientElements, where a missing name draws a fragment), so it is
 // built by its tag; the desktop app's Client tree takes and draws one as it does a pane's.
@@ -43,8 +48,8 @@ type MapState = { drag: Drag }
 const FRAME_MS = 16
 /** How much of the gap to the target each frame closes. */
 const EASE = 0.45
-/** How long the lead may run past the last report before it is dropped (the pointer has stopped). */
-const LEAD_MS = 70
+/** How long after the last report the lead keeps growing (the speed is stale after that). */
+const LEAD_MS = 60
 /** Close enough to stop drawing, px. */
 const SETTLED = 0.4
 /** A second click this soon (ms) and this near (px) is a double-click: zoom in there, out with shift. */
@@ -54,19 +59,19 @@ const DOUBLE_PX = 24
 /** The newest props, for the frame clock (it outlives the call that started it). */
 const latest: { props: MapProps | null } = { props: null }
 
-/** The map moved by (ox, oy) px: its pan group's translate, shifted. */
-function slid(source: string, ox: number, oy: number): string {
-  return source.replace(/<g id="pan" transform="translate\((-?[\d.]+) (-?[\d.]+)\)">/, (_m, x: string, y: string) =>
-    `<g id="pan" transform="translate(${(Number(x) + ox).toFixed(1)} ${(Number(y) + oy).toFixed(1)})">`)
+/** Where the slide is heading now: the last report, led by the drag's speed, held within the reported cell. */
+function target(d: Drag, now: number, cellX: number, cellY: number): [number, number] {
+  if (!d.down) return [d.tx, d.ty]
+  const lead = Math.min(now - d.at, LEAD_MS)
+  const within = (v: number, half: number) => Math.max(-half, Math.min(half, v))
+  return [d.tx + within(d.vx * lead, cellX / 2), d.ty + within(d.vy * lead, cellY / 2)]
 }
 
-/** Where the slide is heading now: the last report, led by the drag's speed while the pointer keeps moving. */
-function target(d: Drag, now: number): [number, number] {
-  if (!d.down) return [d.tx, d.ty]
-  const since = now - d.at
-  const lead = since < LEAD_MS ? since : 0
-  return [d.tx + d.vx * lead, d.ty + d.vy * lead]
+/** The still map with a map's width and height of room on every side, for the box that slides it. */
+function roomy(still: string, w: number, h: number): string {
+  return still.replace(/^<svg ([^>]*?)width="[^"]*" height="[^"]*" viewBox="[^"]*"/, `<svg $1width="${3 * w}" height="${3 * h}" viewBox="${-w} ${-h} ${3 * w} ${3 * h}"`)
 }
+const roomyCache: { still: string; out: string } = { still: '', out: '' }
 
 /** The frame clock: performance.now where the surface has it, else Date.now. */
 function now(): number {
@@ -82,7 +87,8 @@ export default function AgentsMap(props: MapProps | null, s: ClientSurface<MapSt
     // One frame clock for the instance: it draws only while the slide is still catching up.
     s.every(FRAME_MS, () => {
       if (!d.moved || d.heldFor !== null) return
-      const [gx, gy] = target(d, now())
+      const p0 = latest.props
+      const [gx, gy] = p0 ? target(d, now(), p0.w / Math.max(1, p0.cols), p0.h / Math.max(1, p0.rows)) : [d.tx, d.ty]
       const dx = gx - d.ox
       const dy = gy - d.oy
       if (Math.abs(dx) < SETTLED && Math.abs(dy) < SETTLED) {
@@ -98,8 +104,10 @@ export default function AgentsMap(props: MapProps | null, s: ClientSurface<MapSt
         s.setState({ drag: d })
         return
       }
-      d.ox += dx * EASE
-      d.oy += dy * EASE
+      // Released, it closes faster: the hand has let go, there is nothing left to follow.
+      const k = d.down ? EASE : 0.6
+      d.ox += dx * k
+      d.oy += dy * k
       s.setState({ drag: d })
     })
     latest.props = props
@@ -143,10 +151,27 @@ export default function AgentsMap(props: MapProps | null, s: ClientSurface<MapSt
     }
   })
   if (!props) return Box({ width: '100%', height: '100%' })
+  if (!d.moved) {
+    return Box({ width: props.cols, height: props.rows, overflow: 'hidden', children: h('Svg', { source: props.source, alt: props.alt, width: props.w, height: props.h }) })
+  }
+  if (roomyCache.still !== props.still) Object.assign(roomyCache, { still: props.still, out: roomy(props.still, props.w, props.h) })
+  // The oversized map's box: a map's size up and left of the region, plus the slide, in cells (ch across, lines down).
+  const cx = props.w / Math.max(1, props.cols)
+  const cy = props.h / Math.max(1, props.rows)
+  const ox = Math.max(-props.w, Math.min(props.w, d.ox))
+  const oy = Math.max(-props.h, Math.min(props.h, d.oy))
   return Box({
     width: props.cols,
     height: props.rows,
     overflow: 'hidden',
-    children: h('Svg', { source: d.moved ? slid(props.still, d.ox, d.oy) : props.source, alt: props.alt, width: props.w, height: props.h }),
+    children: Box({
+      // Its own size, three maps each way: the app draws an Svg at most 100% of its box, which would squeeze it.
+      width: 3 * props.cols,
+      height: 3 * props.rows,
+      flexShrink: 0,
+      marginLeft: +((ox - props.w) / cx).toFixed(3),
+      marginTop: +((oy - props.h) / cy).toFixed(3),
+      children: h('Svg', { source: roomyCache.out, alt: props.alt, width: 3 * props.w, height: 3 * props.h }),
+    }),
   })
 }

@@ -1,6 +1,35 @@
 [
-  { "shot": "live-0-rest" },
-  { "drag": [[0.8, 0.8], [0.45, 0.5]], "in": "agents-map", "steps": 6, "midShot": "live-1-held" },
-  { "wait": 300 },
-  { "shot": "live-2-released" }
+ {
+  "shot": "live-0-rest"
+ },
+ {
+  "drag": [
+   [
+    0.8,
+    0.8
+   ],
+   [
+    0.45,
+    0.45
+   ]
+  ],
+  "in": "agents-map",
+  "steps": 6,
+  "midShot": "live-1-held"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "(window.LAB.act({kind:'tick'}), 'tick')"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "eval": "(window.LAB.act({kind:'tick'}), 'tick')"
+ },
+ {
+  "shot": "live-2-released"
+ }
 ]

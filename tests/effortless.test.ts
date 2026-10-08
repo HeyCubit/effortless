@@ -3258,8 +3258,10 @@ describe('agent panel', () => {
     await pane.pointer({ in: 'agents-map', type: 'move', x: 20, y: 5, button: 'left' } as never)
     // The slide eases towards the pointer on the Client's own frame clock.
     await pane.advance(400)
-    const held = pan(await map())
-    expect(Number(held?.[1])).toBeGreaterThan(Number(rest?.[1]) + 40)
+    // The slide is the inner box's margin, in cells: a map's width to the left at rest, less as the map moves right.
+    const held = /"marginLeft":(-?[\d.]+)/.exec(await map())
+    const cols = Number(/"width":(\d+)/.exec(await map())?.[1])
+    expect(Number(held?.[1])).toBeGreaterThan(-cols + 5)
     expect(Number((await camera())?.[1])).toBe(cam0)
     await pane.pointer({ in: 'agents-map', type: 'up', x: 20, y: 5, button: 'left' } as never)
     // It tells the hooks once it has caught up.

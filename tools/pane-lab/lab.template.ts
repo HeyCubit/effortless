@@ -50,7 +50,9 @@ describe('pane lab', () => {
     for (const a of L.acts) {
       const before = invalidated
       if (a.t > now) {
+        // The mod's clock and the drawing's frame clock (a Client's surface.every) move together, as in the app.
         await clock.advance(a.t - now)
+        await pane.advance(a.t - now)
         now = a.t
       }
       try {
@@ -69,7 +71,10 @@ describe('pane lab', () => {
         log.push(`${a.kind} failed: ${String((err as Error)?.message ?? err).slice(0, 300)}`)
       }
     }
-    if (L.at > now) await clock.advance(L.at - now)
+    if (L.at > now) {
+      await clock.advance(L.at - now)
+      await pane.advance(L.at - now)
+    }
     const last = L.acts[L.acts.length - 1]
     console.log('LAB-REDRAW ' + JSON.stringify(!last || last.kind === 'size' || last.kind === 'resize' || lastAsked > 0))
     console.log('LAB-LOG ' + JSON.stringify(log))

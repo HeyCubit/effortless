@@ -178,7 +178,8 @@
       const fill = (frame, tree = inner) => {
         frame.replaceChildren()
         if (!tree) return
-        const d = app.ou(app.wm(tree), handlers, app.na, app.au(), app.Nu(host), true)
+        // As the app draws a Client's tree (qs, straight from the module): not shaped as a Pane's tree (wm) is.
+        const d = app.ou(tree, handlers, app.na, app.au(), app.Nu(host), true)
         if (d) frame.appendChild(d)
       }
       const kept = frames.get(key)
