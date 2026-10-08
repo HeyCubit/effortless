@@ -1,6 +1,7 @@
 import type { AgentNote, AgentRec, AgentsCam, AgentState, FileTouch, Progress, ProgressStep } from '../types'
 import { MARK_SVG } from './brand-mark'
 import { accent } from './theme'
+import { WORD_BASELINE, WORD_BOTTOM, WORD_PATH, WORD_RIGHT, WORD_TOP } from './wordmark'
 import { ART_H, ART_W, looks, PILL_H, progressArtSvg, progressShare, progressTrackSvg, THINK_W, thinkingSvg } from './progress'
 
 // The agent panel (docs/agent-panel/): a pane on the right with this chat and the subagents it sends off. Its own file,
@@ -1093,34 +1094,50 @@ function note(d: AgentsDraw, agents: readonly AgentRec[]) {
 }
 
 /**
- * The settings bar's wordmark drawn wide in the brand's violet. Scaling the 92 px original would scale its grain with
- * it (blobs, not grain), so the filter's numbers are divided by the scale: the grain stays the size it is in the bar.
+ * The website's wordmark (site/index.html, h1 .word) as an SVG of outlines, drawn w px wide: a crisp copy that fades out
+ * towards the bottom right, where a grainy, blurred copy takes over. The masks and the grain filter are the site's own,
+ * in its units (the word at font-size 100), so drawn about as wide as the site draws it the grain is the site's grain.
  */
 export function wordmarkSvg(w: number, color: string): { source: string; w: number; h: number } {
-  const k = w / 92
-  const h = Math.round(28 * k)
-  const n = (v: number) => +v.toFixed(3)
+  // The site's boxes: the crisp copy's (an inline span: the ink's width, the font's ascent to descent) and the soft
+  // copy's (a block: the line, padding .3em right and below).
+  const cw = WORD_RIGHT
+  const ct = WORD_TOP
+  const cb = WORD_BOTTOM
+  const sw = WORD_RIGHT + 30
+  const sh = 130
+  // As much room on the left as the soft copy takes on the right, so the word sits in the middle of the image.
+  const pad = sw - WORD_RIGHT
+  const h = Math.round((w * sh) / (sw + pad))
+  const word = `<path transform="translate(0 ${WORD_BASELINE})" d="${WORD_PATH}"/>`
+  // CSS radial-gradient(rx ry at cx cy) as SVG: a circle of radius rx stretched to ry about its centre.
+  const ellipse = (id: string, cx: number, cy: number, rx: number, ry: number, stops: string) =>
+    `<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="${rx}" ` +
+    `gradientTransform="translate(0 ${cy}) scale(1 ${+(ry / rx).toFixed(4)}) translate(0 ${-cy})">${stops}</radialGradient>`
   const source =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 92 28"><defs>` +
-    '<radialGradient id="c" cx="1" cy="1" r=".75" gradientTransform="matrix(.7 0 0 2.3 .3 -1.3)"><stop offset=".35" stop-color="#000"/><stop offset="1" stop-color="#fff"/></radialGradient>' +
-    '<radialGradient id="s" cx=".9" cy=".85" r=".55" gradientTransform="matrix(.7 0 0 2.3 .27 -1.1)"><stop offset=".4" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient>' +
-    '<mask id="mc"><rect width="92" height="28" fill="url(#c)"/></mask><mask id="ms"><rect width="92" height="28" fill="url(#s)"/></mask>' +
-    `<filter id="g" x="-20%" y="-40%" width="140%" height="180%"><feTurbulence type="fractalNoise" baseFrequency="${n(1.4 * k)}" numOctaves="1" seed="7" result="noise"/>` +
-    `<feDisplacementMap in="SourceGraphic" in2="noise" scale="${n(2.5 / k)}" xChannelSelector="R" yChannelSelector="G" result="moved"/>` +
-    `<feGaussianBlur in="moved" stdDeviation="${n(0.35 / k)}" result="soft"/><feComponentTransfer in="noise" result="dots"><feFuncA type="discrete" tableValues="0 1 1 1 1"/></feComponentTransfer>` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${-pad} 0 ${sw + pad} ${sh}"><defs>` +
+    // .crisp: radial-gradient(46% 80% at 100% 100%, transparent 15%, #000 85%)
+    ellipse('wc', cw, cb, 0.46 * cw, 0.8 * (cb - ct), '<stop offset=".15" stop-color="#000"/><stop offset=".85" stop-color="#fff"/>') +
+    // .soft: radial-gradient(40% 72% at 86% 82%, #000 30%, transparent 100%)
+    ellipse('ws', 0.86 * sw, 0.82 * sh, 0.4 * sw, 0.72 * sh, '<stop offset=".3" stop-color="#fff"/><stop offset="1" stop-color="#000"/>') +
+    `<mask id="wmc" maskUnits="userSpaceOnUse" x="0" y="0" width="${sw}" height="${sh}"><rect y="${ct}" width="${cw}" height="${cb - ct}" fill="url(#wc)"/></mask>` +
+    `<mask id="wms" maskUnits="userSpaceOnUse" x="0" y="0" width="${sw}" height="${sh}"><rect width="${sw}" height="${sh}" fill="url(#ws)"/></mask>` +
+    // #grainy, as on the site.
+    '<filter id="wg" x="-20%" y="-20%" width="140%" height="160%">' +
+    '<feTurbulence type="fractalNoise" baseFrequency="1.7" numOctaves="1" seed="7" result="noise"/>' +
+    '<feDisplacementMap in="SourceGraphic" in2="noise" scale="7" xChannelSelector="R" yChannelSelector="G" result="moved"/>' +
+    '<feGaussianBlur in="moved" stdDeviation="1" result="soft"/>' +
+    '<feComponentTransfer in="noise" result="dots"><feFuncA type="discrete" tableValues="0 0 1 1 1"/></feComponentTransfer>' +
     '<feComposite in="soft" in2="dots" operator="in"/></filter></defs>' +
-    `<g font-size="21" font-weight="600" letter-spacing="-.5"><text x="1" y="20" fill="${color}" mask="url(#mc)">effortless</text>` +
-    `<g mask="url(#ms)"><text x="1" y="20" fill="${color}" filter="url(#g)">effortless</text></g></g></svg>`
+    `<g fill="${color}" mask="url(#wmc)">${word}</g>` +
+    `<g mask="url(#wms)"><g fill="${color}" filter="url(#wg)">${word}</g></g></svg>`
   return { source, w, h }
 }
-
-/** The settings bar's mark: big, tilted and faint, cut off by the card's corner. */
-const BIG_MARK = MARK_SVG.replace('<g mask=', '<g opacity=".12" transform="rotate(9 50 50)" mask=')
 
 /**
  * The whole pane is one card in the dashboard's dress (its dark, its edge, its art in the top corner). Parts follow one
  * another with a thin rule between: the node in focus, the map, the agents, the usage, a note; then the wordmark across
- * the bottom with the big faint mark behind it.
+ * the bottom.
  */
 export function agentsPane(d: AgentsDraw, agents: readonly AgentRec[]) {
   const { Box, Text, Svg } = d
@@ -1138,11 +1155,6 @@ export function agentsPane(d: AgentsDraw, agents: readonly AgentRec[]) {
   ].filter(Boolean)
   return (
     <Box key="agents" position="relative" flexDirection="column" minHeight={d.rows} gap={1} overflow="hidden">
-      {Svg ? (
-        <Box key="agents-big-mark" position="absolute" bottom={-4} right={-6}>
-          <Svg source={BIG_MARK} alt="effortless mark" width={180} height={180} />
-        </Box>
-      ) : null}
       {parts.flatMap((p, i) => (i ? [rule(d, `agents-rule-${i}`), p] : [p]))}
       <Box flexGrow={1} />
       <Box key="agents-wordmark" flexDirection="row" justifyContent="center">
