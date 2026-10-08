@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.45.8",
+    "date": "2026-10-08",
+    "note": "Settings title all white, less blur"
+  },
+  {
     "version": "1.45.7",
     "date": "2026-10-08",
     "note": "Settings title grain: white with a light accent tint"
