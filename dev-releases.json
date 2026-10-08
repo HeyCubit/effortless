@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.45.2",
+    "date": "2026-10-08",
+    "note": "Calmer Settings top bar"
+  },
+  {
     "version": "1.45.1",
     "date": "2026-10-08",
     "note": "Check for updates looks even while an old Updated card shows"
