@@ -3488,6 +3488,23 @@ export const register: Register = (on, options) => {
     if (e.command !== 'effortless' && e.command !== 'effortless:effortless') return next(e)
     const wanted = await read($, suggestion)
     const arg = e.args.trim().toLowerCase()
+    // /effortless card offer|updating|done|failed: draws that update card with made-up text, to look at it before a publish.
+    if (arg.startsWith('card')) {
+      const stage = arg.slice(4).trim() || 'done'
+      const stages = ['offer', 'updating', 'done', 'failed']
+      if (stage === 'off') {
+        await update($, updateCard, () => null)
+        return { text: 'The preview card is gone.' }
+      }
+      if (!stages.includes(stage)) return { text: 'Use /effortless card offer, updating, done, failed or off.' }
+      const version = (await installedVersion($)) ?? '1.0.0'
+      await update($, updateCard, () => ({
+        stage: stage as UpdateCard['stage'], version, note: 'A short release note, as users see it.', at: Date.now(),
+        ...(stage === 'failed' ? { detail: 'A made-up failure, for the look of the card.' } : {}),
+      }))
+      $.ui.invalidate('ui.render')
+      return { text: `The update card shows its "${stage}" look (a preview). /effortless card off clears it.` }
+    }
     if (arg === 'update') {
       await checkUpdate($).catch(() => undefined)
       const card = await read($, updateCard)
