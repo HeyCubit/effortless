@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.53.6",
+    "date": "2026-10-08",
+    "note": "Updated card: textured green left, dividers between links, roomier Share hover"
+  },
+  {
     "version": "1.53.5",
     "date": "2026-10-08",
     "note": "Updated card: green wash on the left; Share hover covers the icon"

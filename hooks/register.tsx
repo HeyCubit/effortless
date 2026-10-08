@@ -301,10 +301,17 @@ const DONE_BG = '#0f1c15'
 // The Updated card: near black, a dim green edge; the green is in its title, the check and the sparkles.
 const UPDATED_BG = '#08090a'
 const UPDATED_EDGE = '#1f4a33'
-// A soft green wash at the left of the landed card, behind the mark and title; it fades out before the links.
-const UPDATED_GLOW_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMinYMid slice"><defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#2f9a5e" stop-opacity=".30"/><stop offset=".45" stop-color="#2f9a5e" stop-opacity=".10"/><stop offset="1" stop-color="#2f9a5e" stop-opacity="0"/></linearGradient></defs><rect width="360" height="30" fill="url(#g)"/></svg>`
+// The brand art of the offer card, mirrored to the left and turned green: the landed card keeps its texture and sparkles
+// behind the mark and title, while the links on the right stay on near black.
+const UPDATED_GLOW_SVG = BRAND_SVG
+  .replace('preserveAspectRatio="xMaxYMid slice"', 'preserveAspectRatio="xMinYMid slice"')
+  .replace('</defs>', '</defs><g transform="translate(360 0) scale(-1 1)">').replace('</svg>', '</g></svg>')
+  .replace(/#7c6cf0/g, '#2f9a5e').replace(/#8f7ff0/g, '#3fae6e').replace(/#b3a6ff/g, '#7fe0a4').replace(/#c9bdff/g, '#a8ecc2').replace(/#9a86ff/g, '#4cbf7c')
+  .replace(/stop-opacity="([0-9.]+)"/g, (_m, v: string) => `stop-opacity="${(Number(v) * 0.6).toFixed(3)}"`)
 // The Share icon: an arrow leaving a tray, white like the GitHub mark beside it.
 const SHARE_MARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16"><path fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M8 10V1.8M4.8 4.8L8 1.6l3.2 3.2M2.5 8.5v4.8c0 .4.3.7.7.7h9.6c.4 0 .7-.3.7-.7V8.5"/></svg>`
+// A thin vertical line between the links on the Updated card.
+const DIVIDER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1" height="18" viewBox="0 0 1 18"><rect width="1" height="18" fill="#ffffff" fill-opacity=".16"/></svg>`
 // Hover on the near-black card: a light veil (the dark one used elsewhere is invisible here).
 const UPDATED_HOVER = '#ffffff1f'
 const DONE_EDGE = '#2f7a4c'
@@ -2595,6 +2602,11 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
     if (card.stage === 'offer') await $.store.set('updateHidden', { version: card.version, at: await $.clock.now() })
     await update($, updateCard, () => null)
   }
+  const divider = (key: string) => (
+    <Box key={key} flexShrink={0} marginX={1}>
+      <Svg source={DIVIDER_SVG} alt="" width={1} height={18} />
+    </Box>
+  )
   // Each control in a box of its own: under one shared box, hovering one lit the other too.
   const own = (key: string, el: unknown) => (
     <Box key={key} position="relative" flexShrink={0}>
@@ -2619,9 +2631,10 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
           ? [
               // White and bold: the app's blue link was hard to see on the green and the check.
               own('update-link-box', <Text color="#ffffff" bold><Link href={WHATS_NEW_URL} label="What's new →" /></Text>),
+              divider('update-div-1'),
               own('update-share-box', (
                 // The icon and the word, with a blank button laid over both: its hover veil covers the icon too.
-                <Box key="update-share" position="relative" flexDirection="row" alignItems="center" gap={1} flexShrink={0}>
+                <Box key="update-share" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1} flexShrink={0}>
                   <Svg source={SHARE_MARK_SVG} alt="Share" width={14} height={14} />
                   <Text>Share</Text>
                   <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
@@ -2629,6 +2642,7 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
                   </Box>
                 </Box>
               )),
+              divider('update-div-2'),
               own('update-star-box', (
                 <Box key="update-star" flexDirection="row" alignItems="center" gap={1}>
                   <Svg source={GITHUB_MARK_SVG} alt="GitHub" width={14} height={14} />
