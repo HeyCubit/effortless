@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { setTheme, themedSvg, tint, tintHex } from '../hooks/theme'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
@@ -1070,6 +1070,7 @@ describe('judge choice (plugin settings)', () => {
       swampAt: 80,
       layout: 'default',
       compactWith: 'haiku',
+      handoffButton: 'advised',
       modelAuto: 'on',
       theme: 'violet',
     })
@@ -2596,6 +2597,30 @@ describe('dashboard', () => {
     await expect($.ui.mount(FOOTER)).rejects.toThrow()
   })
 
+  test('Handoff button set to always: the slot is Handoff from the start, calm, no glow, and it opens the handoff bar', { options: { layout: 'default', handoffButton: 'always' } } as never, async ($, on) => {
+    engine(on)
+    recordSteps(on)
+    const mocked = mock.clock(on)
+    on('session.usage', () => ({ value: { context: { tokens: 100_000, window: 1_000_000, percent: 10 } } }) as never)
+    await start($, on)
+    await closeSetup($, DESK_BAND)
+    await mocked.advance(16_000)
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await band.find({ key: 'dash-handoff' })).toBeDefined()
+    expect(await band.find({ key: 'dash-glow' })).toBeUndefined()
+    expect(await band.find({ key: 'dash-handoff-h' })).toBeUndefined()
+    const text = await drawn(band)
+    expect(text).toContain('Handoff')
+    expect(text).not.toContain('Compact')
+    await band.unmount()
+  })
+
+  test('readConfig keeps handoffButton to advised or always', () => {
+    expect(readConfig({}).handoffButton).toBe('advised')
+    expect(readConfig({ handoffButton: 'always' }).handoffButton).toBe('always')
+    expect(readConfig({ handoffButton: 'sometimes' }).handoffButton).toBe('advised')
+  })
+
   test('one button: Compact until the Haiku check says a handoff would suit; then Handoff, lit, with the reason', DASH, async ($, on) => {
     engine(on)
     recordSteps(on)
@@ -2850,12 +2875,13 @@ describe('a message typed while a turn runs', () => {
 describe('updates', () => {
   const DESK = { options: { layout: 'default' } } as never
   /** A session with `installed` on disk and `latest` on main; records what the mod runs. */
-  function world(on: On, v: { installed: string; latest: string; fails?: string; git?: string }) {
+  function world(on: On, v: { installed: string; latest: string; fails?: string; git?: string; installPath?: string }) {
     engine(on)
     const clock = mock.clock(on)
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
     on('fs.read', (_$, e) => {
       if (String(e.path).replaceAll('\\', '/').endsWith('.claude-plugin/plugin.json')) return { value: JSON.stringify({ version: v.installed }) } as never
+      if (v.installPath && String(e.path).replaceAll('\\', '/').endsWith('installed_plugins.json')) return { value: JSON.stringify({ plugins: { 'effortless@effortless': [{ installPath: v.installPath }] } }) } as never
       if (String(e.path).replaceAll('\\', '/').endsWith('marketplaces/effortless/public.json')) return { value: JSON.stringify([{ version: v.latest, note: 'Quick and Full as one switch.' }]) } as never
       return { value: '' } as never
     })
@@ -3044,6 +3070,17 @@ describe('updates', () => {
     await pastSetup(ui)
     expect(await drawn(ui)).not.toContain('update-card')
     await ui.unmount()
+  })
+
+  test('syncPlan copies the installed version over the running cache folder, and nowhere else', () => {
+    const oldDir = 'C:\\Users\\x\\.claude\\plugins\\cache\\effortless-dev\\effortless\\1.57.0'
+    const newDir = 'C:\\Users\\x\\.claude\\plugins\\cache\\effortless-dev\\effortless\\1.59.0'
+    expect(syncPlan(oldDir, newDir)?.slice(0, 3)).toEqual(['robocopy', newDir, oldDir])
+    expect(syncPlan('/h/.claude/plugins/cache/m/effortless/1.0.0', '/h/.claude/plugins/cache/m/effortless/1.0.1')).toEqual(['cp', '-R', '/h/.claude/plugins/cache/m/effortless/1.0.1/.', '/h/.claude/plugins/cache/m/effortless/1.0.0'])
+    // The same folder, nothing installed, or a working copy outside the cache: nothing is written.
+    expect(syncPlan(newDir, newDir)).toBeUndefined()
+    expect(syncPlan(oldDir, undefined)).toBeUndefined()
+    expect(syncPlan('C:\\Users\\x\\Documents\\effortless', newDir)).toBeUndefined()
   })
 
   test('Update runs the two claude plugin commands, reloads, and the new version says Updated with a link', DESK, async ($, on) => {

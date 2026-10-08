@@ -95,6 +95,7 @@ const paused = atom({ plugin: 'effortless', key: 'paused' } as const, false)
 // How long the main conversation's prompt cache stays warm, in whole minutes left: null before the first response,
 // 0 once it has gone cold. Updated only when the minute changes, so the footer redraws once a minute at most.
 const cacheLeft = atom({ plugin: 'effortless', key: 'cacheLeft' } as const, null)
+const cacheMemo = atom({ plugin: 'effortless', key: 'cacheMemo' } as const, null)
 const isCompacting = atom({ plugin: 'effortless', key: 'isCompacting' } as const, false)
 // The compact bar: open after Compact is pressed, with a field for what the summary should keep.
 const compactAsk = atom({ plugin: 'effortless', key: 'compactAsk' } as const, false)
@@ -556,6 +557,8 @@ export type JudgeConfig = {
   layout: 'default' | 'minimal'
   /** Who writes a compaction's summary: Haiku 5.5 (the default, a fraction of the price) or the chat's own model. */
   compactWith: 'haiku' | 'session'
+  /** advised: the footer slot is Compact until Haiku advises a handoff. always: it is always the Handoff button. */
+  handoffButton: 'advised' | 'always'
   /** A prompt the judge calls simple runs on a cheaper model than the chat's (never a dearer one). */
   modelAuto: 'on' | 'off'
   /** The accent colour of everything effortless draws: the brand violet or Claude orange. */
@@ -584,6 +587,7 @@ let config: JudgeConfig = {
   swampAt: 80,
   layout: 'default',
   compactWith: 'haiku',
+  handoffButton: 'advised',
   modelAuto: 'on',
   theme: 'violet',
 }
@@ -604,6 +608,7 @@ export function readConfig(options: unknown): JudgeConfig {
     swampAt: SWAMP_STEPS.includes(Number(str(o.swampAt)) as (typeof SWAMP_STEPS)[number]) ? Number(str(o.swampAt)) : 80,
     layout: str(o.layout) === 'minimal' ? 'minimal' : 'default',
     compactWith: str(o.compactWith) === 'session' ? 'session' : 'haiku',
+    handoffButton: str(o.handoffButton) === 'always' ? 'always' : 'advised',
     modelAuto: str(o.modelAuto) === 'off' ? 'off' : 'on',
     theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
     // The judge's line is off until switched on; an empty string saved from the panel means everything shows.
@@ -1195,6 +1200,20 @@ export function cacheClockSvg(msLeft: number, color: string): string {
 
 let cacheTtl: keyof typeof CACHE_TTL = '1h'
 let cacheExpires = 0
+/** The countdown's variables live in the module, and a reload (an update, a plugin switch) starts the module over: the
+ * chat's cache did not go cold for that, so the countdown is read back from the session's state before the band draws
+ * (it showed "Cold" after every reload). */
+let cacheRestored = false
+async function restoreCache($: EngineInterface) {
+  if (cacheRestored) return
+  cacheRestored = true
+  const memo = await read($, cacheMemo)
+  if (!memo || cacheExpires !== 0 || memo.expires <= 0) return
+  cacheExpires = memo.expires
+  cacheTtl = memo.ttl
+  lastResponseAt = memo.last
+}
+const rememberCache = ($: EngineInterface) => update($, cacheMemo, () => ({ expires: cacheExpires, ttl: cacheTtl, last: lastResponseAt }))
 /** Writes the minutes left when they changed; the session's one timer (started in session.start) calls it. */
 // What /effortless swamp shows as a test: a swamped chat's context.
 const SWAMP_TOKENS = 150_000
@@ -1356,6 +1375,7 @@ async function cacheTouched($: EngineInterface, usage: unknown) {
     void proof($, `cache lifetime ${ttl}`)
   }
   cacheExpires = now + CACHE_TTL[cacheTtl]
+  await rememberCache($)
   if (await read($, isColdHidden)) await update($, isColdHidden, () => false)
   await showCache($)
 }
@@ -1376,6 +1396,7 @@ async function compactCold($: EngineInterface, note = '') {
     // A note goes after /compact as the app's own instructions for the summary.
     await $.command.run({ command: 'compact', args: note.trim() })
     cacheExpires = 0
+    await rememberCache($)
     await update($, cacheLeft, () => null)
     compacted = true
   } catch (error) {
@@ -1648,6 +1669,7 @@ const SETTING_FIELDS = {
   swampAt: 'swampAt',
   layout: 'layout',
   compactWith: 'compactWith',
+  handoffButton: 'handoffButton',
   modelAuto: 'modelAuto',
   theme: 'theme',
 } as const
@@ -1676,6 +1698,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     swampAt: String(config.swampAt),
     layout: config.layout,
     compactWith: config.compactWith,
+    handoffButton: config.handoffButton,
     modelAuto: config.modelAuto,
     theme: config.theme,
     [SETTING_FIELDS[field]]: value,
@@ -2559,6 +2582,9 @@ async function runUpdate($: EngineInterface, card: UpdateCard) {
     await update($, updateCard, () => ({ ...card, stage: 'failed', detail: String(error instanceof Error ? error.message : error) }))
     return
   }
+  // The desktop app keeps this chat on the folder it started with, and a reload reads that folder again: so the new
+  // version's files go into it, or the reload would bring back the old code.
+  await syncRunningCopy($).catch(() => undefined)
   const now = await $.clock.now()
   await $.store.set('updatedTo', { version: card.version, note: card.note, at: now })
   // Installed, not yet running: only the new code, once loaded, says "Loaded in this chat" (afterLoad).
@@ -2569,6 +2595,28 @@ async function runUpdate($: EngineInterface, card: UpdateCard) {
     await update($, updateCard, c => (c ? { ...c, detail: 'Press Enter to load it' } : c))
   // Still this code's words after a while: the reload did not load the new version, so a new chat has to.
   $.clock.after(UPDATE_LOAD_WAIT_MS, () => void update($, updateCard, c => (c && c.at === now && c.detail === UPDATE_LOADING ? { ...c, detail: 'Installed. Open a new chat to load it.' } : c)))
+}
+/** The command that puts the installed version's files over the running copy, or nothing when they are the same folder or
+ * either is not a plugin cache folder (a working copy is never written over). */
+export function syncPlan(running: string, installed: string | undefined): string[] | undefined {
+  const norm = (x: string) => x.replace(/[\\/]+$/, '').replaceAll('\\', '/')
+  const cached = (x: string) => /\/cache\//.test(norm(x))
+  if (!installed || norm(installed) === norm(running) || !cached(installed) || !cached(running)) return undefined
+  return /^[A-Za-z]:|\\/.test(running)
+    ? ['robocopy', installed, running, '/E', '/NFL', '/NDL', '/NJH', '/NJS', '/NP']
+    : ['cp', '-R', `${installed}/.`, running]
+}
+/** Copies the files of the version just installed into the folder this chat runs from, when the two differ. A failed
+ * copy leaves the reload as it was. */
+async function syncRunningCopy($: EngineInterface) {
+  const home = $.plugin.root.replace(/[\\/]cache[\\/].*$/, '')
+  const record = JSON.parse(String(await $.fs.read(`${home}/installed_plugins.json`))) as { plugins?: Record<string, { installPath?: unknown }[]> }
+  const installed = record.plugins?.[pluginId($)]?.map(x => x.installPath).filter((x): x is string => typeof x === 'string').at(-1)
+  const argv = syncPlan($.plugin.root, installed)
+  if (!argv) return
+  const r = await $.process.run(argv, { timeoutMs: 120_000 })
+  // robocopy answers below 8 when it copied (1 = files copied).
+  if (argv[0] === 'robocopy' ? r.exitCode >= 8 : r.exitCode !== 0) throw new Error(`copy failed (${r.exitCode})`)
 }
 const UPDATE_LOADING = 'Installed. Loading it…'
 /** A plain /reload-plugins holds back a change that would make the next message re-read the chat without the cache
@@ -2695,8 +2743,10 @@ const HANDOFF_LOUD_AT = 30
 // What the band last read from handoffAdvice, so the drawing helpers need no await.
 let adviceNow: string | null = null
 const HANDOFF_ADVICE_LEVEL = 50
-const handoffLevel = () => (adviceNow ? HANDOFF_ADVICE_LEVEL : 0)
+// "Always" (the Handoff button setting) keeps the slot as Handoff, calm in a grey box, and loud only once advised.
+const handoffLevel = () => (adviceNow ? HANDOFF_ADVICE_LEVEL : config.handoffButton === 'always' ? HANDOFF_BOX_AT : 0)
 const handoffLoud = () => adviceNow !== null
+const handoffSlot = () => handoffLoud() || config.handoffButton === 'always'
 /** Handoff's box: it fades in, grey, up to HANDOFF_BOX_AT, then lightens to white by HANDOFF_LOUD_AT, where the glow
  * takes over (it grows to 80%). A glow only ever sits around the white box. */
 const HANDOFF_BOX_AT = 15
@@ -2998,10 +3048,10 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
                   <els.Svg source={handoffPillSvg(handoffLevel(), true)} alt="Handoff box" width={HANDOFF_PILL_W} height={HANDOFF_PILL_H} />
                 </Box>
                 <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                  <Text color={handoffLook(handoffLevel()).label} hover={{ scope: 'handoff', color: handoffLook(handoffLevel(), true).label }}>{handoffLoud() ? 'Handoff' : 'Compact'}</Text>
+                  <Text color={handoffLook(handoffLevel()).label} hover={{ scope: 'handoff', color: handoffLook(handoffLevel(), true).label }}>{handoffSlot() ? 'Handoff' : 'Compact'}</Text>
                 </Box>
                 <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                  <Button key="dash-handoff" plain label={' '.repeat(14)} hover={{ scope: 'handoff', backgroundColor: '#00000000' }} onPress={() => (handoffLoud() ? openHandoffBar($) : openCompact($, e))} />
+                  <Button key="dash-handoff" plain label={' '.repeat(14)} hover={{ scope: 'handoff', backgroundColor: '#00000000' }} onPress={() => (handoffSlot() ? openHandoffBar($) : openCompact($, e))} />
                 </Box>
               </Box>
             </Box>
@@ -3462,6 +3512,7 @@ export const register: Register = (on, options) => {
       lastResponseAt = now - r.seconds_since_last_response * 1000
       const left = lastResponseAt + CACHE_TTL[cacheTtl]
       cacheExpires = r.prompt_cache_likely_expired || left <= now ? now - 1 : left
+      await rememberCache($)
       await checkSwamp($).catch(() => undefined)
       await showCache($).catch(() => undefined)
       // The app opens the chat and draws its band while this runs; a redraw asked now can land before the band is
@@ -4019,6 +4070,7 @@ Saved to ${out}.md and .json` }
     // Setup changes a reload cut off are saved from here: the reloaded plugin draws before anything else runs.
     void drainSetupSave($).catch(() => undefined)
     void afterLoad($).catch(() => undefined)
+    await restoreCache($).catch(() => undefined)
     renderCalls++
     lastRenderAt = Date.now()
     lastRenderProps = JSON.stringify(e.props).slice(0, 200)
@@ -4086,6 +4138,7 @@ Saved to ${out}.md and .json` }
         swampAt: draft.swampAt ?? String(config.swampAt),
         layout: draft.layout ?? config.layout,
         compactWith: draft.compactWith ?? config.compactWith,
+        handoffButton: draft.handoffButton ?? config.handoffButton,
         modelAuto: draft.modelAuto ?? config.modelAuto,
         theme: draft.theme ?? config.theme,
       }
@@ -4309,6 +4362,9 @@ Saved to ${out}.md and .json` }
               onSelect={v => set('handoffSkill')(v === '-' ? '' : v)} />,
             <Select key="settings-swamp" label="Compact alert at" value={shown.swampAt}
               options={SWAMP_STEPS.map(n => ({ value: String(n), label: `${n}%` }))} onSelect={set('swampAt')} />,
+            <Select key="settings-handoff-button" label="Handoff button" value={shown.handoffButton}
+              options={[{ value: 'advised', label: 'When advised' }, { value: 'always', label: 'Always' }]}
+              onSelect={set('handoffButton')} />,
             <Select key="settings-compact-with" label="Compact with" value={shown.compactWith}
               options={[{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }]}
               onSelect={set('compactWith')} />,

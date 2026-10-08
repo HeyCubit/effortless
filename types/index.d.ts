@@ -51,6 +51,8 @@ export type SettingsDraft = {
   layout?: string
   /** haiku (Haiku 5.5 writes the compaction's summary) or session (the chat's own model). */
   compactWith?: string
+  /** advised (the slot is Compact until Haiku advises a handoff) or always (the slot is the Handoff button). */
+  handoffButton?: string
   /** on: a prompt the judge calls simple runs on a cheaper model than the chat's; off: always the chat's model. */
   modelAuto?: string
   /** violet (the brand) or orange (Claude's). */
@@ -132,6 +134,8 @@ declare module 'claude-code' {
       paused: boolean
       /** Whole minutes the prompt cache stays warm: null before the first response, 0 once cold. */
       cacheLeft: number | null
+      /** What the cache countdown knows, kept here because a reload starts the module's own variables over. */
+      cacheMemo: { expires: number; ttl: '5m' | '1h'; last?: number } | null
       /** A compaction started from the footer's Compact button is running. */
       isCompacting: boolean
       /** The compact bar is open, asking for an optional note. */

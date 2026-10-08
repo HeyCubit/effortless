@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.59.1",
+    "date": "2026-10-08",
+    "note": "Update loads into this chat, no false Cold after a reload, Handoff button setting"
+  },
+  {
     "version": "1.58.1",
     "date": "2026-10-08",
     "note": "Update forces the reload so the chat runs the new version"
