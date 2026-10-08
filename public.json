@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.51.0",
+    "date": "2026-10-08",
+    "note": "Maintenance release, no behaviour changes",
+    "public": true
+  },
+  {
     "version": "1.50.0",
     "date": "2026-10-08",
     "note": "Maintenance release, no behaviour changes",
