@@ -1,54 +1,48 @@
 # effortless handoff
 
 ## Branch and PRs
-- `main` on HeyCubit/effortless, direct pushes. Several chats push to main: `git pull --rebase --autostash` first.
-- Two channels. Users install the plugin from the `stable` branch (marketplace entry `ref: stable`), and the update card
-  offers the newest entry of `public.json`. Isac's machine runs the dev channel: marketplace `effortless-dev`
-  (`channels/dev`, plugin from `main`), installed as `effortless@effortless-dev`.
-- `tools/release.sh (--files <paths> -- | --all) "<subject>" "<body>"`: tests, patch bump, commit to main, push,
-  installs the dev channel here. Reaches no user.
-- `tools/publish.sh "<what's new>" "<detail>"`: tests, minor bump (1.36.0 -> 1.37.0), writes releases.json and
-  public.json, pushes main and moves `stable` to it. Every user gets one update card. Publish only on Isac's go.
-- Public now: 1.36.0 (2026-10-07). Showcase site: https://heycubit.github.io/effortless/ (`gh-pages` = `main:site`);
-  the site's What's new should list public.json, not every dev release.
+- `main` on HeyCubit/effortless, direct pushes, no open PRs. Several chats push to main: `git pull --rebase --autostash` first.
+- History was rewritten on 2026-10-08 (every commit now authored by HeyCubit). Old clones and worktrees
+  (`site-story`, `agent-panel`, `claude/competent-feistel-c1efc9`, `nervous-kapitsa`) must `git fetch` and reset onto
+  the new branches before pushing, or the old commits come back.
+- Two channels. Users install from the `stable` branch (marketplace `ref: stable`, update card reads `public.json`).
+  Isac runs the dev channel: `effortless@effortless-dev` (plugin from `main`, entries in `dev-releases.json`).
+- `tools/release.sh --files <paths> -- "<subject>"`: tests, patch bump, commit, push, installs dev here. Never `--all`
+  (other chats' changes sit in the tree). Reaches no user.
+- `tools/publish.sh "<what's new>" "<detail>"`: minor bump, writes releases.json and public.json, moves `stable`.
+  Every user gets an update card. Only on Isac's word.
+- Public: 1.37.0. Dev: 1.37.2. Site: https://heycubit.github.io/effortless/ (`gh-pages`, rebuilt from `main`).
 
-## Where things stand
-- Dashboard bar is the default look; Minimal stays as a setting (Settings → Appearance).
-- Update card (1.35.80-1.35.92): reads releases.json from the effortless marketplace after `claude plugin marketplace
-  update` (git; the host's web fetch was cached), offers Update/Later (Later = a day), runs `claude plugin update`, then
-  `/reload-plugins` via `$.command.run`; the new load shows "Updated to X" + What's new → /whats-new/. Checked on the
-  band's first draw after any load (reload fires no session.start) and every 6 h. Confirmed working end to end in the app.
-- Handoff bar: Quick/Full is one sliding switch (drawn track, solid bolt/pen icons, SMIL slide stamped per click).
-- Compact (cold and swamp bands) opens a one-line bar: ✦ Compact, Summary (optional) field, drawn Compact pill with
-  Claude's Enter mark; the note goes to `/compact <note>`. The field's own submit hint is clipped (window anchored
-  right). Opening it fades the swamp green out over the violet, plus the entrance sweep.
-- Settings: Appearance (was Show) has Uninstall (bin, red on hover, two presses). Panel keeps one height in every part.
-- Effort: a message typed mid-turn never lowers the running turn's effort (held until the turn ends); Auto off/on
-  mid-turn changes nothing.
-- Startup: session.start reads its settings in one batch (25 ms). The ~3 s before the first draw is the app's; an
-  empty chat is never asked for the band (app side, not fixable in the mod).
-- Progress bar and its sounds are switched off (removed from the app, settings and `/effortless progress`);
-  `hooks/progress.tsx` and `sounds/` stay for later. The `/effortless try` test aids and test pane are gone.
-- Per-chat render log `~/.claude/effortless-render-<chat>.log`: session start, first-draw timing, draw times.
-
-## Not done / unverified in the app
-- Compact bar layout + fade (1.35.102-103), Quick/Full solid icons and per-click slide (1.35.101): rig only.
-- Open question: after Auto off, later turns keep Auto's last effort rather than the app's own setting. Isac to decide.
-- Logo animation on effort change / Auto on: proposed, not built.
+## Half done
+- Theme (1.37.2, dev): Settings → Appearance → Theme, Violet (default) or Claude orange. `hooks/theme.ts` turns every
+  violet hex to hue 15 (accent `#a79cf7` → `#da7958`); Svg sources go through `themedEls`, text colours through
+  `accent()`/`tintHex`, art palette in `hooks/art.ts`, progress/agents looks via `looks()`. Tests pass (161) and the
+  rig renders the band orange. Not seen yet: the Settings panel itself (the rig cannot draw it) and the real app.
+- 1.37.1 (Check for updates button in Settings) and 1.37.2 are dev only, not published.
+- GitHub contributors sidebar still lists IsacEhrstedt (server cache; API already shows only HeyCubit). Support
+  ticket sent 2026-10-08. Isac does not want to post the repo anywhere until it is gone.
+- Uninstall test (Settings → Appearance → Uninstall, two presses): result never reported.
 
 ## Next
-1. Agent panel: planned in `docs/agent-panel/` (PLAN.md, mockups, 7 open questions). Built in its own chat, not here.
-2. Isac checks the Compact bar and the Quick/Full switch; fix what he reports in the rig first.
+1. Isac: `/reload-plugins`, Settings → Appearance → Theme → Claude orange; check panel, band, footer, banners.
+2. Fix what he reports, then ask whether to publish (1.38.0 would carry the update button and the theme).
+3. Optional: block force pushes and deletion on `stable` with a ruleset (offered, no answer yet).
+4. Marketing research ran in its own chat: `docs/marketing/launch-research.md` (untracked, not committed by this chat).
+
+## Only Isac
+- Publishing to users, anything that force-pushes (the safety check blocks Claude; he ran the rewrite in Git Bash).
+- Following up the GitHub Support ticket by mail.
 
 ## Decided, do not redo
-- No `clipPath` in band Svgs. No short-tick redraws; animate inside images (`inPhase`, SMIL).
-- Controls over the art need an empty absolute child; each hoverable control in its own small box (shared boxes
-  light up together). Buttons are one line and text only: draw icons/pills as Svg with a blank button over them.
-- Svg needs alt text and a sized box, or the app may draw nothing.
+- Deciding glow: rise, hold at full, fade 450 ms from the verdict, drawn as 150 ms pieces placed by clock. The app
+  redraws the band every ~100-120 ms and sometimes re-shows an older copy ~0.6 s later; animations must survive a
+  restart. Isac: "WORKS" on 1.36.18. Notes in ai-setup memory `mod_band_styling.md`.
+- The judge line is off by default (`hide: reason`).
+- Theme is one hue rotation, not a second colour set. Hot/Compact bands stay orange-red in both themes.
+- No `clipPath` in band Svgs; controls over art need an empty absolute child; Svg needs alt text and a sized box.
 
 ## Pointers
-- Render rig `tools/render-band/` (README): `--press`, `--command`, `--tree file.json`, `--trace MS`, `--at`, `--wait`,
-  `--serve`. Dump a tree from a test with `console.log(JSON.stringify(await band.drawn()))` to render states the rig
-  cannot reach.
-- Tests `tests/effortless.test.ts`. Showcase brief `docs/showcase/`. Memories (ai-setup): `mod_band_styling.md`,
-  `modellval_mod.md`, `mod_engine_module_rules.md`.
+- Code `hooks/register.tsx` (bands, settings, judge), `hooks/theme.ts`, `hooks/agents.tsx`, `hooks/progress.tsx`.
+- Tests: `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude plugin test .` (`tests/effortless.test.ts`).
+- Rig `tools/render-band/` (README); `--options theme=orange` renders the orange band.
+- Render log `~/.claude/effortless-render-<chat>.log`. Agent panel plan `docs/agent-panel/`.
