@@ -2978,7 +2978,10 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     // Compact, always there on the desktop (the takeover at the alert level is the loud one): hidden when the bar has no
     // room for it, and on the terminal, where one press would compact at once.
     ...(e.surface !== 'terminal' && 'Svg' in els && !config.hide.includes('handoff') && (typeof e.props.bodyColumns !== 'number' || e.props.bodyColumns >= COMPACT_BUTTON_MIN_COLUMNS)
-      ? [<Button key="dash-compact" variant="secondary" label="Compact" onPress={() => openCompact($, e)} />]
+      // Calm like Handoff on a fresh chat: plain grey text, the boxed button from HANDOFF_LOUD_AT, where a compact pays.
+      ? [handoffLevel() >= HANDOFF_LOUD_AT
+          ? <Button key="dash-compact" variant="secondary" label="Compact" onPress={() => openCompact($, e)} />
+          : <Button key="dash-compact" plain dimColor label="Compact" onPress={() => openCompact($, e)} />]
       : []),
     ...(config.hide.includes('handoff')
       ? []
