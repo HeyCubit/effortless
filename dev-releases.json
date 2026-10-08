@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.54.3",
+    "date": "2026-10-08",
+    "note": "A short 5-minute cache reading no longer drops the 1-hour countdown to Cold"
+  },
+  {
     "version": "1.54.2",
     "date": "2026-10-08",
     "note": "/effortless debug shows the cache countdown's facts"

@@ -1365,7 +1365,9 @@ async function cacheTouched($: EngineInterface, usage: unknown) {
   const ttl = cacheTtlOf(usage) ?? (lastResponseAt !== undefined && now - lastResponseAt > CACHE_TTL['5m'] && mostlyCached(usage) ? '1h' : undefined)
   lastResponseAt = now
   coldForced = false
-  if (ttl && ttl !== cacheTtl) {
+  // A reply that wrote only a short 5-minute tail still reads the rest from the 1-hour cache: once 1h is seen, a
+  // 5m reading never pulls the countdown back down (that showed "Cold" while the cache was warm).
+  if (ttl && ttl !== cacheTtl && !(ttl === '5m' && cacheTtl === '1h' && mostlyCached(usage))) {
     cacheTtl = ttl
     void proof($, `cache lifetime ${ttl}`)
   }
