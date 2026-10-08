@@ -2488,6 +2488,8 @@ let loadChecked = false
 async function afterLoad($: EngineInterface) {
   if (loadChecked) return
   loadChecked = true
+  // A reload has no session start, so this load reads its own version here too.
+  ownVersion = (await installedVersion($)) ?? ownVersion
   const updatedTo = (await $.store.get('updatedTo').catch(() => null)) as { version: string; note: string; at: number } | null
   if (updatedTo) {
     await $.store.set('updatedTo', null)
@@ -2559,12 +2561,17 @@ async function runUpdate($: EngineInterface, card: UpdateCard) {
   }
   const now = await $.clock.now()
   await $.store.set('updatedTo', { version: card.version, note: card.note, at: now })
-  await update($, updateCard, () => ({ ...card, stage: 'done', at: now }))
+  // Installed, not yet running: only the new code, once loaded, says "Loaded in this chat" (afterLoad).
+  await update($, updateCard, () => ({ ...card, stage: 'done', at: now, detail: UPDATE_LOADING }))
   // The reload loads the new version here; where the app takes no command from a plugin, it is typed for Enter.
   const reloaded = await $.command.run({ command: 'reload-plugins', args: '' } as never).then(() => true, () => false)
   if (!reloaded && (await typeCommand($, '/reload-plugins')))
     await update($, updateCard, c => (c ? { ...c, detail: 'Press Enter to load it' } : c))
+  // Still this code's words after a while: the reload did not load the new version, so a new chat has to.
+  $.clock.after(UPDATE_LOAD_WAIT_MS, () => void update($, updateCard, c => (c && c.at === now && c.detail === UPDATE_LOADING ? { ...c, detail: 'Installed. Open a new chat to load it.' } : c)))
 }
+const UPDATE_LOADING = 'Installed. Loading it…'
+const UPDATE_LOAD_WAIT_MS = 15_000
 /** The update card above the prompt: the offer, the moving art while it updates, green once done. */
 function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card: UpdateCard) {
   const { Box, Text, Svg, Button, Link } = themedEls($.ui.resolve(e))

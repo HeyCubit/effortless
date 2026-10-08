@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.57.1",
+    "date": "2026-10-08",
+    "note": "Update card no longer claims the new version loaded before it has"
+  },
+  {
     "version": "1.56.3",
     "date": "2026-10-08",
     "note": "Haiku always judges, Jev is an optional add-on; the Custom judge is gone"
