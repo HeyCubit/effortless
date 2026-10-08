@@ -916,20 +916,21 @@ function overview(d: AgentsDraw, nodes: readonly NetNode[], focus: string, mainS
             <Svg source={mapSvg(nodes, m.w, m.h, cam, d.nowMs, focus, mainShare)} alt={`this chat and ${nodes.length - 1} agents`} width={m.w} height={m.h} />
           </Box>
         ) : null}
-        {/* Two rows of hit area per node: a Box sits on whole cells, so one row could miss the node by half a row. */}
-        {hits.map(({ n, px, py }) => (
-          <Box key={`node-${n.id}`} position="absolute" top={Math.max(0, Math.floor(py / CELL_H - 0.5))} left={Math.max(0, Math.round(px / CELL_W - 2.5))}
-            width={5} height={2} flexDirection="column" alignItems="center">
-            {/* No-break spaces: plain ones collapse and leave a button too narrow to hit the node. */}
-            <Button key={`node-${n.id}-press`} plain label={'   '} hover={{ backgroundColor: '#00000000' }} onPress={() => d.onFocus(n.id)} />
-            <Button key={`node-${n.id}-press2`} plain label={'   '} hover={{ backgroundColor: '#00000000' }} onPress={() => d.onFocus(n.id)} />
-          </Box>
-        ))}
+        {/* The Client under the nodes' buttons: a drag on open map pans, a click on a node is the button's, as in the list. */}
         {d.mapClient ? (
           <Box key="agents-map-touch" position="absolute" top={0} left={0} right={0} bottom={0}>
             {d.mapClient}
           </Box>
         ) : null}
+        {/* Two rows of hit area per node: a Box sits on whole cells, so one row could miss the node by half a row. */}
+        {hits.map(({ n, px, py }) => (
+          <Box key={`node-${n.id}`} position="absolute" top={Math.max(0, Math.floor(py / CELL_H - 0.5))} left={Math.max(0, Math.round(px / CELL_W - 2.5))}
+            width={5} height={2} flexDirection="column" alignItems="center">
+            {/* No-break spaces: plain ones collapse and leave a button too narrow to hit the node. */}
+            <Button key={`node-${n.id}-press`} plain label={String.fromCharCode(160).repeat(5)} hover={{ backgroundColor: '#00000000' }} onPress={() => d.onFocus(n.id)} />
+            <Button key={`node-${n.id}-press2`} plain label={String.fromCharCode(160).repeat(5)} hover={{ backgroundColor: '#00000000' }} onPress={() => d.onFocus(n.id)} />
+          </Box>
+        ))}
       </Box>
     </Box>
   )

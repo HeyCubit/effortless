@@ -1,0 +1,40 @@
+[
+ {
+  "eval": "(()=>{const R=window.LAB.root;return [...R.querySelectorAll('button[data-press-key^=\"node-\"]')].map(b=>{const r=b.getBoundingClientRect();const t=R.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return b.getAttribute('data-press-key')+'='+(t===b||b.contains(t)?'button':(t&&t.closest('[data-lab-client]')?'CLIENT':(t&&t.tagName)))}).join(' | ')})()"
+ },
+ {
+  "eval": "(window.LAB.root.querySelectorAll('button[data-press-key^=\"node-\"]').forEach(b=>b.style.outline='1px solid red'),'outlined')"
+ },
+ {
+  "shot": "nodes-outlined"
+ },
+ {
+  "click": "node-demo-1-press"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "shot": "node-click-explore"
+ },
+ {
+  "drag": [
+   [
+    0.9,
+    0.9
+   ],
+   [
+    0.6,
+    0.7
+   ]
+  ],
+  "in": "agents-map",
+  "steps": 8
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "node-drag-still"
+ }
+]
