@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.58.0",
+    "date": "2026-10-08",
+    "note": "Update card tells the truth",
+    "public": true
+  },
+  {
     "version": "1.57.0",
     "date": "2026-10-08",
     "note": "One Compact/Handoff button, Haiku decides handoffs",
