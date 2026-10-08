@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.52.0",
+    "date": "2026-10-08",
+    "note": "Logo on the update, handoff and compact cards; no stale Cold after a plugin switch",
+    "public": true
+  },
+  {
     "version": "1.51.0",
     "date": "2026-10-08",
     "note": "Maintenance release, no behaviour changes",
