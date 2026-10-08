@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.39.1",
+    "date": "2026-10-08",
+    "note": "Settings no longer offers an older version; publish syncs the site"
+  },
+  {
     "version": "1.38.1",
     "date": "2026-10-08",
     "note": "Updates work without a GitHub SSH key"

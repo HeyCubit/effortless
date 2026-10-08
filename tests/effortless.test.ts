@@ -2916,6 +2916,29 @@ describe('updates', () => {
     expect((await panel.find({ key: 'settings-update' }))?.text).toContain('Update to 1.0.1')
   })
 
+  test('a version found earlier is not offered once the installed one is as new', DESK, async ($, on) => {
+    const v = { installed: '1.0.0', latest: '1.0.1' }
+    world(on, v)
+    await start($)
+    await settle()
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await pastSetup(ui)
+    await ui.press({ key: 'update-later' })
+    await $.command.run({ command: 'effortless', args: 'settings' } as never)
+    const panel = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await panel.press({ key: 'settings-check-update' })
+    await settle()
+    expect((await panel.find({ key: 'settings-update' }))?.text).toContain('Update to 1.0.1')
+    // Installed some other way (a dev release, claude plugin update), and newer than what was found.
+    v.installed = '1.0.2'
+    v.latest = '1.0.2'
+    await start($)
+    await settle()
+    const again = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    expect(await again.find({ key: 'settings-update' })).toBeUndefined()
+    expect(await again.find({ key: 'settings-check-update' })).toBeDefined()
+  })
+
   test('Check for updates says Up to date when there is nothing newer', DESK, async ($, on) => {
     world(on, { installed: '1.0.1', latest: '1.0.1' })
     await start($)

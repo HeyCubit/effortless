@@ -7,6 +7,7 @@
 #
 # It needs a clean index and main in step with origin. It runs the tests, bumps the minor version (1.35.x -> 1.36.0),
 # writes the release into releases.json and public.json, commits, pushes main, then moves stable to that commit.
+# Last it runs tools/site.sh, which rebuilds the site so What's new lists the release, and publishes gh-pages.
 set -euo pipefail
 dry=0
 if [ "${1:-}" = "--dry-run" ]; then dry=1; shift; fi
@@ -44,3 +45,4 @@ git push -q origin HEAD:main
 git push -q origin HEAD:stable
 sed -i "s/version $old/version $new/" HANDOFF.md 2>/dev/null || true
 echo "published $new: stable is at $(git rev-parse --short HEAD); users see the update card within 6 hours"
+tools/site.sh "$new: $1"

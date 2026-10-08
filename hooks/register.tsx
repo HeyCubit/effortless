@@ -2430,6 +2430,8 @@ async function checkUpdate($: EngineInterface) {
   lastUpdateCheck = `installed ${mine ?? 'unreadable'}; ${how}`
   if (!latest || !mine || !isNewer(latest.version, mine)) {
     if (shown) await update($, updateCard, () => null)
+    // A version found earlier is stale once this one is as new (installed some other way): the button looks again.
+    await update($, updateCheck, cur => (cur.startsWith('found ') ? 'idle' : cur))
     return
   }
   const now = await $.clock.now()
@@ -4071,7 +4073,7 @@ Saved to ${out}.md and .json` }
               <Text dimColor>Checking…</Text>
             ) : checking === 'newest' ? (
               <Text dimColor>✓ Up to date</Text>
-            ) : checking.startsWith('found ') ? (
+            ) : checking.startsWith('found ') && (!ownVersion || isNewer(checking.slice(6), ownVersion)) ? (
               <Button key="settings-update" variant="primary" label={`Update to ${checking.slice(6)}`} onPress={async () => {
                 const card = await read($, updateCard)
                 await update($, updateCheck, () => 'idle')
