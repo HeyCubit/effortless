@@ -2854,7 +2854,7 @@ describe('a message typed while a turn runs', () => {
 describe('updates', () => {
   const DESK = { options: { layout: 'default' } } as never
   /** A session with `installed` on disk and `latest` on main; records what the mod runs. */
-  function world(on: On, v: { installed: string; latest: string; fails?: string }) {
+  function world(on: On, v: { installed: string; latest: string; fails?: string; git?: string }) {
     engine(on)
     const clock = mock.clock(on)
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
@@ -2873,7 +2873,9 @@ describe('updates', () => {
     on('process.run', (_$, e) => {
       ran.push(e.argv.join(' '))
       envs.push(e.init?.env)
-      return { value: v.fails ? { exitCode: 1, stdout: '', stderr: v.fails } : { exitCode: 0, stdout: '', stderr: '' } } as never
+      // git show answers with public.json as it is on stable, when the test gives one.
+      const stdout = e.argv[0] === 'git' && e.argv.includes('show') ? (v.git ?? '') : ''
+      return { value: v.fails ? { exitCode: 1, stdout: '', stderr: v.fails } : { exitCode: 0, stdout, stderr: '' } } as never
     })
     const commands: string[] = []
     on('command.run', (_$, e) => {
@@ -2937,6 +2939,21 @@ describe('updates', () => {
     const again = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
     expect(await again.find({ key: 'settings-update' })).toBeUndefined()
     expect(await again.find({ key: 'settings-check-update' })).toBeDefined()
+  })
+
+  test('Check for updates trusts git over a web answer that lags behind', DESK, async ($, on) => {
+    const w = world(on, { installed: '1.0.1', latest: '1.0.1', git: JSON.stringify([{ version: '1.0.2', note: 'From git.' }]) })
+    await start($)
+    await settle()
+    await $.command.run({ command: 'effortless', args: 'settings' } as never)
+    const panel = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await pastSetup(panel)
+    await $.command.run({ command: 'effortless', args: 'settings' } as never)
+    const again = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await again.press({ key: 'settings-check-update' })
+    await settle()
+    expect((await again.find({ key: 'settings-update' }))?.text).toContain('Update to 1.0.2')
+    expect(w.ran.some(r => r.includes('fetch -q --depth 1 --filter=blob:none origin stable'))).toBe(true)
   })
 
   test('Check for updates says Up to date when there is nothing newer', DESK, async ($, on) => {

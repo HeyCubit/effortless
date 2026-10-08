@@ -2392,11 +2392,27 @@ async function installedVersion($: EngineInterface): Promise<string | undefined>
   }
 }
 /** Looks for a newer version and offers it, unless ✕ put that version away less than UPDATE_SNOOZE_MS ago. */
-// What the last check found, for /effortless update to say (installed, web, marketplace).
+// What the last check found, for /effortless update to say (installed, git, web, marketplace).
 let lastUpdateCheck = 'not checked yet'
-/** The newest public release: public.json on main over the web, else the marketplace's own copy of the repo after `claude
- * plugin marketplace update` (git, so it works where the host's web fetch is refused or cached). */
+/** public.json as it is on stable, read with git: a depth-1 fetch without file contents into a small repo of its own, then
+ * the one file. Git has no cache in the way, unlike the host's web fetch, and works on the dev channel too. */
+async function latestFromGit($: EngineInterface): Promise<{ version: string; note: string } | undefined> {
+  const dir = `${$.plugin.root.replace(/[\\/]cache[\\/].*$/, '')}/data/effortless-release-check`
+  const git = (...args: string[]) => $.process.run(['git', '-C', dir, ...args], { timeoutMs: 60_000 })
+  if ((await git('rev-parse', '--git-dir').catch(() => null))?.exitCode !== 0) {
+    await $.process.run(['git', 'init', '-q', dir], { timeoutMs: 30_000 })
+    await git('remote', 'add', 'origin', 'https://github.com/HeyCubit/effortless.git')
+  }
+  const fetched = await git('fetch', '-q', '--depth', '1', '--filter=blob:none', 'origin', 'stable')
+  if (fetched.exitCode !== 0) return undefined
+  const shown = await git('show', 'FETCH_HEAD:public.json')
+  return shown.exitCode === 0 ? latestRelease(shown.stdout) : undefined
+}
+/** The newest public release: from git first; where git is missing or offline, public.json on main over the web and the
+ * marketplace's own copy after `claude plugin marketplace update`, whichever is newer. */
 async function latestAvailable($: EngineInterface): Promise<{ latest?: { version: string; note: string }; how: string }> {
+  const fromGit = await latestFromGit($).catch(() => undefined)
+  if (fromGit) return { latest: fromGit, how: `git ${fromGit.version}` }
   const res = await $.http.fetch(`${RELEASES_URL}&t=${Date.now()}`, { headers: { accept: 'application/vnd.github.raw', 'user-agent': 'effortless' } }).catch((error: unknown) => ({ ok: false, status: 0, text: String(error) }))
   const fromWeb = res.ok ? latestRelease(res.text) : undefined
   const web = res.ok ? (fromWeb ? `web ${fromWeb.version}` : 'web: unreadable') : `web refused (${res.status || res.text.slice(0, 80)})`
@@ -2409,7 +2425,7 @@ async function latestAvailable($: EngineInterface): Promise<{ latest?: { version
   await $.process.run(['claude', 'plugin', 'marketplace', 'update', 'effortless'], { timeoutMs: 120_000, env: GITHUB_OVER_HTTPS }).catch(() => null)
   const local = await readLocal()
   const best = fromWeb && (!local || !isNewer(local.version, fromWeb.version)) ? fromWeb : local
-  return { latest: best, how: `${web}; marketplace ${local?.version ?? 'unreadable'}` }
+  return { latest: best, how: `git failed; ${web}; marketplace ${local?.version ?? 'unreadable'}` }
 }
 // /reload-plugins loads the module again without a session start, so the band's first draw runs afterLoad too.
 let loadChecked = false

@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.44.1",
+    "date": "2026-10-08",
+    "note": "Update check reads public.json with git"
+  },
+  {
     "version": "1.43.1",
     "date": "2026-10-08",
     "note": "Star on GitHub as a white pill with the GitHub mark"
