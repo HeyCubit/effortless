@@ -162,9 +162,9 @@ const settingsCard = atom({ plugin: 'effortless', key: 'settingsCard' } as const
 /** The settings panel's parts: a card each on the overview, and what the part is for, said once it is open. */
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits.' },
-  { id: 'judge', title: 'Judge', about: 'Who reads each prompt and picks the effort and model. Test checks it answers.' },
   { id: 'handoff', title: 'Handoff', about: 'The skill that writes a full handoff, and at what share of context to suggest compacting or handing off.' },
   { id: 'show', title: 'Customize', about: 'How effortless looks and which parts it shows. Uninstall removes it.' },
+  { id: 'judge', title: 'Judge', about: 'Who reads each prompt and picks the effort and model. Test checks it answers.' },
 ]
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
 // The settings panel's judge test: running, or what it found. Null before a test and once the panel closes.
