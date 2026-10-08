@@ -2604,7 +2604,7 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
   }
   const divider = (key: string) => (
     <Box key={key} flexShrink={0} marginX={1}>
-      <Svg source={DIVIDER_SVG} alt="" width={1} height={18} />
+      <Svg source={DIVIDER_SVG} alt="divider" width={1} height={18} />
     </Box>
   )
   // Each control in a box of its own: under one shared box, hovering one lit the other too.
@@ -2657,7 +2657,7 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
       backgroundColor={landed ? UPDATED_BG : BRAND_BG} borderStyle="round" borderColor={landed ? UPDATED_EDGE : BRAND_EDGE}>
       {landed ? (
         <Box key="update-glow" position="absolute" top={-1} left={0} bottom={-1}>
-          <Svg source={UPDATED_GLOW_SVG} alt="" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+          <Svg source={UPDATED_GLOW_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         </Box>
       ) : (
         <Box key="update-art" position="absolute" top={-1} right={0} bottom={-1}>
