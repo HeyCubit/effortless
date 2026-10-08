@@ -31,6 +31,13 @@ describe('pane lab', () => {
     on('ui.open', () => ({ value: { isPlaced: true } }) as never)
     on('tool.call', () => ({ result: 'ok', isError: false }) as never)
     on('turn.complete', () => ({ text: '' }))
+    // The app draws a pane again only when the mod asks ($.ui.invalidate('ui.render')); the kit redraws after every
+    // act. The lab counts the asks so the page can keep the old drawing when the last act asked for none, as the app does.
+    let invalidated = 0
+    on('ui.invalidate', ((_$: unknown, e: { event: string }) => {
+      if (e.event === 'ui.render') invalidated++
+      return {}
+    }) as never)
     const clock = mock.clock(on)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
     for (const args of L.setup) await $.command.run({ command: 'effortless', args } as never)
@@ -39,7 +46,9 @@ describe('pane lab', () => {
     const pane = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', component: 'Pane', requestId: L.pane, props: props() } as never)
     let now = 0
     const log: string[] = []
+    let lastAsked = 0
     for (const a of L.acts) {
+      const before = invalidated
       if (a.t > now) {
         await clock.advance(a.t - now)
         now = a.t
@@ -54,12 +63,15 @@ describe('pane lab', () => {
           size = { bodyColumns: a.bodyColumns, bodyRows: a.bodyRows }
           await pane.redraw(props() as never)
         }
-        log.push(`ok ${a.kind}`)
+        lastAsked = invalidated - before
+        log.push(`ok ${a.kind}${a.kind === 'resize' || a.kind === 'size' ? '' : lastAsked ? ` (redraw asked ${lastAsked}x)` : ' (NO REDRAW ASKED)'}`)
       } catch (err) {
         log.push(`${a.kind} failed: ${String((err as Error)?.message ?? err).slice(0, 300)}`)
       }
     }
     if (L.at > now) await clock.advance(L.at - now)
+    const last = L.acts[L.acts.length - 1]
+    console.log('LAB-REDRAW ' + JSON.stringify(!last || last.kind === 'size' || last.kind === 'resize' || lastAsked > 0))
     console.log('LAB-LOG ' + JSON.stringify(log))
     console.log('LAB-TREE ' + JSON.stringify(await pane.drawn()))
   })

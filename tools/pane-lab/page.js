@@ -117,7 +117,9 @@
       busy = busy.then(async () => {
         const res = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
         const out = await res.json()
-        if (out.tree) draw(out.tree)
+        // As the app: an act after which the mod asked for no redraw leaves the old drawing up.
+        if (out.tree && out.redraw !== false) draw(out.tree)
+        else if (out.tree) document.documentElement.dataset.labStale = String(Number(document.documentElement.dataset.labStale || 0) + 1)
         say(`${out.error ? 'ERROR\n' + out.error : ''}last: ${JSON.stringify(payload.act ?? 'reset')}\n${out.ms} ms\n${(out.log ?? []).slice(-12).join('\n')}`)
         window.LAB_LAST = out
       }).catch((err) => say(String(err))).finally(() => {

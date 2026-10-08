@@ -3186,6 +3186,26 @@ describe('agent panel', () => {
     await pane.unmount()
   })
 
+  test('every press in the pane asks the app to draw it again (the app redraws a pane only when asked)', async ($, on) => {
+    let asked = 0
+    on('ui.invalidate', ((_$: unknown, e: { event: string }) => {
+      if (e.event === 'ui.render') asked++
+      return {}
+    }) as never)
+    await start($, on)
+    await $.command.run({ command: 'effortless', args: 'agents demo' })
+    const pane = await $.ui.mount(PANE)
+    for (const key of ['row-demo-1-press', 'node-main-press', 'map-in', 'map-out', 'map-fit', 'done-press']) {
+      const before = asked
+      await pane.press({ key })
+      expect(`${key} ${asked > before}`).toBe(`${key} true`)
+    }
+    const before = asked
+    await pane.post({ drag: 1, dx: 0.1, dy: 0, end: true })
+    expect(asked).toBeGreaterThan(before)
+    await pane.unmount()
+  })
+
   test('the map zooms with its buttons and pans with a drag on its Client', async ($, on) => {
     await start($, on)
     await $.command.run({ command: 'effortless', args: 'agents demo' })

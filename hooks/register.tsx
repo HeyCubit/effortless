@@ -3183,6 +3183,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
 /** Changes one agent's record, if the panel knows it. */
 async function agentSet($: EngineInterface, id: string, fn: (a: AgentRec) => AgentRec) {
   await update($, agentsState, list => (list.some(a => a.id === id) ? list.map(a => (a.id === id ? fn(a) : a)) : list))
+  $.ui.invalidate('ui.render')
 }
 
 /** An agent's loop ended: done when it answered, failed otherwise. */
@@ -3205,6 +3206,7 @@ async function fileTouched($: EngineInterface, path: string, edited: boolean, by
   let imports: string[] | undefined
   if (!known || edited) imports = importsOf(rel, await $.fs.read(path).then(t => t.slice(0, 512_000), () => ''))
   await update($, agentFiles, list => withTouch(list, rel, edited, by, now, imports))
+  $.ui.invalidate('ui.render')
 }
 
 /** From the 1 s timer: an agent long in one tool call turns to waiting. Writes only when one changes. */
@@ -3212,7 +3214,9 @@ async function agentWaits($: EngineInterface) {
   const list = await read($, agentsState)
   if (!list.length) return
   const next = withWaits(list, await $.clock.now())
-  if (next) await update($, agentsState, () => next)
+  if (!next) return
+  await update($, agentsState, () => next)
+  $.ui.invalidate('ui.render')
 }
 
 /** The overview's size as last drawn, so a click or drag on its Client can be turned into the map's pixels. */
@@ -3230,6 +3234,7 @@ async function agentFocus($: EngineInterface, id: string) {
   const nodes = worldLayout(await read($, agentsState))
   await update($, agentsOpen, () => id)
   await update($, agentsCam, c => camGlide(c ?? camStart(nodes, mapBox.w, mapBox.h), now, { x: node.x, y: node.y }))
+  $.ui.invalidate('ui.render')
 }
 
 /** Zooms the overview by `factor`, gliding. */
@@ -3240,6 +3245,7 @@ async function agentZoom($: EngineInterface, factor: number) {
     const base = c ?? camStart(nodes, mapBox.w, mapBox.h)
     return camGlide(base, now, { z: camNow(base, now).z * factor })
   })
+  $.ui.invalidate('ui.render')
 }
 
 /** A note for every agent: this chat and each agent still going read it with their next tool result. */
@@ -3248,6 +3254,7 @@ async function agentNote($: EngineInterface, text: string) {
   if (!t) return
   const now = await $.clock.now()
   await update($, agentsNotes, list => [...list, { id: `n${now}`, text: t.slice(0, 600), at: now, seen: [] }].slice(-20))
+  $.ui.invalidate('ui.render')
 }
 
 /** The notes `who` has not read yet, marked read: what its next tool result carries. */
@@ -3259,6 +3266,7 @@ async function notesFor($: EngineInterface, who: string): Promise<string[]> {
   if (!due.length) return []
   const ids = new Set(due.map(n => n.id))
   await update($, agentsNotes, list => list.map(n => (ids.has(n.id) ? { ...n, seen: [...n.seen, who] } : n)))
+  $.ui.invalidate('ui.render')
   return due.map(n => `A note from the user, sent to every agent from the effortless agent panel: ${n.text}`)
 }
 
@@ -3493,6 +3501,7 @@ export const register: Register = (on, options) => {
         await update($, agentsOpen, () => 'main')
         await update($, agentsCam, () => null)
         await update($, agentsNotes, () => [{ id: 'demo-note', text: 'keep the tests green before you report', at: now - 60_000, seen: ['main', 'demo-1'] }] as AgentNote[])
+        $.ui.invalidate('ui.render')
       }
       await $.ui.open({ id: 'effortless-agents', title: 'Agents' })
       return { text: arg === 'agents demo' ? 'The agent panel shows sample agents (a preview).' : 'The agent panel is open.' }
@@ -3872,6 +3881,7 @@ Saved to ${out}.md and .json` }
     const rec: AgentRec = { id, type: e.fork ? 'fork' : e.subagentType, task: e.description, state: 'running', startedAt: now, model: result.model }
     if (e.parentAgentId) rec.parentId = e.parentAgentId
     await update($, agentsState, list => [...list.filter(a => a.id !== id), rec].slice(-40))
+    $.ui.invalidate('ui.render')
     return result
   })
 
@@ -3901,6 +3911,7 @@ Saved to ${out}.md and .json` }
         const taskId = (result.result as { task?: { id?: string } } | undefined)?.task?.id
         if (taskId) await update($, agentSteps, steps => withTaskCreated(steps ?? [], taskId, e))
       } else await update($, agentSteps, steps => (steps ? withTaskUpdated(steps, e) : steps))
+      $.ui.invalidate('ui.render')
     }
     if (known && id !== undefined) {
       const steps = ok && e.tool === 'TodoWrite' ? stepsFromTodos(e.todos) : undefined
@@ -3930,11 +3941,15 @@ Saved to ${out}.md and .json` }
           const now = await $.clock.now()
           const nodes = worldLayout(await read($, agentsState))
           await update($, agentsCam, c => camFit(nodes, mapBox.w, mapBox.h, now, c ?? camStart(nodes, mapBox.w, mapBox.h)))
+          $.ui.invalidate('ui.render')
         },
         mapClient: Client && !mapBroken ? <Client key="agents-map" module="./agents-map.tsx" width="100%" height="100%" /> : null,
         steps: await read($, agentSteps),
         doneOpen: await read($, agentsDoneOpen),
-        onDone: () => update($, agentsDoneOpen, v => !v),
+        onDone: async () => {
+          await update($, agentsDoneOpen, v => !v)
+          $.ui.invalidate('ui.render')
+        },
         mainCost: await read($, agentsMainCost),
         notes: await read($, agentsNotes),
         onNote: (text: string) => agentNote($, text),
@@ -3964,6 +3979,7 @@ Saved to ${out}.md and .json` }
       }
       const b = dragBase
       await update($, agentsCam, () => camSet(b.x - ((data.dx ?? 0) * mapBox.w) / b.z, b.y - ((data.dy ?? 0) * mapBox.h) / b.z, b.z))
+      $.ui.invalidate('ui.render')
       if (data.end) dragBase = null
     }
     return {}
