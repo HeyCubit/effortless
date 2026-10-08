@@ -2556,10 +2556,14 @@ async function afterLoad($: EngineInterface) {
   ownVersion = (await installedVersion($)) ?? ownVersion
   startTimers($, 'draw')
   const updatedTo = (await $.store.get('updatedTo').catch(() => null)) as { version: string; note: string; at: number } | null
+  // A "Loading it…" left by the copy before this load is over either way.
+  await update($, updateCard, c => (c && c.detail === UPDATE_LOADING ? { ...c, detail: 'Installed. Open a new chat to load it.' } : c))
   if (updatedTo) {
     await $.store.set('updatedTo', null)
-    if ((await installedVersion($)) === updatedTo.version)
-      await update($, updateCard, () => ({ stage: 'done', version: updatedTo.version, note: updatedTo.note, at: Date.now() }))
+    // The reload brought back older code (the chat's folder was not refreshed): the old code's timer died with the
+    // reload, so the card would say "Loading it…" for good. Say what to do instead.
+    const loaded = (await installedVersion($)) === updatedTo.version
+    await update($, updateCard, () => ({ stage: 'done', version: updatedTo.version, note: updatedTo.note, at: Date.now(), ...(loaded ? {} : { detail: 'Installed. Open a new chat to load it.' }) }))
   }
   await checkUpdate($)
 }
@@ -2660,7 +2664,8 @@ async function syncRunningCopy($: EngineInterface) {
   // robocopy answers below 8 when it copied (1 = files copied).
   if (argv[0] === 'robocopy' ? r.exitCode >= 8 : r.exitCode !== 0) throw new Error(`copy failed (${r.exitCode})`)
 }
-const UPDATE_LOADING = 'Installed. Loading it…'
+// The reload is queued until Claude is idle: pressed mid-reply, it waits for the reply to finish.
+const UPDATE_LOADING = 'Installed. Loads as soon as Claude is idle.'
 /** A plain /reload-plugins holds back a change that would make the next message re-read the chat without the cache
  * (new commands do), says "installed but not applied" and keeps the old code running. Update was pressed: apply it. */
 export const RELOAD_ARGS = '--force'

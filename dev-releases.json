@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.62.1",
+    "date": "2026-10-08",
+    "note": "Update card never sticks on Loading"
+  },
+  {
     "version": "1.61.1",
     "date": "2026-10-08",
     "note": "Compact stays beside Handoff once the slot is Handoff"
