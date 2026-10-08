@@ -3255,10 +3255,14 @@ describe('agent panel', () => {
     // The map is the Client's own drawing, so the pane need not redraw for it to move.
     await pane.pointer({ in: 'agents-map', type: 'down', x: 10, y: 5, button: 'left' } as never)
     await pane.pointer({ in: 'agents-map', type: 'move', x: 20, y: 5, button: 'left' } as never)
+    // The slide eases towards the pointer on the Client's own frame clock.
+    await pane.advance(400)
     const held = pan(await map())
     expect(Number(held?.[1])).toBeGreaterThan(Number(rest?.[1]) + 40)
     expect(Number((await camera())?.[1])).toBe(cam0)
     await pane.pointer({ in: 'agents-map', type: 'up', x: 20, y: 5, button: 'left' } as never)
+    // It tells the hooks once it has caught up.
+    await pane.advance(400)
     // Released: the camera has moved the other way (this translate is minus the camera), the map drawn from rest there.
     expect(Number((await camera())?.[1])).toBeGreaterThan(cam0 + 20)
     expect(Number(pan(await map())?.[1])).toBe(Number(rest?.[1]))

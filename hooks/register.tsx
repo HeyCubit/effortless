@@ -3224,6 +3224,8 @@ async function agentWaits($: EngineInterface) {
 let mapBox = mapSize(46, 40)
 /** The map's Client failed on this surface: the pane draws without it (buttons still focus and zoom). */
 let mapBroken = false
+/** The pointer is over the map (its Client says so): the pane's wheel zooms the map then, not the pane. */
+let mapHover = false
 /** Pane draws and map messages, for the render log: how often the app really redraws the pane, and how long each took. */
 let paneDraws = 0
 let paneDrawAt = 0
@@ -3975,11 +3977,21 @@ Saved to ${out}.md and .json` }
   })
 
 
+  // The wheel over the map zooms it. The app scrolls the pane first and asks after, and hands a Client no wheel, so
+  // while the map's Client says the pointer is on it the pane is put back where it was and the map zooms a step instead.
+  on('ui.scroll', { component: 'Pane', requestId: 'effortless-agents' }, async ($, e, next) => {
+    if (!mapHover || !e.by) return next(e)
+    renderLog.push(`${new Date().toISOString()} ${loadedSession} wheel on the map: ${e.by}`)
+    await agentZoom($, Math.pow(1.15, -Math.sign(e.by) * Math.min(3, Math.abs(e.by))))
+    return next({ ...e, offset: e.offset - e.by })
+  })
+
   // The overview's Client: a click focuses the node under it, a drag pans, hovering hands the wheel to the map.
   on('ui.message', async ($, e, next) => {
     if (e.element !== 'agents-map') return next(e)
     const data = (e.data ?? {}) as { hover?: boolean; click?: [number, number]; pan?: [number, number] }
     renderLog.push(`${new Date().toISOString()} ${loadedSession} map says ${JSON.stringify(data)}`)
+    if (typeof data.hover === 'boolean') mapHover = data.hover
     if (data.click) {
       const now = await $.clock.now()
       const nodes = worldLayout(await read($, agentsState))
