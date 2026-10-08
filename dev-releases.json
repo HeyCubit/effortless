@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.42.1",
+    "date": "2026-10-08",
+    "note": "No Star link in Settings"
+  },
+  {
     "version": "1.41.1",
     "date": "2026-10-08",
     "note": "Star moves next to the name in Settings, bright"

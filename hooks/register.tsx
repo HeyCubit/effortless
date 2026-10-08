@@ -4057,8 +4057,6 @@ Saved to ${out}.md and .json` }
           <Box key="settings-title" position="absolute" top={0} left={2} height={term ? 2 : 2.5} flexDirection="row" alignItems="center" gap={1}>
             {term ? <Text color={ACCENT} bold>✦</Text> : null}
             {Svg && !term ? <Svg source={SETTINGS_TITLE} alt="effortless" width={92} height={28} /> : <Text color={DASH_TEXT} bold>effortless</Text>}
-            {/* Next to the name, bright: the one place a Star on GitHub shows in Settings. */}
-            <Text color="#ffffff" bold><Link href={REPO_URL} label="★ Star" /></Text>
             {ownVersion ? <Text color="#6b6b73">v{ownVersion}</Text> : null}
             {/* Inside a part: Back to the cards, then the part's name. */}
             {card === null ? (
