@@ -3061,7 +3061,7 @@ describe('updates', () => {
     await ui.unmount()
   })
 
-  test('Uninstall in Appearance asks for a second press, then uninstalls and reloads', DESK, async ($, on) => {
+  test('Uninstall in Customize asks for a second press, then uninstalls and reloads', DESK, async ($, on) => {
     const w = world(on, { installed: '1.0.1', latest: '1.0.1' })
     on('ui.toast', () => ({ value: undefined }) as never)
     await start($)
@@ -3070,7 +3070,7 @@ describe('updates', () => {
     await pastSetup(ui)
     await ui.press({ key: 'dash-settings' })
     await ui.press({ key: 'settings-card-show' })
-    expect(await drawn(ui)).toContain('Appearance')
+    expect(await drawn(ui)).toContain('Customize')
     w.ran.length = 0
     await ui.press({ key: 'settings-uninstall' })
     expect(w.ran).toEqual([])

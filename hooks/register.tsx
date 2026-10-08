@@ -164,7 +164,7 @@ const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits.' },
   { id: 'judge', title: 'Judge', about: 'Who reads each prompt and picks the effort and model. Test checks it answers.' },
   { id: 'handoff', title: 'Handoff', about: 'The skill that writes a full handoff, and at what share of context to suggest compacting or handing off.' },
-  { id: 'show', title: 'Appearance', about: 'How effortless looks and which parts it shows. Uninstall removes it.' },
+  { id: 'show', title: 'Customize', about: 'How effortless looks and which parts it shows. Uninstall removes it.' },
 ]
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
 // The settings panel's judge test: running, or what it found. Null before a test and once the panel closes.
@@ -1964,8 +1964,8 @@ export function rowIconSvg(kind: 'effort' | 'judge' | 'handoff' | 'show' | 'quic
     judge: '<path d="M7 2.4V11.6M4.4 11.6H9.6M2.6 4.2H11.4"/><path d="M2.6 4.2L1.2 7.6A1.5 1.5 0 0 0 4 7.6Z"/><path d="M11.4 4.2L10 7.6A1.5 1.5 0 0 0 12.8 7.6Z"/>',
     // An arrow into a bar: hand off.
     handoff: '<path d="M1.8 7H9.4M6.6 4.2L9.4 7L6.6 9.8"/><path d="M11.8 2.6V11.4"/>',
-    // An eye.
-    show: '<path d="M1.2 7C2.6 4.4 4.6 3.1 7 3.1S11.4 4.4 12.8 7C11.4 9.6 9.4 10.9 7 10.9S2.6 9.6 1.2 7Z"/><circle cx="7" cy="7" r="1.8"/>',
+    // A pencil: customize. The tip down left, a line across the ferrule.
+    show: '<path d="M9.6 2.1 11.9 4.4 4.9 11.4 2.1 11.9 2.6 9.1Z"/><path d="M8.1 3.6 10.4 5.9"/>',
     // Quick and Full are drawn solid below: an outline at 14 px was too thin to read.
     quick: '',
     full: '',

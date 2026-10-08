@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.45.10",
+    "date": "2026-10-08",
+    "note": "Appearance becomes Customize, with a pencil"
+  },
+  {
     "version": "1.45.9",
     "date": "2026-10-08",
     "note": "Neutral panel greys in the Claude orange theme"

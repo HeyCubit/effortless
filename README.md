@@ -76,7 +76,7 @@ Updates come to you: when a new version is out, a card above the prompt offers *
 | **Handoff** | appears as the chat fills: a grey box from 15%, white from 30%, with a glow that grows to 80% |
 | **⚙** | settings |
 
-Prefer it quiet? Settings → Appearance has a **Minimal** look with no bar.
+Prefer it quiet? Settings → Customize has a **Minimal** look with no bar.
 
 ### When a chat gets heavy
 
@@ -98,7 +98,7 @@ limit passes 80% (with a Save mode that caps effort at Medium), and when your ju
 
 ### Settings
 
-<p align="center"><img src="docs/readme/settings.png" alt="The settings panel: Effort, Judge, Handoff, Appearance" width="100%"></p>
+<p align="center"><img src="docs/readme/settings.png" alt="The settings panel: Effort, Judge, Handoff, Customize" width="100%"></p>
 
 ## Pick your judge
 
