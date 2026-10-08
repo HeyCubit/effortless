@@ -38,6 +38,9 @@ type Drag = {
   down: boolean
   /** Released and caught up: the pan is told, the slid map shown until the hooks' new map (this source) is replaced. */
   heldFor: string | null
+  /** Frames drawn since the button went down, and when it went down: the drag's frame rate, for the render log. */
+  frames: number
+  since: number
   /** The last click that did not travel, for a double-click: when and where. */
   clickAt: number
   cx: number
@@ -83,7 +86,7 @@ export default function AgentsMap(props: MapProps | null, s: ClientSurface<MapSt
   if (s.state === undefined) {
     // Says it loaded, for the render log: whether the app runs this module at all.
     s.post({ hello: true })
-    const d: Drag = { x: 0, y: 0, tx: 0, ty: 0, at: 0, vx: 0, vy: 0, ox: 0, oy: 0, moved: false, down: false, heldFor: null, clickAt: -Infinity, cx: 0, cy: 0 }
+    const d: Drag = { x: 0, y: 0, tx: 0, ty: 0, at: 0, vx: 0, vy: 0, ox: 0, oy: 0, moved: false, down: false, heldFor: null, frames: 0, since: 0, clickAt: -Infinity, cx: 0, cy: 0 }
     // One frame clock for the instance: it draws only while the slide is still catching up.
     s.every(FRAME_MS, () => {
       if (!d.moved || d.heldFor !== null) return
@@ -99,7 +102,8 @@ export default function AgentsMap(props: MapProps | null, s: ClientSurface<MapSt
         const p = latest.props
         if (p) {
           d.heldFor = p.source
-          s.post({ pan: [d.ox / p.w, d.oy / p.h] })
+          const ms = Math.max(1, now() - d.since)
+          s.post({ pan: [d.ox / p.w, d.oy / p.h], fps: Math.round((d.frames * 1000) / ms), frames: d.frames, ms: Math.round(ms) })
         }
         s.setState({ drag: d })
         return
@@ -108,6 +112,7 @@ export default function AgentsMap(props: MapProps | null, s: ClientSurface<MapSt
       const k = d.down ? EASE : 0.6
       d.ox += dx * k
       d.oy += dy * k
+      d.frames += 1
       s.setState({ drag: d })
     })
     latest.props = props
@@ -130,7 +135,7 @@ export default function AgentsMap(props: MapProps | null, s: ClientSurface<MapSt
     const y = (e.fine?.y ?? e.y + 0.5) * pxY
     const t = now()
     if (e.type === 'down' && e.button === 'left') {
-      Object.assign(d, { x, y, tx: 0, ty: 0, at: t, vx: 0, vy: 0, ox: 0, oy: 0, moved: false, down: true, heldFor: null })
+      Object.assign(d, { x, y, tx: 0, ty: 0, at: t, vx: 0, vy: 0, ox: 0, oy: 0, moved: false, down: true, heldFor: null, frames: 0, since: t })
     } else if (e.type === 'move' && d.down) {
       const tx = x - d.x
       const ty = y - d.y
