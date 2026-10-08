@@ -11,7 +11,7 @@
   (other chats' changes sit in the tree). Reaches no user.
 - `tools/publish.sh "<what's new>" "<detail>"`: minor bump, writes releases.json and public.json, moves `stable`.
   Every user gets an update card. Only on Isac's word.
-- Public: 1.45.0 (2026-10-08). Dev: 1.45.0. `tools/publish.sh` also rebuilds the site and pushes gh-pages (`tools/site.sh`). Site: https://heycubit.github.io/effortless/ (`gh-pages`, rebuilt from `main`).
+- Public: 1.46.0 (2026-10-08). Dev: 1.46.0. `tools/publish.sh` also rebuilds the site and pushes gh-pages (`tools/site.sh`). Site: https://heycubit.github.io/effortless/ (`gh-pages`, rebuilt from `main`).
 
 ## Half done
 - Theme (public since 1.38.0): Settings → Appearance → Theme, Violet (default) or Claude orange. `hooks/theme.ts` turns every
