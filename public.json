@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.38.0",
+    "date": "2026-10-08",
+    "note": "Theme setting: violet or Claude orange, plus Check for updates in Settings",
+    "public": true
+  },
+  {
     "version": "1.37.0",
     "date": "2026-10-07",
     "note": "Smooth deciding glow, Settings saved card, version in Settings",
