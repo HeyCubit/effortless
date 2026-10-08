@@ -3082,7 +3082,7 @@ describe('updates', () => {
     expect(text).toContain('Updated to 1.0.1')
     expect(text).toContain('/whats-new/')
     expect(text).toContain('Star on GitHub')
-    await ui.press({ key: 'update-share' })
+    await ui.press({ key: 'update-share-go' })
     await settle()
     expect(w.copied).toEqual(['https://heycubit.github.io/effortless/'])
     expect(text).toContain('github.com/HeyCubit/effortless')

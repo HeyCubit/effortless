@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.53.3",
+    "date": "2026-10-08",
+    "note": "Updated card: Share icon, hover, green wash on the left"
+  },
+  {
     "version": "1.53.2",
     "date": "2026-10-08",
     "note": "Setup: Full handoff defaults to the built-in writer"

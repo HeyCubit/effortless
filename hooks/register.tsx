@@ -301,6 +301,12 @@ const DONE_BG = '#0f1c15'
 // The Updated card: near black, a dim green edge; the green is in its title, the check and the sparkles.
 const UPDATED_BG = '#08090a'
 const UPDATED_EDGE = '#1f4a33'
+// A soft green wash at the left of the landed card, behind the mark and title; the right stays near black.
+const UPDATED_GLOW_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMinYMid slice"><defs><radialGradient id="g" cx="20" cy="15" r="150" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2f9a5e" stop-opacity=".26"/><stop offset=".55" stop-color="#2f9a5e" stop-opacity=".09"/><stop offset="1" stop-color="#2f9a5e" stop-opacity="0"/></radialGradient></defs><rect width="360" height="30" fill="url(#g)"/></svg>`
+// The Share icon: an arrow leaving a tray, white like the GitHub mark beside it.
+const SHARE_MARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16"><path fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M8 10V1.8M4.8 4.8L8 1.6l3.2 3.2M2.5 8.5v4.8c0 .4.3.7.7.7h9.6c.4 0 .7-.3.7-.7V8.5"/></svg>`
+// Hover on the near-black card: a light veil (the dark one used elsewhere is invisible here).
+const UPDATED_HOVER = '#ffffff1f'
 const DONE_EDGE = '#2f7a4c'
 // The mark in the done green, for the titles of cards that have landed.
 const DONE_MARK_SVG = MARK_SVG.replace(/#7566d8/g, '#2f9a5e').replace(/#a79cf7/g, '#7fe0a4').replace(/#cfc7ff/g, '#c8f4d8')
@@ -2613,26 +2619,33 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
           ? [
               // White and bold: the app's blue link was hard to see on the green and the check.
               own('update-link-box', <Text color="#ffffff" bold><Link href={WHATS_NEW_URL} label="What's new →" /></Text>),
-              own('update-share-box', <Button key="update-share" plain label="Share" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={share} />),
+              own('update-share-box', (
+                <Box key="update-share" flexDirection="row" alignItems="center" gap={1}>
+                  <Svg source={SHARE_MARK_SVG} alt="Share" width={14} height={14} />
+                  <Button key="update-share-go" plain label="Share" hover={{ backgroundColor: UPDATED_HOVER }} onPress={share} />
+                </Box>
+              )),
               own('update-star-box', (
                 <Box key="update-star" flexDirection="row" alignItems="center" gap={1}>
                   <Svg source={GITHUB_MARK_SVG} alt="GitHub" width={14} height={14} />
                   <Link href={REPO_URL} label="Star on GitHub" />
                 </Box>
               )),
-              own('update-close-box', <Button key="update-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={hide} />),
+              own('update-close-box', <Button key="update-close" plain label="✕" hover={{ backgroundColor: UPDATED_HOVER }} onPress={hide} />),
             ]
           : []
   return (
     <Box key="update-card" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
       backgroundColor={landed ? UPDATED_BG : BRAND_BG} borderStyle="round" borderColor={landed ? UPDATED_EDGE : BRAND_EDGE}>
-      <Box key="update-art" position="absolute" top={-1} right={0} bottom={-1}>
-        {card.stage === 'updating' ? (
-          <Svg source={HANDOFF_SVG} alt="updating" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
-        ) : landed ? null : (
-          <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
-        )}
-      </Box>
+      {landed ? (
+        <Box key="update-glow" position="absolute" top={-1} left={0} bottom={-1}>
+          <Svg source={UPDATED_GLOW_SVG} alt="" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+        </Box>
+      ) : (
+        <Box key="update-art" position="absolute" top={-1} right={0} bottom={-1}>
+          <Svg source={card.stage === 'updating' ? HANDOFF_SVG : BRAND_SVG} alt={card.stage === 'updating' ? 'updating' : 'effortless'} width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+        </Box>
+      )}
       <Box key="update-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
         {markTitle({ Box, Text, Svg }, 'update-title', landed ? DONE_ACCENT : ACCENT, words[0], landed ? DONE_MARK_SVG : MARK_SVG)}
         <Text wrap="truncate">{words[1]}</Text>
