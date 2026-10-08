@@ -1,4 +1,4 @@
-import type { AgentRec, AgentState, FileTouch, Progress, ProgressStep } from '../types'
+import type { AgentNote, AgentRec, AgentsCam, AgentState, FileTouch, Progress, ProgressStep } from '../types'
 import { MARK_SVG } from './brand-mark'
 import { ART_H, ART_W, LOOKS, PILL_H, progressArtSvg, progressShare, progressTrackSvg, THINK_W, thinkingSvg } from './progress'
 
@@ -358,31 +358,48 @@ export type AgentsDraw = {
   Button: any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Svg?: any
-  /** Rows of the pane's body, so the background fills it. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Input?: any
+  /** Rows and columns of the pane's body, so the ground fills it and the map fits it. */
   rows: number
-  nowMs: number
-  /** The chat's own title for the header. */
-  title: string
-  /** The opened card: an agent's id, 'done' for the finished ones, or null. */
-  open: string | null
-  /** The bar's parts: its context ring, its card art (DASH_SVG) and its size. */
-  ringSvg: (percent: number, color: string) => string
-  cardArt: { source: string; width: number; height: number }
-  onOpen: (id: string) => unknown
-  /** The files touched, the main chat's own steps, the module opened in the list. */
-  files: readonly FileTouch[]
-  steps: readonly ProgressStep[] | null
-  module: string | null
-  onModule: (key: string) => unknown
-  /** Cells across the pane's body, and the wordmark image (the settings bar's SETTINGS_TITLE). */
   cols: number
+  nowMs: number
+  /** The node in focus: 'main' for this chat, an agent's id. It sets the progress on top. */
+  focus: string | null
+  onFocus: (id: string) => unknown
+  /** The overview's camera, and its controls. */
+  cam: AgentsCam | null
+  onZoom: (factor: number) => unknown
+  onFit: () => unknown
+  /** The Client that takes the map's pointer (drag, click, wheel), where the surface draws one; null elsewhere. */
+  mapClient: unknown
+  /** The main chat's own task list, for its progress; null when it keeps none. */
+  steps: readonly ProgressStep[] | null
+  /** Whether Done is unfolded. */
+  doneOpen: boolean
+  onDone: () => unknown
+  /** The main chat's weighted tokens, for the usage card. */
+  mainCost: number
+  /** Notes sent to every agent, and sending one. */
+  notes: readonly AgentNote[]
+  onNote: (text: string) => unknown
+  /** The wordmark image (the settings bar's SETTINGS_TITLE). */
   wordmark: string
+  /** Kept for the older cards still in this file. */
+  open?: string | null
+  onOpen?: (id: string) => unknown
+  ringSvg?: (percent: number, color: string) => string
+  cardArt?: { source: string; width: number; height: number }
+  files?: readonly FileTouch[]
+  module?: string | null
+  onModule?: (key: string) => unknown
+  title?: string
 }
 
 const TEXT = '#d4d4d8'
 const ACCENT = '#a79cf7'
-/** The pane's ground: the brand card's deep violet, as the bar's brand band (BRAND_BG). */
-const PANE_BG = '#15121f'
+/** The pane's ground: the dashboard's dark, not the brand violet; the violet is kept for the wordmark and the accents. */
+const PANE_BG = '#0f0f11'
 const DIM = '#8b8b93'
 const CARD_BG = '#141416'
 const CARD_EDGE = '#2a2a2f'
@@ -553,58 +570,104 @@ function doneCard(d: AgentsDraw, done: readonly AgentRec[]) {
 
 /** One cell of the desktop pane in CSS px: a column (1ch of its font) and a row (its line). Nodes sit on cells, so the
  * blank button laid over each lands on it. */
+/** A cell of the desktop pane in pixels: what turns the map's pixels into a Box's columns and rows. */
 const CELL_W = 7.9
 const CELL_H = 19
-/** Columns each node keeps for its label. */
-const SLOT = 13
 
-export type NetNode = { id: string; col: number; row: number; agent?: AgentRec }
+export type NetNode = { id: string; x: number; y: number; agent?: AgentRec }
 
 /**
- * Where each node sits, in cells: this chat in the middle, the agents it sent off on a ring around it, the agents they
- * sent off on an outer ring beside their parent. Spread evenly, starting at the top.
+ * Where each node sits in the overview's world, in pixels around this chat at 0,0: the agents it sent off on a ring
+ * that grows with their number, starting at the top; the agents they sent off further out, either side of their parent.
  */
-export function networkLayout(agents: readonly AgentRec[], cols: number): { nodes: NetNode[]; rows: number } {
+export function worldLayout(agents: readonly AgentRec[]): NetNode[] {
   const ids = new Set(agents.map(a => a.id))
   const first = agents.filter(a => !a.parentId || !ids.has(a.parentId))
   const rest = agents.filter(a => a.parentId && ids.has(a.parentId))
-  const outer = rest.length > 0
-  const ry1 = outer ? 4 : 5
-  const ry2 = 8
-  const rows = (outer ? ry2 : ry1) * 2 + 4
-  const cx = cols / 2
-  const cy = rows / 2 - 0.5
-  const rx1 = cols * (outer ? 0.28 : 0.36)
-  const rx2 = cols * 0.42
-  const nodes: NetNode[] = [{ id: 'main', col: Math.round(cx), row: Math.round(cy) }]
-  const angle = new Map<string, number>()
+  const r1 = Math.max(110, first.length * 26)
+  const nodes: NetNode[] = [{ id: 'main', x: 0, y: 0 }]
+  const placed = new Map<string, { t: number; r: number }>()
   first.forEach((a, i) => {
-    const t = -Math.PI / 2 + ((i + 0.5) / first.length) * Math.PI * 2
-    angle.set(a.id, t)
-    nodes.push({ id: a.id, agent: a, col: Math.round(cx + Math.cos(t) * rx1), row: Math.round(cy + Math.sin(t) * ry1) })
+    const t = -Math.PI / 2 + (i / first.length) * Math.PI * 2
+    placed.set(a.id, { t, r: r1 })
+    nodes.push({ id: a.id, agent: a, x: Math.cos(t) * r1, y: Math.sin(t) * r1 * 0.8 })
   })
-  // Children spread a little either side of their parent's direction, further out.
   const kids = new Map<string, AgentRec[]>()
   for (const a of rest) kids.set(a.parentId!, [...(kids.get(a.parentId!) ?? []), a])
   let pending = [...kids.entries()]
   while (pending.length) {
     const next: [string, AgentRec[]][] = []
     for (const [parent, list] of pending) {
-      const base = angle.get(parent)
-      if (base === undefined) { next.push([parent, list]); continue }
+      const at = placed.get(parent)
+      if (!at) { next.push([parent, list]); continue }
       list.forEach((a, j) => {
-        const t = base + 0.5 + (j - (list.length - 1) / 2) * 0.45
-        angle.set(a.id, t)
-        nodes.push({ id: a.id, agent: a, col: Math.round(cx + Math.cos(t) * rx2), row: Math.round(cy + Math.sin(t) * ry2) })
+        const t = at.t + (j - (list.length - 1) / 2) * 0.42
+        const r = at.r + 100
+        placed.set(a.id, { t, r })
+        nodes.push({ id: a.id, agent: a, x: Math.cos(t) * r, y: Math.sin(t) * r * 0.8 })
       })
     }
     if (next.length === pending.length) break
     pending = next
   }
-  // Trim the empty rows: the top node two rows from the top, three rows under the lowest for its label.
-  const top = Math.min(...nodes.map(n => n.row))
-  for (const n of nodes) n.row = n.row - top + 2
-  return { nodes, rows: Math.max(...nodes.map(n => n.row)) + 3 }
+  return nodes
+}
+
+/** How long a glide of the overview takes, in ms. */
+export const CAM_MS = 560
+const ZOOM_MIN = 0.45
+const ZOOM_MAX = 2.4
+/** The overview before anyone moves it: this chat in the middle. */
+export const CAM_HOME: AgentsCam = { x: 0, y: 0, z: 1, fx: 0, fy: 0, fz: 1, at: 0 }
+
+/** Where the camera is at `nowMs`, partway through its glide: eased out, as the SVG's keySplines below. */
+export function camNow(c: AgentsCam | null, nowMs: number): { x: number; y: number; z: number } {
+  const cam = c ?? CAM_HOME
+  const t = Math.max(0, Math.min(1, (nowMs - cam.at) / CAM_MS))
+  const e = 1 - (1 - t) ** 3
+  return { x: cam.fx + (cam.x - cam.fx) * e, y: cam.fy + (cam.y - cam.fy) * e, z: cam.fz + (cam.z - cam.fz) * e }
+}
+
+/** A glide from wherever the camera is now to `to` (any of x, y, z), starting now. */
+export function camGlide(c: AgentsCam | null, nowMs: number, to: { x?: number; y?: number; z?: number }): AgentsCam {
+  const from = camNow(c, nowMs)
+  const z = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, to.z ?? from.z))
+  return { x: to.x ?? from.x, y: to.y ?? from.y, z, fx: from.x, fy: from.y, fz: from.z, at: nowMs }
+}
+
+/** The camera put somewhere at once, no glide: what a drag does. */
+export function camSet(x: number, y: number, z: number): AgentsCam {
+  return { x, y, z, fx: x, fy: y, fz: z, at: 0 }
+}
+
+/** The camera that shows every node with a margin, this chat's ring centred. */
+export function camFit(nodes: readonly NetNode[], w: number, h: number, nowMs: number, c: AgentsCam | null): AgentsCam {
+  const xs = nodes.map(n => n.x)
+  const ys = nodes.map(n => n.y)
+  const [x0, x1, y0, y1] = [Math.min(...xs) - 50, Math.max(...xs) + 50, Math.min(...ys) - 40, Math.max(...ys) + 50]
+  const z = Math.min(1.4, w / (x1 - x0), h / (y1 - y0))
+  return camGlide(c, nowMs, { x: (x0 + x1) / 2, y: (y0 + y1) / 2, z })
+}
+
+/** The overview's size in pixels for a pane body of `cols` by `rows` cells: the card's border and padding taken off. */
+export function mapSize(cols: number, rows: number): { w: number; h: number; cols: number; rows: number } {
+  const c = Math.max(24, cols - 6)
+  const r = Math.max(10, Math.min(17, Math.round(rows * 0.4)))
+  return { w: Math.round(c * CELL_W), h: r * CELL_H, cols: c, rows: r }
+}
+
+/** The node under a point of the map, given as shares of its width and height (a click on the Client), or null. */
+export function nodeAt(nodes: readonly NetNode[], c: AgentsCam | null, w: number, h: number, sx: number, sy: number, nowMs: number): string | null {
+  const cam = camNow(c, nowMs)
+  let best: string | null = null
+  let bestD = 26
+  for (const n of nodes) {
+    const px = w / 2 + (n.x - cam.x) * cam.z
+    const py = h / 2 + (n.y - cam.y) * cam.z
+    const dist = Math.hypot(px - sx * w, py - sy * h)
+    if (dist < bestD) { best = n.id; bestD = dist }
+  }
+  return best
 }
 
 const STATE_COLOR: Record<AgentState, string> = {
@@ -615,147 +678,93 @@ const STATE_COLOR: Record<AgentState, string> = {
   failed: '#e5534b',
 }
 
-/** The network as one image, drawn on the cell grid: links, then nodes with their progress rings, then the labels. */
-export function networkSvg(nodes: readonly NetNode[], rows: number, cols: number, open: string | null, mainShare: number): string {
-  const W = Math.round(cols * CELL_W)
-  const H = Math.round(rows * CELL_H)
+/** An agent's share done, for its ring and the bar at the top: its own steps, or its state. */
+export function agentShare(a: AgentRec): number {
+  if (a.state === 'done' || a.state === 'failed') return 1
+  return a.steps?.length ? progressShare(a.steps) : a.state === 'picking' ? 0.02 : 0.08
+}
+
+/**
+ * The overview as one image: the nodes in their world, seen through the camera. A camera that moved within CAM_MS
+ * glides there (SMIL, started as far in as the time since), so a click on a node slides it into the middle.
+ */
+export function mapSvg(nodes: readonly NetNode[], w: number, h: number, c: AgentsCam | null, nowMs: number, focus: string, mainShare: number): string {
+  const cam = c ?? CAM_HOME
   const f = (v: number) => v.toFixed(1)
-  const at = (n: NetNode) => ({ x: (n.col + 0.5) * CELL_W, y: (n.row + 0.5) * CELL_H })
+  const since = nowMs - cam.at
+  const glide = since >= 0 && since < CAM_MS
+  const spline = `dur="${CAM_MS}ms" begin="${glide ? -since : 0}ms" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines=".33 1 .68 1"`
+  const scale = glide && cam.fz !== cam.z ? `<animateTransform attributeName="transform" type="scale" from="${cam.fz}" to="${cam.z}" ${spline}/>` : ''
+  const move = glide && (cam.fx !== cam.x || cam.fy !== cam.y)
+    ? `<animateTransform attributeName="transform" type="translate" from="${f(-cam.fx)} ${f(-cam.fy)}" to="${f(-cam.x)} ${f(-cam.y)}" ${spline}/>`
+    : ''
   const byId = new Map(nodes.map(n => [n.id, n]))
   const links = nodes
     .filter(n => n.agent)
     .map(n => {
       const a = n.agent!
       const from = byId.get(a.parentId && byId.has(a.parentId) ? a.parentId : 'main')!
-      const p = at(from)
-      const q = at(n)
-      const len = Math.hypot(q.x - p.x, q.y - p.y) || 1
-      const r0 = from.id === 'main' ? 22 : 13
-      const sx = p.x + ((q.x - p.x) / len) * r0
-      const sy = p.y + ((q.y - p.y) / len) * r0
-      const ex = q.x - ((q.x - p.x) / len) * 13
-      const ey = q.y - ((q.y - p.y) / len) * 13
-      const d = `M${f(sx)} ${f(sy)} L${f(ex)} ${f(ey)}`
-      const c = STATE_COLOR[a.state]
-      if (a.state === 'done') return `<path d="${d}" fill="none" stroke="${c}" stroke-opacity=".45" stroke-width="1.4"/>`
-      if (a.state === 'failed') return `<path d="${d}" fill="none" stroke="${c}" stroke-opacity=".5" stroke-width="1.2" stroke-dasharray="2 4"/>`
-      return `<path d="${d}" fill="none" stroke="${c}" stroke-opacity=".25" stroke-width="1.4"/><path class="fl" d="${d}" fill="none" stroke="${c}" stroke-width="1.6" stroke-dasharray="4 10" stroke-linecap="round"/>`
+      const len = Math.hypot(n.x - from.x, n.y - from.y) || 1
+      const r0 = from.id === 'main' ? 24 : 14
+      const ux = (n.x - from.x) / len
+      const uy = (n.y - from.y) / len
+      const d = `M${f(from.x + ux * r0)} ${f(from.y + uy * r0)} L${f(n.x - ux * 14)} ${f(n.y - uy * 14)}`
+      const col = STATE_COLOR[a.state]
+      if (a.state === 'done') return `<path d="${d}" stroke="${col}" stroke-opacity=".4" stroke-width="1.4"/>`
+      if (a.state === 'failed') return `<path d="${d}" stroke="${col}" stroke-opacity=".5" stroke-width="1.2" stroke-dasharray="2 4"/>`
+      return `<path d="${d}" stroke="${col}" stroke-opacity=".22" stroke-width="1.4"/><path class="fl" d="${d}" stroke="${col}" stroke-width="1.6" stroke-dasharray="4 10" stroke-linecap="round"/>`
     })
     .join('')
   const ring = (x: number, y: number, r: number, share: number, color: string, cls = '') => {
-    const c = 2 * Math.PI * r
+    const len = 2 * Math.PI * r
     return (
-      `<circle cx="${f(x)}" cy="${f(y)}" r="${r}" fill="none" stroke="#ffffff" stroke-opacity=".1" stroke-width="2.4"/>` +
-      `<circle${cls ? ` class="${cls}"` : ''} cx="${f(x)}" cy="${f(y)}" r="${r}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linecap="round" ` +
-      `stroke-dasharray="${f(c * Math.max(0.02, Math.min(1, share)))} ${f(c)}" transform="rotate(-90 ${f(x)} ${f(y)})"/>`
+      `<circle cx="${f(x)}" cy="${f(y)}" r="${r}" stroke="#ffffff" stroke-opacity=".1" stroke-width="2.4"/>` +
+      `<circle${cls ? ` class="${cls}"` : ''} cx="${f(x)}" cy="${f(y)}" r="${r}" stroke="${color}" stroke-width="2.4" stroke-linecap="round" ` +
+      `stroke-dasharray="${f(len * Math.max(0.02, Math.min(1, share)))} ${f(len)}" transform="rotate(-90 ${f(x)} ${f(y)})"/>`
     )
   }
   const star = (x: number, y: number, s: number, fill: string) =>
-    `<path transform="translate(${f(x)} ${f(y)}) scale(${s})" d="M0 -10 C1 -3 3 -1 10 0 C3 1 1 3 0 10 C-1 3 -3 1 -10 0 C-3 -1 -1 -3 0 -10Z" fill="${fill}"/>`
+    `<path transform="translate(${f(x)} ${f(y)}) scale(${s})" d="M0 -10 C1 -3 3 -1 10 0 C3 1 1 3 0 10 C-1 3 -3 1 -10 0 C-3 -1 -1 -3 0 -10Z" fill="${fill}" stroke="none"/>`
   const parts: string[] = []
   for (const n of nodes) {
-    const { x, y } = at(n)
-    const isOpen = open === n.id
+    const { x, y } = n
+    const on = focus === n.id
     if (!n.agent) {
-      // This chat: the bar's star in the middle of a ring that fills with the chat's own steps.
-      parts.push(`<circle class="br" cx="${f(x)}" cy="${f(y)}" r="24" fill="url(#halo)"/>`)
-      parts.push(`<circle cx="${f(x)}" cy="${f(y)}" r="15" fill="#221c3a" stroke="${isOpen ? '#cfc7ff' : '#4a3f80'}" stroke-width="1.2"/>`)
-      parts.push(ring(x, y, 19, mainShare, '#a79cf7'))
-      parts.push(star(x, y, 0.9, '#a79cf7'))
+      parts.push(`<circle class="br" cx="0" cy="0" r="30" fill="url(#halo)" stroke="none"/>`)
+      if (on) parts.push(`<circle cx="0" cy="0" r="25" stroke="#cfc7ff" stroke-opacity=".55" stroke-width="1"/>`)
+      parts.push(`<circle cx="0" cy="0" r="15" fill="#221c3a" stroke="#4a3f80" stroke-width="1.2"/>`)
+      parts.push(ring(0, 0, 19, mainShare, '#a79cf7'))
+      parts.push(star(0, 0, 0.9, '#a79cf7'))
+      parts.push(`<text x="0" y="40" text-anchor="middle" class="${on ? 'tf' : 't'}">This chat</text>`)
       continue
     }
     const a = n.agent
-    const c = STATE_COLOR[a.state]
-    const share = a.state === 'done' || a.state === 'failed' ? 1 : a.steps?.length ? progressShare(a.steps) : 0.08
+    const col = STATE_COLOR[a.state]
     const live = a.state === 'running' || a.state === 'waiting' || a.state === 'picking'
-    if (live) parts.push(`<circle class="br" cx="${f(x)}" cy="${f(y)}" r="17" fill="${c}" fill-opacity=".16"/>`)
-    parts.push(`<circle cx="${f(x)}" cy="${f(y)}" r="8" fill="#15121f" stroke="${isOpen ? '#cfc7ff' : c}" stroke-opacity="${isOpen ? 1 : 0.5}" stroke-width="${isOpen ? 2 : 1.2}"/>`)
-    parts.push(ring(x, y, 11, share, c, a.state === 'waiting' ? 'pl' : a.state === 'picking' ? 'sp' : ''))
-    if (a.state === 'done') parts.push(`<path d="M${f(x - 3.6)} ${f(y)} l2.6 2.6 l4.8 -5" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`)
-    else if (a.state === 'failed') parts.push(`<path d="M${f(x - 3)} ${f(y - 3)} l6 6 M${f(x + 3)} ${f(y - 3)} l-6 6" stroke="${c}" stroke-width="1.7" stroke-linecap="round"/>`)
-    else parts.push(`<circle class="br" cx="${f(x)}" cy="${f(y)}" r="3" fill="${c}"/>`)
-    const name = a.type.length > 14 ? `${a.type.slice(0, 13)}…` : a.type
-    parts.push(`<text x="${f(x)}" y="${f(y + 26)}" text-anchor="middle" class="${a.state === 'done' || a.state === 'failed' ? 'td' : 't'}">${name}</text>`)
+    if (live) parts.push(`<circle class="br" cx="${f(x)}" cy="${f(y)}" r="18" fill="${col}" fill-opacity=".14" stroke="none"/>`)
+    if (on) parts.push(`<circle cx="${f(x)}" cy="${f(y)}" r="16" stroke="#cfc7ff" stroke-opacity=".55" stroke-width="1"/>`)
+    parts.push(`<circle cx="${f(x)}" cy="${f(y)}" r="8" fill="#141416" stroke="${col}" stroke-opacity=".5" stroke-width="1.2"/>`)
+    parts.push(ring(x, y, 11, agentShare(a), col, a.state === 'waiting' ? 'pl' : a.state === 'picking' ? 'sp' : ''))
+    if (a.state === 'done') parts.push(`<path d="M${f(x - 3.6)} ${f(y)} l2.6 2.6 l4.8 -5" stroke="${col}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`)
+    else if (a.state === 'failed') parts.push(`<path d="M${f(x - 3)} ${f(y - 3)} l6 6 M${f(x + 3)} ${f(y - 3)} l-6 6" stroke="${col}" stroke-width="1.7" stroke-linecap="round"/>`)
+    else parts.push(`<circle class="br" cx="${f(x)}" cy="${f(y)}" r="3" fill="${col}" stroke="none"/>`)
+    const name = a.type.length > 16 ? `${a.type.slice(0, 15)}…` : a.type
+    parts.push(`<text x="${f(x)}" y="${f(y + 28)}" text-anchor="middle" class="${on ? 'tf' : a.state === 'done' || a.state === 'failed' ? 'td' : 't'}">${name}</text>`)
   }
-  const dots: string[] = []
-  for (let y = CELL_H / 2; y < H; y += CELL_H) for (let x = CELL_W * 1.5; x < W; x += CELL_W * 2) dots.push(`<circle cx="${f(x)}" cy="${f(y)}" r=".7"/>`)
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
     '<style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}' +
-    ".t{font:600 11.5px system-ui,'Segoe UI',sans-serif;fill:#ececf0}.td{font:11.5px system-ui,'Segoe UI',sans-serif;fill:#8b8b93}" +
+    ".t{font:600 11.5px system-ui,'Segoe UI',sans-serif;fill:#d4d4d8}.td{font:11.5px system-ui,'Segoe UI',sans-serif;fill:#8b8b93}" +
+    ".tf{font:700 12px system-ui,'Segoe UI',sans-serif;fill:#ffffff}" +
     '.fl{animation:fl 1.2s linear infinite}@keyframes fl{to{stroke-dashoffset:-14}}' +
     '.br{animation:br 2.6s ease-in-out infinite}@keyframes br{0%,100%{opacity:.45}50%{opacity:1}}' +
     '.pl{animation:pl 1.6s ease-in-out infinite}@keyframes pl{0%,100%{opacity:.35}50%{opacity:1}}' +
     '.sp{transform-box:fill-box;transform-origin:center;animation:sp 1.4s linear infinite}@keyframes sp{to{transform:rotate(270deg)}}</style>' +
-    '<defs><radialGradient id="halo"><stop offset="0" stop-color="#a79cf7" stop-opacity=".35"/><stop offset="1" stop-color="#a79cf7" stop-opacity="0"/></radialGradient></defs>' +
-    `<g fill="#ffffff" fill-opacity=".05">${dots.join('')}</g>${links}${parts.join('')}</svg>`
-  )
-}
-
-/** What the opened node's card says: for an agent its task, pick and what it does; for this chat its own steps. */
-function nodeCard(d: AgentsDraw, open: string, agents: readonly AgentRec[]) {
-  const { Box, Text, Button } = d
-  const a = agents.find(x => x.id === open)
-  const close = (
-    <Box key="node-close-box" position="relative" flexShrink={0} paddingX={1}>
-      <Box position="absolute" top={0} left={0} />
-      <Button key="node-close" plain role="dismiss" label="✕" onPress={() => d.onOpen(open)} />
-    </Box>
-  )
-  if (!a) {
-    const steps = d.steps ?? []
-    return (
-      <Box key="node-card" position="relative" flexDirection="column" paddingX={1} backgroundColor={CARD_BG} borderStyle="round" borderColor={CARD_EDGE}>
-        <Box flexDirection="row" alignItems="center">
-          <Text color={ACCENT} bold>✦ </Text>
-          <Text color={TEXT} bold>This chat</Text>
-          <Box flexGrow={1} />
-          {close}
-        </Box>
-        {steps.length ? (
-          steps.map(s => (
-            <Box key={`step-${s.id}`} flexDirection="row">
-              <Text color={s.status === 'completed' ? STATE_COLOR.done : s.status === 'in_progress' ? ACCENT : DIM}>
-                {s.status === 'completed' ? '✓ ' : s.status === 'in_progress' ? '◐ ' : '○ '}
-              </Text>
-              <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
-                <Text color={s.status === 'pending' ? DIM : TEXT} wrap="truncate">{s.label}</Text>
-              </Box>
-            </Box>
-          ))
-        ) : (
-          <Text dimColor>No step list yet.</Text>
-        )}
-      </Box>
-    )
-  }
-  const c = STATE_COLOR[a.state]
-  const status =
-    a.state === 'waiting' ? `waiting on ${a.now ?? 'a tool'}`
-    : a.state === 'picking' ? 'picking a model'
-    : a.state === 'done' ? `done in ${clockText((a.endedAt ?? d.nowMs) - a.startedAt)}`
-    : a.state === 'failed' ? `failed after ${clockText((a.endedAt ?? d.nowMs) - a.startedAt)}`
-    : a.now ?? 'starting'
-  return (
-    <Box key="node-card" position="relative" flexDirection="column" paddingX={1} backgroundColor={CARD_BG} borderStyle="round" borderColor={CARD_EDGE}>
-      <Box flexDirection="row" alignItems="center">
-        <Text color={c} bold>{a.type}</Text>
-        <Box flexGrow={1} />
-        {close}
-      </Box>
-      <Text color={TEXT} wrap="truncate">{a.task}</Text>
-      <Text color={c} wrap="truncate">{status}</Text>
-      {a.model ? (
-        <Box flexDirection="row">
-          <Text color={ACCENT} bold>{a.effort ? `${a.model} ${a.effort}` : a.model}</Text>
-          {a.why ? (
-            <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
-              <Text dimColor wrap="truncate">{`  ${a.why}`}</Text>
-            </Box>
-          ) : null}
-        </Box>
-      ) : null}
-    </Box>
+    '<defs><radialGradient id="halo"><stop offset="0" stop-color="#a79cf7" stop-opacity=".35"/><stop offset="1" stop-color="#a79cf7" stop-opacity="0"/></radialGradient>' +
+    '<pattern id="dots" width="18" height="18" patternUnits="userSpaceOnUse"><circle cx="9" cy="9" r=".8" fill="#ffffff" fill-opacity=".08"/></pattern></defs>' +
+    `<g transform="translate(${f(w / 2)} ${f(h / 2)})"><g transform="scale(${cam.z})">${scale}` +
+    `<g transform="translate(${f(-cam.x)} ${f(-cam.y)})" fill="none">${move}` +
+    `<rect x="-4000" y="-4000" width="8000" height="8000" fill="url(#dots)"/>${links}${parts.join('')}</g></g></g></svg>`
   )
 }
 
@@ -778,8 +787,108 @@ export function phaseOf(agents: readonly AgentRec[], steps: readonly ProgressSte
 /** A text cut to `n` characters with an ellipsis. */
 const short = (text: string, n: number) => (text.length > n ? `${text.slice(0, n - 1)}…` : text)
 
-/** One agent as a row of a section: its state mark, name, task, and on the right the one thing worth seeing. */
-function agentRow(d: AgentsDraw, a: AgentRec) {
+/** What an agent is doing, in a few words: what it waits on, how it ended, or its current tool. */
+function statusOf(a: AgentRec, nowMs: number): string {
+  return a.state === 'waiting' ? `waiting on ${a.now ?? 'a tool'}`
+    : a.state === 'picking' ? 'picking a model'
+    : a.state === 'done' ? `done in ${clockText((a.endedAt ?? nowMs) - a.startedAt)}`
+    : a.state === 'failed' ? `failed after ${clockText((a.endedAt ?? nowMs) - a.startedAt)}`
+    : a.now ?? 'starting'
+}
+
+/**
+ * The top of the pane follows the node in focus: its name, its share done and the progress band's own track of its
+ * steps. This chat shows the whole job (its step list), an agent its own.
+ */
+function focusHead(d: AgentsDraw, focus: AgentRec | null, agents: readonly AgentRec[]) {
+  const { Box, Text, Svg } = d
+  const phase = phaseOf(agents, d.steps)
+  const share = focus ? agentShare(focus) : phase.share
+  const steps: ProgressStep[] = focus
+    ? focus.steps?.length ? [...focus.steps] : [{ id: focus.id, label: focus.task, doing: focus.task, status: focus.state === 'done' || focus.state === 'failed' ? 'completed' : focus.state === 'picking' ? 'pending' : 'in_progress' }]
+    : d.steps && d.steps.length ? [...d.steps] : agentsAsSteps(agents)
+  const look: Progress['phase'] = share >= 1 ? 'done' : focus?.state === 'waiting' ? 'asking' : focus?.state === 'picking' ? 'planning' : 'working'
+  const color = focus ? STATE_COLOR[focus.state] : ACCENT
+  const live = agents.filter(a => a.state !== 'done' && a.state !== 'failed').length
+  const line1 = focus ? focus.task : phase.title
+  const line2 = focus
+    ? [focus.model ? (focus.effort ? `${focus.model} ${focus.effort}` : focus.model) : '', statusOf(focus, d.nowMs)].filter(Boolean).join(' · ')
+    : agents.length ? `${agents.length} agent${agents.length > 1 ? 's' : ''}, ${live} still going` : 'No agents yet'
+  return (
+    <Box key="agents-focus" flexDirection="column">
+      <Box flexDirection="row" alignItems="center">
+        <Text color={color} bold>{focus ? '● ' : '✦ '}</Text>
+        <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
+          <Text color={TEXT} bold wrap="truncate">{focus ? focus.type : 'This chat'}</Text>
+        </Box>
+        <Text color={TEXT} bold>{`  ${Math.round(share * 100)}%`}</Text>
+      </Box>
+      {Svg && steps.length ? <Svg source={progressTrackSvg({ phase: look, steps })} alt={`${Math.round(share * 100)}% done`} width={1000} height={24} /> : null}
+      <Text color={TEXT} wrap="truncate">{line1}</Text>
+      <Text color={focus ? color : DIM} wrap="truncate">{line2}</Text>
+    </Box>
+  )
+}
+
+/** One small control in its own box, as the bar draws its buttons (each hoverable control apart). */
+function tool(d: AgentsDraw, key: string, label: string, onPress: () => unknown) {
+  const { Box, Button } = d
+  return (
+    <Box key={`${key}-box`} flexShrink={0} marginLeft={1}>
+      <Button key={key} variant="secondary" label={label} onPress={onPress} />
+    </Box>
+  )
+}
+
+/**
+ * The overview: the map in a card of its own. A click on a node puts it in focus and glides it to the middle; a drag
+ * pans and the wheel zooms where the surface hands the pointer to the Client laid over it; −, + and Fit always do.
+ */
+function overview(d: AgentsDraw, nodes: readonly NetNode[], focus: string, mainShare: number) {
+  const { Box, Text, Button, Svg } = d
+  const m = mapSize(d.cols, d.rows)
+  const cam = camNow(d.cam, Number.MAX_SAFE_INTEGER)
+  const hits = nodes
+    .map(n => ({ n, px: m.w / 2 + (n.x - cam.x) * cam.z, py: m.h / 2 + (n.y - cam.y) * cam.z }))
+    .filter(p => p.px > 10 && p.px < m.w - 10 && p.py > 10 && p.py < m.h - 10)
+  return (
+    <Box key="agents-overview" flexDirection="column" paddingX={1} backgroundColor={CARD_BG} borderStyle="round" borderColor={CARD_EDGE}>
+      <Box flexDirection="row" alignItems="center">
+        <Text color={TEXT} bold>Overview</Text>
+        <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
+          <Text dimColor wrap="truncate">{d.mapClient ? '  drag, scroll to zoom' : ''}</Text>
+        </Box>
+        {tool(d, 'map-out', '−', () => d.onZoom(1 / 1.3))}
+        {tool(d, 'map-in', '+', () => d.onZoom(1.3))}
+        {tool(d, 'map-fit', 'Fit', () => d.onFit())}
+      </Box>
+      <Box key="agents-map-box" position="relative" width={m.cols} height={m.rows} overflow="hidden">
+        {Svg ? (
+          <Box position="absolute" top={0} left={0}>
+            <Svg source={mapSvg(nodes, m.w, m.h, d.cam, d.nowMs, focus, mainShare)} alt={`this chat and ${nodes.length - 1} agents`} width={m.w} height={m.h} />
+          </Box>
+        ) : null}
+        {/* Two rows of hit area per node: a Box sits on whole cells, so one row could miss the node by half a row. */}
+        {hits.map(({ n, px, py }) => (
+          <Box key={`node-${n.id}`} position="absolute" top={Math.max(0, Math.floor(py / CELL_H - 0.5))} left={Math.max(0, Math.round(px / CELL_W - 2.5))}
+            width={5} height={2} flexDirection="column" alignItems="center">
+            {/* No-break spaces: plain ones collapse and leave a button too narrow to hit the node. */}
+            <Button key={`node-${n.id}-press`} plain label={'   '} hover={{ backgroundColor: '#00000000' }} onPress={() => d.onFocus(n.id)} />
+            <Button key={`node-${n.id}-press2`} plain label={'   '} hover={{ backgroundColor: '#00000000' }} onPress={() => d.onFocus(n.id)} />
+          </Box>
+        ))}
+        {d.mapClient ? (
+          <Box key="agents-map-touch" position="absolute" top={0} left={0} right={0} bottom={0}>
+            {d.mapClient}
+          </Box>
+        ) : null}
+      </Box>
+    </Box>
+  )
+}
+
+/** One agent as a row of the status card: its state mark, name, task, and on the right the one thing worth seeing. */
+function agentRow(d: AgentsDraw, a: AgentRec, focus: string) {
   const { Box, Text, Button } = d
   const c = STATE_COLOR[a.state]
   const mark = a.state === 'done' ? '✓' : a.state === 'failed' ? '✕' : a.state === 'waiting' ? '◉' : '◐'
@@ -791,7 +900,7 @@ function agentRow(d: AgentsDraw, a: AgentRec) {
     : a.steps?.length ? `${Math.round(progressShare(a.steps) * 100)}%`
     : 'working'
   return (
-    <Box key={`row-${a.id}`} position="relative" flexDirection="row">
+    <Box key={`row-${a.id}`} position="relative" flexDirection="row" backgroundColor={focus === a.id ? '#222228' : undefined}>
       <Text color={c} bold>{`${mark} `}</Text>
       <Text color={a.state === 'done' ? DIM : TEXT} bold={a.state !== 'done'}>{a.type}</Text>
       <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
@@ -801,14 +910,14 @@ function agentRow(d: AgentsDraw, a: AgentRec) {
         <Text color={a.state === 'done' ? DIM : c} wrap="truncate">{`  ${right}`}</Text>
       </Box>
       <Box position="absolute" top={0} left={0} right={0} bottom={0}>
-        <Button key={`row-${a.id}-press`} plain label={' '.repeat(60)} hover={{ backgroundColor: '#00000000' }} onPress={() => d.onOpen(a.id)} />
+        <Button key={`row-${a.id}-press`} plain label={' '.repeat(60)} hover={{ backgroundColor: '#ffffff0d' }} onPress={() => d.onFocus(a.id)} />
       </Box>
     </Box>
   )
 }
 
-/** A section: a dim title with its count, then its rows. Nothing when it has none. */
-function section(d: AgentsDraw, key: string, title: string, color: string, rows: readonly AgentRec[]) {
+/** A group of the status card: a title with its count, then its rows. Nothing when it has none. */
+function group(d: AgentsDraw, key: string, title: string, color: string, rows: readonly AgentRec[], focus: string) {
   const { Box, Text } = d
   if (!rows.length) return null
   return (
@@ -817,81 +926,148 @@ function section(d: AgentsDraw, key: string, title: string, color: string, rows:
         <Text color={color} bold>{title}</Text>
         <Text dimColor>{`  ${rows.length}`}</Text>
       </Box>
-      {rows.map(a => agentRow(d, a))}
+      {rows.map(a => agentRow(d, a, focus))}
     </Box>
   )
 }
 
-/**
- * The whole pane, one rounded violet card, padded, in sections: the phase and a big progress bar; the network, this
- * chat in the middle; what needs you; what is working; what is done (folded to a line until pressed); the wordmark.
- */
-export function agentsPane(d: AgentsDraw, agents: readonly AgentRec[]) {
-  const { Box, Text, Button, Svg } = d
-  // The card's border and padding take two columns a side.
-  const cols = Math.max(24, d.cols - 4)
-  const { nodes, rows } = networkLayout(agents, cols)
-  const phase = phaseOf(agents, d.steps)
-  const tokens = agents.reduce((s, a) => s + (a.cost ?? 0), 0)
-  const open = d.open && (d.open === 'main' || agents.some(a => a.id === d.open)) ? d.open : null
+/** A card under the overview: a bold title, a dim note on the right, its body. */
+function card(d: AgentsDraw, key: string, title: string, aside: string, body: unknown) {
+  const { Box, Text } = d
+  return (
+    <Box key={key} flexDirection="column" paddingX={1} backgroundColor={CARD_BG} borderStyle="round" borderColor={CARD_EDGE}>
+      <Box flexDirection="row">
+        <Text color={TEXT} bold>{title}</Text>
+        <Box flexGrow={1} />
+        <Text dimColor>{aside}</Text>
+      </Box>
+      {body}
+    </Box>
+  )
+}
+
+/** The status card: what needs you, what works, what is done (folded to its title until pressed). */
+function statusCard(d: AgentsDraw, agents: readonly AgentRec[], focus: string) {
+  const { Box, Text, Button } = d
   const needs = agents.filter(a => a.state === 'waiting' || a.state === 'failed')
   const working = agents.filter(a => a.state === 'running' || a.state === 'picking')
   const done = agents.filter(a => a.state === 'done')
-  const doneOpen = d.open === 'done'
-  return (
-    <Box key="agents" position="relative" flexDirection="column" minHeight={d.rows} paddingX={1} paddingY={1} gap={1}
-      backgroundColor={PANE_BG} borderStyle="round" borderColor="#4a3f80">
-      <Box flexDirection="column">
-        <Box flexDirection="row" alignItems="center">
-          <Text color={ACCENT} bold>✦ </Text>
-          <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
-            <Text color={TEXT} bold wrap="truncate">{phase.title}</Text>
-          </Box>
-          <Text color={TEXT} bold>{`  ${Math.round(phase.share * 100)}%`}</Text>
-        </Box>
-        {Svg ? (
-          <Svg source={progressTrackSvg({ phase: phase.share >= 1 ? 'done' : 'working', steps: d.steps && d.steps.length ? [...d.steps] : agentsAsSteps(agents) })}
-            alt={`${Math.round(phase.share * 100)}% done`} width={1000} height={24} />
-        ) : null}
-        <Box flexDirection="row">
-          <Text dimColor>{agents.length ? `${agents.length} agent${agents.length > 1 ? 's' : ''}` : 'no agents yet'}</Text>
-          <Box flexGrow={1} />
-          {tokens ? <Text dimColor>{`${tokensText(tokens)} tokens`}</Text> : null}
-        </Box>
-      </Box>
-      {Svg && agents.length ? (
-        <Box key="agents-net" position="relative" height={rows} width={cols}>
-          <Box position="absolute" top={0} left={0}>
-            <Svg source={networkSvg(nodes, rows, cols, open, phase.share)} alt={`this chat and ${agents.length} agents`} width={Math.round(cols * CELL_W)} height={Math.round(rows * CELL_H)} />
-          </Box>
-          {nodes.map(n => (
-            <Box key={`node-${n.id}`} position="absolute" top={n.row} left={Math.max(0, n.col - 2)} width={5} height={1} alignItems="center" justifyContent="center">
-              {/* No-break spaces: plain ones collapse and leave a button too narrow to hit the node. */}
-              <Button key={`node-${n.id}-press`} plain label={' '.repeat(3)} hover={{ backgroundColor: '#00000000' }} onPress={() => d.onOpen(n.id)} />
-            </Box>
-          ))}
-        </Box>
-      ) : null}
-      {open ? nodeCard(d, open, agents) : null}
-      {section(d, 'needs', 'Needs you', STATE_COLOR.waiting, needs)}
-      {section(d, 'working', 'Working', ACCENT, working)}
+  const aside = needs.length ? `${needs.length} need${needs.length > 1 ? '' : 's'} you` : working.length ? `${working.length} working` : agents.length ? 'All done' : ''
+  return card(d, 'agents-status', 'Status', aside, (
+    <Box flexDirection="column">
+      {group(d, 'needs', 'Needs you', STATE_COLOR.waiting, needs, focus)}
+      {group(d, 'working', 'Working', ACCENT, working, focus)}
       {done.length ? (
         <Box key="sec-done" position="relative" flexDirection="column">
           <Box position="relative" flexDirection="row">
-            <Text color={STATE_COLOR.done} bold>{doneOpen ? '▾ Done' : '▸ Done'}</Text>
+            <Text color={STATE_COLOR.done} bold>{d.doneOpen ? '▾ Done' : '▸ Done'}</Text>
             <Text dimColor>{`  ${done.length}`}</Text>
             <Box flexGrow={1} />
             <Box position="absolute" top={0} left={0} right={0} bottom={0}>
-              <Button key="done-press" plain label={' '.repeat(60)} hover={{ backgroundColor: '#00000000' }} onPress={() => d.onOpen('done')} />
+              <Button key="done-press" plain label={' '.repeat(60)} hover={{ backgroundColor: '#ffffff0d' }} onPress={() => d.onDone()} />
             </Box>
           </Box>
-          {doneOpen ? done.map(a => agentRow(d, a)) : null}
+          {d.doneOpen ? done.map(a => agentRow(d, a, focus)) : null}
         </Box>
       ) : null}
       {!agents.length ? <Text dimColor>Agents show here when Claude sends some off.</Text> : null}
+    </Box>
+  ))
+}
+
+/** The usage card: weighted tokens in all, and who spent them, the biggest first, as bars. */
+function usageCard(d: AgentsDraw, agents: readonly AgentRec[]) {
+  const { Box, Text, Svg } = d
+  const rows = [
+    { id: 'main', name: 'This chat', cost: d.mainCost, color: ACCENT },
+    ...agents.map(a => ({ id: a.id, name: a.type, cost: a.cost ?? 0, color: STATE_COLOR[a.state] })),
+  ]
+    .filter(r => r.cost > 0)
+    .sort((a, b) => b.cost - a.cost)
+  const total = rows.reduce((s, r) => s + r.cost, 0)
+  if (!total) return null
+  const top = rows[0].cost
+  const barCols = Math.max(6, d.cols - 6 - 16 - 7)
+  const bar = (share: number, color: string) => {
+    const w = Math.round(barCols * CELL_W)
+    const len = Math.max(3, Math.round(w * share))
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${CELL_H}" viewBox="0 0 ${w} ${CELL_H}"><rect x="0" y="7" width="${w}" height="5" rx="2.5" fill="#ffffff" fill-opacity=".06"/><rect x="0" y="7" width="${len}" height="5" rx="2.5" fill="${color}"/></svg>`
+  }
+  return card(d, 'agents-usage', 'Usage', `${tokensText(total)} tokens`, (
+    <Box flexDirection="column">
+      {rows.slice(0, 5).map(r => (
+        <Box key={`use-${r.id}`} flexDirection="row">
+          <Box width={16} flexShrink={0} overflow="hidden">
+            <Text color={TEXT} wrap="truncate">{r.name}</Text>
+          </Box>
+          {Svg ? <Svg source={bar(r.cost / top, r.color)} alt={`${Math.round((r.cost / total) * 100)}%`} width={Math.round(barCols * CELL_W)} height={CELL_H} /> : <Box flexGrow={1} />}
+          <Box width={7} flexShrink={0} justifyContent="flex-end">
+            <Text dimColor>{tokensText(r.cost)}</Text>
+          </Box>
+        </Box>
+      ))}
+      {rows.length > 5 ? <Text dimColor>{`and ${rows.length - 5} more`}</Text> : null}
+    </Box>
+  ))
+}
+
+/** Who a note reaches: this chat, and every agent still going when it was sent. */
+export function noteReach(note: AgentNote, agents: readonly AgentRec[]): string[] {
+  return ['main', ...agents.filter(a => a.startedAt <= note.at && (a.endedAt === undefined || a.endedAt > note.at)).map(a => a.id)]
+}
+
+/** The note card: a field whose Enter sends a note to every agent, read with their next tool result; the last few. */
+function noteCard(d: AgentsDraw, agents: readonly AgentRec[]) {
+  const { Box, Text, Input } = d
+  if (!Input) return null
+  const notes = d.notes.slice(-3).reverse()
+  return card(d, 'agents-note', 'Note to every agent', 'read with their next step', (
+    <Box flexDirection="column">
+      <Input key={`agents-note-input-${d.notes.length}`} placeholder="Type a note, Enter sends it" submitLabel="send" value="" onSubmit={(text: string) => d.onNote(text)} />
+      {notes.map(n => {
+        const reach = noteReach(n, agents)
+        const read = n.seen.filter(id => reach.includes(id)).length
+        return (
+          <Box key={`note-${n.id}`} flexDirection="row">
+            <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
+              <Text color={TEXT} wrap="truncate">{`“${n.text}”`}</Text>
+            </Box>
+            <Text color={read >= reach.length ? STATE_COLOR.done : DIM}>{`  read by ${read} of ${reach.length}`}</Text>
+          </Box>
+        )
+      })}
+    </Box>
+  ))
+}
+
+/** The settings bar's wordmark, recoloured to the brand's violet and drawn across the pane's whole width. */
+function wordmarkSvg(source: string, w: number): { source: string; w: number; h: number } {
+  const h = Math.round((w * 28) / 92)
+  return { source: source.replace('width="92" height="28"', `width="${w}" height="${h}"`).replace(/#f4f2ff/g, ACCENT), w, h }
+}
+
+/**
+ * The whole pane on the dashboard's dark ground, padded: the focused node's progress on top, the overview under it,
+ * then the status, usage and note cards, and the wordmark across the bottom.
+ */
+export function agentsPane(d: AgentsDraw, agents: readonly AgentRec[]) {
+  const { Box, Text, Svg } = d
+  const nodes = worldLayout(agents)
+  const focusId = d.focus && nodes.some(n => n.id === d.focus) ? d.focus : 'main'
+  const focus = agents.find(a => a.id === focusId) ?? null
+  const phase = phaseOf(agents, d.steps)
+  const mark = wordmarkSvg(d.wordmark, Math.round((d.cols - 4) * CELL_W))
+  return (
+    <Box key="agents" position="relative" flexDirection="column" minHeight={d.rows} paddingX={1} paddingY={1} gap={1}
+      backgroundColor={PANE_BG} borderStyle="round" borderColor={CARD_EDGE}>
+      {focusHead(d, focus, agents)}
+      {overview(d, nodes, focusId, phase.share)}
+      {statusCard(d, agents, focusId)}
+      {usageCard(d, agents)}
+      {noteCard(d, agents)}
       <Box flexGrow={1} />
-      <Box flexDirection="row" justifyContent="flex-end">
-        {Svg ? <Svg source={d.wordmark} alt="effortless" width={92} height={28} /> : <Text color={TEXT} bold>effortless</Text>}
+      <Box flexDirection="row" justifyContent="center">
+        {Svg ? <Svg source={mark.source} alt="effortless" width={mark.w} height={mark.h} /> : <Text color={ACCENT} bold>effortless</Text>}
       </Box>
     </Box>
   )

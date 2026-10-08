@@ -1,8 +1,8 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelForkResult, Register, RenderInput } from 'claude-code'
 
-import type { AgentRec, Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
-import { agentsPane, demoAgents, demoFiles, demoSteps, importsOf, relPath, toolLine, touchOf, withTouch, withWaits } from './agents'
+import type { AgentNote, AgentRec, Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
+import { agentsPane, camFit, camGlide, camNow, camSet, demoAgents, demoFiles, demoSteps, importsOf, mapSize, nodeAt, noteReach, relPath, toolLine, touchOf, withTouch, withWaits, worldLayout } from './agents'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
 import { MARK_SVG } from './brand-mark'
 import { PILL_H, stepsFromTodos, thinkingSvg, THINK_W, withTaskCreated, withTaskUpdated } from './progress'
@@ -164,6 +164,11 @@ const agentsOpen = atom({ plugin: 'effortless', key: 'agentsOpen' } as const, nu
 const agentFiles = atom({ plugin: 'effortless', key: 'agentFiles' } as const, [])
 const agentSteps = atom({ plugin: 'effortless', key: 'agentSteps' } as const, null)
 const agentsModule = atom({ plugin: 'effortless', key: 'agentsModule' } as const, null)
+// The panel's overview camera, its Done fold, the notes sent to every agent, the main chat's tokens.
+const agentsCam = atom({ plugin: 'effortless', key: 'agentsCam' } as const, null)
+const agentsDoneOpen = atom({ plugin: 'effortless', key: 'agentsDoneOpen' } as const, false)
+const agentsNotes = atom({ plugin: 'effortless', key: 'agentsNotes' } as const, [])
+const agentsMainCost = atom({ plugin: 'effortless', key: 'agentsMainCost' } as const, 0)
 // Save mode: Auto picks at most medium until this time (ms), when the limit resets.
 const saveUntil = atom({ plugin: 'effortless', key: 'saveUntil' } as const, null)
 const isColdHidden = atom({ plugin: 'effortless', key: 'isColdHidden' } as const, false)
@@ -3098,6 +3103,50 @@ async function agentWaits($: EngineInterface) {
   if (next) await update($, agentsState, () => next)
 }
 
+/** The overview's size as last drawn, so a click or drag on its Client can be turned into the map's pixels. */
+let mapBox = mapSize(46, 40)
+/** Whether the pointer is over the overview: the pane's wheel then zooms the map instead of scrolling. */
+let mapHover = false
+/** The map's Client failed on this surface: the pane draws without it (buttons still focus and zoom). */
+let mapBroken = false
+/** The drag under way: its number from the Client, and the camera when it began. */
+let dragBase: { drag: number; x: number; y: number; z: number } | null = null
+
+/** Puts a node in focus and glides the overview to it. */
+async function agentFocus($: EngineInterface, id: string) {
+  const node = worldLayout(await read($, agentsState)).find(n => n.id === id)
+  if (!node) return
+  const now = await $.clock.now()
+  await update($, agentsOpen, () => id)
+  await update($, agentsCam, c => camGlide(c, now, { x: node.x, y: node.y }))
+}
+
+/** Zooms the overview by `factor`, gliding. */
+async function agentZoom($: EngineInterface, factor: number) {
+  const now = await $.clock.now()
+  await update($, agentsCam, c => camGlide(c, now, { z: camNow(c, now).z * factor }))
+}
+
+/** A note for every agent: this chat and each agent still going read it with their next tool result. */
+async function agentNote($: EngineInterface, text: string) {
+  const t = text.trim()
+  if (!t) return
+  const now = await $.clock.now()
+  await update($, agentsNotes, list => [...list, { id: `n${now}`, text: t.slice(0, 600), at: now, seen: [] }].slice(-20))
+}
+
+/** The notes `who` has not read yet, marked read: what its next tool result carries. */
+async function notesFor($: EngineInterface, who: string): Promise<string[]> {
+  const notes = await read($, agentsNotes)
+  if (!notes.length) return []
+  const agents = await read($, agentsState)
+  const due = notes.filter(n => !n.seen.includes(who) && noteReach(n, agents).includes(who))
+  if (!due.length) return []
+  const ids = new Set(due.map(n => n.id))
+  await update($, agentsNotes, list => list.map(n => (ids.has(n.id) ? { ...n, seen: [...n.seen, who] } : n)))
+  return due.map(n => `A note from the user, sent to every agent from the effortless agent panel: ${n.text}`)
+}
+
 // A compaction written by Haiku 5.5: Anthropic names compaction among the jobs it is built for, at a fraction of the
 // chat model's price. Claude Code compacts with the chat's own model and has no setting for another, and the
 // summarizer's request does not pass through turn.step, so the mod answers session.compact itself: the transcript as
@@ -3321,6 +3370,10 @@ export const register: Register = (on, options) => {
         await update($, agentsState, () => demoAgents(now))
         await update($, agentFiles, () => demoFiles(now))
         await update($, agentSteps, () => demoSteps())
+        await update($, agentsMainCost, () => 514_000)
+        await update($, agentsOpen, () => 'main')
+        await update($, agentsCam, () => null)
+        await update($, agentsNotes, () => [{ id: 'demo-note', text: 'keep the tests green before you report', at: now - 60_000, seen: ['main', 'demo-1'] }] as AgentNote[])
       }
       await $.ui.open({ id: 'effortless-agents', title: 'Agents' })
       return { text: arg === 'agents demo' ? 'The agent panel shows sample agents (a preview).' : 'The agent panel is open.' }
@@ -3536,6 +3589,7 @@ Saved to ${out}.md and .json` }
       // Inside the hook ($ calls after it returns are refused), and never allowed to break the request.
       if (e.agentId === undefined && answer?.usage) await cacheTouched($, answer.usage).catch(() => undefined)
       if (e.agentId === undefined && answer?.usage) turnCost += weighted(answer.usage)
+      if (e.agentId === undefined && answer?.usage) await update($, agentsMainCost, n => n + weighted(answer.usage!)).catch(() => undefined)
       if (e.agentId !== undefined && answer?.usage) await agentCost($, e.agentId, weighted(answer.usage)).catch(() => undefined)
       return answer
     }
@@ -3700,6 +3754,11 @@ Saved to ${out}.md and .json` }
     const touch = touchOf(e.tool, input)
     const isList = e.tool === 'TodoWrite' || e.tool === 'TaskCreate' || e.tool === 'TaskUpdate'
     const known = id !== undefined && (await read($, agentsState)).some(a => a.id === id)
+    const notes = id === undefined || known ? await notesFor($, id ?? 'main') : []
+    if (notes.length) {
+      const answered = await next(e)
+      return 'deny' in answered && answered.deny ? answered : { ...answered, context: [...(answered.context ?? []), ...notes] }
+    }
     if (!touch && !known && !(id === undefined && isList)) return next(e)
     if (known && id !== undefined) {
       const now = await $.clock.now()
@@ -3725,28 +3784,64 @@ Saved to ${out}.md and .json` }
 
   on('ui.render', { component: 'Pane', requestId: 'effortless-agents' }, async ($, e) => {
     const els = $.ui.resolve(e)
+    const { Client } = els as { Client?: unknown }
     const agents = await read($, agentsState)
-    const open = await read($, agentsOpen)
     const rows = Math.max(12, e.props.scroll.bodyRows)
+    const cols = e.props.bodyColumns
+    mapBox = mapSize(cols, rows)
     return agentsPane(
       {
         ...els,
         rows,
+        cols,
         nowMs: await $.clock.now(),
-        title: 'This chat',
-        open,
-        ringSvg,
-        cardArt: { source: DASH_SVG, width: FROST_WIDTH * 2, height: FROST_HEIGHT * 2 },
-        onOpen: (id: string) => update($, agentsOpen, cur => (cur === id ? null : id)),
-        files: await read($, agentFiles),
+        focus: await read($, agentsOpen),
+        onFocus: (id: string) => agentFocus($, id),
+        cam: await read($, agentsCam),
+        onZoom: (factor: number) => agentZoom($, factor),
+        onFit: async () => {
+          const now = await $.clock.now()
+          const nodes = worldLayout(await read($, agentsState))
+          await update($, agentsCam, c => camFit(nodes, mapBox.w, mapBox.h, now, c))
+        },
+        mapClient: Client && !mapBroken ? <Client key="agents-map" module="./agents-map.tsx" width="100%" height="100%" /> : null,
         steps: await read($, agentSteps),
-        module: await read($, agentsModule),
-        onModule: (key: string) => update($, agentsModule, cur => (cur === key ? null : key)),
-        cols: e.props.bodyColumns,
+        doneOpen: await read($, agentsDoneOpen),
+        onDone: () => update($, agentsDoneOpen, v => !v),
+        mainCost: await read($, agentsMainCost),
+        notes: await read($, agentsNotes),
+        onNote: (text: string) => agentNote($, text),
         wordmark: SETTINGS_TITLE,
       },
       agents,
     )
+  })
+
+  // The overview's Client: a click focuses the node under it, a drag pans, hovering hands the wheel to the map.
+  on('ui.message', async ($, e, next) => {
+    if (e.element !== 'agents-map') return next(e)
+    const data = (e.data ?? {}) as { hover?: boolean; click?: [number, number]; drag?: number; dx?: number; dy?: number; end?: boolean }
+    if (typeof data.hover === 'boolean') mapHover = data.hover
+    if (data.click) {
+      const now = await $.clock.now()
+      const id = nodeAt(worldLayout(await read($, agentsState)), await read($, agentsCam), mapBox.w, mapBox.h, data.click[0], data.click[1], now)
+      if (id) await agentFocus($, id)
+    }
+    if (typeof data.drag === 'number') {
+      const now = await $.clock.now()
+      if (!dragBase || dragBase.drag !== data.drag) dragBase = { drag: data.drag, ...camNow(await read($, agentsCam), now) }
+      const b = dragBase
+      await update($, agentsCam, () => camSet(b.x - ((data.dx ?? 0) * mapBox.w) / b.z, b.y - ((data.dy ?? 0) * mapBox.h) / b.z, b.z))
+      if (data.end) dragBase = null
+    }
+    return {}
+  })
+
+  // The wheel over the overview zooms it; anywhere else in the pane it scrolls as ever.
+  on('ui.scroll', { requestId: 'effortless-agents' }, async ($, e, next) => {
+    if (!mapHover || mapBroken || !e.by) return next(e)
+    await agentZoom($, e.by < 0 ? 1.15 : 1 / 1.15)
+    return {}
   })
 
   on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
