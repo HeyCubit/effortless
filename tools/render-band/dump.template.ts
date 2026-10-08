@@ -9,6 +9,8 @@ type Params = {
   cacheMinutes: number | null
   effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max'
   reason: string
+  // --handoff "...": the Haiku judge's reason that a fresh chat would suit now (lights up Handoff).
+  handoff?: string
   judged: boolean
   judging: boolean
   working: boolean
@@ -55,7 +57,7 @@ describe('render rig', () => {
     on('command.list', () => ({ value: [{ name: 'model' }, { name: 'effort' }] as never }))
     on('command.run', () => ({ text: 'ok' }))
     const usage = { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }
-    const verdict = JSON.stringify({ model: P.model ?? 'opus', effort: P.effort, why: P.reason })
+    const verdict = JSON.stringify({ model: P.model ?? 'opus', effort: P.effort, why: P.reason, ...(P.handoff ? { handoff: P.handoff } : {}) })
     let hold = false
     on('model.complete', () =>
       hold

@@ -40,6 +40,7 @@ update it either keeps working or exits and says which of these it could not fin
 | `--trace MS` | | simulates clicks: presses the `--press` buttons on the drawn band, records every redraw for MS ms of the mod's clock, then replays each one at its time with the app's renderer (a redraw swaps the whole band, as in the app) and shoots frames into `out/<name>-frames/` (named by ms). Prints the redraws per step. Use it for flicker, animations across redraws and clicks that get lost |
 | `--cache M` / `--cache off` | 59 | minutes left on a 1 h cache |
 | `--effort E`, `--reason "..."`, `--model M` | medium, opus | the judge's verdict (Haiku judge); `--model haiku` puts the prompt on a cheaper model |
+| `--handoff "..."` | | the Haiku judge's reason that a fresh chat would suit now; Handoff lights up with it |
 | `--auto off`, `--fresh`, `--judging`, `--working` | | other states |
 | `--columns N` | 100 | cells across the band body (props.bodyColumns); under 80 the Compact button is hidden |
 | `--density compact|comfortable` |\|comfortable` | compact | the Code tab's CDS density (the reference screenshots match compact) |

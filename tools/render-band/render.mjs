@@ -38,6 +38,7 @@ const params = {
   effort: opt('effort', 'medium'),
   reason: opt('reason', 'a small fix in one file'),
   model: opt('model', 'opus'),
+  handoff: opt('handoff', '') || '',
   judged: !flag('fresh'),
   judging: flag('judging'),
   working: flag('working'),
