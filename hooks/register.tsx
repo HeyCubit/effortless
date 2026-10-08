@@ -1328,8 +1328,14 @@ async function checkSwamp($: EngineInterface) {
 let redrawsOwed = 0
 // The countdown's minute the band was last redrawn for (see cacheClockSvg).
 let clockMinute = -1
+// When the redraws were asked for: once the band has been drawn after that, none are owed any more. Each redraw
+// rebuilds the band and restarts its animations, so asking blindly 4 more times reset the cold band's spin 4 times.
+let redrawAskedAt = 0
+// A draw this soon after the ask may come before the app has the band up, so it does not count.
+const REDRAW_SETTLE_MS = 500
 function redrawSoon(times = 5) {
   redrawsOwed = Math.max(redrawsOwed, times)
+  redrawAskedAt = Date.now()
 }
 
 async function showCache($: EngineInterface) {
@@ -2527,8 +2533,12 @@ function startTimers($: EngineInterface, from: 'start' | 'draw') {
   handoffTimer = $.clock.every(HANDOFF_POLL_MS, () => {
     void agentWaits($).catch(() => undefined)
     if (redrawsOwed > 0) {
-      redrawsOwed--
-      $.ui.invalidate('ui.render')
+      // Drawn since the ask: the band is up to date, so a redraw would only restart its animations.
+      if (lastRenderAt > redrawAskedAt + REDRAW_SETTLE_MS) redrawsOwed = 0
+      else {
+        redrawsOwed--
+        $.ui.invalidate('ui.render')
+      }
     }
     // Right after a start the app may not have the usage yet: ask each second until it has, so the ring shows.
     if (!lastContext || !lastContext.window) void checkSwamp($).then(() => lastContext?.window && $.ui.invalidate('ui.render')).catch(() => undefined)

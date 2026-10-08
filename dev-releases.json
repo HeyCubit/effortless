@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.63.1",
+    "date": "2026-10-08",
+    "note": "No restarting animations when a chat opens cold"
+  },
+  {
     "version": "1.62.1",
     "date": "2026-10-08",
     "note": "Update card never sticks on Loading"
