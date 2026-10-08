@@ -2643,36 +2643,48 @@ describe('dashboard', () => {
     await expect($.ui.mount(FOOTER)).rejects.toThrow()
   })
 
-  test('Handoff gains its box a step a percent of context, with H and the glow once it is loud', DASH, async ($, on) => {
+  test('Handoff stays calm at any fill; it lights, with the reason, only when Haiku says a handoff would suit', DASH, async ($, on) => {
     engine(on)
+    recordSteps(on)
     const mocked = mock.clock(on)
-    let percent = 10
-    on('session.usage', () => ({ value: { context: { tokens: percent * 10_000, window: 1_000_000, percent } } }) as never)
+    on('session.usage', () => ({ value: { context: { tokens: 400_000, window: 1_000_000, percent: 40 } } }) as never)
+    let verdict = '{"model":"opus","effort":"high","why":"big refactor"}'
+    on('model.complete', () => ({ value: { isAnswered: true as const, text: verdict, usage: USAGE } }))
     await start($, on)
     await closeSetup($, DESK_BAND)
     await mocked.advance(16_000)
+    // A fairly full chat, no advice: no glow, no H key, Handoff and Compact both there.
     let band = await $.ui.mount(DESK_BAND)
     expect(await band.find({ key: 'dash-handoff' })).toBeDefined()
+    expect(await band.find({ key: 'dash-compact' })).toBeDefined()
     expect(await band.find({ key: 'dash-handoff-h' })).toBeUndefined()
+    expect(await band.find({ key: 'dash-glow' })).toBeUndefined()
     await band.unmount()
-    percent = 35
-    await mocked.advance(16_000)
+    // Haiku judges a prompt and says a handoff would suit.
+    verdict = '{"model":"opus","effort":"high","why":"new topic","handoff":"Task done, new topic"}'
+    await $.prompt.submit({ text: 'completely different: help me plan a trip to Lisbon', wait: false, origin: { kind: 'composer' } })
+    await step($)
     band = await $.ui.mount(DESK_BAND)
     expect((await band.find({ key: 'dash-handoff-h' }))?.props).toMatchObject({ hotkey: 'h' })
     expect(await band.find({ key: 'dash-glow' })).toBeDefined()
+    expect(await drawn(band)).toContain('Handoff would suit: Task done, new topic')
     await band.unmount()
-    // While a reply runs the band redraws often: no glow then, so it cannot flicker.
-    const working = { ...(DESK_BAND as object), props: { ...BAND.props, isWorking: true } } as never
-    band = await $.ui.mount(working)
-    expect(await band.find({ key: 'dash-glow' })).toBeUndefined()
-    expect(await band.find({ key: 'dash-handoff' })).toBeDefined()
-    await band.unmount()
-    // A fresh chat has no glow.
-    percent = 10
-    await mocked.advance(16_000)
+    // The next verdict without the field clears it again.
+    verdict = '{"model":"opus","effort":"high","why":"same job"}'
+    await $.prompt.submit({ text: 'now make the Lisbon plan a three day one with a budget', wait: false, origin: { kind: 'composer' } })
+    await step($)
     band = await $.ui.mount(DESK_BAND)
     expect(await band.find({ key: 'dash-glow' })).toBeUndefined()
+    expect(await drawn(band)).not.toContain('Handoff would suit')
     await band.unmount()
+  })
+
+  test('parseVerdict keeps only a real handoff reason', () => {
+    const base = '"model":"opus","effort":"high","why":"x"'
+    expect(parseVerdict(`{${base},"handoff":"Task done"}`)?.handoff).toBe('Task done')
+    expect(parseVerdict(`{${base},"handoff":"   "}`)?.handoff).toBeUndefined()
+    expect(parseVerdict(`{${base},"handoff":false}`)?.handoff).toBeUndefined()
+    expect(parseVerdict(`{${base}}`)?.handoff).toBeUndefined()
   })
 
   test('the Handoff glow steps up every 10% from 30%', () => {

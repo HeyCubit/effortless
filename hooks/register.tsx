@@ -115,6 +115,8 @@ const handoffStage = atom({ plugin: 'effortless', key: 'handoffStage' } as const
 const handoffPick = atom({ plugin: 'effortless', key: 'handoffPick' } as const, null)
 // The context is swamped: tokens read per request, or null below the line. Drives the swamp band.
 const swamped = atom({ plugin: 'effortless', key: 'swamped' } as const, null)
+// Why Haiku thinks a handoff would suit now, or null. It lights Handoff and says why; there is no percent threshold.
+const handoffAdvice = atom({ plugin: 'effortless', key: 'handoffAdvice' } as const, null)
 // The swamp band was closed at this many tokens; it comes back once the context has grown well past it.
 // The handoff card above the prompt: shown from the start of a handoff, and once it lands ('done' in the
 // cleared chat, 'copied'). It goes with the next message, its ✕, or HANDOFF_CARD_MS after it was set.
@@ -131,6 +133,7 @@ const HANDOFF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height=
 
 async function setHandoffCard($: EngineInterface, kind: HandoffCard['kind'], full: boolean, seen = false) {
   const at = await $.clock.now()
+  await update($, handoffAdvice, () => null)
   await update($, handoffCard, () => ({ kind, full, at, seen }))
   // Gone after a while even with no reply; a timer that dies with its request leaves the next reply to clear it.
   if (!cardRunning(kind)) {
@@ -304,8 +307,14 @@ If the message is a short follow-up to ongoing work ("yes", "go", "ok", "continu
 
 Reply with JSON only: {"model":"haiku|sonnet|opus|fable","effort":"low|medium|high|xhigh|max","sure":0.0-1.0 how sure you are of the effort,"why":"at most 6 words, in the user's language"}`
 
+// What only Haiku is asked on top: whether a fresh chat would serve the person better than carrying on. Compact is
+// always one press away, so this is only about the bigger break. No percent: the judge reads what the chat is about.
+const HANDOFF_ADDENDUM = `
+
+Also judge whether a handoff (a fresh chat that carries over a short summary) would now suit the person better than carrying on or compacting. Say yes only for a clear reason: the task just finished and the next message is something else, the topic has changed so the old context is dead weight, the chat keeps going in circles on the same problem, or a long chat now holds so much unrelated history that a clean start would be sharper. A normal next step of the same work is never a reason, and neither is a long chat by itself. When yes, add "handoff": a reason of at most 8 words in the user's language; when no, leave the field out.`
+
 /** Reads `{ model, effort, why }` out of a reply, or nothing when it doesn't hold one. */
-export function parseVerdict(text: string): { model: ModelKey; effort: Effort; why: string; sure?: number } | undefined {
+export function parseVerdict(text: string): { model: ModelKey; effort: Effort; why: string; sure?: number; handoff?: string } | undefined {
   const match = text.match(/\{[\s\S]*\}/)
   if (!match) return undefined
   let raw: unknown
@@ -315,12 +324,14 @@ export function parseVerdict(text: string): { model: ModelKey; effort: Effort; w
     return undefined
   }
   if (typeof raw !== 'object' || raw === null) return undefined
-  const { model, effort, why, sure } = raw as Record<string, unknown>
+  const { model, effort, why, sure, handoff } = raw as Record<string, unknown>
   const key = typeof model === 'string' ? model.toLowerCase() : ''
   const found = MODELS.find(m => key === m.key || key === m.id || key.includes(m.key))
   if (!found || !EFFORTS.includes(effort as Effort)) return undefined
   const how = typeof sure === 'number' && sure >= 0 && sure <= 1 ? { sure } : {}
-  return { model: found.key, effort: effort as Effort, why: typeof why === 'string' ? why.slice(0, 60) : '', ...how }
+  // Only a reason counts: "handoff":"" or false is no advice.
+  const advice = typeof handoff === 'string' && handoff.trim() ? { handoff: handoff.trim().slice(0, 70) } : {}
+  return { model: found.key, effort: effort as Effort, why: typeof why === 'string' ? why.slice(0, 60) : '', ...how, ...advice }
 }
 
 /**
@@ -767,8 +778,9 @@ async function testJudge($: EngineInterface, judgeKind: string, draftKey: string
 
 /** Haiku through the session's own login: the judge that needs no key, and the fallback for the others. */
 async function askHaiku($: EngineInterface, prompt: string, current: Pick | null, context: string): Promise<Judged> {
-  const asked = judgeQuestion(prompt, current, context)
-  const ask = (model: string) => $.model.complete({ model, system: JUDGE_SYSTEM, prompt: asked, maxTokens: 120, effort: 'low', timeoutMs: 6000 })
+  const used = lastContext && lastContext.window ? `Context used: ${Math.round(lastContext.percent)}% of the window` : ''
+  const asked = [judgeQuestion(prompt, current, context), used].filter(Boolean).join('\n\n')
+  const ask = (model: string) => $.model.complete({ model, system: JUDGE_SYSTEM + HANDOFF_ADDENDUM, prompt: asked, maxTokens: 160, effort: 'low', timeoutMs: 6000 })
   // Haiku 5.5 by name: Claude Code builds that predate it map the plain alias to Haiku 4.5, at ten times the price.
   // Where 5.5 does not answer, the alias stands in.
   let r = await ask(COMPACT_MODEL)
@@ -2627,7 +2639,12 @@ async function compactCard($: EngineInterface, working = false) {
 const HANDOFF_GLOW = true
 /** Context share from which the dashboard's Handoff button turns white: below it a handoff saves little. */
 const HANDOFF_LOUD_AT = 30
-const handoffLoud = () => (lastContext?.percent ?? 0) >= HANDOFF_LOUD_AT
+// Handoff is calm until Haiku says a fresh chat would suit now (handoffAdvice); then it is the white box with a glow.
+// What the band last read from handoffAdvice, so the drawing helpers need no await.
+let adviceNow: string | null = null
+const HANDOFF_ADVICE_LEVEL = 50
+const handoffLevel = () => (adviceNow ? HANDOFF_ADVICE_LEVEL : 0)
+const handoffLoud = () => adviceNow !== null
 /** Handoff's box: it fades in, grey, up to HANDOFF_BOX_AT, then lightens to white by HANDOFF_LOUD_AT, where the glow
  * takes over (it grows to 80%). A glow only ever sits around the white box. */
 const HANDOFF_BOX_AT = 15
@@ -2842,6 +2859,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   const els = themedEls($.ui.resolve(e))
   const { Box, Text, Button } = els
   const v = await snap($)
+  adviceNow = (await read($, handoffAdvice)) ?? null
   await introShows($, 'dash')
   // The first draw since another band stood here.
   const entering = introFresh
@@ -2874,7 +2892,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     // Desktop draws the context as a ring and a figure (as the swamp band does); the terminal says it in words.
     contextPercent: e.surface === 'terminal' && lastContext && lastContext.window ? lastContext.percent : null,
     // A prompt on a cheaper model names it in the judge's line ("On Sonnet · Haiku: a small fix"), not beside the effort word.
-    reason: config.hide.includes('reason') ? '' : routed && !v.judging ? `On ${MODELS.find(m => m.key === routed)!.label} · ${reason}` : reason,
+    reason: adviceNow ? `Handoff would suit: ${adviceNow}` : config.hide.includes('reason') ? '' : routed && !v.judging ? `On ${MODELS.find(m => m.key === routed)!.label} · ${reason}` : reason,
     // The last reply's cost is left out of the bar: it was noise there. lastTurn still records it.
     last: null,
   })
@@ -2908,7 +2926,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
               {/* No glow while a reply runs: the band redraws then, and each redraw restarted the glow, so it flickered. */}
               {HANDOFF_GLOW && handoffLoud() && !e.props.isWorking ? (
                 <Box key="dash-glow" position="absolute" top={0} bottom={0} left={-2} right={-2} alignItems="center" justifyContent="center">
-                  <els.Svg source={handoffGlowSvg(handoffGlowStep(lastContext?.percent ?? 0), nowMs)} alt="handoff glow" width={GLOW_W} height={GLOW_H} />
+                  <els.Svg source={handoffGlowSvg(handoffGlowStep(handoffLevel()), nowMs)} alt="handoff glow" width={GLOW_W} height={GLOW_H} />
                 </Box>
               ) : null}
               {/* The H key, once Handoff is loud: on a button of its own, clipped away, since a blank button with a
@@ -2923,16 +2941,16 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
               <Box key="dash-handoff-box" flexShrink={0} flexDirection="row" alignItems="center">
                 <Box width={9} height={1} flexShrink={0} />
                 <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                  <els.Svg source={handoffPillSvg(lastContext?.percent ?? 0)} alt="Handoff box" width={HANDOFF_PILL_W} height={HANDOFF_PILL_H} />
+                  <els.Svg source={handoffPillSvg(handoffLevel())} alt="Handoff box" width={HANDOFF_PILL_W} height={HANDOFF_PILL_H} />
                 </Box>
                 {/* Its hover: a lighter pill shown over the box, not the app's ghost fill, which is sized to the blank
                     label and sat off the drawn box. */}
                 <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center"
                   display="none" hover={{ scope: 'handoff', display: 'flex' }}>
-                  <els.Svg source={handoffPillSvg(lastContext?.percent ?? 0, true)} alt="Handoff box" width={HANDOFF_PILL_W} height={HANDOFF_PILL_H} />
+                  <els.Svg source={handoffPillSvg(handoffLevel(), true)} alt="Handoff box" width={HANDOFF_PILL_W} height={HANDOFF_PILL_H} />
                 </Box>
                 <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                  <Text color={handoffLook(lastContext?.percent ?? 0).label} hover={{ scope: 'handoff', color: handoffLook(lastContext?.percent ?? 0, true).label }}>Handoff</Text>
+                  <Text color={handoffLook(handoffLevel()).label} hover={{ scope: 'handoff', color: handoffLook(handoffLevel(), true).label }}>Handoff</Text>
                 </Box>
                 <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
                   <Button key="dash-handoff" plain label={' '.repeat(14)} hover={{ scope: 'handoff', backgroundColor: '#00000000' }} onPress={() => openHandoffBar($)} />
@@ -3609,6 +3627,9 @@ Saved to ${out}.md and .json` }
           ? `judged by ${verdict.by} in ${ms} ms: ${verdict.model}/${verdict.effort} (${verdict.why}) for "${e.text.slice(0, 50)}"`
           : `no verdict after ${ms} ms for "${e.text.slice(0, 50)}"`,
       )
+      // Only Haiku is asked about a handoff: another judge's verdict clears advice that may be stale.
+      await update($, handoffAdvice, () => (verdict?.by === 'haiku' && verdict.handoff ? verdict.handoff : null))
+      $.ui.invalidate('ui.render')
       if (verdict) {
         // Effort follows the verdict at once, when Auto is on for effort. The model stays: switching it
         // reloads the context, so with Auto on for model it is only suggested.
@@ -4380,7 +4401,7 @@ Saved to ${out}.md and .json` }
             { value: 'copy', label: 'Keep chat & copy' },
           ]}
           onSelect={v => setBar({ after: v as HandoffAfter })()} />,
-        <Button key="handoff-go" variant="primary" autoFocus hotkey="g" label="Go" onPress={() => goHandoff($, choice)} />,
+        <Button key="handoff-go" variant="primary" autoFocus label="Go" onPress={() => goHandoff($, choice)} />,
         <Button key="handoff-close" plain role="dismiss" label="✕" onPress={() => closeHandoffBar($)} />,
       ]
       // The terminal says all of it; the desktop bar only what the picked kind does: the dropdown beside it already
@@ -4712,8 +4733,8 @@ Saved to ${out}.md and .json` }
           key: 'swamp', kind: 'swamp', color: BOG, bg: BOG_BG, edge: BOG_EDGE, title: 'Chat is getting swamped',
           detail: `${Math.round(swampTokens / 1000)}k tokens${lastContext && lastContext.window ? ` (${lastContext.percent}% of context)` : ''} re-read every message.`,
           buttons: [
-            <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => openCompact($, e)} />,
-            <Button key="swamp-handoff" hotkey="h" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />,
+            <Button key="swamp-compact" variant="primary" label="Compact" onPress={() => openCompact($, e)} />,
+            <Button key="swamp-handoff" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />,
             <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />,
           ],
         })
@@ -4751,7 +4772,7 @@ Saved to ${out}.md and .json` }
           </Text>
           <Box flexGrow={1} minWidth={34} />
           <Box key="swamp-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
-            <Button key="swamp-compact" variant="primary" hotkey="c" label="Compact" onPress={() => openCompact($, e)} />
+            <Button key="swamp-compact" variant="primary" label="Compact" onPress={() => openCompact($, e)} />
             <Button key="swamp-handoff" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />
             <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />
           </Box>

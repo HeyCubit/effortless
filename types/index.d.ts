@@ -23,6 +23,8 @@ export type Pick = {
   by: 'jev' | 'haiku' | 'custom' | 'manual'
   /** How sure the judge was of the effort, 0-1, when it said. */
   sure?: number
+  /** Haiku only: why a handoff would suit now (a few words), when it said it would. */
+  handoff?: string
 }
 
 /** What follows a handoff: clear and carry on, clear and wait, or keep the chat and copy it. */
@@ -158,6 +160,8 @@ declare module 'claude-code' {
       swamped: number | null
       /** Tokens at which the swamp band was closed; it returns once the context grows well past it. */
       swampHiddenAt: number | null
+      /** Why Haiku thinks a handoff would suit now, shown with Handoff lit; null when it has no advice. */
+      handoffAdvice: string | null
       /** The first-run setup is not done yet. */
       setupPending: boolean
       /** Where a handoff is: null idle, writing, or clearing and resending. */
