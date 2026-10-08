@@ -2534,6 +2534,7 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
           ? [
               // White and bold: the app's blue link was hard to see on the green and the check.
               own('update-link-box', <Text color="#ffffff" bold><Link href={WHATS_NEW_URL} label="What's new →" /></Text>),
+              own('update-star-box', <Text color="#ffffff" bold><Link href={REPO_URL} label="★ Star on GitHub" /></Text>),
               own('update-close-box', <Button key="update-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={hide} />),
             ]
           : []

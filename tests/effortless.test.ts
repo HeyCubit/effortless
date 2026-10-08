@@ -3004,6 +3004,8 @@ describe('updates', () => {
     const text = await drawn(ui)
     expect(text).toContain('Updated to 1.0.1')
     expect(text).toContain('/whats-new/')
+    expect(text).toContain('Star on GitHub')
+    expect(text).toContain('github.com/HeyCubit/effortless')
     await ui.unmount()
   })
 
