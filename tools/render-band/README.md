@@ -41,7 +41,8 @@ update it either keeps working or exits and says which of these it could not fin
 | `--cache M` / `--cache off` | 59 | minutes left on a 1 h cache |
 | `--effort E`, `--reason "..."`, `--model M` | medium, opus | the judge's verdict (Haiku judge); `--model haiku` puts the prompt on a cheaper model |
 | `--auto off`, `--fresh`, `--judging`, `--working` | | other states |
-| `--density compact\|comfortable` | compact | the Code tab's CDS density (the reference screenshots match compact) |
+| `--columns N` | 100 | cells across the band body (props.bodyColumns); under 80 the Compact button is hidden |
+| `--density compact|comfortable` |\|comfortable` | compact | the Code tab's CDS density (the reference screenshots match compact) |
 | `--mode dark\|light` | dark | |
 | `--zoom Z` | app | override the zoom factor (`1` = no zoom) |
 | `--tree file.json` | | redraw a tree saved earlier (`out/*.tree.json`) without running the mod |

@@ -1067,14 +1067,14 @@ describe('judge choice (plugin settings)', () => {
       floor: 'low',
       ceiling: 'max',
       hide: ['reason'],
-      swampAt: 50,
+      swampAt: 80,
       layout: 'default',
       compactWith: 'haiku',
       modelAuto: 'on',
       theme: 'violet',
     })
     expect(readConfig({ swampAt: '20' })).toMatchObject({ swampAt: 20 })
-    expect(readConfig({ swampAt: '33' }).swampAt).toBe(50)
+    expect(readConfig({ swampAt: '33' }).swampAt).toBe(80)
     expect(readConfig({ handoffSkill: '/session-handoff', handoffAfter: 'confirm' })).toMatchObject({
       handoffSkill: 'session-handoff',
       handoffAfter: 'confirm',
@@ -2989,6 +2989,27 @@ describe('updates', () => {
     await panel.press({ key: 'settings-check-update' })
     await settle()
     expect(await drawn(panel)).toContain('Up to date')
+  })
+
+  test('Compact is always on the bar, hides on a narrow one, opens the compact step, and is not on the terminal', DESK, async ($, on) => {
+    world(on, { installed: '1.0.1', latest: '1.0.1' })
+    await start($)
+    await settle()
+    const wide = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await pastSetup(wide)
+    expect(await wide.find({ key: 'dash-compact' })).toBeDefined()
+    expect(await wide.find({ key: 'dash-handoff' })).toBeDefined()
+    await wide.press({ key: 'dash-compact' })
+    await settle()
+    expect(await drawn(wide)).toContain('compact-bar')
+    await wide.press({ key: 'compact-close' })
+    await settle()
+    await wide.unmount()
+    const narrow = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', component: 'AbovePrompt', props: { ...BAND.props, bodyColumns: 60 } } as never)
+    await pastSetup(narrow)
+    expect(await narrow.find({ key: 'dash-compact' })).toBeUndefined()
+    expect(await narrow.find({ key: 'dash-handoff' })).toBeDefined()
+    await narrow.unmount()
   })
 
   test('a newer version is offered; ✕ puts it away for a day, then it is offered again', DESK, async ($, on) => {

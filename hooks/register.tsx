@@ -547,7 +547,7 @@ let config: JudgeConfig = {
   floor: 'low',
   ceiling: 'max',
   hide: ['reason'],
-  swampAt: 50,
+  swampAt: 80,
   layout: 'default',
   compactWith: 'haiku',
   modelAuto: 'on',
@@ -570,7 +570,7 @@ export function readConfig(options: unknown): JudgeConfig {
     bias: Math.max(-2, Math.min(2, Math.round(Number(str(o.effortBias)) || 0))),
     floor: EFFORTS.includes(str(o.effortFloor) as Effort) ? (str(o.effortFloor) as Effort) : 'low',
     ceiling: EFFORTS.includes(str(o.effortCeiling) as Effort) ? (str(o.effortCeiling) as Effort) : 'max',
-    swampAt: SWAMP_STEPS.includes(Number(str(o.swampAt)) as (typeof SWAMP_STEPS)[number]) ? Number(str(o.swampAt)) : 50,
+    swampAt: SWAMP_STEPS.includes(Number(str(o.swampAt)) as (typeof SWAMP_STEPS)[number]) ? Number(str(o.swampAt)) : 80,
     layout: str(o.layout) === 'minimal' ? 'minimal' : 'default',
     compactWith: str(o.compactWith) === 'session' ? 'session' : 'haiku',
     modelAuto: str(o.modelAuto) === 'off' ? 'off' : 'on',
@@ -1442,6 +1442,8 @@ export function enterSvg(color: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5V7.2A1.8 1.8 0 0 1 9.7 9H2.8"/><path d="M5.3 6.4 2.7 9l2.6 2.6"/></g></svg>`
 }
 /** The compact bar's Compact: a white pill like the app's primary buttons, GO_CELLS wide. */
+// The narrowest bar (in cells) that still has room for a Compact button beside Auto and Handoff.
+const COMPACT_BUTTON_MIN_COLUMNS = 80
 const GO_CELLS = 12
 const GO_W = Math.round(GO_CELLS * 7.9)
 function goPillSvg(): string {
@@ -2889,6 +2891,11 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     e.surface === 'terminal' ? null : (
       <Button key="dash-auto" variant="secondary" dimColor={!v.auto} label={v.auto ? 'Auto on' : 'Auto off'} onPress={() => toggleAutoEffort($)} />
     ),
+    // Compact, always there on the desktop (the takeover at the alert level is the loud one): hidden when the bar has no
+    // room for it, and on the terminal, where one press would compact at once.
+    ...(e.surface !== 'terminal' && 'Svg' in els && !config.hide.includes('handoff') && (typeof e.props.bodyColumns !== 'number' || e.props.bodyColumns >= COMPACT_BUTTON_MIN_COLUMNS)
+      ? [<Button key="dash-compact" variant="secondary" label="Compact" onPress={() => openCompact($, e)} />]
+      : []),
     ...(config.hide.includes('handoff')
       ? []
       : [

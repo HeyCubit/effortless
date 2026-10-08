@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.48.2",
+    "date": "2026-10-08",
+    "note": "Compact button always on the bar; alert default 80%"
+  },
+  {
     "version": "1.48.1",
     "date": "2026-10-08",
     "note": "GitHub panel: black, rounded, close at the far right"

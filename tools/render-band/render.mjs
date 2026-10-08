@@ -42,7 +42,7 @@ const params = {
   judging: flag('judging'),
   working: flag('working'),
   auto: opt('auto', 'on') !== 'off',
-  bodyColumns: 100,
+  bodyColumns: Number(opt('columns', '100')),
   press: (opt('press', '') || '').split(',').filter(Boolean),
   command: opt('command', '') || '',
   trace: Number(opt('trace', '0')),
