@@ -1352,8 +1352,11 @@ async function cacheMinutes($: EngineInterface): Promise<number> {
 /** A response came back: the cache is warm again for its whole lifetime, and the countdown restarts. */
 let usageLogged = false
 let lastResponseAt: number | undefined
+// Main-conversation replies this copy has seen, for /effortless debug.
+let repliesSeen = 0
 async function cacheTouched($: EngineInterface, usage: unknown) {
   const now = await $.clock.now()
+  repliesSeen++
   if (!usageLogged) {
     usageLogged = true
     void proof($, `first response usage: ${JSON.stringify(usage)}`)
@@ -3599,7 +3602,7 @@ export const register: Register = (on, options) => {
         text: [
           `session.start ${ago(sessionStarted)}`,
           `app SessionStart: ${classicStart ? `${ago(classicStart.at)} (${classicStart.said})` : 'never'}`,
-          `cache: ${cacheExpires === 0 ? 'not started' : `${await cacheMinutes($)} min left`}`,
+          `cache: ${cacheExpires === 0 ? 'not started' : `${await cacheMinutes($)} min left`}, shown ${await read($, cacheLeft)}, ttl ${cacheTtl}, last reply ${lastResponseAt ? ago(lastResponseAt) : 'none seen'}, replies seen ${repliesSeen}, forced ${coldForced}`,
           `band asked for ${renderCalls} times, last ${ago(lastRenderAt)}`,
           `band error: ${lastRenderError || 'none'}`,
           `last draw: ${lastRenderBranch || 'none'}`,
