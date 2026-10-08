@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.48.0",
+    "date": "2026-10-08",
+    "note": "Black GitHub panel on the Updated card, new card order",
+    "public": true
+  },
+  {
     "version": "1.47.0",
     "date": "2026-10-08",
     "note": "Star on GitHub is a link with the GitHub mark",
