@@ -11,28 +11,30 @@
   (other chats' changes sit in the tree). Reaches no user.
 - `tools/publish.sh "<what's new>" "<detail>"`: minor bump, writes releases.json and public.json, moves `stable`.
   Every user gets an update card. Only on Isac's word.
-- Public: 1.48.0 (2026-10-08). Dev: 1.48.0. `tools/publish.sh` also rebuilds the site and pushes gh-pages (`tools/site.sh`). Site: https://heycubit.github.io/effortless/ (`gh-pages`, rebuilt from `main`).
+- Public: 1.49.0 (2026-10-08). Dev: 1.49.0. `tools/publish.sh` also rebuilds the site and pushes gh-pages (`tools/site.sh`). Site: https://heycubit.github.io/effortless/ (`gh-pages`, rebuilt from `main`).
 
 ## Half done
-- Theme (public since 1.38.0): Settings → Appearance → Theme, Violet (default) or Claude orange. `hooks/theme.ts` turns every
-  violet hex to hue 15 (accent `#a79cf7` → `#da7958`); Svg sources go through `themedEls`, text colours through
-  `accent()`/`tintHex`, art palette in `hooks/art.ts`, progress/agents looks via `looks()`. Tests pass (161) and the
-  rig renders the band orange. Not seen yet: the Settings panel itself (the rig cannot draw it) and the real app.
-- 1.38.0: theme + Check for updates. 1.39.0: installs/updates over HTTPS (a `github` plugin source clones over SSH
-  only, so users without a GitHub SSH key got "Update failed"). Theme still unseen in the real app.
-- GitHub contributors sidebar still lists IsacEhrstedt (server cache; API already shows only HeyCubit). Support
-  ticket sent 2026-10-08. Isac does not want to post the repo anywhere until it is gone.
-- Uninstall test (Settings → Appearance → Uninstall, two presses): result never reported.
+- Updated card redesign (1.48.4, public in 1.49.0): near black, dim green edge, one row with What's new, Share
+  (copies site link), Star on GitHub, ✕. Seen only in the render rig. Updating to 1.49.0 still showed the OLD green
+  card, because the card is drawn by the code already running in that chat (a remote chat cannot /reload-plugins).
+  The new card first appears on the update after 1.49.0, in a chat running 1.49.0+.
+- Haiku handoff recommendation, Compact button beside Handoff (hidden under 80 cells), alert default 80%: public
+  1.49.0, unseen in the real app. Isac's dev config still has `swampAt: 60`.
+- `effortless@effortless-panel` (1.45.9, owned by the agent-panel chat) is disabled in ~/.claude/settings.json and dev
+  enabled. That chat has flipped it back before. Offered to uninstall the panel copy: no answer.
+- An inline effortless copy has its own store without setup (`~/.claude/plugins/store/effortless_inline-*.json`).
+- Not answered: move HANDOFF/docs specs naming Isac out of the public repo; README screenshot shows old "Appearance";
+  HeyCubit avatar and social preview (web settings). Uninstall test result never reported.
+- `tools/release.sh` has another chat's uncommitted edit; `docs/marketing/` untracked. Leave both.
 
 ## Next
-1. Isac: `/reload-plugins`, Settings → Appearance → Theme → Claude orange; check panel, band, footer, banners.
-2. Fix what he reports and ship it as a dev release, then publish again on his OK.
-3. Optional: block force pushes and deletion on `stable` with a ruleset (offered, no answer yet).
-4. Marketing research ran in its own chat: `docs/marketing/launch-research.md` (untracked, not committed by this chat).
+1. In a fresh (non-remote) chat on 1.49.0: check the band, Compact, Handoff advice, Settings.
+2. To see the new Updated card: release any dev bump, update, look. Fix what Isac reports.
+3. Optional: ruleset blocking force pushes on `stable` (offered, no answer).
 
 ## Only Isac
-- Publishing to users, anything that force-pushes (the safety check blocks Claude; he ran the rewrite in Git Bash).
-- Following up the GitHub Support ticket by mail.
+- Publishing to users, anything that force-pushes.
+- Following up the GitHub Support ticket by mail (contributors sidebar still lists IsacEhrstedt).
 
 ## Decided, do not redo
 - Deciding glow: rise, hold at full, fade 450 ms from the verdict, drawn as 150 ms pieces placed by clock. The app
