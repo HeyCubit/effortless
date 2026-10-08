@@ -301,8 +301,6 @@ const DONE_BG = '#0f1c15'
 // The Updated card: near black, a dim green edge; the green is in its title, the check and the sparkles.
 const UPDATED_BG = '#08090a'
 const UPDATED_EDGE = '#1f4a33'
-// A soft green wash at the left of the landed card, behind the mark and title; the right stays near black.
-const UPDATED_GLOW_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMinYMid slice"><defs><radialGradient id="g" cx="20" cy="15" r="150" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2f9a5e" stop-opacity=".26"/><stop offset=".55" stop-color="#2f9a5e" stop-opacity=".09"/><stop offset="1" stop-color="#2f9a5e" stop-opacity="0"/></radialGradient></defs><rect width="360" height="30" fill="url(#g)"/></svg>`
 // The Share icon: an arrow leaving a tray, white like the GitHub mark beside it.
 const SHARE_MARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16"><path fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M8 10V1.8M4.8 4.8L8 1.6l3.2 3.2M2.5 8.5v4.8c0 .4.3.7.7.7h9.6c.4 0 .7-.3.7-.7V8.5"/></svg>`
 // Hover on the near-black card: a light veil (the dark one used elsewhere is invisible here).
@@ -2620,9 +2618,13 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
               // White and bold: the app's blue link was hard to see on the green and the check.
               own('update-link-box', <Text color="#ffffff" bold><Link href={WHATS_NEW_URL} label="What's new →" /></Text>),
               own('update-share-box', (
-                <Box key="update-share" flexDirection="row" alignItems="center" gap={1}>
+                // The icon and the word, with a blank button laid over both: its hover veil covers the icon too.
+                <Box key="update-share" position="relative" flexDirection="row" alignItems="center" gap={1} flexShrink={0}>
                   <Svg source={SHARE_MARK_SVG} alt="Share" width={14} height={14} />
-                  <Button key="update-share-go" plain label="Share" hover={{ backgroundColor: UPDATED_HOVER }} onPress={share} />
+                  <Text>Share</Text>
+                  <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+                    <Button key="update-share-go" plain hover={{ backgroundColor: UPDATED_HOVER }} label={' '.repeat(12)} onPress={share} />
+                  </Box>
                 </Box>
               )),
               own('update-star-box', (
@@ -2637,11 +2639,7 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
   return (
     <Box key="update-card" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
       backgroundColor={landed ? UPDATED_BG : BRAND_BG} borderStyle="round" borderColor={landed ? UPDATED_EDGE : BRAND_EDGE}>
-      {landed ? (
-        <Box key="update-glow" position="absolute" top={-1} left={0} bottom={-1}>
-          <Svg source={UPDATED_GLOW_SVG} alt="" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
-        </Box>
-      ) : (
+      {landed ? null : (
         <Box key="update-art" position="absolute" top={-1} right={0} bottom={-1}>
           <Svg source={card.stage === 'updating' ? HANDOFF_SVG : BRAND_SVG} alt={card.stage === 'updating' ? 'updating' : 'effortless'} width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         </Box>
