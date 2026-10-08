@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.47.2",
+    "date": "2026-10-08",
+    "note": "Star on GitHub in a black panel on the Updated card"
+  },
+  {
     "version": "1.47.1",
     "date": "2026-10-08",
     "note": "Settings cards: Judge last, Customize second to last"

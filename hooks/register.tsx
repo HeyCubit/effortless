@@ -2259,6 +2259,9 @@ function binSvg(color: string): string {
 const GITHUB_MARK = 'M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z'
 const GITHUB_MARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path fill="#ffffff" d="${GITHUB_MARK}"/></svg>`
 const REPO_URL = 'https://github.com/HeyCubit/effortless'
+// GitHub's own dark ground, and the width of the panel that carries the star link on the Updated card.
+const GITHUB_BLACK = '#0d1117'
+const STAR_PANEL = 30
 function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui']['resolve']>) {
   const { Box, Text, Button, Svg } = els
   const armed = Date.now() - uninstallArmedAt < UNINSTALL_ARM_MS
@@ -2560,9 +2563,8 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
           ? [
               // White and bold: the app's blue link was hard to see on the green and the check.
               own('update-link-box', <Text color="#ffffff" bold><Link href={WHATS_NEW_URL} label="What's new →" /></Text>),
-              // The GitHub mark and a link, like What's new beside it: the app draws links in its own colour, so no pill to hold one.
-              own('update-star-box', <Box key="update-star" flexDirection="row" alignItems="center" gap={1}><Svg source={GITHUB_MARK_SVG} alt="GitHub" width={14} height={14} /><Link href={REPO_URL} label="Star on GitHub" /></Box>),
-              own('update-close-box', <Button key="update-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={hide} />),
+              // Room for the black GitHub panel laid over the card's right end (drawn below, after the controls).
+              own('update-star-room', <Box key="update-star-room" width={STAR_PANEL} />),
             ]
           : []
   return (
@@ -2584,6 +2586,16 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
         <Box position="absolute" top={0} left={0} />
         {controls}
       </Box>
+      {/* The whole right end in GitHub's own black, the mark and the star link in it, ✕ at its end: the app draws links in its
+          own colour, so the colour of the ground is the one thing we can set to make the link read. */}
+      {landed ? (
+        <Box key="update-star-panel" position="absolute" top={-1} bottom={-1} right={-1} width={STAR_PANEL} flexDirection="row" alignItems="center" justifyContent="center" gap={1} backgroundColor={GITHUB_BLACK} borderStyle="round" borderColor={GITHUB_BLACK}>
+          <Box position="absolute" top={0} left={0} />
+          <Svg source={GITHUB_MARK_SVG} alt="GitHub" width={14} height={14} />
+          <Link href={REPO_URL} label="Star on GitHub" />
+          <Button key="update-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={hide} />
+        </Box>
+      ) : null}
     </Box>
   )
 }
