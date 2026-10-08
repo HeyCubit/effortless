@@ -472,6 +472,9 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .foot-cubit{margin:0;display:flex;align-items:center;gap:14px;color:var(--muted);font-size:17px}
 .foot-cubit a{display:inline-flex;transition:opacity .2s}
 .foot-cubit a:hover{opacity:.8}
+.foot-row .foot-right .foot-wait{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:999px;background:#ffffff14;border:1px solid #ffffff1f;color:var(--text);text-decoration:none;font-size:14.5px;transition:background .2s}
+.foot-row .foot-right .foot-wait:hover{background:#ffffff24;opacity:1}
+.foot-wait svg{width:15px;height:15px}
 .foot-cubit img{display:block;height:34px;width:auto}
 @media (max-width:760px){.foot-right{align-items:flex-start}.foot-row nav{flex-wrap:wrap;gap:8px 18px}.foot-row nav a{white-space:nowrap}.foot-cubit{flex-wrap:wrap;gap:8px 12px;font-size:15px}.foot-cubit img{height:28px}}
 .foot-word{position:relative;margin:30px 0 -.2em;text-align:center;font:600 clamp(96px,21vw,340px)/.9 var(--display);letter-spacing:-.055em;white-space:nowrap;user-select:none;pointer-events:none}
@@ -626,7 +629,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   <div class="foot-row">
     <span class="name">__SPARK__effortless<small>A Claude Code mod</small></span>
     <div class="foot-right">
-      <p class="foot-cubit">Also building <a href="https://heycubit.com" aria-label="Cubit" class="cubit-logo"><img src="assets/cubit-logo-white.svg" alt="Cubit"></a><span>send anything to anyone, anywhere.</span></p>
+      <p class="foot-cubit">Also building <a href="https://heycubit.com" aria-label="Cubit" class="cubit-logo"><img src="assets/cubit-logo-white.svg" alt="Cubit"></a><span>send anything to anyone, anywhere.</span></p><a class="foot-wait" href="https://heycubit.com/waitlist/">Join the waitlist<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9m-3.5-3.5L12 8l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
       <nav><a href="#how">How it works</a><a href="#install">Install</a><a href="whats-new/">What's new</a><a href="report/">Report a bug</a><a href="report/?kind=feature">Request a feature</a><a href="https://github.com/HeyCubit/effortless">__GITHUB__GitHub</a></nav>
     </div>
   </div>
