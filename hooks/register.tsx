@@ -3550,7 +3550,6 @@ export const register: Register = (on, options) => {
     if (arg === 'save') return { text: await toggleSave($) }
     if (arg === 'handoff' || arg === 'handoff full') {
       const full = arg === 'handoff full'
-      if (full && !config.handoffSkill) return { text: 'No skill is set for the full handoff. Pick one in /effortless settings, under Handoff.' }
       const { after } = await lastHandoffChoice($)
       await startHandoff($, full, after)
       const what = handoffWhat({ kind: full ? 'full' : 'quick', after }, config.handoffSkill)
@@ -4611,7 +4610,7 @@ Saved to ${out}.md and .json` }
         return band('Who writes a Full ⇥ handoff?', 48, [
           <Select key="setup-skill" value={shown.handoffSkill || '-'}
             options={[
-              { value: '-', label: 'none, quick only' },
+              { value: '-', label: 'effortless (built in)' },
               ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
             ]}
             onSelect={(v: string) => pick('handoffSkill', v === '-' ? '' : v)} />,
