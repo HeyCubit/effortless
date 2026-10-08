@@ -342,12 +342,6 @@ If the message is a short follow-up to ongoing work ("yes", "go", "ok", "continu
 
 Reply with JSON only: {"model":"haiku|sonnet|opus|fable","effort":"low|medium|high|xhigh|max","sure":0.0-1.0 how sure you are of the effort,"why":"at most 6 words, in the user's language"}`
 
-// What only Haiku is asked on top: whether a fresh chat would serve the person better than carrying on. Compact is
-// always one press away, so this is only about the bigger break. No percent: the judge reads what the chat is about.
-const HANDOFF_ADDENDUM = `
-
-Also judge whether a handoff (a fresh chat that carries over a short summary) would now suit the person better than carrying on or compacting. Say yes only for a clear reason: the task just finished and the next message is something else, the topic has changed so the old context is dead weight, the chat keeps going in circles on the same problem, or a long chat now holds so much unrelated history that a clean start would be sharper. A normal next step of the same work is never a reason, and neither is a long chat by itself. When yes, add "handoff": a reason of at most 8 words in the user's language; when no, leave the field out.`
-
 /** Reads `{ model, effort, why }` out of a reply, or nothing when it doesn't hold one. */
 export function parseVerdict(text: string): { model: ModelKey; effort: Effort; why: string; sure?: number; handoff?: string } | undefined {
   const match = text.match(/\{[\s\S]*\}/)
@@ -815,7 +809,7 @@ async function testJudge($: EngineInterface, judgeKind: string, draftKey: string
 async function askHaiku($: EngineInterface, prompt: string, current: Pick | null, context: string): Promise<Judged> {
   const used = lastContext && lastContext.window ? `Context used: ${Math.round(lastContext.percent)}% of the window` : ''
   const asked = [judgeQuestion(prompt, current, context), used].filter(Boolean).join('\n\n')
-  const ask = (model: string) => $.model.complete({ model, system: JUDGE_SYSTEM + HANDOFF_ADDENDUM, prompt: asked, maxTokens: 160, effort: 'low', timeoutMs: 6000 })
+  const ask = (model: string) => $.model.complete({ model, system: JUDGE_SYSTEM, prompt: asked, maxTokens: 160, effort: 'low', timeoutMs: 6000 })
   // Haiku 5.5 by name: Claude Code builds that predate it map the plain alias to Haiku 4.5, at ten times the price.
   // Where 5.5 does not answer, the alias stands in.
   let r = await ask(COMPACT_MODEL)
@@ -823,6 +817,78 @@ async function askHaiku($: EngineInterface, prompt: string, current: Pick | null
   const verdict = r.isAnswered ? parseVerdict(r.text) : undefined
   const tokens = r.isAnswered && r.usage ? r.usage.input_tokens + r.usage.output_tokens : 0
   return { verdict: verdict && { ...verdict, by: 'haiku' }, tokens }
+}
+
+// Whether a fresh chat would now serve better than carrying on: Haiku's call, whatever judge picks the effort. It runs
+// from HANDOFF_CHECK_FROM percent of context, every HANDOFF_CHECK_EVERY messages, so it costs a cent now and then. It
+// reads more than the effort judge: what the chat was for, the trail of topics, the last turns, the context and the cache.
+const HANDOFF_CHECK_FROM = 30
+const HANDOFF_CHECK_EVERY = 2
+const HANDOFF_SYSTEM = `You decide whether the person should hand off now: start a fresh chat that carries over a short summary, instead of carrying on in this one. You are shown what the chat was for, the trail of what the person asked, the last turns, the next message, how full the context is and whether the cache is cold.
+
+Say yes only for a clear reason: the task just finished and the next message is something else, the topic has changed so the old context is dead weight, the chat keeps going in circles on the same problem, or a long chat now holds so much unrelated history that a clean start would be sharper. A normal next step of the same work is never a reason, a long chat by itself is not one, and neither is a high context share when the work is going well. When unsure, say no: a wrong yes costs the person more than a missed one.
+
+Reply with JSON only: {"handoff":"reason of at most 8 words, in the person's language"} for yes, or {"handoff":null} for no.`
+
+/** What the handoff check reads: the chat's purpose, a trail of the person's messages, the last reply's end. */
+export function handoffEvidence(messages: readonly { role: string; text: string }[], next: string, percent: number, cold: boolean): string {
+  const asked = messages.filter(m => m.role === 'user' && m.text.trim())
+  const first = asked[0]?.text.slice(0, 500) ?? ''
+  const trail = asked.slice(-8, -1).map(m => `- ${m.text.slice(0, 160).replace(/\s+/g, ' ')}`)
+  const reply = lastAssistantText(messages).slice(-700)
+  return [
+    first ? `What the chat was for (first message):\n${first}` : '',
+    trail.length ? `Trail of earlier messages:\n${trail.join('\n')}` : '',
+    reply ? `The assistant's last reply (its end):\n${reply}` : '',
+    `Next message:\n${next.slice(0, 600)}`,
+    `Context used: ${Math.round(percent)}% of the window; ${asked.length} messages so far; the cache is ${cold ? 'cold' : 'warm'}.`,
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+/** Reads Haiku's answer: a reason, or null for no (anything unreadable is no). */
+export function parseHandoffAnswer(text: string): string | null {
+  const match = text.match(/\{[\s\S]*\}/)
+  if (!match) return null
+  try {
+    const { handoff } = JSON.parse(match[0]) as { handoff?: unknown }
+    return typeof handoff === 'string' && handoff.trim() ? handoff.trim().slice(0, 70) : null
+  } catch {
+    return null
+  }
+}
+
+let promptsSinceHandoffCheck = 0
+/** Called with each message the person sends. Sets or clears the advice; never throws, never holds the message. */
+async function checkHandoff($: EngineInterface, next: string) {
+  const percent = lastContext?.percent ?? 0
+  if (percent < HANDOFF_CHECK_FROM) {
+    promptsSinceHandoffCheck = 0
+    if ((await read($, handoffAdvice)) !== null) {
+      await update($, handoffAdvice, () => null)
+      $.ui.invalidate('ui.render')
+    }
+    return
+  }
+  promptsSinceHandoffCheck++
+  if (promptsSinceHandoffCheck < HANDOFF_CHECK_EVERY) return
+  promptsSinceHandoffCheck = 0
+  try {
+    const evidence = handoffEvidence(await $.session.messages(), next, percent, (await cacheMinutes($)) === 0 && cacheExpires > 0)
+    const ask = (model: string) => $.model.complete({ model, system: HANDOFF_SYSTEM, prompt: evidence, maxTokens: 60, effort: 'low', timeoutMs: 8000 })
+    let r = await ask(COMPACT_MODEL)
+    if (!r.isAnswered) r = await ask('haiku')
+    if (!r.isAnswered) return
+    const reason = parseHandoffAnswer(r.text)
+    void proof($, `handoff check at ${Math.round(percent)}%: ${reason ?? 'no'}`)
+    if (reason !== (await read($, handoffAdvice))) {
+      await update($, handoffAdvice, () => reason)
+      $.ui.invalidate('ui.render')
+    }
+  } catch {
+    // A failed check changes nothing.
+  }
 }
 
 // The judge benchmark (/effortless bench): labelled prompts in bench/judge-cases.json, each run through the same
@@ -2975,18 +3041,11 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     e.surface === 'terminal' ? null : (
       <Button key="dash-auto" variant="secondary" dimColor={!v.auto} label={v.auto ? 'Auto on' : 'Auto off'} onPress={() => toggleAutoEffort($)} />
     ),
-    // Compact, always there on the desktop (the takeover at the alert level is the loud one): hidden when the bar has no
-    // room for it, and on the terminal, where one press would compact at once.
-    ...(e.surface !== 'terminal' && 'Svg' in els && !config.hide.includes('handoff') && (typeof e.props.bodyColumns !== 'number' || e.props.bodyColumns >= COMPACT_BUTTON_MIN_COLUMNS)
-      // Calm like Handoff on a fresh chat: plain grey text, the boxed button from HANDOFF_LOUD_AT, where a compact pays.
-      ? [handoffLevel() >= HANDOFF_LOUD_AT
-          ? <Button key="dash-compact" variant="secondary" label="Compact" onPress={() => openCompact($, e)} />
-          : <Button key="dash-compact" plain dimColor label="Compact" onPress={() => openCompact($, e)} />]
-      : []),
     ...(config.hide.includes('handoff')
       ? []
       : [
-          // Always there, but loud only once a handoff starts to pay. Desktop draws it: no box on a fresh chat, then a
+          // One button in one place: Compact until Haiku says a fresh chat would suit, then Handoff, loud. Pressing it opens
+          // the matching card, which can switch to the other. Desktop draws it: no box on a fresh chat, then a
           // step a percent of context to a white box at HANDOFF_FULL_AT (handoffLook), the label as Text over the box and
           // a blank button over both to take the click. The terminal keeps the plain buttons: grey, white from
           // HANDOFF_LOUD_AT.
@@ -3019,10 +3078,10 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
                   <els.Svg source={handoffPillSvg(handoffLevel(), true)} alt="Handoff box" width={HANDOFF_PILL_W} height={HANDOFF_PILL_H} />
                 </Box>
                 <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                  <Text color={handoffLook(handoffLevel()).label} hover={{ scope: 'handoff', color: handoffLook(handoffLevel(), true).label }}>Handoff</Text>
+                  <Text color={handoffLook(handoffLevel()).label} hover={{ scope: 'handoff', color: handoffLook(handoffLevel(), true).label }}>{handoffLoud() ? 'Handoff' : 'Compact'}</Text>
                 </Box>
                 <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                  <Button key="dash-handoff" plain label={' '.repeat(14)} hover={{ scope: 'handoff', backgroundColor: '#00000000' }} onPress={() => openHandoffBar($)} />
+                  <Button key="dash-handoff" plain label={' '.repeat(14)} hover={{ scope: 'handoff', backgroundColor: '#00000000' }} onPress={() => (handoffLoud() ? openHandoffBar($) : openCompact($, e))} />
                 </Box>
               </Box>
             </Box>
@@ -3668,6 +3727,8 @@ Saved to ${out}.md and .json` }
     const card = await read($, handoffCard)
     if (card && (card.kind === 'done' || card.kind === 'copied')) await update($, handoffCard, () => null)
     const byPerson = e.origin.kind === 'composer' || e.origin.kind === 'bridge' || e.origin.kind === 'sdk'
+    // The handoff check runs for every message the person types, whatever the effort judge is doing (or whether Auto is on).
+    if (byPerson && !e.text.trim().startsWith('/') && !isFollowUp(e.text)) void checkHandoff($, e.text).catch(() => undefined)
     const wantsEffort = await read($, isAuto)
     const wantsModel = await read($, isAutoModel)
     if (!byPerson || e.text.trim().startsWith('/') || (!wantsEffort && !wantsModel)) return next(e)
@@ -3712,8 +3773,6 @@ Saved to ${out}.md and .json` }
           ? `judged by ${verdict.by} in ${ms} ms: ${verdict.model}/${verdict.effort} (${verdict.why}) for "${e.text.slice(0, 50)}"`
           : `no verdict after ${ms} ms for "${e.text.slice(0, 50)}"`,
       )
-      // Only Haiku is asked about a handoff: another judge's verdict clears advice that may be stale.
-      await update($, handoffAdvice, () => (verdict?.by === 'haiku' && verdict.handoff ? verdict.handoff : null))
       $.ui.invalidate('ui.render')
       if (verdict) {
         // Effort follows the verdict at once, when Auto is on for effort. The model stays: switching it
@@ -4397,6 +4456,10 @@ Saved to ${out}.md and .json` }
           {/* One line, as tall as the bands: the name, then the field and the buttons on the right. */}
           <Box key="compact-words" position="relative" flexShrink={0}>
             {markTitle({ Box, Text, Svg }, 'compact-title', ACCENT, '✦ Compact')}
+            <Box key="compact-switch-box" position="relative" flexShrink={0} marginLeft={1}>
+              <Box position="absolute" top={0} left={0} />
+              <Button key="compact-to-handoff" plain dimColor label="Handoff instead" onPress={async () => { await update($, compactAsk, () => false); await openHandoffBar($) }} />
+            </Box>
           </Box>
           <Box key="compact-controls" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end" alignItems="center" gap={1}>
             <Box position="absolute" top={0} left={0} />
@@ -4522,6 +4585,7 @@ Saved to ${out}.md and .json` }
           </Box>
           <Box flexGrow={1} minWidth={48} />
           <Box key="handoff-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
+            {!term ? <Button key="handoff-to-compact" plain dimColor label="Compact instead" onPress={async () => { await closeHandoffBar($); await openCompact($, e) }} /> : null}
             {controls}
           </Box>
         </Box>

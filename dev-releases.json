@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.56.2",
+    "date": "2026-10-08",
+    "note": "One Compact/Handoff button; a Haiku check decides when a handoff would suit"
+  },
+  {
     "version": "1.56.1",
     "date": "2026-10-08",
     "note": "Compact is a quiet text button until context passes 30%"

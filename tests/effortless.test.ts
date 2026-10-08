@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { tipped, bounded, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, parseChatCompletion, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { setTheme, themedSvg, tint, tintHex } from '../hooks/theme'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
@@ -2637,46 +2637,80 @@ describe('dashboard', () => {
     expect(await band.find({ key: 'dash-mark' })).toBeDefined()
     await band.press({ key: 'dash-auto' })
     expect(await drawn(band)).toContain('Auto off')
+    // One button: Compact on a fresh chat. It opens the compact card, which can switch to Handoff.
     await band.press({ key: 'dash-handoff' })
+    expect(await drawn(band)).toContain('compact-bar')
+    await band.press({ key: 'compact-to-handoff' })
     expect(await drawn(band)).toContain('⇥ Handoff')
     await band.unmount()
     await expect($.ui.mount(FOOTER)).rejects.toThrow()
   })
 
-  test('Handoff stays calm at any fill; it lights, with the reason, only when Haiku says a handoff would suit', DASH, async ($, on) => {
+  test('one button: Compact until the Haiku check says a handoff would suit; then Handoff, lit, with the reason', DASH, async ($, on) => {
     engine(on)
     recordSteps(on)
     const mocked = mock.clock(on)
     on('session.usage', () => ({ value: { context: { tokens: 400_000, window: 1_000_000, percent: 40 } } }) as never)
-    let verdict = '{"model":"opus","effort":"high","why":"big refactor"}'
-    on('model.complete', () => ({ value: { isAnswered: true as const, text: verdict, usage: USAGE } }))
+    let handoff: string | null = null
+    const systems: string[] = []
+    on('model.complete', (_$, e) => {
+      systems.push(String((e as { system?: string }).system ?? '').slice(0, 30))
+      const text = String((e as { system?: string }).system ?? '').includes('decide whether the person should hand off')
+        ? JSON.stringify({ handoff })
+        : '{"model":"opus","effort":"high","why":"big refactor"}'
+      return { value: { isAnswered: true as const, text, usage: USAGE } }
+    })
     await start($, on)
     await closeSetup($, DESK_BAND)
     await mocked.advance(16_000)
-    // A fairly full chat, no advice: no glow, no H key, Handoff and Compact both there.
+    // A fairly full chat, no advice: no glow, no H key, one button, and it says Compact.
     let band = await $.ui.mount(DESK_BAND)
     expect(await band.find({ key: 'dash-handoff' })).toBeDefined()
-    expect(await band.find({ key: 'dash-compact' })).toBeDefined()
+    expect(await band.find({ key: 'dash-compact' })).toBeUndefined()
     expect(await band.find({ key: 'dash-handoff-h' })).toBeUndefined()
     expect(await band.find({ key: 'dash-glow' })).toBeUndefined()
+    expect(await drawn(band)).toContain('Compact')
     await band.unmount()
-    // Haiku judges a prompt and says a handoff would suit.
-    verdict = '{"model":"opus","effort":"high","why":"new topic","handoff":"Task done, new topic"}'
+    // The check runs every second message from 30%. Haiku says a handoff would suit.
+    handoff = 'Task done, new topic'
     await $.prompt.submit({ text: 'completely different: help me plan a trip to Lisbon', wait: false, origin: { kind: 'composer' } })
+    await step($)
+    await $.prompt.submit({ text: 'and which neighbourhood should I stay in for the first night', wait: false, origin: { kind: 'composer' } })
     await step($)
     band = await $.ui.mount(DESK_BAND)
     expect((await band.find({ key: 'dash-handoff-h' }))?.props).toMatchObject({ hotkey: 'h' })
     expect(await band.find({ key: 'dash-glow' })).toBeDefined()
     expect(await drawn(band)).toContain('Handoff would suit: Task done, new topic')
     await band.unmount()
-    // The next verdict without the field clears it again.
-    verdict = '{"model":"opus","effort":"high","why":"same job"}'
+    // A later check that says no clears it again.
+    handoff = null
     await $.prompt.submit({ text: 'now make the Lisbon plan a three day one with a budget', wait: false, origin: { kind: 'composer' } })
+    await step($)
+    await $.prompt.submit({ text: 'add the cost of the tram tickets to the budget as well', wait: false, origin: { kind: 'composer' } })
     await step($)
     band = await $.ui.mount(DESK_BAND)
     expect(await band.find({ key: 'dash-glow' })).toBeUndefined()
     expect(await drawn(band)).not.toContain('Handoff would suit')
     await band.unmount()
+  })
+
+  test('the handoff check reads the purpose, the trail, the last reply, the fill and the cache; an unclear answer is no', () => {
+    const messages = [
+      { role: 'user', text: 'build the settings page' },
+      { role: 'assistant', text: 'done, anything else?' },
+      { role: 'user', text: 'also fix the footer' },
+      { role: 'assistant', text: 'footer fixed' },
+    ]
+    const text = handoffEvidence(messages, 'plan a trip to Lisbon', 42, true)
+    expect(text).toContain('build the settings page')
+    expect(text).toContain('footer fixed')
+    expect(text).toContain('plan a trip to Lisbon')
+    expect(text).toContain('42%')
+    expect(text).toContain('cache is cold')
+    expect(parseHandoffAnswer('{"handoff":"Task done"}')).toBe('Task done')
+    expect(parseHandoffAnswer('{"handoff":null}')).toBeNull()
+    expect(parseHandoffAnswer('{"handoff":"  "}')).toBeNull()
+    expect(parseHandoffAnswer('maybe')).toBeNull()
   })
 
   test('parseVerdict keeps only a real handoff reason', () => {
@@ -3008,15 +3042,15 @@ describe('updates', () => {
     expect(await drawn(panel)).toContain('Up to date')
   })
 
-  test('Compact is always on the bar, hides on a narrow one, opens the compact step, and is not on the terminal', DESK, async ($, on) => {
+  test('the one button says Compact, opens the compact step, and stays on a narrow bar', DESK, async ($, on) => {
     world(on, { installed: '1.0.1', latest: '1.0.1' })
     await start($)
     await settle()
     const wide = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
     await pastSetup(wide)
-    expect(await wide.find({ key: 'dash-compact' })).toBeDefined()
+    expect(await wide.find({ key: 'dash-compact' })).toBeUndefined()
     expect(await wide.find({ key: 'dash-handoff' })).toBeDefined()
-    await wide.press({ key: 'dash-compact' })
+    await wide.press({ key: 'dash-handoff' })
     await settle()
     expect(await drawn(wide)).toContain('compact-bar')
     await wide.press({ key: 'compact-close' })
@@ -3024,7 +3058,6 @@ describe('updates', () => {
     await wide.unmount()
     const narrow = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', component: 'AbovePrompt', props: { ...BAND.props, bodyColumns: 60 } } as never)
     await pastSetup(narrow)
-    expect(await narrow.find({ key: 'dash-compact' })).toBeUndefined()
     expect(await narrow.find({ key: 'dash-handoff' })).toBeDefined()
     await narrow.unmount()
   })
