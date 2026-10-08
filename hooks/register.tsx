@@ -2248,16 +2248,7 @@ const UNINSTALL_RED = '#ff6b6b'
 function binSvg(color: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2.2 3.8H11.8M5.4 3.8V2.4H8.6V3.8M3.4 3.8L4 12H10L10.6 3.8M5.9 6V9.8M8.1 6V9.8"/></g></svg>`
 }
-// One quiet line at the foot of Appearance, beside Uninstall: no card, no banner, nothing in the header.
 const REPO_URL = 'https://github.com/HeyCubit/effortless'
-function starLink(els: ReturnType<EngineInterface['ui']['resolve']>) {
-  const { Box, Text, Link } = els
-  return (
-    <Box key="settings-star" flexDirection="row" alignItems="center" flexShrink={0}>
-      <Text color={DASH_DIM}>★ <Link href={REPO_URL} label="Star on GitHub" /></Text>
-    </Box>
-  )
-}
 function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui']['resolve']>) {
   const { Box, Text, Button, Svg } = els
   const armed = Date.now() - uninstallArmedAt < UNINSTALL_ARM_MS
@@ -4066,6 +4057,8 @@ Saved to ${out}.md and .json` }
           <Box key="settings-title" position="absolute" top={0} left={2} height={term ? 2 : 2.5} flexDirection="row" alignItems="center" gap={1}>
             {term ? <Text color={ACCENT} bold>✦</Text> : null}
             {Svg && !term ? <Svg source={SETTINGS_TITLE} alt="effortless" width={92} height={28} /> : <Text color={DASH_TEXT} bold>effortless</Text>}
+            {/* Next to the name, bright: the one place a Star on GitHub shows in Settings. */}
+            <Text color="#ffffff" bold><Link href={REPO_URL} label="★ Star" /></Text>
             {ownVersion ? <Text color="#6b6b73">v{ownVersion}</Text> : null}
             {/* Inside a part: Back to the cards, then the part's name. */}
             {card === null ? (
@@ -4202,7 +4195,7 @@ Saved to ${out}.md and .json` }
                     onSelect={set('theme')} />,
                 ]),
             ...toggles,
-            ...(bare ? [] : [starLink(themedEls($.ui.resolve(e))), uninstallButton($, themedEls($.ui.resolve(e)))]),
+            ...(bare ? [] : [uninstallButton($, themedEls($.ui.resolve(e)))]),
 ]}
               </Box>
             </Box>

@@ -3009,20 +3009,21 @@ describe('updates', () => {
     await ui.unmount()
   })
 
-  test('Appearance ends with one quiet Star on GitHub link and no star anywhere else', DESK, async ($, on) => {
+  test('Settings has one bright Star link by the name, on every card, and none in Appearance', DESK, async ($, on) => {
     world(on, { installed: '1.0.1', latest: '1.0.1' })
     await start($)
     await settle()
     const ui = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
     await pastSetup(ui)
-    expect(await drawn(ui)).not.toContain('Star on GitHub')
+    expect(await drawn(ui)).not.toContain('★ Star')
     await ui.press({ key: 'dash-settings' })
-    expect(await drawn(ui)).not.toContain('Star on GitHub')
+    const home = await drawn(ui)
+    expect(home).toContain('★ Star')
+    expect(home).toContain('https://github.com/HeyCubit/effortless')
     await ui.press({ key: 'settings-card-show' })
     const text = await drawn(ui)
     expect(text).toContain('Appearance')
-    expect(text).toContain('Star on GitHub')
-    expect(text).toContain('https://github.com/HeyCubit/effortless')
+    expect(text.split('★ Star').length - 1).toBe(1)
     await ui.unmount()
   })
 
