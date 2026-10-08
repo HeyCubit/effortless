@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelForkResult, Register, RenderInput } from 'claude-code'
 
 import type { AgentNote, AgentRec, Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
-import { agentsPane, camFit, camGlide, camNow, camSet, camStart, demoAgents, demoFiles, demoSteps, importsOf, mapSize, nodeAt, noteReach, relPath, toolLine, touchOf, withTouch, withWaits, worldLayout } from './agents'
+import { agentsPane, camFit, camGlide, camNow, camSet, camStart, demoAgents, demoFiles, demoSteps, importsOf, mapSize, nodeAt, noteReach, relPath, stillTree, toolLine, touchOf, withTouch, withWaits, worldLayout } from './agents'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
 import { MARK_SVG } from './brand-mark'
 import { accent, setTheme, themedEls, type ThemeName, THEMES, tintHex } from './theme'
@@ -3225,6 +3225,54 @@ let mapBox = mapSize(46, 40)
 let mapBroken = false
 /** The drag under way: its number from the Client, and the camera when it began. */
 let dragBase: { drag: number; x: number; y: number; z: number } | null = null
+/** When the map last moved under a drag: the pane draws its images still until DRAG_STILL_MS after. */
+let dragAt = -Infinity
+const DRAG_STILL_MS = 500
+/** Pane draws and map messages, for the render log: how often the app really redraws the pane, and how long each took. */
+let paneDraws = 0
+let paneDrawAt = 0
+
+/** The agent pane's tree, as drawn when nothing is being dragged. */
+async function agentsPaneDraw($: EngineInterface, e: RenderInput<'Pane'>) {
+  const els = themedEls($.ui.resolve(e))
+  const { Client } = els as { Client?: unknown }
+  const agents = await read($, agentsState)
+  const rows = Math.max(12, e.props.scroll.bodyRows)
+  const cols = e.props.bodyColumns
+  mapBox = mapSize(cols, rows)
+  return agentsPane(
+    {
+      ...els,
+      rows,
+      cols,
+      nowMs: await $.clock.now(),
+      focus: await read($, agentsOpen),
+      onFocus: (id: string) => agentFocus($, id),
+      cam: await read($, agentsCam),
+      onZoom: (factor: number) => agentZoom($, factor),
+      onFit: async () => {
+        const now = await $.clock.now()
+        const nodes = worldLayout(await read($, agentsState))
+        await update($, agentsCam, c => camFit(nodes, mapBox.w, mapBox.h, now, c ?? camStart(nodes, mapBox.w, mapBox.h)))
+        $.ui.invalidate('ui.render')
+      },
+      mapClient: Client && !mapBroken ? <Client key="agents-map" module="./agents-map.tsx" width="100%" height="100%" /> : null,
+      steps: await read($, agentSteps),
+      doneOpen: await read($, agentsDoneOpen),
+      onDone: async () => {
+        await update($, agentsDoneOpen, v => !v)
+        $.ui.invalidate('ui.render')
+      },
+      mainCost: await read($, agentsMainCost),
+      notes: await read($, agentsNotes),
+      onNote: (text: string) => agentNote($, text),
+      wordmark: SETTINGS_TITLE,
+      ringSvg,
+      cardArt: { source: DASH_SVG, width: FROST_WIDTH * 2, height: FROST_HEIGHT * 2 },
+    },
+    agents,
+  )
+}
 
 /** Puts a node in focus and glides the overview to it. */
 async function agentFocus($: EngineInterface, id: string) {
@@ -3921,50 +3969,22 @@ Saved to ${out}.md and .json` }
   })
 
   on('ui.render', { component: 'Pane', requestId: 'effortless-agents' }, async ($, e) => {
-    const els = themedEls($.ui.resolve(e))
-    const { Client } = els as { Client?: unknown }
-    const agents = await read($, agentsState)
-    const rows = Math.max(12, e.props.scroll.bodyRows)
-    const cols = e.props.bodyColumns
-    mapBox = mapSize(cols, rows)
-    return agentsPane(
-      {
-        ...els,
-        rows,
-        cols,
-        nowMs: await $.clock.now(),
-        focus: await read($, agentsOpen),
-        onFocus: (id: string) => agentFocus($, id),
-        cam: await read($, agentsCam),
-        onZoom: (factor: number) => agentZoom($, factor),
-        onFit: async () => {
-          const now = await $.clock.now()
-          const nodes = worldLayout(await read($, agentsState))
-          await update($, agentsCam, c => camFit(nodes, mapBox.w, mapBox.h, now, c ?? camStart(nodes, mapBox.w, mapBox.h)))
-          $.ui.invalidate('ui.render')
-        },
-        mapClient: Client && !mapBroken ? <Client key="agents-map" module="./agents-map.tsx" width="100%" height="100%" /> : null,
-        steps: await read($, agentSteps),
-        doneOpen: await read($, agentsDoneOpen),
-        onDone: async () => {
-          await update($, agentsDoneOpen, v => !v)
-          $.ui.invalidate('ui.render')
-        },
-        mainCost: await read($, agentsMainCost),
-        notes: await read($, agentsNotes),
-        onNote: (text: string) => agentNote($, text),
-        wordmark: SETTINGS_TITLE,
-        ringSvg,
-        cardArt: { source: DASH_SVG, width: FROST_WIDTH * 2, height: FROST_HEIGHT * 2 },
-      },
-      agents,
-    )
+    const began = Date.now()
+    const still = dragBase !== null || (await $.clock.now()) - dragAt < DRAG_STILL_MS
+    const drawn = await agentsPaneDraw($, e)
+    paneDraws += 1
+    renderLog.push(`${new Date(began).toISOString()} ${loadedSession} pane draw #${paneDraws}${still ? ' still' : ''}, ${began - paneDrawAt} ms since the last, built in ${Date.now() - began} ms, ${e.props.bodyColumns}x${e.props.scroll.bodyRows}`)
+    paneDrawAt = began
+    void writeRenderLog($).catch(() => undefined)
+    return still ? stillTree(drawn) : drawn
   })
+
 
   // The overview's Client: a click focuses the node under it, a drag pans, hovering hands the wheel to the map.
   on('ui.message', async ($, e, next) => {
     if (e.element !== 'agents-map') return next(e)
     const data = (e.data ?? {}) as { hover?: boolean; click?: [number, number]; drag?: number; dx?: number; dy?: number; end?: boolean }
+    renderLog.push(`${new Date().toISOString()} ${loadedSession} map says ${JSON.stringify(data)}`)
     if (data.click) {
       const now = await $.clock.now()
       const nodes = worldLayout(await read($, agentsState))
@@ -3979,8 +3999,13 @@ Saved to ${out}.md and .json` }
       }
       const b = dragBase
       await update($, agentsCam, () => camSet(b.x - ((data.dx ?? 0) * mapBox.w) / b.z, b.y - ((data.dy ?? 0) * mapBox.h) / b.z, b.z))
+      dragAt = now
       $.ui.invalidate('ui.render')
-      if (data.end) dragBase = null
+      if (data.end) {
+        dragBase = null
+        // Moving again once the drag has rested: one more draw after the still spell.
+        $.clock.after(DRAG_STILL_MS + 50, () => $.ui.invalidate('ui.render'))
+      }
     }
     return {}
   })

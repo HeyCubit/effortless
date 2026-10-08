@@ -94,6 +94,31 @@ export function splitAgents(agents: readonly AgentRec[]): { live: AgentRec[]; do
 /** The mark, big, tilted and faint, as the settings bar shows it: cut off by the pane's bottom-right corner. */
 const CORNER_MARK = MARK_SVG.replace('<g mask=', '<g opacity=".16" transform="rotate(9 50 50)" mask=')
 
+/** An SVG with its CSS animations and SMIL animate elements taken out: what the image shows before anything moves. */
+export function stillSvg(source: string): string {
+  return source
+    .replace(/<(animate|animateTransform|animateMotion|set)\b[^>]*\/>/g, '')
+    .replace(/animation\s*:[^;}]*;?/g, '')
+}
+
+/**
+ * A drawn tree with every Svg made still. The app holds a moving SVG in a frame it rebuilds on every redraw, so a
+ * drag (a redraw per step) over a pane full of them crawls; still images are swapped cheaply.
+ */
+export function stillTree<T>(node: T): T {
+  if (Array.isArray(node)) return node.map(stillTree) as T
+  if (!node || typeof node !== 'object') return node
+  const n = node as { type?: unknown; props?: Record<string, unknown>; children?: unknown }
+  const props = n.props
+    ? {
+        ...n.props,
+        ...(n.type === 'Svg' && typeof n.props.source === 'string' ? { source: stillSvg(n.props.source) } : {}),
+        ...('children' in n.props ? { children: stillTree(n.props.children) } : {}),
+      }
+    : n.props
+  return { ...n, props, ...('children' in n ? { children: stillTree(n.children) } : {}) } as T
+}
+
 /**
  * The pane's background, the bar's art made tall: the brand wash rising from the bottom-right corner in the mood's
  * colour, the bar's slanted light lines and its sparkles, under the band's grain. One source per mood, so a redraw in

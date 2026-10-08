@@ -33,6 +33,8 @@ export default function AgentsMap(_props: unknown, s: ClientSurface<MapState>): 
         down = null
       }
     })
+    // Says it loaded, for the render log: whether the app runs this module at all.
+    s.post({ hello: true })
     s.setState({ ready: true })
   }
   return s.elements.Box({ width: '100%', height: '100%' })

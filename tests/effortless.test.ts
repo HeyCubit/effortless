@@ -3139,12 +3139,13 @@ describe('agent panel', () => {
   } as never
   const start = async ($: Engine, on: On) => {
     engine(on)
-    mock.clock(on)
+    const clock = mock.clock(on)
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
     on('command.register', () => ({ value: undefined }) as never)
     on('classic.SessionStart', () => ({}) as never)
     on('ui.open', () => ({ value: { isPlaced: true } }) as never)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    return clock
   }
 
   test('the demo: the focus sets the progress on top, a node or a row moves the focus and glides the map there', async ($, on) => {
@@ -3239,6 +3240,20 @@ describe('agent panel', () => {
     await pane.post({ drag: 1, dx: 0.25, dy: 0, end: true })
     const shift = /translate\((-?[\d.]+) (-?[\d.]+)\)\\" fill/.exec(await drawn(pane))
     expect(Number(shift?.[1])).toBeGreaterThan(50)
+    await pane.unmount()
+  })
+
+  test('a drag draws the pane still, and it moves again once the drag has rested', async ($, on) => {
+    const clock = await start($, on)
+    await $.command.run({ command: 'effortless', args: 'agents demo' })
+    const pane = await $.ui.mount(PANE)
+    expect(await drawn(pane)).toContain('animation:')
+    await pane.post({ drag: 1, dx: 0.1, dy: 0 })
+    expect(await drawn(pane)).not.toContain('animation:')
+    await pane.post({ drag: 1, dx: 0.2, dy: 0, end: true })
+    expect(await drawn(pane)).not.toContain('animation:')
+    await clock.advance(600)
+    expect(await drawn(pane)).toContain('animation:')
     await pane.unmount()
   })
 
