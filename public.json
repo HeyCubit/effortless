@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.57.0",
+    "date": "2026-10-08",
+    "note": "One Compact/Handoff button, Haiku decides handoffs",
+    "public": true
+  },
+  {
     "version": "1.56.0",
     "date": "2026-10-08",
     "note": "Fix stacked dots on Settings cards",
