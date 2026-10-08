@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.45.1",
+    "date": "2026-10-08",
+    "note": "Check for updates looks even while an old Updated card shows"
+  },
+  {
     "version": "1.44.1",
     "date": "2026-10-08",
     "note": "Update check reads public.json with git"

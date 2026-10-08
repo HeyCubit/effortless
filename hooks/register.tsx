@@ -2443,7 +2443,10 @@ async function afterLoad($: EngineInterface) {
 }
 async function checkUpdate($: EngineInterface) {
   const shown = await read($, updateCard)
-  if (shown && shown.stage !== 'offer') return
+  if (shown && shown.stage !== 'offer') {
+    lastUpdateCheck = `skipped while the ${shown.stage} card shows`
+    return
+  }
   const { latest, how } = await latestAvailable($)
   const mine = await installedVersion($)
   lastUpdateCheck = `installed ${mine ?? 'unreadable'}; ${how}`
@@ -2464,7 +2467,9 @@ const updateCheck = atom({ plugin: 'effortless', key: 'updateCheck' } as const, 
 async function checkUpdateNow($: EngineInterface) {
   await update($, updateCheck, () => 'checking')
   await $.store.set('updateHidden', null).catch(() => undefined)
-  await checkUpdate($).catch(() => undefined)
+  // An Updated or failed card left from earlier made checkUpdate skip the look and the button said Up to date.
+  await update($, updateCard, c => (c && (c.stage === 'done' || c.stage === 'failed') ? null : c))
+  await checkUpdate($).catch((error: unknown) => { lastUpdateCheck = `check failed: ${String(error).slice(0, 120)}` })
   const card = await read($, updateCard)
   await update($, updateCheck, () => (card && card.stage === 'offer' ? `found ${card.version}` : 'newest'))
   // "Up to date" goes back to the button after a few seconds; a found version stays until it is installed or put away.

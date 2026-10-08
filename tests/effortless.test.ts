@@ -2956,6 +2956,28 @@ describe('updates', () => {
     expect(w.ran.some(r => r.includes('fetch -q --depth 1 --filter=blob:none origin stable'))).toBe(true)
   })
 
+  test('Check for updates looks again while an earlier Updated card is still up', DESK, async ($, on) => {
+    const v = { installed: '1.0.0', latest: '1.0.1' }
+    world(on, v)
+    await start($)
+    await settle()
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await pastSetup(ui)
+    await ui.press({ key: 'update-go' })
+    await settle()
+    v.installed = '1.0.1'
+    await start($)
+    await settle()
+    expect(await drawn(ui)).toContain('Updated to 1.0.1')
+    // A newer release lands while that card is still showing.
+    v.latest = '1.0.2'
+    await $.command.run({ command: 'effortless', args: 'settings' } as never)
+    const panel = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await panel.press({ key: 'settings-check-update' })
+    await settle()
+    expect((await panel.find({ key: 'settings-update' }))?.text).toContain('Update to 1.0.2')
+  })
+
   test('Check for updates says Up to date when there is nothing newer', DESK, async ($, on) => {
     world(on, { installed: '1.0.1', latest: '1.0.1' })
     await start($)
