@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent map layouts</title>
+<style>
+  :root { --bg: #111113; --card: #161618; --edge: #2a2a2f; --text: #e4e4e7; --muted: #8b8b93; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, 'Segoe UI', sans-serif; }
+  main { max-width: 1320px; margin: 0 auto; padding: 28px 16px 40px; }
+  h1 { font-size: 18px; font-weight: 600; margin: 0 0 4px; }
+  p.lead { color: var(--muted); margin: 0 0 22px; }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 18px; }
+  figure { margin: 0; background: var(--card); border: 1px solid var(--edge); border-radius: 12px; overflow: hidden; }
+  figure svg { display: block; width: 100%; height: auto; }
+  figcaption { padding: 12px 14px 14px; border-top: 1px solid var(--edge); }
+  figcaption b { display: block; font-size: 14px; margin-bottom: 2px; }
+  figcaption span { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Agent map layouts</h1>
+  <p class="lead">Three ways to lay out the same chat and its 9 agents (one sent off by another). Same node style as the pane: violet working, amber needs you, green done. All motion is SVG and CSS, so each one can run in the pane as is.</p>
+  <div class="row">
+    <figure><div id="orbit"></div><figcaption><b>A. Orbit</b><span>Working agents circle this chat on an inner ring, finished ones drift to a slow outer ring. Labels stay upright. Calm, always moving.</span></figcaption></figure>
+    <figure><div id="constellation"></div><figcaption><b>B. Constellation</b><span>Agents placed loosely around this chat, sub-agents clustered by their parent. Nodes float a little; work flows along the links towards each busy agent.</span></figcaption></figure>
+    <figure><div id="river"></div><figcaption><b>C. River</b><span>Time runs left to right. Each agent branches off the trunk when it started; finished branches settle and dim, busy tips pulse. Reads as a story of the chat.</span></figcaption></figure>
+  </div>
+</main>
+<script>
+// The demo chat: this chat and 9 agents. parent: who sent it off (none = this chat). share: how far along.
+const AGENTS = [
+  { id: 'a', name: 'Explore', state: 'running', share: 0.63, start: 1 },
+  { id: 'b', name: 'Plan', state: 'picking', share: 0.05, start: 6 },
+  { id: 'c', name: 'code-reviewer', state: 'waiting', share: 0.4, start: 4 },
+  { id: 'd', name: 'general-purpose', state: 'done', share: 1, start: 0 },
+  { id: 'e', name: 'Explore', state: 'done', share: 1, start: 0.5, parent: 'd' },
+  { id: 'f', name: 'test-runner', state: 'running', share: 0.3, start: 5 },
+  { id: 'g', name: 'docs-writer', state: 'done', share: 1, start: 2 },
+  { id: 'h', name: 'Explore', state: 'running', share: 0.2, start: 6.5, parent: 'b' },
+  { id: 'i', name: 'security', state: 'running', share: 0.75, start: 3 },
+]
+const W = 400, H = 330
+const COLOR = { running: '#a79cf7', picking: '#a79cf7', waiting: '#e0a33a', done: '#7fe0a4', failed: '#e5534b' }
+const f = v => v.toFixed(1)
+
+const DEFS = `<defs>
+  <radialGradient id="halo"><stop offset="0" stop-color="#a79cf7" stop-opacity=".35"/><stop offset="1" stop-color="#a79cf7" stop-opacity="0"/></radialGradient>
+  <radialGradient id="glowA"><stop offset="0" stop-color="#e0a33a" stop-opacity=".28"/><stop offset="1" stop-color="#e0a33a" stop-opacity="0"/></radialGradient>
+  <radialGradient id="neb"><stop offset="0" stop-color="#7566d8" stop-opacity=".16"/><stop offset="1" stop-color="#7566d8" stop-opacity="0"/></radialGradient>
+  <pattern id="dots" width="18" height="18" patternUnits="userSpaceOnUse"><circle cx="9" cy="9" r=".8" fill="#fff" fill-opacity=".07"/></pattern>
+</defs>`
+const STYLE = `<style>
+  .t{font:600 11px system-ui,'Segoe UI',sans-serif;fill:#d4d4d8}
+  .td{font:11px system-ui,'Segoe UI',sans-serif;fill:#8b8b93}
+  .tf{font:700 12px system-ui,'Segoe UI',sans-serif;fill:#fff}
+  .sp{transform-box:fill-box;transform-origin:center;animation:sp 1.4s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
+  .br{animation:br 2.4s ease-in-out infinite}@keyframes br{0%,100%{opacity:.45}50%{opacity:1}}
+  .fl{animation:fl 1.1s linear infinite}@keyframes fl{to{stroke-dashoffset:-14}}
+  .pulse{transform-box:fill-box;transform-origin:center;animation:pulse 2.2s ease-out infinite}@keyframes pulse{0%{transform:scale(.6);opacity:.7}100%{transform:scale(1.9);opacity:0}}
+</style>`
+
+/** One agent's node at 0,0: a ring showing how far along, its state's colour, its name below. */
+function node(a, r = 13) {
+  const c = COLOR[a.state]
+  const circ = 2 * Math.PI * (r + 3)
+  const ring = a.state === 'done'
+    ? `<circle r="${r}" fill="#1c1c20" stroke="${c}" stroke-width="2"/><path d="M-4.5 0.5 L-1.2 3.6 L4.8 -3" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`
+    : `<circle r="${r + 7}" fill="${a.state === 'waiting' ? 'url(#glowA)' : 'url(#halo)'}" class="br"/>` +
+      `<circle r="${r}" fill="#211f2b" stroke="#ffffff" stroke-opacity=".08"/>` +
+      `<circle r="${r + 3}" fill="none" stroke="${c}" stroke-opacity=".25" stroke-width="2"/>` +
+      (a.state === 'picking'
+        ? `<g class="sp"><circle r="${r + 3}" fill="none" stroke="${c}" stroke-width="2" stroke-dasharray="${f(circ * 0.2)} ${f(circ)}" stroke-linecap="round"/></g>`
+        : `<circle r="${r + 3}" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-dasharray="${f(circ * a.share)} ${f(circ)}" transform="rotate(-90)"/>`) +
+      `<circle r="3.2" fill="${c}"/>` +
+      (a.state === 'waiting' ? `<circle r="${r + 3}" fill="none" stroke="${c}" stroke-width="1.5" class="pulse"/>` : '')
+  return `${ring}<text y="${r + 17}" text-anchor="middle" class="${a.state === 'done' ? 'td' : 't'}">${a.name}</text>`
+}
+/** This chat, larger, with its sparkle. */
+function main(r = 24) {
+  return `<circle r="${r + 16}" fill="url(#halo)" class="br"/><circle r="${r}" fill="#211c38" stroke="#a79cf7" stroke-opacity=".5" stroke-width="1.5"/>` +
+    `<circle r="${r + 5}" fill="none" stroke="#a79cf7" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="${f(2 * Math.PI * (r + 5) * 0.5)} 999" transform="rotate(-90)"/>` +
+    `<path transform="scale(.9)" d="M0 -10 C1 -3 3 -1 10 0 C3 1 1 3 0 10 C-1 3 -3 1 -10 0 C-3 -1 -1 -3 0 -10Z" fill="#cfc7ff"/>` +
+    `<text y="${r + 20}" text-anchor="middle" class="tf">This chat</text>`
+}
+/** Pushes nodes apart until no two (and their labels) overlap, keeping each near where it was put and in bounds. */
+function spread(pos, fixed, bounds) {
+  const ids = [...pos.keys()]
+  for (let round = 0; round < 120; round++) {
+    let moved = false
+    for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
+      const a = pos.get(ids[i]), b = pos.get(ids[j])
+      const dx = b[0] - a[0], dy = (b[1] - a[1]) * 1.6
+      const d = Math.hypot(dx, dy) || 0.01
+      const need = 74
+      if (d >= need) continue
+      const push = (need - d) / 2, ux = dx / d, uy = dy / d / 1.6
+      if (!fixed.has(ids[i])) { a[0] -= ux * push; a[1] -= uy * push }
+      if (!fixed.has(ids[j])) { b[0] += ux * push; b[1] += uy * push }
+      moved = true
+    }
+    for (const id of ids) {
+      if (fixed.has(id)) continue
+      const p = pos.get(id)
+      p[0] = Math.max(bounds[0], Math.min(bounds[2], p[0]))
+      p[1] = Math.max(bounds[1], Math.min(bounds[3], p[1]))
+    }
+    if (!moved) break
+  }
+  return pos
+}
+const svg = body => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}">${STYLE}${DEFS}<rect width="${W}" height="${H}" fill="#161618"/><rect width="${W}" height="${H}" fill="url(#dots)"/>${body}</svg>`
+
+// ---- A. Orbit ---------------------------------------------------------------------------------------------------
+function orbit() {
+  const cx = W / 2, cy = H / 2 - 8
+  const live = AGENTS.filter(a => a.state !== 'done' && !a.parent)
+  const done = AGENTS.filter(a => a.state === 'done' && !a.parent)
+  const kids = AGENTS.filter(a => a.parent)
+  // An oval the panel's shape: wider than tall, so labels have room.
+  const oval = (rx, ry, dir) => dir > 0
+    ? `M${rx} 0 A${rx} ${ry} 0 1 1 ${-rx} 0 A${rx} ${ry} 0 1 1 ${rx} 0`
+    : `M${rx} 0 A${rx} ${ry} 0 1 0 ${-rx} 0 A${rx} ${ry} 0 1 0 ${rx} 0`
+  const ride = (a, path, dur, at, r) =>
+    `<g><animateMotion path="${path}" dur="${dur}s" begin="${-f(at * dur)}s" repeatCount="indefinite"/>${node(a, r)}</g>`
+  const ring = (list, rx, ry, dur, dir, start) => {
+    const path = oval(rx, ry, dir)
+    return list.map((a, i) => {
+      const at = (start + i / list.length) % 1
+      const mine = kids.filter(k => k.parent === a.id)
+      return ride(a, path, dur, at, a.state === 'done' ? 10 : 13) + mine.map((k, j) => ride(k, path, dur, (at + 1 - 0.075 * (j + 1)) % 1, 9)).join('')
+    }).join('')
+  }
+  return svg(`<g transform="translate(${cx} ${cy})">
+    <ellipse rx="112" ry="70" fill="none" stroke="#a79cf7" stroke-opacity=".12" stroke-dasharray="2 5"/>
+    <ellipse rx="172" ry="128" fill="none" stroke="#7fe0a4" stroke-opacity=".08" stroke-dasharray="2 6"/>
+    ${ring(done, 172, 128, 260, -1, 0.15)}
+    ${ring(live, 112, 70, 140, 1, 0.05)}
+    ${main()}
+  </g>`)
+}
+
+// ---- B. Constellation -------------------------------------------------------------------------------------------
+function constellation() {
+  const cx = W / 2 - 4, cy = H / 2 - 8
+  // Loose, hand-fair placement: golden-angle spiral by start order, children beside their parent.
+  const top = AGENTS.filter(a => !a.parent).sort((p, q) => p.start - q.start)
+  const pos = new Map()
+  top.forEach((a, i) => {
+    const t = i * 2.39996 + 0.6
+    const r = 92 + (i % 3) * 22 + (a.state === 'done' ? 18 : 0)
+    pos.set(a.id, [Math.cos(t) * r * 1.15, Math.sin(t) * r * 0.82])
+  })
+  AGENTS.filter(a => a.parent).forEach((a, i) => {
+    const [px, py] = pos.get(a.parent)
+    const out = Math.atan2(py, px) + (i % 2 ? 0.7 : -0.7)
+    pos.set(a.id, [px + Math.cos(out) * 58, py + Math.sin(out) * 46])
+  })
+  pos.set('main', [0, 0])
+  spread(pos, new Set(['main']), [-W / 2 + 40, -H / 2 + 26, W / 2 - 40, H / 2 - 44])
+  pos.delete('main')
+  const curve = (x1, y1, x2, y2, bend) => {
+    const mx = (x1 + x2) / 2 - (y2 - y1) * bend, my = (y1 + y2) / 2 + (x2 - x1) * bend
+    return `M${f(x1)} ${f(y1)} Q${f(mx)} ${f(my)} ${f(x2)} ${f(y2)}`
+  }
+  const links = AGENTS.map((a, i) => {
+    const [x, y] = pos.get(a.id)
+    const [px, py] = a.parent ? pos.get(a.parent) : [0, 0]
+    const d = curve(px, py, x, y, i % 2 ? 0.18 : -0.18)
+    const c = COLOR[a.state]
+    return a.state === 'done'
+      ? `<path d="${d}" fill="none" stroke="${c}" stroke-opacity=".16" stroke-width="1.2"/>`
+      : `<path d="${d}" fill="none" stroke="${c}" stroke-opacity=".14" stroke-width="3"/><path d="${d}" fill="none" stroke="${c}" stroke-opacity=".7" stroke-width="1.4" stroke-dasharray="2 12" stroke-linecap="round" class="fl"/>`
+  }).join('')
+  const nodes = AGENTS.map((a, i) => {
+    const [x, y] = pos.get(a.id)
+    const dx = (i % 3) - 1, dy = ((i + 1) % 3) - 1
+    return `<g transform="translate(${f(x)} ${f(y)})"><g><animateTransform attributeName="transform" type="translate" values="0 0;${dx * 2.5} ${dy * 3};${-dy * 2} ${dx * 2};0 0" dur="${6 + (i % 4) * 1.3}s" repeatCount="indefinite" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1"/>${node(a, a.state === 'done' ? 10 : 13)}</g></g>`
+  }).join('')
+  return svg(`<g transform="translate(${cx} ${cy})">
+    <ellipse cx="-60" cy="-30" rx="150" ry="110" fill="url(#neb)"/><ellipse cx="90" cy="60" rx="120" ry="90" fill="url(#neb)"/>
+    ${links}${nodes}${main()}
+  </g>`)
+}
+
+// ---- C. River ---------------------------------------------------------------------------------------------------
+function river() {
+  const y0 = H / 2 + 4, x0 = 52, x1 = W - 30
+  const span = 7
+  const tx = s => x0 + 48 + (s / span) * (x1 - x0 - 70)
+  const top = AGENTS.filter(a => !a.parent).sort((p, q) => p.start - q.start)
+  const lanes = new Map()
+  top.forEach((a, i) => lanes.set(a.id, (i % 2 ? 1 : -1) * (46 + (Math.floor(i / 2) % 3) * 30)))
+  const pos = new Map()
+  top.forEach(a => pos.set(a.id, [tx(a.start) + 34, y0 + lanes.get(a.id)]))
+  AGENTS.filter(a => a.parent).forEach(a => {
+    const [px, py] = pos.get(a.parent)
+    pos.set(a.id, [Math.min(x1 - 10, px + 58), py + (py < y0 ? -26 : 26)])
+  })
+  const trunkY = y0
+  // The trunk's own line is kept clear: nodes stay a lane off it.
+  spread(pos, new Set(), [x0 + 40, 30, x1 - 12, H - 60])
+  for (const p of pos.values()) if (Math.abs(p[1] - trunkY) < 34) p[1] = trunkY + (p[1] < trunkY ? -34 : 34)
+  const branch = a => {
+    const [x, y] = pos.get(a.id)
+    const [sx, sy] = a.parent ? pos.get(a.parent) : [tx(a.start), y0]
+    const d = `M${f(sx)} ${f(sy)} C${f(sx + 22)} ${f(sy)} ${f(x - 26)} ${f(y)} ${f(x - (a.state === 'done' ? 11 : 15))} ${f(y)}`
+    const c = COLOR[a.state]
+    return a.state === 'done'
+      ? `<path d="${d}" fill="none" stroke="${c}" stroke-opacity=".2" stroke-width="1.4"/>`
+      : `<path d="${d}" fill="none" stroke="${c}" stroke-opacity=".22" stroke-width="3"/><path d="${d}" fill="none" stroke="${c}" stroke-opacity=".75" stroke-width="1.4" stroke-dasharray="2 10" stroke-linecap="round" class="fl"/>`
+  }
+  const nodes = AGENTS.map(a => { const [x, y] = pos.get(a.id); return `<g transform="translate(${f(x)} ${f(y)})">${node(a, a.state === 'done' ? 9 : 12)}</g>` }).join('')
+  // The trunk: this chat's own line through time, with light running along it to now.
+  const trunk = `M${x0} ${y0} L${x1} ${y0}`
+  const ticks = [0, 2, 4, 6].map(s => `<line x1="${f(tx(s))}" y1="${y0 + 120}" x2="${f(tx(s))}" y2="${y0 + 126}" stroke="#fff" stroke-opacity=".12"/><text x="${f(tx(s))}" y="${y0 + 138}" text-anchor="middle" class="td" style="font-size:10px">${s}m</text>`).join('')
+  return svg(`<path d="${trunk}" stroke="#a79cf7" stroke-opacity=".22" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="${trunk}" stroke="#cfc7ff" stroke-opacity=".8" stroke-width="2" fill="none" stroke-dasharray="1 26" stroke-linecap="round" class="fl" style="animation-duration:.9s"/>
+    <line x1="${x1}" y1="${y0 - 130}" x2="${x1}" y2="${y0 + 120}" stroke="#a79cf7" stroke-opacity=".18" stroke-dasharray="2 4"/>
+    <text x="${x1 - 4}" y="${y0 - 134}" text-anchor="end" class="td" style="font-size:10px">now</text>
+    ${ticks}${AGENTS.map(branch).join('')}${nodes}
+    <g transform="translate(${x0} ${y0})">${main(20)}</g>`)
+}
+
+document.getElementById('orbit').innerHTML = orbit()
+document.getElementById('constellation').innerHTML = constellation()
+document.getElementById('river').innerHTML = river()
+</script>
+</body>
+</html>
