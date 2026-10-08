@@ -11,14 +11,15 @@
   (other chats' changes sit in the tree). Reaches no user.
 - `tools/publish.sh "<what's new>" "<detail>"`: minor bump, writes releases.json and public.json, moves `stable`.
   Every user gets an update card. Only on Isac's word.
-- Public: 1.38.0 (2026-10-08). Dev: 1.38.0. Site: https://heycubit.github.io/effortless/ (`gh-pages`, rebuilt from `main`).
+- Public: 1.39.0 (2026-10-08). Dev: 1.39.0. Site: https://heycubit.github.io/effortless/ (`gh-pages`, rebuilt from `main`).
 
 ## Half done
 - Theme (public since 1.38.0): Settings → Appearance → Theme, Violet (default) or Claude orange. `hooks/theme.ts` turns every
   violet hex to hue 15 (accent `#a79cf7` → `#da7958`); Svg sources go through `themedEls`, text colours through
   `accent()`/`tintHex`, art palette in `hooks/art.ts`, progress/agents looks via `looks()`. Tests pass (161) and the
   rig renders the band orange. Not seen yet: the Settings panel itself (the rig cannot draw it) and the real app.
-- 1.38.0 published 2026-10-08: theme + Check for updates button. Theme still unseen in the real app.
+- 1.38.0: theme + Check for updates. 1.39.0: installs/updates over HTTPS (a `github` plugin source clones over SSH
+  only, so users without a GitHub SSH key got "Update failed"). Theme still unseen in the real app.
 - GitHub contributors sidebar still lists IsacEhrstedt (server cache; API already shows only HeyCubit). Support
   ticket sent 2026-10-08. Isac does not want to post the repo anywhere until it is gone.
 - Uninstall test (Settings → Appearance → Uninstall, two presses): result never reported.
