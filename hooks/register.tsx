@@ -3053,6 +3053,11 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     e.surface === 'terminal' ? null : (
       <Button key="dash-auto" variant="secondary" dimColor={!v.auto} label={v.auto ? 'Auto on' : 'Auto off'} onPress={() => toggleAutoEffort($)} />
     ),
+    // Once the slot is Handoff (advised, or the setting says always), Compact stays beside it as quiet text, so both are
+    // a press away. Desktop only, where there is room for it; the terminal compacts in one press from its own rows.
+    ...(e.surface !== 'terminal' && 'Svg' in els && !config.hide.includes('handoff') && handoffSlot() && (typeof e.props.bodyColumns !== 'number' || e.props.bodyColumns >= COMPACT_BUTTON_MIN_COLUMNS)
+      ? [<Button key="dash-compact" plain dimColor label="Compact" onPress={() => openCompact($, e)} />]
+      : []),
     ...(config.hide.includes('handoff')
       ? []
       : [

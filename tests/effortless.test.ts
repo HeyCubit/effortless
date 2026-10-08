@@ -2597,7 +2597,7 @@ describe('dashboard', () => {
     await expect($.ui.mount(FOOTER)).rejects.toThrow()
   })
 
-  test('Handoff button set to always: the slot is Handoff from the start, calm, no glow, and it opens the handoff bar', { options: { layout: 'default', handoffButton: 'always' } } as never, async ($, on) => {
+  test('Handoff button set to always: Handoff from the start, calm, no glow, with Compact beside it', { options: { layout: 'default', handoffButton: 'always' } } as never, async ($, on) => {
     engine(on)
     recordSteps(on)
     const mocked = mock.clock(on)
@@ -2611,7 +2611,8 @@ describe('dashboard', () => {
     expect(await band.find({ key: 'dash-handoff-h' })).toBeUndefined()
     const text = await drawn(band)
     expect(text).toContain('Handoff')
-    expect(text).not.toContain('Compact')
+    // Compact stays beside it as quiet text, so both are a press away.
+    expect(await band.find({ key: 'dash-compact' })).toBeDefined()
     await band.unmount()
   })
 

@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.61.1",
+    "date": "2026-10-08",
+    "note": "Compact stays beside Handoff once the slot is Handoff"
+  },
+  {
     "version": "1.60.1",
     "date": "2026-10-08",
     "note": "No stuck Cold after a reload: timers restart and a stale Cold is cleared"
