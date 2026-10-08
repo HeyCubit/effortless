@@ -3737,6 +3737,8 @@ Saved to ${out}.md and .json` }
         steps: await read($, agentSteps),
         module: await read($, agentsModule),
         onModule: (key: string) => update($, agentsModule, cur => (cur === key ? null : key)),
+        cols: e.props.bodyColumns,
+        wordmark: SETTINGS_TITLE,
       },
       agents,
     )
