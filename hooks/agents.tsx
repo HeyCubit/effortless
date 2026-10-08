@@ -659,7 +659,7 @@ export function networkSvg(nodes: readonly NetNode[], rows: number, cols: number
     if (!n.agent) {
       // This chat: the bar's star in the middle of a ring that fills with the chat's own steps.
       parts.push(`<circle class="br" cx="${f(x)}" cy="${f(y)}" r="24" fill="url(#halo)"/>`)
-      parts.push(`<circle cx="${f(x)}" cy="${f(y)}" r="15" fill="#221c3a" stroke="${isOpen ? '#ffffff' : '#4a3f80'}" stroke-width="1.2"/>`)
+      parts.push(`<circle cx="${f(x)}" cy="${f(y)}" r="15" fill="#221c3a" stroke="${isOpen ? '#cfc7ff' : '#4a3f80'}" stroke-width="1.2"/>`)
       parts.push(ring(x, y, 19, mainShare, '#a79cf7'))
       parts.push(star(x, y, 0.9, '#a79cf7'))
       continue
@@ -669,7 +669,7 @@ export function networkSvg(nodes: readonly NetNode[], rows: number, cols: number
     const share = a.state === 'done' || a.state === 'failed' ? 1 : a.steps?.length ? progressShare(a.steps) : 0.08
     const live = a.state === 'running' || a.state === 'waiting' || a.state === 'picking'
     if (live) parts.push(`<circle class="br" cx="${f(x)}" cy="${f(y)}" r="17" fill="${c}" fill-opacity=".16"/>`)
-    parts.push(`<circle cx="${f(x)}" cy="${f(y)}" r="8" fill="#15121f" stroke="${isOpen ? '#ffffff' : c}" stroke-opacity="${isOpen ? 1 : 0.5}" stroke-width="1.2"/>`)
+    parts.push(`<circle cx="${f(x)}" cy="${f(y)}" r="8" fill="#15121f" stroke="${isOpen ? '#cfc7ff' : c}" stroke-opacity="${isOpen ? 1 : 0.5}" stroke-width="${isOpen ? 2 : 1.2}"/>`)
     parts.push(ring(x, y, 11, share, c, a.state === 'waiting' ? 'pl' : a.state === 'picking' ? 'sp' : ''))
     if (a.state === 'done') parts.push(`<path d="M${f(x - 3.6)} ${f(y)} l2.6 2.6 l4.8 -5" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`)
     else if (a.state === 'failed') parts.push(`<path d="M${f(x - 3)} ${f(y - 3)} l6 6 M${f(x + 3)} ${f(y - 3)} l-6 6" stroke="${c}" stroke-width="1.7" stroke-linecap="round"/>`)
@@ -759,31 +759,110 @@ function nodeCard(d: AgentsDraw, open: string, agents: readonly AgentRec[]) {
   )
 }
 
+/** Weighted tokens, short: 514k, 1.2M. */
+export function tokensText(n: number): string {
+  return n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1000)}k`
+}
+
+/** Where the work stands: the step the main chat is on (its phase) and how far along it is, 0-1. */
+export function phaseOf(agents: readonly AgentRec[], steps: readonly ProgressStep[] | null): { title: string; share: number } {
+  if (steps && steps.length) {
+    const now = steps.find(s => s.status === 'in_progress') ?? steps.find(s => s.status === 'pending')
+    const done = steps.every(s => s.status === 'completed')
+    return { title: done ? 'All steps done' : (now?.label ?? 'Working'), share: progressShare(steps) }
+  }
+  const finished = agents.filter(a => a.state === 'done').length
+  return { title: agents.length ? moodWord(agents) : 'Nothing running', share: agents.length ? finished / agents.length : 0 }
+}
+
+/** A text cut to `n` characters with an ellipsis. */
+const short = (text: string, n: number) => (text.length > n ? `${text.slice(0, n - 1)}…` : text)
+
+/** One agent as a row of a section: its state mark, name, task, and on the right the one thing worth seeing. */
+function agentRow(d: AgentsDraw, a: AgentRec) {
+  const { Box, Text, Button } = d
+  const c = STATE_COLOR[a.state]
+  const mark = a.state === 'done' ? '✓' : a.state === 'failed' ? '✕' : a.state === 'waiting' ? '◉' : '◐'
+  const right =
+    a.state === 'waiting' ? `on ${short(a.now ?? 'a tool', 16)}`
+    : a.state === 'failed' ? 'failed'
+    : a.state === 'picking' ? 'picking'
+    : a.state === 'done' ? clockText((a.endedAt ?? d.nowMs) - a.startedAt)
+    : a.steps?.length ? `${Math.round(progressShare(a.steps) * 100)}%`
+    : 'working'
+  return (
+    <Box key={`row-${a.id}`} position="relative" flexDirection="row">
+      <Text color={c} bold>{`${mark} `}</Text>
+      <Text color={a.state === 'done' ? DIM : TEXT} bold={a.state !== 'done'}>{a.type}</Text>
+      <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
+        <Text dimColor wrap="truncate">{`  ${a.task}`}</Text>
+      </Box>
+      <Box flexShrink={0}>
+        <Text color={a.state === 'done' ? DIM : c} wrap="truncate">{`  ${right}`}</Text>
+      </Box>
+      <Box position="absolute" top={0} left={0} right={0} bottom={0}>
+        <Button key={`row-${a.id}-press`} plain label={' '.repeat(60)} hover={{ backgroundColor: '#00000000' }} onPress={() => d.onOpen(a.id)} />
+      </Box>
+    </Box>
+  )
+}
+
+/** A section: a dim title with its count, then its rows. Nothing when it has none. */
+function section(d: AgentsDraw, key: string, title: string, color: string, rows: readonly AgentRec[]) {
+  const { Box, Text } = d
+  if (!rows.length) return null
+  return (
+    <Box key={`sec-${key}`} flexDirection="column">
+      <Box flexDirection="row">
+        <Text color={color} bold>{title}</Text>
+        <Text dimColor>{`  ${rows.length}`}</Text>
+      </Box>
+      {rows.map(a => agentRow(d, a))}
+    </Box>
+  )
+}
+
 /**
- * The whole pane: one rounded violet card, padded. At the top the star, "Agents" and how many are done; then the
- * network, every node a button; under it the card of the node opened, with its ✕; at the bottom the wordmark.
+ * The whole pane, one rounded violet card, padded, in sections: the phase and a big progress bar; the network, this
+ * chat in the middle; what needs you; what is working; what is done (folded to a line until pressed); the wordmark.
  */
 export function agentsPane(d: AgentsDraw, agents: readonly AgentRec[]) {
   const { Box, Text, Button, Svg } = d
   // The card's border and padding take two columns a side.
   const cols = Math.max(24, d.cols - 4)
   const { nodes, rows } = networkLayout(agents, cols)
-  const finished = agents.filter(a => a.state === 'done').length
-  const mainShare = d.steps && d.steps.length ? progressShare(d.steps) : agents.length ? finished / agents.length : 0
+  const phase = phaseOf(agents, d.steps)
+  const tokens = agents.reduce((s, a) => s + (a.cost ?? 0), 0)
   const open = d.open && (d.open === 'main' || agents.some(a => a.id === d.open)) ? d.open : null
+  const needs = agents.filter(a => a.state === 'waiting' || a.state === 'failed')
+  const working = agents.filter(a => a.state === 'running' || a.state === 'picking')
+  const done = agents.filter(a => a.state === 'done')
+  const doneOpen = d.open === 'done'
   return (
     <Box key="agents" position="relative" flexDirection="column" minHeight={d.rows} paddingX={1} paddingY={1} gap={1}
       backgroundColor={PANE_BG} borderStyle="round" borderColor="#4a3f80">
-      <Box flexDirection="row" alignItems="center">
-        <Text color={ACCENT} bold>✦ </Text>
-        <Text color={TEXT} bold>Agents</Text>
-        <Box flexGrow={1} />
-        <Text dimColor>{agents.length ? `${finished} of ${agents.length} done` : 'none yet'}</Text>
+      <Box flexDirection="column">
+        <Box flexDirection="row" alignItems="center">
+          <Text color={ACCENT} bold>✦ </Text>
+          <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
+            <Text color={TEXT} bold wrap="truncate">{phase.title}</Text>
+          </Box>
+          <Text color={TEXT} bold>{`  ${Math.round(phase.share * 100)}%`}</Text>
+        </Box>
+        {Svg ? (
+          <Svg source={progressTrackSvg({ phase: phase.share >= 1 ? 'done' : 'working', steps: d.steps && d.steps.length ? [...d.steps] : agentsAsSteps(agents) })}
+            alt={`${Math.round(phase.share * 100)}% done`} width={1000} height={24} />
+        ) : null}
+        <Box flexDirection="row">
+          <Text dimColor>{agents.length ? `${agents.length} agent${agents.length > 1 ? 's' : ''}` : 'no agents yet'}</Text>
+          <Box flexGrow={1} />
+          {tokens ? <Text dimColor>{`${tokensText(tokens)} tokens`}</Text> : null}
+        </Box>
       </Box>
-      {Svg ? (
+      {Svg && agents.length ? (
         <Box key="agents-net" position="relative" height={rows} width={cols}>
           <Box position="absolute" top={0} left={0}>
-            <Svg source={networkSvg(nodes, rows, cols, open, mainShare)} alt={`this chat and ${agents.length} agents`} width={Math.round(cols * CELL_W)} height={Math.round(rows * CELL_H)} />
+            <Svg source={networkSvg(nodes, rows, cols, open, phase.share)} alt={`this chat and ${agents.length} agents`} width={Math.round(cols * CELL_W)} height={Math.round(rows * CELL_H)} />
           </Box>
           {nodes.map(n => (
             <Box key={`node-${n.id}`} position="absolute" top={n.row} left={Math.max(0, n.col - 2)} width={5} height={1} alignItems="center" justifyContent="center">
@@ -792,16 +871,24 @@ export function agentsPane(d: AgentsDraw, agents: readonly AgentRec[]) {
             </Box>
           ))}
         </Box>
-      ) : (
-        agents.map(a => (
-          <Box key={`row-${a.id}`} flexDirection="row">
-            <Text color={STATE_COLOR[a.state]}>{a.state === 'done' ? '✓ ' : a.state === 'failed' ? '✕ ' : '◐ '}</Text>
-            <Text color={TEXT} bold>{a.type}</Text>
-            <Text dimColor wrap="truncate">{`  ${a.task}`}</Text>
+      ) : null}
+      {open ? nodeCard(d, open, agents) : null}
+      {section(d, 'needs', 'Needs you', STATE_COLOR.waiting, needs)}
+      {section(d, 'working', 'Working', ACCENT, working)}
+      {done.length ? (
+        <Box key="sec-done" position="relative" flexDirection="column">
+          <Box position="relative" flexDirection="row">
+            <Text color={STATE_COLOR.done} bold>{doneOpen ? '▾ Done' : '▸ Done'}</Text>
+            <Text dimColor>{`  ${done.length}`}</Text>
+            <Box flexGrow={1} />
+            <Box position="absolute" top={0} left={0} right={0} bottom={0}>
+              <Button key="done-press" plain label={' '.repeat(60)} hover={{ backgroundColor: '#00000000' }} onPress={() => d.onOpen('done')} />
+            </Box>
           </Box>
-        ))
-      )}
-      {open ? nodeCard(d, open, agents) : !agents.length ? <Text dimColor>Agents show here when Claude sends some off.</Text> : <Text dimColor>Click a node to open it.</Text>}
+          {doneOpen ? done.map(a => agentRow(d, a)) : null}
+        </Box>
+      ) : null}
+      {!agents.length ? <Text dimColor>Agents show here when Claude sends some off.</Text> : null}
       <Box flexGrow={1} />
       <Box flexDirection="row" justifyContent="flex-end">
         {Svg ? <Svg source={d.wordmark} alt="effortless" width={92} height={28} /> : <Text color={TEXT} bold>effortless</Text>}
@@ -810,15 +897,25 @@ export function agentsPane(d: AgentsDraw, agents: readonly AgentRec[]) {
   )
 }
 
+/** With no step list of its own, the chat's agents stand in as its steps for the bar: finished, going, not started. */
+function agentsAsSteps(agents: readonly AgentRec[]): ProgressStep[] {
+  return agents.map(a => ({
+    id: a.id,
+    label: a.type,
+    doing: a.task,
+    status: a.state === 'done' || a.state === 'failed' ? 'completed' : a.state === 'picking' ? 'pending' : 'in_progress',
+  }))
+}
+
 /** Sample agents for `/effortless agents demo`: one of each state, so the pane can be seen without a real run. */
 export function demoAgents(nowMs: number): AgentRec[] {
   const step = (label: string, status: 'completed' | 'in_progress' | 'pending', i: number) => ({ id: `s${i}`, label, doing: label, status })
   return [
-    { id: 'demo-1', type: 'Explore', task: 'find the pane and agent hooks', state: 'running', startedAt: nowMs - 103_000, model: 'Haiku', effort: 'Low', why: 'read-only search, wide but shallow', file: 'hooks/agents.tsx',
+    { id: 'demo-1', type: 'Explore', task: 'find the pane and agent hooks', state: 'running', startedAt: nowMs - 103_000, model: 'Haiku', effort: 'Low', why: 'read-only search, wide but shallow', file: 'hooks/agents.tsx', cost: 61_000,
       now: 'Grep "agentId" in hooks/', steps: [step('List hooks', 'completed', 0), step('Read types', 'completed', 1), step('Find spawn', 'in_progress', 2), step('Report', 'pending', 3)] },
-    { id: 'demo-2', type: 'code-reviewer', task: 'review the agent-panel branch', state: 'waiting', file: 'tests/effortless.test.ts', startedAt: nowMs - 251_000, waitingSince: nowMs - 38_000, now: 'Bash npm test', model: 'Opus', effort: 'High', why: 'a review before merge: misses cost more' },
+    { id: 'demo-2', type: 'code-reviewer', task: 'review the agent-panel branch', state: 'waiting', file: 'tests/effortless.test.ts', startedAt: nowMs - 251_000, waitingSince: nowMs - 38_000, now: 'Bash npm test', model: 'Opus', effort: 'High', why: 'a review before merge: misses cost more', cost: 182_000 },
     { id: 'demo-3', type: 'Plan', task: 'outline the release notes', state: 'picking', startedAt: nowMs - 2_000 },
-    { id: 'demo-4', type: 'general-purpose', task: 'add state for the panel', state: 'done', startedAt: nowMs - 400_000, endedAt: nowMs - 208_000, model: 'Sonnet', effort: 'Medium' },
+    { id: 'demo-4', type: 'general-purpose', task: 'add state for the panel', state: 'done', startedAt: nowMs - 400_000, endedAt: nowMs - 208_000, model: 'Sonnet', effort: 'Medium', cost: 240_000 },
     { id: 'demo-5', parentId: 'demo-4', type: 'Explore', task: 'read the tests', state: 'done', startedAt: nowMs - 380_000, endedAt: nowMs - 340_000, model: 'Haiku', effort: 'Low' },
   ]
 }

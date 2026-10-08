@@ -2758,11 +2758,16 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     } else await openPluginSettings($)
   }
   // The terminal's effort row under the band has its own Auto switch.
+  const agentsLive = (await read($, agentsState)).filter(a => a.state !== 'done' && a.state !== 'failed').length
   const buttons = [
     // Desktop only (the terminal's effort row has its own); no hotkey letter, which the app draws faint on grey.
     e.surface === 'terminal' ? null : (
       <Button key="dash-auto" variant="secondary" dimColor={!v.auto} label={v.auto ? 'Auto on' : 'Auto off'} onPress={() => toggleAutoEffort($)} />
     ),
+    // While agents run, the bar offers their panel.
+    agentsLive ? (
+      <Button key="dash-agents" variant="secondary" label={`${agentsLive} agent${agentsLive > 1 ? 's' : ''}`} onPress={() => $.ui.open({ id: 'effortless-agents', title: 'Agents' })} />
+    ) : null,
     ...(config.hide.includes('handoff')
       ? []
       : [
