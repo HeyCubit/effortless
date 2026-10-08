@@ -4136,10 +4136,12 @@ Saved to ${out}.md and .json` }
                   </Box>
                   <Text dimColor wrap="truncate" hover={{ dimColor: false, color: DASH_TEXT }}>{summaries[c.id]}</Text>
                   {/* The click takes the whole card: a button is one line high and centred in its box, whatever the box,
-                      so two blank ones are laid over it, one per line. The card itself lights as a whole (its own hover). */}
-                  <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="column" justifyContent="space-around">
+                      so three blank ones are spread from the top edge to the bottom one and overlap. The card lights as a
+                      whole (its own hover); two, spaced around, left its edges and a stripe between the lines dead. */}
+                  <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="column" justifyContent="space-between">
                     <Button key={`settings-card-${c.id}`} plain hover={{ backgroundColor: '#00000000' }} label={'\u00a0'.repeat(60)} onPress={openCard(c.id)} />
                     <Button key={`settings-card-${c.id}-2`} plain hover={{ backgroundColor: '#00000000' }} label={'\u00a0'.repeat(60)} onPress={openCard(c.id)} />
+                    <Button key={`settings-card-${c.id}-3`} plain hover={{ backgroundColor: '#00000000' }} label={'\u00a0'.repeat(60)} onPress={openCard(c.id)} />
                   </Box>
                 </Box>
               ))}

@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.45.5",
+    "date": "2026-10-08",
+    "note": "Settings cards take a click anywhere on them"
+  },
+  {
     "version": "1.45.4",
     "date": "2026-10-08",
     "note": "Settings keeps its grainy title and mark"
