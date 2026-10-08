@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.50.0",
+    "date": "2026-10-08",
+    "note": "Maintenance release, no behaviour changes",
+    "public": true
+  },
+  {
     "version": "1.49.0",
     "date": "2026-10-08",
     "note": "Handoff suggestion from the Haiku judge, Compact button on the bar, Share link on the Updated card",
