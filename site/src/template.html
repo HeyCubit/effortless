@@ -526,7 +526,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
    the screen with the browser bars showing; vh would hide the box behind them. Fewer screens of scrolling per step. */
 @media (max-width:960px){
   .story{height:calc(var(--n) * 60vh + 40vh);height:calc(var(--n) * 60svh + 40svh)}
-  .pin{height:100vh;height:100svh;justify-content:flex-start;gap:16px;padding-top:60px;padding-bottom:max(12px,min(15svh,calc(100svh - 580px)))}
+  .pin{height:100vh;height:100svh;justify-content:flex-start;gap:16px;padding-top:80px;padding-bottom:max(12px,min(15svh,calc(100svh - 580px)))}
   .pin .head{margin-top:auto}
   .pin .win{margin-bottom:auto}
   .win{flex:none}
@@ -542,7 +542,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   .slot .dash .ho,.slot .dash .co{display:none}
   .win .demo-box{min-height:112px}
 }
-@media (max-height:560px) and (orientation:landscape){.chat{display:none}.pin{padding-top:52px;gap:8px}.go button{padding:8px 0}.pin .head{gap:8px}.say h3{font-size:22px;margin-bottom:0}}
+@media (max-height:560px) and (orientation:landscape){.chat{display:none}.pin{padding-top:76px;gap:8px}.go button{padding:8px 0}.pin .head{gap:8px}.say h3{font-size:22px;margin-bottom:0}}
 /* The bar has to fit the screen width: tighter spacing and a smaller size on narrow phones, so the gear is not cut off. */
 /* Phones: the hero chips stay inside the screen. No bleed off the right edge and no fade, so nothing is cut mid-word, and the
    buttons drop under the text when they do not fit. */
@@ -550,13 +550,15 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
    which walks through every state as you scroll. */
 @media (max-width:720px){
   .stage{min-height:0}
-  .stage-inner{align-items:start;padding:36px 0 24px var(--frame);gap:24px}
+  .stage-inner{align-items:start;padding:48px 0 24px var(--frame);gap:24px}
+  .beta{padding:12px var(--frame);font-size:14px}
+  .topbar{padding:14px var(--frame)}
+  .topbar .inst{height:44px}
   .stack{display:none}
   /* The landing, made for a phone: the bar is the star, big, with the box under it and the buttons under that. */
   .intro{display:flex;flex-direction:column}
   .intro .demo{order:4;width:100%;margin-top:26px}
   .intro .cta{order:5;margin-top:22px}
-  .intro .cta .gh,.intro .cta .ghost{flex:1 1 auto;justify-content:center}
   .lede{font-size:20px;margin-top:18px}
   .demo .dash{font-size:19px;min-height:3.3em;margin-bottom:12px;border-radius:14px}
   .demo .dash .auto .al,.slot .dash .auto .al{display:none}
@@ -601,11 +603,13 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   .pin .say h3{font-size:26px}
   .pin .say p{display:none}
   .win .demo-box{min-height:84px}
-  .pin{gap:12px;padding-top:56px}
-  .go button{padding:16px 0}
+  .pin{gap:12px;padding-top:78px}
+  .go button{padding:21px 0}
 }
 /* Phones: the bars are as big as the screen allows. Size follows the width; the bar still fits at 320 px. */
 @media (max-width:720px){
+  .topbar{padding:14px var(--frame)}
+  .topbar .inst{height:44px}
   .demo .dash{font-size:clamp(15px,4.9vw,19px);gap:.6em;padding:0 .7em}
   .slot .dash{font-size:clamp(14.5px,4.4vw,17px);gap:.6em;padding:0 .7em}
   .demo .dash .end,.slot .dash .end{gap:.6em}
