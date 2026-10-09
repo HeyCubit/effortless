@@ -533,6 +533,14 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   .chat{flex:none;height:min(17svh,130px);padding-bottom:10px}
   .go{gap:8px}
   .go button{padding:21px 0}
+  .story{margin-top:-110px}
+  .pin{--z:17px}
+  .pin .say h3{font-size:32px}
+  .pin .say p{font-size:17px}
+  .chat{height:min(24svh,210px)}
+  .slot .dash{font-size:17px;min-height:3.1em}
+  .slot .dash .ho,.slot .dash .co{display:none}
+  .win .demo-box{min-height:112px}
 }
 @media (max-height:560px) and (orientation:landscape){.chat{display:none}.pin{padding-top:52px;gap:8px}.go button{padding:8px 0}.pin .head{gap:8px}.say h3{font-size:22px;margin-bottom:0}}
 /* The bar has to fit the screen width: tighter spacing and a smaller size on narrow phones, so the gear is not cut off. */
@@ -544,6 +552,20 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   .stage{min-height:0}
   .stage-inner{align-items:start;padding:36px 0 24px var(--frame);gap:24px}
   .stack{display:none}
+  /* The landing, made for a phone: the bar is the star, big, with the box under it and the buttons under that. */
+  .intro{display:flex;flex-direction:column}
+  .intro .demo{order:4;width:100%;margin-top:26px}
+  .intro .cta{order:5;margin-top:22px}
+  .intro .cta .gh,.intro .cta .ghost{flex:1 1 auto;justify-content:center}
+  .lede{font-size:20px;margin-top:18px}
+  .demo .dash{font-size:19px;min-height:3.3em;margin-bottom:12px;border-radius:14px}
+  .demo .dash .auto .al,.slot .dash .auto .al{display:none}
+  .demo .dash .ho,.demo .dash .co{display:none}
+  .demo .demo-box{min-height:120px;padding:18px 56px 18px 18px;border-radius:18px}
+  .demo .demo-in{font-size:18px}
+  .demo .demo-send{width:32px;height:32px;right:14px;bottom:14px}
+  .demo .demo-send svg{width:20px;height:20px}
+  .demo-foot{font-size:15px;margin-top:12px}
   /* The video repeats the bar demo right above it and its text is too small to read on a phone, so there it comes after the
      story as a recap instead. */
   main{display:flex;flex-direction:column}
@@ -571,6 +593,22 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   .foot-row nav a{min-height:44px;min-width:44px;justify-content:center}
   .foot-cubit a{min-height:44px;align-items:center}
   .foot-row .foot-right .foot-wait{min-height:44px;padding:0 18px}
+}
+
+/* Short phones (about 568 px tall): the story gives some size back so the box is never cut off. */
+@media (max-width:720px) and (max-height:640px){
+  .chat{height:min(12svh,80px)}
+  .pin .say h3{font-size:26px}
+  .pin .say p{display:none}
+  .win .demo-box{min-height:84px}
+  .pin{gap:12px;padding-top:56px}
+  .go button{padding:16px 0}
+}
+/* Phones: the bars are as big as the screen allows. Size follows the width; the bar still fits at 320 px. */
+@media (max-width:720px){
+  .demo .dash{font-size:clamp(15px,4.9vw,19px);gap:.6em;padding:0 .7em}
+  .slot .dash{font-size:clamp(14.5px,4.4vw,17px);gap:.6em;padding:0 .7em}
+  .demo .dash .end,.slot .dash .end{gap:.6em}
 }
 
 @media (prefers-reduced-motion:reduce){
