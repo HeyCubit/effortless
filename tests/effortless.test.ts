@@ -3,7 +3,7 @@ import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 import { looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
-import { setTheme, themedSvg, tint, tintHex } from '../hooks/theme'
+import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
 
@@ -1106,6 +1106,7 @@ describe('judge choice (plugin settings)', () => {
       handoffButton: 'advised',
       modelAuto: 'on',
       theme: 'violet',
+      appearance: 'auto',
     })
     expect(readConfig({ swampAt: '20' })).toMatchObject({ swampAt: 20 })
     expect(readConfig({ swampAt: '33' }).swampAt).toBe(80)
@@ -1259,6 +1260,7 @@ describe('setup guide', () => {
     await band.press({ key: 'setup-haiku' })
     await band.press({ key: 'setup-next' })
     await band.press({ key: 'setup-next' })
+    await band.press({ key: 'setup-next' })
     await band.press({ key: 'setup-done' })
     await band.unmount()
     await mocked.advance(16_000)
@@ -1277,14 +1279,17 @@ describe('setup guide', () => {
     expect(setupNext('pick')).toBe('lean')
     expect(setupNext('jev')).toBe('lean')
     expect(setupNext('lean')).toBe('handoff')
-    expect(setupNext('handoff')).toBe('done')
+    expect(setupNext('handoff')).toBe('look')
+    expect(setupNext('look')).toBe('done')
     expect(setupNext('done')).toBeNull()
     expect(setupBack('pick')).toBeNull()
     expect(setupBack('jev')).toBe('pick')
     expect(setupBack('lean')).toBe('pick')
-    expect(setupBack('done')).toBe('handoff')
-    expect(setupCounter('jev')).toBe('1/3')
-    expect(setupCounter('handoff')).toBe('3/3')
+    expect(setupBack('look')).toBe('handoff')
+    expect(setupBack('done')).toBe('look')
+    expect(setupCounter('jev')).toBe('1/4')
+    expect(setupCounter('handoff')).toBe('3/4')
+    expect(setupCounter('look')).toBe('4/4')
     expect(setupCounter('done')).toBe('')
   })
 
@@ -1301,7 +1306,7 @@ describe('setup guide', () => {
     await clickable(band, 'setup-actions')
     // Branded: the name in the footer's purple, the step counter beside it.
     expect(await drawn(band)).toContain('"color":"#a79cf7"')
-    expect(await drawn(band)).toContain('✦ effortless setup  1/3')
+    expect(await drawn(band)).toContain('✦ effortless setup  1/4')
     expect(await drawn(band)).toContain('Just Haiku (no key)')
     // The right side: a still SVG (every click redraws the band, and a redrawn animation flickers) with the gradient.
     const first = await drawn(band)
@@ -1313,31 +1318,40 @@ describe('setup guide', () => {
     expect(set).toEqual([])
     expect(said.join(' ')).toContain('Haiku 5.5 judges')
 
-    // 2/3 the lean: each stop is named and says what it does; the track lights toward the marker.
-    expect(await drawn(band)).toContain('2/3')
+    // 2/4 the lean: each stop is named and says what it does; the track lights toward the marker.
+    expect(await drawn(band)).toContain('2/4')
     expect(await drawn(band)).toContain('Balanced: ')
     await band.press({ key: 'setup-bias4' })
     expect(await drawn(band)).toContain('Smartest: ')
     expect(await drawn(band)).toContain('{"color":"#a79cf7"},"children":["──"]')
     await band.press({ key: 'setup-next' })
 
-    // 3/3 the handoff: the installed skills to pick from.
-    expect(await drawn(band)).toContain('3/3')
+    // 3/4 the handoff: the installed skills to pick from.
+    expect(await drawn(band)).toContain('3/4')
     expect(await drawn(band)).toContain('/session-handoff')
     await band.select({ key: 'setup-skill', value: 'session-handoff' })
     await band.press({ key: 'setup-next' })
 
-    // The last word: the footer's buttons and Fable; no step of ticks. Back goes to the handoff step.
+    // 4/4 the look: match Claude Code, dark or light. Light is picked here.
+    expect(await drawn(band)).toContain('4/4')
+    expect(await drawn(band)).toContain('Dark or light panels?')
+    expect(await drawn(band)).toContain('◉ Match Claude Code')
+    await band.press({ key: 'setup-look-light' })
+    expect(await drawn(band)).toContain('◉ Light')
+    await band.press({ key: 'setup-next' })
+
+    // The last word: the footer's buttons and Fable; no step of ticks. Back goes to the look step.
     expect(await drawn(band)).toContain('Auto pauses on Fable')
     expect(await band.find({ key: 'setup-box-timer' })).toBeUndefined()
     await band.press({ key: 'setup-back' })
-    expect(await drawn(band)).toContain('3/3')
+    expect(await drawn(band)).toContain('4/4')
     await band.press({ key: 'setup-next' })
     expect(set).toEqual([])
     await band.press({ key: 'setup-done' })
     expect(set).toEqual([
       { key: 'effortless.effortBias', value: '2' },
       { key: 'effortless.handoffSkill', value: 'session-handoff' },
+      { key: 'effortless.appearance', value: 'light' },
     ])
     await band.unmount()
     await expect($.ui.mount(DESK)).rejects.toThrow()
@@ -1381,7 +1395,7 @@ describe('setup guide', () => {
     const band = await $.ui.mount(DESK)
     await band.press({ key: 'setup-skip' })
     expect(set).toEqual([])
-    expect(await drawn(band)).toContain('2/3')
+    expect(await drawn(band)).toContain('2/4')
     await band.press({ key: 'setup-close' })
     await band.unmount()
     const footer = await $.ui.mount(FOOTER)
@@ -1399,7 +1413,7 @@ describe('setup guide', () => {
     const band = await $.ui.mount(DESK)
     await band.press({ key: 'setup-jev' })
     expect(said.join(' ')).toContain('Jev judges')
-    expect(await drawn(band)).toContain('2/3')
+    expect(await drawn(band)).toContain('2/4')
     await band.press({ key: 'setup-close' })
     await band.unmount()
     await expect($.ui.mount(DESK)).rejects.toThrow()
@@ -2664,6 +2678,109 @@ describe('dashboard', () => {
     expect(sent.at(-1)).toBe('claude-haiku-5-5')
     const stats = String((await $.command.run({ command: 'effortless', args: 'stats' })).text)
     expect(stats).toContain('Cheaper model: 2 prompts moved down, 1 redone (50 %)')
+  })
+
+  test('light appearance: surfaces come out pale, text reads on them, alpha and hue are kept', () => {
+    const lum = (hex: string) => {
+      const n = parseInt(hex.slice(1, 7), 16)
+      const f = (v: number) => ((v /= 255) <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))
+      return 0.2126 * f(n >> 16) + 0.7152 * f((n >> 8) & 255) + 0.0722 * f(n & 255)
+    }
+    const contrast = (a: string, b: string) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05)
+    for (const dark of ['#141416', '#15121f', '#0e1820', '#111710', '#1a110c', '#0f1c15', '#2a2a2f', '#4a3f80']) {
+      const pale = lightHex(dark, 'surface')
+      expect(lum(pale)).toBeGreaterThan(0.6)
+    }
+    const surfaces = ['#141416', '#15121f', '#0e1820', '#111710', '#1a110c', '#0f1c15', '#12141b'].map(h => lightHex(h, 'surface'))
+    for (const text of ['#d4d4d8', '#8b8b93', '#a79cf7', '#7c6cf0', '#7cc4ff', '#a7c98f', '#f08a3c', '#7fe0a4', '#ffffff', '#6b6b73', '#e0a33a', '#e5534b'])
+      for (const bg of surfaces) expect(contrast(lightHex(text, 'text'), bg)).toBeGreaterThanOrEqual(4.5)
+    // Main text stays darker than dim text, and a colour stays its hue.
+    expect(lum(lightHex('#d4d4d8', 'text'))).toBeLessThan(lum(lightHex('#8b8b93', 'text')))
+    expect(lightHex('#7fe0a4', 'text')).toMatch(/^#[0-9a-f]{2}[0-9a-f]{2}[0-9a-f]{2}$/)
+    const green = parseInt(lightHex('#7fe0a4', 'text').slice(3, 5), 16)
+    const red = parseInt(lightHex('#7fe0a4', 'text').slice(1, 3), 16)
+    expect(green).toBeGreaterThan(red)
+    expect(lightHex('#14141680', 'surface').endsWith('80')).toBe(true)
+  })
+
+  test('light appearance: Box, Text and Button props are turned, hover too; dark leaves the apps own parts alone', () => {
+    const Box = (p: Record<string, unknown>) => p
+    const Text = (p: Record<string, unknown>) => p
+    const Button = (p: Record<string, unknown>) => p
+    const els = { Box, Text, Button, Svg: (p: Record<string, unknown>) => p }
+    expect(themedEls(els).Box).toBe(Box)
+    try {
+      setLight(true)
+      const lit = themedEls(els) as typeof els
+      expect(lit.Box).not.toBe(Box)
+      const box = lit.Box({ backgroundColor: '#141416', borderColor: '#2a2a2f', hover: { backgroundColor: '#1c1c20' }, flexDirection: 'row' })
+      expect(box.backgroundColor).toBe(lightHex('#141416', 'surface'))
+      expect(box.borderColor).toBe(lightHex('#2a2a2f', 'surface'))
+      expect((box.hover as { backgroundColor: string }).backgroundColor).toBe(lightHex('#1c1c20', 'surface'))
+      expect(box.flexDirection).toBe('row')
+      expect(lit.Text({ color: '#d4d4d8', bold: true }).color).toBe(lightHex('#d4d4d8', 'text'))
+      expect(lit.Text({ color: 'red' }).color).toBe('red')
+      expect(lit.Button({ hover: { backgroundColor: '#00000000' } }).hover).toEqual({ backgroundColor: lightHex('#00000000', 'surface') })
+      expect(lightProps({ color: '#fff' }).color).toBe('#fff')
+    } finally {
+      setLight(false)
+    }
+    expect(isLight()).toBe(false)
+  })
+
+  test('light appearance: drawn art turns pale, with the sparkles still petals in rose', () => {
+    const art = '<svg><style>.sp{fill:#fff}</style><rect fill="#15121f" width="9" height="9"/><rect fill="#7c6cf0" width="9" height="9"/><path class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" d="M168 6.4 L168.34 7.66 Z"/></svg>'
+    try {
+      setLight(true)
+      const violet = tint(art)
+      expect(violet).not.toContain('#15121f')
+      expect(violet).toContain(lightHex('#15121f'))
+      expect(violet).toContain('class="sp"')
+      setTheme('rose')
+      const rose = tint(art)
+      expect(rose).toContain('class="pt"')
+      expect(rose).not.toContain('#ffb3cf')
+    } finally {
+      setTheme('violet')
+      setLight(false)
+    }
+  })
+
+  test('light appearance, set in the settings: the band is drawn pale', { options: { layout: 'default', appearance: 'light' } } as never, async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    await start($, on)
+    await closeSetup($, DESK_BAND)
+    const band = await $.ui.mount(DESK_BAND)
+    const text = await drawn(band)
+    expect(text).toContain(lightHex('#141416', 'surface'))
+    expect(text).not.toContain('"backgroundColor":"#141416"')
+    await band.unmount()
+  })
+
+  test("auto appearance follows Claude Code's own theme row: light turns it pale, dark turns it back", { options: { layout: 'default' } } as never, async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    let claudeTheme = 'light'
+    on('config.list', () => ({ value: [{ key: 'theme', label: 'Theme', kind: 'choice', value: claudeTheme, provider: { kind: 'engine' }, isLocked: false }] }) as never)
+    await start($, on)
+    await closeSetup($, DESK_BAND)
+    // The first draw reads the row; the redraw it asks for is pale.
+    let band = await $.ui.mount(DESK_BAND)
+    await band.unmount()
+    await mocked.advance(100)
+    band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain(lightHex('#141416', 'surface'))
+    await band.unmount()
+    // Claude Code goes dark: within a few seconds the panels follow.
+    claudeTheme = 'dark'
+    await mocked.advance(5000)
+    band = await $.ui.mount(DESK_BAND)
+    await band.unmount()
+    await mocked.advance(100)
+    band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('"backgroundColor":"#141416"')
+    await band.unmount()
   })
 
   test('a thank-you after a cheaper answer is not a redo', async ($, on) => {

@@ -5,7 +5,7 @@ import type { AgentRec, Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, Set
 import { agentsPane, demoAgents, demoFiles, demoSteps, importsOf, relPath, toolLine, touchOf, withTouch, withWaits } from './agents'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
 import { MARK_SVG } from './brand-mark'
-import { accent, setTheme, themedEls, type ThemeName, THEMES, tintHex } from './theme'
+import { accent, setLight, setTheme, themedEls, type ThemeName, THEMES, tintHex } from './theme'
 import { PILL_H, stepsFromTodos, thinkingSvg, THINK_W, withTaskCreated, withTaskUpdated } from './progress'
 
 // The ladders the two sliders walk, cheapest first.
@@ -41,6 +41,27 @@ function applyTheme() {
   CARD_HOVER = neutral ? '#1c1c1c' : '#1c1c20'
   CARD_HOVER_EDGE = neutral ? '#3b3b3b' : '#3b3b42'
   HOVER_BOX = neutral ? '#2b2b2b' : '#2b2b2f'
+  applyAppearance()
+}
+
+// Claude Code's own theme, read from its /config row: a light one turns everything light when appearance is auto.
+let claudeIsLight = false
+let appearanceCheckedAt = -Infinity
+function applyAppearance() {
+  setLight(config.appearance === 'light' || (config.appearance === 'auto' && claudeIsLight))
+}
+/** Reads Claude Code's theme row (at most every few seconds) and redraws when light or dark changed. */
+async function refreshAppearance($: EngineInterface) {
+  const now = await $.clock.now().catch(() => Date.now())
+  if (now - appearanceCheckedAt < 4000) return
+  appearanceCheckedAt = now
+  const rows = await $.config.list().catch(() => [])
+  const value = rows.find(row => row.key === 'theme')?.value
+  const lightNow = typeof value === 'string' && value.startsWith('light')
+  if (lightNow === claudeIsLight) return
+  claudeIsLight = lightNow
+  applyAppearance()
+  $.ui.invalidate('ui.render')
 }
 let BRAND_BG = '#15121f'
 let BRAND_EDGE = '#4a3f80'
@@ -578,6 +599,8 @@ export type JudgeConfig = {
   modelAuto: 'on' | 'off'
   /** The accent colour of everything effortless draws: the brand violet, Claude orange or cherry-blossom rose. */
   theme: ThemeName
+  /** auto: light when Claude Code's own theme is light. dark and light fix it. */
+  appearance: 'auto' | 'dark' | 'light'
 }
 
 /** The swamp thresholds the settings offer, in percent of the context window. */
@@ -605,6 +628,7 @@ let config: JudgeConfig = {
   handoffButton: 'advised',
   modelAuto: 'on',
   theme: 'violet',
+  appearance: 'auto',
 }
 
 /** The settings as the engine hands them over (defaults filled in), cleaned to the shape the judge reads. */
@@ -626,6 +650,7 @@ export function readConfig(options: unknown): JudgeConfig {
     handoffButton: str(o.handoffButton) === 'always' ? 'always' : 'advised',
     modelAuto: str(o.modelAuto) === 'off' ? 'off' : 'on',
     theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
+    appearance: (['dark', 'light'] as const).find(a => a === str(o.appearance)) ?? 'auto',
     // The judge's line is off until switched on; an empty string saved from the panel means everything shows.
     hide: (o.hide === undefined ? 'reason' : str(o.hide))
       .split(',')
@@ -1729,6 +1754,7 @@ const SETTING_FIELDS = {
   handoffButton: 'handoffButton',
   modelAuto: 'modelAuto',
   theme: 'theme',
+  appearance: 'appearance',
 } as const
 
 async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELDS, value: string) {
@@ -1758,6 +1784,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     handoffButton: config.handoffButton,
     modelAuto: config.modelAuto,
     theme: config.theme,
+    appearance: config.appearance,
     [SETTING_FIELDS[field]]: value,
   }
   config = { ...readConfig(raw), typesafeKey: config.typesafeKey }
@@ -1851,7 +1878,7 @@ async function typesafeKeyAnywhere($: EngineInterface): Promise<string | undefin
   return parseJevKey(typeof text === 'string' ? text : '')
 }
 
-export type SetupStep = 'pick' | 'jev' | 'lean' | 'handoff' | 'done'
+export type SetupStep = 'pick' | 'jev' | 'lean' | 'handoff' | 'look' | 'done'
 
 /** The lean's five stops, cheaper to smarter: a name, and what it does to the judge's pick (see tipped). */
 export const LEAN_STOPS = [
@@ -1866,7 +1893,8 @@ export const LEAN_STOPS = [
 export function setupNext(step: SetupStep): SetupStep | null {
   if (step === 'pick' || step === 'jev') return 'lean'
   if (step === 'lean') return 'handoff'
-  if (step === 'handoff') return 'done'
+  if (step === 'handoff') return 'look'
+  if (step === 'look') return 'done'
   return null
 }
 
@@ -1874,14 +1902,15 @@ export function setupNext(step: SetupStep): SetupStep | null {
 export function setupBack(step: SetupStep): SetupStep | null {
   if (step === 'jev' || step === 'lean') return 'pick'
   if (step === 'handoff') return 'lean'
-  if (step === 'done') return 'handoff'
+  if (step === 'look') return 'handoff'
+  if (step === 'done') return 'look'
   return null
 }
 
 /** "2/3" for the step shown; the closing step has no number. */
 export function setupCounter(step: SetupStep): string {
-  const n = { pick: 1, jev: 1, lean: 2, handoff: 3, done: 0 }[step]
-  return n ? `${n}/3` : ''
+  const n = { pick: 1, jev: 1, lean: 2, handoff: 3, look: 4, done: 0 }[step]
+  return n ? `${n}/4` : ''
 }
 
 /** Shows a step of the guide; the handoff step needs the installed skills to pick from. */
@@ -1897,6 +1926,7 @@ export function setupShown(draft: SettingsDraft, saved: JudgeConfig) {
     bias: draft.bias !== undefined ? Number(draft.bias) : saved.bias,
     handoffSkill: draft.handoffSkill ?? saved.handoffSkill,
     hide: (draft.hide ?? saved.hide.join(',')).split(',').filter(Boolean) as Hideable[],
+    appearance: (draft.appearance ?? saved.appearance) as JudgeConfig['appearance'],
   }
 }
 
@@ -1909,9 +1939,10 @@ async function flushSetup($: EngineInterface) {
     bias: String(config.bias),
     handoffSkill: config.handoffSkill,
     hide: config.hide.join(','),
+    appearance: config.appearance,
   }
   const changes: Record<string, string> = {}
-  for (const field of ['hide', 'judge', 'bias', 'handoffSkill'] as const) {
+  for (const field of ['hide', 'judge', 'bias', 'handoffSkill', 'appearance'] as const) {
     const value = draft[field]
     if (value !== undefined && value.trim() !== saved[field]) changes[field] = value.trim()
   }
@@ -4226,6 +4257,7 @@ Saved to ${out}.md and .json` }
     await restoreCache($).catch(() => undefined)
     renderCalls++
     lastRenderAt = Date.now()
+    void refreshAppearance($).catch(() => undefined)
     lastRenderProps = JSON.stringify(e.props).slice(0, 200)
     renderLog.push(`${new Date(lastRenderAt).toISOString()} ${loadedSession} ${lastRenderProps}`)
     if (!firstDrawLogged) {
@@ -4294,6 +4326,7 @@ Saved to ${out}.md and .json` }
         handoffButton: draft.handoffButton ?? config.handoffButton,
         modelAuto: draft.modelAuto ?? config.modelAuto,
         theme: draft.theme ?? config.theme,
+        appearance: draft.appearance ?? config.appearance,
       }
       // Dirty only while the draft differs from what is saved: a control set back to its saved value is no change.
       const sameSet = (a: string, b: string) => a.split(',').filter(Boolean).sort().join() === b.split(',').filter(Boolean).sort().join()
@@ -4531,6 +4564,9 @@ Saved to ${out}.md and .json` }
                   <Select key="settings-layout" label="Look" value={shown.layout}
                     options={[{ value: 'default', label: 'Dashboard' }, { value: 'minimal', label: 'Minimal' }]}
                     onSelect={set('layout')} />,
+                  <Select key="settings-appearance" label="Appearance" value={shown.appearance}
+                    options={[{ value: 'auto', label: 'Match Claude Code' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }]}
+                    onSelect={set('appearance')} />,
                   <Select key="settings-theme" label="Theme" value={shown.theme}
                     options={[{ value: 'violet', label: 'Violet' }, { value: 'orange', label: 'Claude orange' }, { value: 'rose', label: 'Cherry blossom' }]}
                     onSelect={set('theme')} />,
@@ -4820,6 +4856,16 @@ Saved to ${out}.md and .json` }
               ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
             ]}
             onSelect={(v: string) => pick('handoffSkill', v === '-' ? '' : v)} />,
+          ...nav(nextButton),
+        ])
+      }
+      if (step === 'look') {
+        // Match Claude Code is the default; the other two fix it. The choice shows at once.
+        const mode = shown.appearance
+        return band('Dark or light panels?', 56, [
+          ...(['auto', 'dark', 'light'] as const).map(value => (
+            <Button key={`setup-look-${value}`} plain label={`${mode === value ? '◉' : '○'} ${{ auto: 'Match Claude Code', dark: 'Dark', light: 'Light' }[value]}`} onPress={() => pick('appearance', value)} />
+          )),
           ...nav(nextButton),
         ])
       }

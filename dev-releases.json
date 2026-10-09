@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.68.4",
+    "date": "2026-10-09",
+    "note": "Light appearance"
+  },
+  {
     "version": "1.68.3",
     "date": "2026-10-09",
     "note": "Opus price ratio fixed to 2x, bench against Opus medium"
