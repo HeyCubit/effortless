@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.67.6",
+    "date": "2026-10-09",
+    "note": "Model switch on the Effort card"
+  },
+  {
     "version": "1.67.5",
     "date": "2026-10-09",
     "note": "Cherry blossom petals: pinker, quieter, slower"

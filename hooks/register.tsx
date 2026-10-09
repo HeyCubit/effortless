@@ -4425,6 +4425,9 @@ Saved to ${out}.md and .json` }
                   <Box key="gap" width={2} />,
                   <Select key="settings-floor" label="Min" value={shown.floor} options={opts(EFFORTS)} onSelect={set('floor')} />,
                   <Select key="settings-ceiling" label="Max" value={shown.ceiling} options={opts(EFFORTS)} onSelect={set('ceiling')} />,
+                  <Select key="settings-effort-model" label="Model" value={shown.modelAuto}
+                    options={[{ value: 'on', label: 'Cheaper when it can' }, { value: 'off', label: "Always the chat's" }]}
+                    onSelect={set('modelAuto')} />,
                 ]),
 ] : card === 'judge' ? (bare ? [] : [
             <Select key="settings-judge-pick" value={shown.judge} options={[{ value: 'auto', label: hasKey ? 'Haiku + Jev' : 'Haiku (Jev if added)' }, { value: 'haiku', label: 'Haiku only' }]}
