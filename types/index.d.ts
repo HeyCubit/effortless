@@ -181,9 +181,11 @@ declare module 'claude-code' {
       /** What the newest reply cost: tokens weighted by price over the main thread's requests, and its time. */
       lastTurn: { cost: number; ms: number } | null
       /** The handoff card under the newest reply, from the start of a handoff until the reply after it lands. */
-      handoffCard: { kind: 'writing' | 'done' | 'copied'; full: boolean; at: number; seen: boolean } | null
+      handoffCard: { kind: 'writing' | 'done' | 'copied' | 'compacting' | 'compacted'; full: boolean; at: number; seen: boolean } | null
       /** A new version above the prompt: offered, updating, updated or failed, or null. */
       updateCard: { stage: 'offer' | 'updating' | 'done' | 'failed'; version: string; note: string; at: number; detail?: string } | null
+      /** The Settings header's "Check for updates": idle, checking, newest, or "found <version>" (the button then installs it). */
+      updateCheck: string
       /** The setup guide's step, or null when it is closed. */
       setupStep: 'pick' | 'jev' | 'lean' | 'handoff' | 'done' | null
       /** Choices made in the setup guide, saved together at Done or the cross. */

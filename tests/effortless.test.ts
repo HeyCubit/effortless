@@ -93,6 +93,9 @@ const FOOTER = { plugin: 'effortless', surface: 'desktop', component: 'SessionMo
 /** The band above the prompt on desktop: it draws nothing (only the terminal has rows there). */
 const DESK_BAND = { plugin: 'effortless', surface: 'desktop', ...BAND } as never
 
+/** For the tests that walk the clock through an hour or more of 15 s ticks: on a busy machine they outlast 5 s. */
+const LONG = { timeoutMs: 20_000 }
+
 /** What a mounted tree draws, as text: its elements, props and strings. */
 /** Nothing shows above the prompt on desktop: only the hidden hover cards, revealed by hovering the footer. */
 async function noBand($: Engine, at: never) {
@@ -756,7 +759,7 @@ describe('cache countdown', () => {
     expect(mostlyCached({ input_tokens: 90000, cache_read_input_tokens: 10 })).toBe(false)
   })
 
-  test('nothing before the first response; then it counts down with no further response, turns amber, goes cold', async ($, on) => {
+  test('nothing before the first response; then it counts down with no further response, turns amber, goes cold', LONG, async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
     answer(on, { ephemeral_1h_input_tokens: 500, ephemeral_5m_input_tokens: 0 })
@@ -822,7 +825,7 @@ describe('cache countdown', () => {
     return band
   }
 
-  test('Compact appears only once the cache is cold, and a click compacts', async ($, on) => {
+  test('Compact appears only once the cache is cold, and a click compacts', LONG, async ($, on) => {
     engine(on)
     on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 1_000_000, percent: 20 } } }) as never)
     const mocked = mock.clock(on)
@@ -1895,7 +1898,7 @@ describe('handoff', () => {
     const filled: string[] = []
     on('prompt.fill', (_$, e) => {
       filled.push(e.text)
-      return { value: { isFilled: true, text: e.text } } as never
+      return { isFilled: true } as never
     })
     const mocked = mock.clock(on)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
@@ -2603,7 +2606,7 @@ describe('dashboard', () => {
     await guide.unmount()
   }
 
-  test('cache-aware routing, live through the hooks: a cold Sonnet is skipped on a big warm Opus chat, Haiku moves, a cold chat moves, and a routed reply leaves the countdown alone', { options: { modelAuto: 'on' } } as never, async ($, on) => {
+  test('cache-aware routing, live through the hooks: a cold Sonnet is skipped on a big warm Opus chat, Haiku moves, a cold chat moves, and a routed reply leaves the countdown alone', { ...LONG, options: { modelAuto: 'on' } } as never, async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
     on('session.usage', () => ({ value: { context: { tokens: 100_000, window: 1_000_000, percent: 10 } } }) as never)
