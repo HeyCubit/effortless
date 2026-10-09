@@ -67,6 +67,8 @@ a:focus-visible,.go:focus-visible{outline:2px solid var(--accent);outline-offset
 .done p{margin:0;color:var(--muted)}
 .done a{color:var(--accent)}
 @media (max-width:560px){.top{padding:16px 16px 0}main{padding:48px 16px 72px}.opt{grid-template-columns:1fr}}
+/* Touch screens: links and buttons are at least 44 px to hit. */
+@media (pointer:coarse){.back{display:inline-flex;align-items:center;min-height:44px}.name{min-height:44px}.kind button{min-height:44px}}
 </style>
 </head>
 <body>
