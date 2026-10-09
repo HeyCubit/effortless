@@ -3433,12 +3433,16 @@ describe('theme', () => {
         expect(Math.abs(hue(tintHex(violet)) - 340) < 4).toBe(true)
       for (const same of ['#ffffff', '#141416', '#7fe0a4', '#e0a33a', '#7cc4ff', '#e5534b'])
         expect(tintHex(same)).toBe(same)
-      const art = '<svg><style>.sp{fill:#fff}</style><path class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" d="M168 6.4 L168.34 7.66 Z"/></svg>'
+      const art = '<svg><style>.sp{fill:#fff}</style><rect fill="#7c6cf0" width="9" height="9"/><path class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" d="M168 6.4 L168.34 7.66 Z"/></svg>'
       const petals = tint(art)
       expect(petals).toContain('class="pt"')
       expect(petals).toContain('<g transform="translate(168 0)">')
       expect(petals).toContain('@keyframes fall')
       expect(petals).not.toContain('class="sp"')
+      // Art with no violet in it (the green Done card) keeps its sparkles.
+      const green = '<svg><style>.sp{fill:#fff}</style><rect fill="#2fae62" width="9" height="9"/><path class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" d="M168 6.4 L168.34 7.66 Z"/></svg>'
+      expect(tint(green)).toContain('class="sp"')
+      expect(tint(green)).not.toContain('class="pt"')
       // Orange keeps the sparkles.
       setTheme('orange')
       expect(tint(art)).toContain('class="sp"')

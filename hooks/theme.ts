@@ -74,7 +74,8 @@ function petals(text: string): string {
 export function tint(text: string): string {
   if (current === 'violet') return text
   const turned = text.replace(hexRe, tintHex)
-  return current === 'rose' ? petals(turned) : turned
+  // Petals only where the art was violet and has turned pink: the green, yellow, blue and red cards keep their sparkles.
+  return current === 'rose' && turned !== text ? petals(turned) : turned
 }
 
 /** The accent as text colour. */

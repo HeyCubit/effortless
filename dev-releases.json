@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.68.1",
+    "date": "2026-10-09",
+    "note": "Cherry blossom petals only on the pink art"
+  },
+  {
     "version": "1.67.8",
     "date": "2026-10-09",
     "note": "Add the answer-quality benchmark and its results"
