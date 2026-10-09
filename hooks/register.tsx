@@ -2038,11 +2038,16 @@ async function toggleAutoEffort($: EngineInterface) {
   const turnOn = !(await read($, isAuto))
   await update($, isAuto, () => turnOn)
   await $.store.set('isAuto', turnOn)
+  // Off hands the effort back to the app's own control: the judge's last pick stops applying. One picked by hand stays.
+  if (!turnOn && (await read($, pick))?.by !== 'manual') await choose($, null)
 }
 
 async function choose($: EngineInterface, next: Pick | null) {
   const before = await read($, pick)
-  await Promise.all([update($, pick, () => next), $.store.set('pick', next)])
+  // The store is shared by every chat: the pick names its chat, so only that chat takes it back (see session.start).
+  // After /reload-plugins or a settings change there was no session start to name it, so ask.
+  const chat = loadedSession !== '-' ? loadedSession : String(await $.session.id().catch(() => '-')).slice(0, 8)
+  await Promise.all([update($, pick, () => next), $.store.set('pick', next), $.store.set('pickChat', chat)])
   // A change Auto made is shown as "Low → High" for a moment, so the switch is seen.
   if (next && next.by !== 'manual' && before && before.model !== 'haiku' && before.effort !== next.effort) {
     const change = { from: before.effort, to: next.effort }
@@ -3585,13 +3590,14 @@ export const register: Register = (on, options) => {
     sessionStarted = Date.now()
     // Everything the first draw needs, asked for at once: one after the other they held the start (and with it the
     // band) for a second or more. What the draw does not need runs after, unawaited.
-    const [sid, kept, kff, storedAuto, storedAutoModel, storedPick, setupDone] = await Promise.all([
+    const [sid, kept, kff, storedAuto, storedAutoModel, storedPick, storedPickChat, setupDone] = await Promise.all([
       $.session.id().catch(() => '?'),
       $.store.get('savedSettings').catch(() => null),
       $.store.get('keyFromFile').catch(() => null),
       $.store.get('isAuto').catch(() => null),
       $.store.get('isAutoModel').catch(() => null),
       $.store.get('pick').catch(() => null) as Promise<Pick | null>,
+      $.store.get('pickChat').catch(() => null),
       $.store.get('setupDone').catch(() => null),
     ])
     // Which chat this load serves, and when it started: each chat has its own render log.
@@ -3605,8 +3611,11 @@ export const register: Register = (on, options) => {
     await Promise.all([
       typeof storedAuto === 'boolean' ? update($, isAuto, () => storedAuto) : null,
       typeof storedAutoModel === 'boolean' ? update($, isAutoModel, () => storedAutoModel) : null,
-      // Auto off means the effort you chose should still be the one in force.
-      storedAuto === false && storedPick && EFFORTS.includes(storedPick.effort) ? update($, pick, () => storedPick) : null,
+      // Auto off means the effort you chose should still be the one in force: in the chat you chose it in. Another
+      // chat (a new one, an agent started with its own --effort) keeps the effort the app gives it.
+      storedAuto === false && storedPick?.by === 'manual' && EFFORTS.includes(storedPick.effort) && sid !== '?' && storedPickChat === loadedSession
+        ? update($, pick, () => storedPick)
+        : null,
       // The first time the mod runs, the setup guide opens above the prompt.
       setupDone !== true ? update($, setupStep, () => 'pick').then(() => update($, setupPending, () => true)) : null,
     ])

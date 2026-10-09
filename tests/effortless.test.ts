@@ -49,8 +49,8 @@ function judgeSays(on: On, text: string) {
 }
 
 /** What sits beneath the plugins in a session: the prompt goes through, the status line takes text. */
-function engine(on: On, env: Record<string, string> = {}, sessionModel = 'claude-opus-5-5', said: { role: string; text: string }[] = []) {
-  mock.store(on)
+function engine(on: On, env: Record<string, string> = {}, sessionModel = 'claude-opus-5-5', said: { role: string; text: string }[] = [], stored: Record<string, unknown> = {}) {
+  mock.store(on, stored)
   mock.env(on, { EFFORTLESS_MODEL_UI: '1', ...env })
   on('prompt.submit', (_$, e) => ({ text: e.text }))
   on('ui.status', () => ({ value: undefined }))
@@ -500,6 +500,54 @@ describe('footer text', () => {
     await step($, 'low')
     expect(await drawn(footer)).toContain('"children":[" Off "]')
     await footer.unmount()
+  })
+
+  test("Auto switched off hands the effort back to the app: the judge's last pick no longer applies", async ($, on) => {
+    engine(on)
+    judgeSays(on, '{"model":"opus","effort":"high","why":"hard"}')
+    const sent = recordSteps(on)
+    const footer = await $.ui.mount(FOOTER)
+    await $.prompt.submit({ text: 'hard task', wait: false, origin: { kind: 'composer' } })
+    await step($, 'medium')
+    expect(sent.at(-1)?.effort).toBe('high')
+    await footer.press({ key: 'auto' })
+    await $.prompt.submit({ text: 'another task', wait: false, origin: { kind: 'composer' } })
+    await step($, 'medium')
+    expect(sent.at(-1)?.effort).toBe('medium')
+    await footer.unmount()
+  })
+
+  // The store is shared by every chat. A pick made by hand with Auto off comes back in its own chat (opened again),
+  // and never in another: a new chat, or an agent started with its own --effort, runs at the effort the app gives it.
+  for (const [chat, expected] of [['chat-1234-same', 'xhigh'], ['chat-9999-other', 'medium']] as const) {
+    test(`a pick made by hand in one chat is not forced on another (${expected})`, async ($, on) => {
+      engine(on, {}, 'claude-opus-5-5', [], { isAuto: false, setupDone: true, pick: { model: 'opus', effort: 'xhigh', why: 'your pick', by: 'manual' }, pickChat: 'chat-123' })
+      on('session.id', () => ({ value: chat }) as never)
+      on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+      on('command.register', () => ({ value: undefined }) as never)
+      const sent = recordSteps(on)
+      await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+      await step($, 'medium')
+      expect(sent.at(-1)?.effort).toBe(expected)
+    })
+  }
+
+  test('a pick made after a reload, with no session start, still names its chat', async ($, on) => {
+    // Registered before the store mock, so it sits outside it and sees each write.
+    const named: unknown[] = []
+    on('store.set', { key: 'pickChat' }, (_$, e, next) => {
+      named.push(e.value)
+      return next(e)
+    })
+    engine(on)
+    judgeSays(on, '{"model":"sonnet","effort":"high","why":"hard"}')
+    recordSteps(on)
+    on('session.id', () => ({ value: 'chat-1234-same' }) as never)
+    await $.prompt.submit({ text: 'hard task', wait: false, origin: { kind: 'composer' } })
+    await step($, 'medium')
+    // The person picks another effort in the app: a pick by hand.
+    await step($, 'low')
+    expect(named.at(-1)).toBe('chat-123')
   })
 
   test('on Haiku there is no effort to name', async ($, on) => {
