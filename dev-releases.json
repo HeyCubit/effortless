@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.67.1",
+    "date": "2026-10-09",
+    "note": "Cache-aware routing, back in dev with a live test"
+  },
+  {
     "version": "1.66.3",
     "date": "2026-10-09",
     "note": "Hold the cache-aware router back until it is tested live"

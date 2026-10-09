@@ -2155,6 +2155,29 @@ export function routeTo(verdict: ModelKey, inUse: ModelKey): ModelKey | null {
   return MODEL_RANK.indexOf(verdict) < MODEL_RANK.indexOf(inUse) ? verdict : null
 }
 
+// What one input token costs on each model, in Sonnet's price: Opus about 5x, Haiku about a third. These are the ratios
+// the savings estimate uses; they only have to be right enough to tell which side of a switch is cheaper.
+export const MODEL_PRICE: Record<ModelKey, number> = { haiku: 1 / 3, sonnet: 1, opus: 5, fable: 5 }
+/**
+ * Whether sending this one prompt to a cheaper model pays. The chat's context is read from the cache (a tenth of the input
+ * price) where that model's cache is warm, and written to it (1.25 times) where it is cold. A switch to a cold model
+ * writes the whole context first, which can cost more than staying on the chat's own warm one at a low effort.
+ */
+export function routeWorth(to: ModelKey, inUse: ModelKey, contextTokens: number, warm: { to: boolean; inUse: boolean }): boolean {
+  if (!(contextTokens > 0)) return true
+  const stay = contextTokens * MODEL_PRICE[inUse] * (warm.inUse ? WEIGHT.read : WEIGHT.write)
+  const move = contextTokens * MODEL_PRICE[to] * (warm.to ? WEIGHT.read : WEIGHT.write)
+  return move < stay
+}
+// Until when each model's prompt cache is warm for this chat: set by every main response on it.
+const warmUntil: Partial<Record<ModelKey, number>> = {}
+// On the mod's clock, the same one the cache countdown runs on.
+function markWarm(modelId: string, usage: unknown, now: number) {
+  const key = keyOf(modelId)
+  if (key) warmUntil[key] = now + CACHE_TTL[cacheTtlOf(usage) ?? '5m']
+}
+const isWarm = (key: ModelKey, now: number) => (warmUntil[key] ?? 0) > now
+
 // When Haiku last wrote a compaction (for /effortless debug).
 let lastHaikuCompact = 0
 
@@ -3815,7 +3838,13 @@ Saved to ${out}.md and .json` }
         }
         // A prompt the judge calls simple runs on a cheaper model; a message typed mid-turn leaves the running choice.
         if (!midTurn) {
-          const to = wantsEffort && config.modelAuto === 'on' ? routeTo(verdict.model, inUse) : null
+          let to = wantsEffort && config.modelAuto === 'on' ? routeTo(verdict.model, inUse) : null
+          // A switch to a model whose cache is cold writes the whole chat to it: stay when that costs more than it saves.
+          const now = await $.clock.now().catch(() => Date.now())
+          if (to && !routeWorth(to, inUse, lastContext?.tokens ?? 0, { to: isWarm(to, now), inUse: !(cacheExpires > 0 && now >= cacheExpires) })) {
+            void proof($, `stays on ${inUse}: ${to} has a cold cache, switching would cost more`)
+            to = null
+          }
           if (to !== routed) {
             routed = to
             void proof($, to ? `this prompt runs on ${to} (the chat is on ${inUse})` : `back on ${inUse}`)
@@ -3849,7 +3878,9 @@ Saved to ${out}.md and .json` }
     const send = async function* (request: typeof e) {
       const answer = yield* next(request)
       // Inside the hook ($ calls after it returns are refused), and never allowed to break the request.
-      if (e.agentId === undefined && answer?.usage) await cacheTouched($, answer.usage).catch(() => undefined)
+      if (e.agentId === undefined && answer?.usage) markWarm(request.model, answer.usage, await $.clock.now().catch(() => Date.now()))
+      // A prompt run on a cheaper model leaves the chat's own cache as it was: only the chat's model restarts the countdown.
+      if (e.agentId === undefined && answer?.usage && request.model === e.model) await cacheTouched($, answer.usage).catch(() => undefined)
       if (e.agentId === undefined && answer?.usage) turnCost += weighted(answer.usage)
       if (e.agentId !== undefined && answer?.usage) await agentCost($, e.agentId, weighted(answer.usage)).catch(() => undefined)
       return answer

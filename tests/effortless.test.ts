@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { routeWorth, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { setTheme, themedSvg, tint, tintHex } from '../hooks/theme'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
@@ -139,6 +139,19 @@ describe('auto', () => {
     await step($)
 
     expect(sent[0]).toEqual({ model: 'claude-opus-5-5', effort: 'low' })
+  })
+
+  test('routeWorth: a switch to a cold model pays only when it still comes out cheaper', () => {
+    const big = 100_000
+    // Opus chat, cache warm: a cold Sonnet writes the whole chat and costs more; a warm Sonnet is far cheaper.
+    expect(routeWorth('sonnet', 'opus', big, { to: false, inUse: true })).toBe(false)
+    expect(routeWorth('sonnet', 'opus', big, { to: true, inUse: true })).toBe(true)
+    // Haiku is cheap enough that even a cold write beats a warm read on Opus.
+    expect(routeWorth('haiku', 'opus', big, { to: false, inUse: true })).toBe(true)
+    // The chat's own cache gone cold: staying would write it all again on Opus, so Sonnet wins even cold.
+    expect(routeWorth('sonnet', 'opus', big, { to: false, inUse: false })).toBe(true)
+    // No context size known: route as before.
+    expect(routeWorth('sonnet', 'opus', 0, { to: false, inUse: true })).toBe(true)
   })
 
   test('a prompt the judge calls simple runs on Haiku 5.5; the next hard one is back on the chat model', async ($, on) => {
@@ -2532,6 +2545,50 @@ describe('dashboard', () => {
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
   }
+
+  test('cache-aware routing, live through the hooks: a cold Sonnet is skipped on a big warm Opus chat, Haiku moves, a cold chat moves, and a routed reply leaves the countdown alone', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    on('session.usage', () => ({ value: { context: { tokens: 100_000, window: 1_000_000, percent: 10 } } }) as never)
+    let verdict = '{"model":"opus","effort":"high","why":"big refactor"}'
+    on('model.complete', () => ({ value: { isAnswered: true as const, text: verdict, usage: USAGE } }))
+    const sent: string[] = []
+    const used = { input_tokens: 5, output_tokens: 40, cache_read_input_tokens: 90_000, cache_creation_input_tokens: 10_000, cache_creation: { ephemeral_1h_input_tokens: 10_000 } }
+    on('turn.step', async function* (_$, e) {
+      sent.push(e.model)
+      return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: used } as never
+    })
+    await start($, on)
+    await closeSetup($, DESK_BAND)
+    await mocked.advance(16_000)
+    const ask = async (v: string, text: string) => {
+      verdict = v
+      await $.prompt.submit({ text, wait: false, origin: { kind: 'composer' } })
+      await step($)
+    }
+    const cacheLine = async () => String((await $.command.run({ command: 'effortless', args: 'debug' })).text).split(' | ').find(l => l.startsWith('cache:')) ?? ''
+    // A hard prompt on the chat's own model warms the Opus cache.
+    await ask('{"model":"opus","effort":"high","why":"big refactor"}', 'refactor the whole auth layer')
+    expect(sent.at(-1)).toBe('claude-opus-5-5')
+    // Sonnet has never answered: its cache is cold, and writing 100k tokens there costs more than reading them on Opus.
+    await ask('{"model":"sonnet","effort":"low","why":"small fix"}', 'rename this variable to userId')
+    expect(sent.at(-1)).toBe('claude-opus-5-5')
+    // Haiku is cheap enough that a cold write still beats a warm Opus read. Half an hour on, its reply must not restart
+    // the chat's countdown: it never touched the Opus cache.
+    await mocked.advance(30 * 60_000)
+    await ask('{"model":"haiku","effort":"low","why":"lookup"}', 'what is the folder called')
+    expect(sent.at(-1)).toBe('claude-haiku-5-5')
+    expect(await cacheLine()).toContain('30 min left')
+    // An hour and more on, the Opus cache is cold too: staying would write it all again, so Sonnet is worth it now.
+    await mocked.advance(61 * 60_000)
+    await ask('{"model":"sonnet","effort":"low","why":"small fix"}', 'add a log line here')
+    expect(sent.at(-1)).toBe('claude-sonnet-5-5')
+    // Opus warm again, Sonnet warm from the last reply: the switch reads a warm cache and goes ahead.
+    await ask('{"model":"opus","effort":"high","why":"hard"}', 'debug the race in the queue')
+    expect(sent.at(-1)).toBe('claude-opus-5-5')
+    await ask('{"model":"sonnet","effort":"low","why":"small fix"}', 'fix the typo in the log line')
+    expect(sent.at(-1)).toBe('claude-sonnet-5-5')
+  })
 
   test("its lines: the effort, cache and context; the judge's reason and the last reply", () => {
     const base = { auto: true, paused: false, judging: false, effort: 'medium' as const, cacheNow: 42, contextPercent: 18, reason: 'Jev: a small fix', last: null }
