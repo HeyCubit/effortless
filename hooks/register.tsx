@@ -1044,6 +1044,8 @@ async function proof($: EngineInterface, line: string) {
 let engineEffort: string | undefined
 // The pick was carried over from the last chat (the store), not made in this one: the app's effort may overrule it.
 let pickCarried = false
+// The last main-chat request, for /effortless debug: what the app asked for and what the mod sent instead, if anything.
+let lastRequest: { index: number; appModel: string; appEffort: unknown; model: string; effort: unknown; at: number } | null = null
 // The slash command this mod last typed into the prompt box.
 let lastTyped = ''
 // The toast about pressing Enter is shown once; on every click it is only noise.
@@ -3807,6 +3809,9 @@ export const register: Register = (on, options) => {
           `last fork: ${lastFork ? `${lastFork.outcome}, ${ago(lastFork.at)}` : 'none'}`,
           `hidden: ${config.hide.join(',') || 'nothing'}`,
           `model: ${config.modelAuto === 'on' ? `cheaper when it can, now ${routed ?? 'the chat\'s'}` : 'always the chat\'s'}`,
+          lastRequest
+            ? `last request: app asked ${lastRequest.appModel} at ${lastRequest.appEffort ?? 'none'}, sent ${lastRequest.model} at ${lastRequest.effort ?? 'none'}${lastRequest.model === lastRequest.appModel && lastRequest.effort === lastRequest.appEffort ? ' (unchanged)' : ' (changed by effortless)'}, ${ago(lastRequest.at)}`
+            : 'last request: none yet',
           `compact with: ${config.compactWith}${lastHaikuCompact ? `, last by Haiku ${ago(lastHaikuCompact)}` : ''}`,
         ].join(' | '),
       }
@@ -3984,6 +3989,7 @@ Saved to ${out}.md and .json` }
   on('turn.step', async function* ($, e, next) {
     // Every main-conversation response, whatever its effort, keeps the cache warm for its lifetime from now.
     const send = async function* (request: typeof e) {
+      if (e.agentId === undefined) lastRequest = { index: e.index, appModel: e.model, appEffort: e.effort, model: request.model, effort: request.effort, at: Date.now() }
       const answer = yield* next(request)
       // Inside the hook ($ calls after it returns are refused), and never allowed to break the request.
       if (e.agentId === undefined && answer?.usage) markWarm(request.model, answer.usage, await $.clock.now().catch(() => Date.now()))

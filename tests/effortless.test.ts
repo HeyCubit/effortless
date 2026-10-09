@@ -2820,6 +2820,17 @@ describe('dashboard', () => {
     expect(sent.at(-1)!.effort).toBe('xhigh')
   })
 
+  test('/effortless debug says what the app asked for and what was sent', async ($, on) => {
+    engine(on)
+    const sent = recordSteps(on)
+    const debug = async () => String((await $.command.run({ command: 'effortless', args: 'debug' })).text)
+    expect(await debug()).toContain('last request: none yet')
+    await $.command.run({ command: 'effortless', args: 'auto' })
+    await step($, 'xhigh')
+    expect(sent.at(-1)!.effort).toBe('xhigh')
+    expect(await debug()).toContain('last request: app asked claude-opus-5-5 at xhigh, sent claude-opus-5-5 at xhigh (unchanged)')
+  })
+
   test('a thank-you after a cheaper answer is not a redo', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
