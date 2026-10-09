@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.68.0",
+    "date": "2026-10-09",
+    "note": "Model card, cherry blossom theme, quality benchmark",
+    "public": true
+  },
+  {
     "version": "1.67.0",
     "date": "2026-10-09",
     "note": "Haiku compaction keeps your latest work",
