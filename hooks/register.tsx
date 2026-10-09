@@ -1132,7 +1132,7 @@ async function toggleSave($: EngineInterface): Promise<string> {
 }
 
 /** Below this a cold cache costs too little to warn about: the next message rereads the chat at full price once. */
-const COLD_MIN_TOKENS = 60_000
+const COLD_MIN_TOKENS = 150_000
 
 /** The context's tokens when the cold band is worth showing: the cache is cold, the band not closed, and the chat big
  * enough that rereading it matters. Null otherwise, and while the size is not known yet. */
