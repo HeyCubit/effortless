@@ -3426,23 +3426,32 @@ Write a detailed summary with these sections:
 5. Problem solving: what was solved and what is still being worked out.
 6. All user messages: every message the user wrote that is not a tool result, briefly and in order.
 7. Pending tasks: what the user asked for that is not done.
-8. Current work: exactly what was being done right before this summary, with file names and code.
+8. Current work: exactly what was being done right before this summary, with file names and code. The last few
+messages come nearly uncut: carry the code and errors from them over in full, since the next step builds on them.
 9. Next step: the next step, only if it follows directly from the user's latest request, quoting that request.
 
 Be precise: keep names, paths, numbers, commands and error messages exact. Leave out pleasantries.
 Reply with the summary only.`
 
 /** The transcript as plain text for the summarizer: each message, its tool calls and their results, the long ones cut. */
-export function compactTranscript(messages: readonly { role: string; text: string; toolUses?: readonly { tool: string; input: unknown; text?: string }[]; toolResults?: readonly { text?: string }[] }[], toolChars = 2000): string {
+// The last messages go to Haiku nearly whole: the work in progress (the code just written, the error just seen) lives
+// in their tool calls and results, and a 400-character cut lost it mid-task.
+export const COMPACT_TAIL = 6
+const COMPACT_TAIL_CHARS = 20_000
+export function compactTranscript(messages: readonly { role: string; text: string; toolUses?: readonly { tool: string; input: unknown; text?: string }[]; toolResults?: readonly { text?: string }[] }[], toolChars = 2000, tailChars = COMPACT_TAIL_CHARS): string {
   const cut = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)} …[${s.length - n} more characters]` : s)
+  const tailFrom = messages.length - COMPACT_TAIL
   return messages
-    .map(m => {
+    .map((m, i) => {
+      const inTail = i >= tailFrom
+      const inputChars = inTail ? tailChars : 400
+      const resultChars = inTail ? tailChars : toolChars
       const lines = [`${m.role === 'user' ? 'USER' : 'CLAUDE'}: ${m.text}`.trimEnd()]
       for (const t of m.toolUses ?? []) {
-        lines.push(`  [${t.tool} ${cut(JSON.stringify(t.input ?? {}), 400)}]`)
-        if (t.text) lines.push(`  → ${cut(t.text, toolChars)}`)
+        lines.push(`  [${t.tool} ${cut(JSON.stringify(t.input ?? {}), inputChars)}]`)
+        if (t.text) lines.push(`  → ${cut(t.text, resultChars)}`)
       }
-      if (!m.toolUses?.length) for (const r of m.toolResults ?? []) if (r.text) lines.push(`  → ${cut(r.text, toolChars)}`)
+      if (!m.toolUses?.length) for (const r of m.toolResults ?? []) if (r.text) lines.push(`  → ${cut(r.text, resultChars)}`)
       return lines.join('\n')
     })
     .join('\n\n')
@@ -3451,7 +3460,7 @@ export function compactTranscript(messages: readonly { role: string; text: strin
 /** Haiku's summary of the transcript, or why there is none. */
 async function haikuCompaction($: EngineInterface, messages: Parameters<typeof compactTranscript>[0], instructions?: string): Promise<{ text: string } | { fail: string }> {
   let transcript = compactTranscript(messages)
-  if (transcript.length > COMPACT_MAX_CHARS) transcript = compactTranscript(messages, 300)
+  if (transcript.length > COMPACT_MAX_CHARS) transcript = compactTranscript(messages, 300, 4000)
   if (transcript.length > COMPACT_MAX_CHARS) return { fail: 'the chat is too long for Haiku' }
   const r = await $.model.complete({
     model: COMPACT_MODEL,

@@ -1508,8 +1508,18 @@ describe('compaction by Haiku', () => {
     return ran
   }
 
+  test('the last messages reach Haiku nearly whole: the code just written is not cut to 400 characters', () => {
+    const code = 'x'.repeat(5000)
+    const old = Array.from({ length: 10 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', text: `turn ${i}`, toolUses: [{ tool: 'Edit', input: { new_string: code }, text: code }] }))
+    const text = compactTranscript(old as never)
+    // The first message is cut, the last one is whole.
+    expect(text.split('turn 0')[1].split('turn 1')[0]).toContain('more characters')
+    expect(text.split('turn 9')[1]).not.toContain('more characters')
+  })
+
   test('the transcript names each tool call and cuts long results', () => {
-    const text = compactTranscript(said as never)
+    // Two messages are all tail; with the tail held to the same 2000 the cut shows.
+    const text = compactTranscript(said as never, 2000, 2000)
     expect(text).toContain('USER: rename this variable to userId')
     expect(text).toContain('[Edit {"file_path":"a.ts"}]')
     expect(text).toContain('[3000 more characters]')

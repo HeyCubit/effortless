@@ -116,14 +116,14 @@ Haiku also picks the effort, unless you add Jev, TypeSafe's faster judge (about 
 | `haiku` | Haiku only, a key is never used |
 | `jev` | Haiku and Jev, and the key may also come from `~/.config/jev/.env` |
 
-Keys are stored as secret settings by Claude Code, never in a file of this repo. If Jev fails or takes longer than 3 seconds, Haiku judges that prompt and effortless tells you why once per session (out of credits, key rejected, no answer).
+A key set with `/plugin configure` is kept in Claude Code's secure storage. A key pasted in the setup guide or the Judge card is written in plain text to `~/.config/jev/.env` (the file the jev skills read), never to a file of this repo. If Jev fails or takes longer than 3 seconds, Haiku judges that prompt and effortless tells you why once per session (out of credits, key rejected, no answer).
 
 Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and ask no judge.
 
 ## Keys and trust
 
 - The default judge needs **no key**: Haiku runs on your own Claude login.
-- A key is only needed to add Jev. Enter it with `/plugin configure`, never on the command line, so it stays out of your shell history. Claude Code keeps it in its secure storage, not in a file.
+- A key is only needed to add Jev. Enter it with `/plugin configure`, never on the command line, so it stays out of your shell history: Claude Code then keeps it in its secure storage. A key pasted in the setup guide or the Judge card is saved in plain text to `~/.config/jev/.env` instead, so prefer `/plugin configure` on a shared machine.
 - A key is sent only to TypeSafe, and to nothing else. Use a key with a spending limit if your provider offers one.
 - Like any Claude Code plugin, this mod runs code on your machine. Its code is in [`hooks/`](hooks/): read it before you install if you do not know the author. The programs it starts are `claude` itself (to update or uninstall the mod when you press those buttons), `git` (to see if a new version is out) and, on Update, a plain file copy of the new version into the folder your open chat runs from.
 

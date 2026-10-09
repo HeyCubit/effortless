@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.66.1",
+    "date": "2026-10-09",
+    "note": "Haiku compaction keeps the latest work whole; README says where keys really go"
+  },
+  {
     "version": "1.65.1",
     "date": "2026-10-09",
     "note": "The bar shows which model the prompt runs on"
