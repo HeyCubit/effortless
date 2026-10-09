@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.69.0",
+    "date": "2026-10-09",
+    "note": "Measured: 21% cheaper than Opus at medium, same answers",
+    "public": true
+  },
+  {
     "version": "1.68.0",
     "date": "2026-10-09",
     "note": "Model card, cherry blossom theme, quality benchmark",
