@@ -284,7 +284,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 /* The grey art on the right: a soft wash, grain, faint streaks, fading in from the middle. */
 .dash:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(30% 140% at 89% 50%,#9a9aa21d,transparent),linear-gradient(90deg,transparent 43%,#9a9aa210 62%,#9a9aa223 85%,#9a9aa231),repeating-linear-gradient(110deg,transparent 0 46px,#ffffff09 46px 49px,transparent 49px 88px),radial-gradient(#ffffff12 .5px,transparent .7px) 0 0/4px 4px;-webkit-mask-image:linear-gradient(90deg,transparent 40%,#000 75%);mask-image:linear-gradient(90deg,transparent 40%,#000 75%)}
 .dash>*{position:relative;flex-shrink:0}
-.dash .spark{width:1.3em;height:1.3em;margin:0 -.35em 0 -.15em;transition:opacity .3s}
+.dash .spark{width:1.3em;height:1.3em;margin:0 -.1em 0 -.15em;transition:opacity .3s}
 .dash.off .spark{opacity:.35}
 .dash .w{font-weight:650;color:#d4d4d8;transition:color .8s ease}
 .dash .w .mdl{font-weight:500;color:#8b8a96}
@@ -293,7 +293,8 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 @keyframes shim{to{background-position:-200% 0}}
 .dash .pc{display:inline-flex;align-items:center;gap:.5em;margin-left:.15em}
 .dash .pc i{width:1.05em;height:1.05em;border-radius:50%;background:conic-gradient(#d4d4d8 0 calc(var(--p,0)*1%),#4a4a52 0);-webkit-mask:radial-gradient(closest-side,transparent 60%,#000 64%);mask:radial-gradient(closest-side,transparent 60%,#000 64%);transition:--p .6s}
-.dash .cache{color:#8b8b93;margin-left:.1em}
+/* The cache timer stays in the code for the cold scene but is not shown: the bar reads cleaner without it. */
+.dash .cache{display:none;color:#8b8b93;margin-left:.1em}
 .dash .cache.low{color:#e5534b}
 .dash .why{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:#8b8b93;margin-left:.9em}
 .dash .end{margin-left:auto;display:flex;align-items:center;gap:1.15em}
@@ -315,9 +316,10 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .dash .gear{width:1.15em;height:1.15em;display:block;color:#c4c4cc}
 /* What a scene is about: that part stays lit while the rest dims, and it swells when it changes. */
 .dash.aim>:not(.lit),.dash.aim .end>:not(.lit){opacity:.72}
-.dash>*,.dash .end>*{transition:opacity .4s,transform .45s var(--ease),filter .4s}
+.dash>*,.dash .end>*{transition:opacity .4s,transform .45s var(--ease),font-size .45s var(--ease),filter .4s}
 .dash .lit{z-index:2;transform-origin:50% 60%}
-.dash .lit.swell{transform:scale(1.28)}
+/* Swell by font size, not transform: the neighbours make room instead of being overlapped. */
+.dash .lit.swell{font-size:1.28em}
 .dash .end.lit{transform:none}
 .dash.gone,.sett.gone{animation:msg-out .35s var(--ease) both}
 
@@ -446,7 +448,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   .dash .why{display:none}
   .slot .dash .cache,.slot .dash .al{display:none}
   .slot .dash{gap:.75em}
-  .slot .dash .lit.swell{transform:scale(1.12)}
+  .slot .dash .lit.swell{font-size:1.12em}
 }
 @media (max-width:560px){
   .demo-foot .opt{display:none}
