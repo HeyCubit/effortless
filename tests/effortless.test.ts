@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { routeWorth, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { setTheme, themedSvg, tint, tintHex } from '../hooks/theme'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
@@ -139,6 +139,19 @@ describe('auto', () => {
     await step($)
 
     expect(sent[0]).toEqual({ model: 'claude-opus-5-5', effort: 'low' })
+  })
+
+  test('routeWorth: a switch to a cold model pays only when it still comes out cheaper', () => {
+    const big = 100_000
+    // Opus chat, cache warm: a cold Sonnet writes the whole chat and costs more; a warm Sonnet is far cheaper.
+    expect(routeWorth('sonnet', 'opus', big, { to: false, inUse: true })).toBe(false)
+    expect(routeWorth('sonnet', 'opus', big, { to: true, inUse: true })).toBe(true)
+    // Haiku is cheap enough that even a cold write beats a warm read on Opus.
+    expect(routeWorth('haiku', 'opus', big, { to: false, inUse: true })).toBe(true)
+    // The chat's own cache gone cold: staying would write it all again on Opus, so Sonnet wins even cold.
+    expect(routeWorth('sonnet', 'opus', big, { to: false, inUse: false })).toBe(true)
+    // No context size known: route as before.
+    expect(routeWorth('sonnet', 'opus', 0, { to: false, inUse: true })).toBe(true)
   })
 
   test('a prompt the judge calls simple runs on Haiku 5.5; the next hard one is back on the chat model', async ($, on) => {

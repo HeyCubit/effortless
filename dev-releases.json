@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.66.2",
+    "date": "2026-10-09",
+    "note": "Routing is cache-aware: a cheaper model only when switching pays"
+  },
+  {
     "version": "1.66.1",
     "date": "2026-10-09",
     "note": "Haiku compaction keeps the latest work whole; README says where keys really go"
