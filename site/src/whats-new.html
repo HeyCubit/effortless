@@ -55,6 +55,8 @@ h1{margin:0;font:500 clamp(30px,4vw,42px)/1.1 var(--display);letter-spacing:-.02
 .more .rel{margin-top:10px}
 a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
 @media (max-width:560px){.top{padding:16px 16px 0}main{padding:48px 16px 72px}}
+/* Touch screens: links and buttons are at least 44 px to hit. */
+@media (pointer:coarse){.back{display:inline-flex;align-items:center;min-height:44px}.name{min-height:44px}.more summary{padding:11px 0}}
 </style>
 </head>
 <body>
