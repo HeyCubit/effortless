@@ -9,6 +9,8 @@
   <a href="#pick-your-judge"><b>Judges</b></a>
 </p>
 
+https://github.com/user-attachments/assets/9b5af48e-2ad8-4826-9443-4aeea1306664
+
 A Claude Code mod that picks the model and the reasoning effort for every prompt. Easy questions run on **Haiku** or
 **Sonnet** at a low effort; hard jobs get **High** on your own model, and you never touch the model or Effort control.
 In one long chat on Opus about half the replies ran on Sonnet or Haiku, roughly half the cost by our estimate. One bar above the prompt also shows how full the chat is, how long
