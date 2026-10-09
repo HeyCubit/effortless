@@ -137,7 +137,7 @@ Measured over 80k requests of real Claude Code use, about 76% of the cost is the
 
 ## Does the cheaper answer hold up?
 
-`node bench/quality.mjs` answers 30 prompts on Opus and on the model a router would pick, then a blind grader compares them. On 2026-10-09 the cheaper answer was good enough in 28 of 30 (it missed on two Haiku answers), and cost 66 to 78% less on the prompts that moved down. It was almost never better, often slightly worse. One run, one grader, small set: [the full table and its limits](bench/RESULTS.md).
+`node bench/quality.mjs` answers 30 prompts on Opus and on the model a router would pick, then a blind grader compares them. On 2026-10-09 the cheaper answer was good enough in 28 of 30 against Opus at high effort and 27 of 30 against Opus at medium. It cost 60 to 78% less on the easy and normal prompts that moved down. Against Opus medium the whole mix came out only 7% cheaper, because hard prompts go to Opus at high effort. It was almost never better, often slightly worse, and Haiku on easy prompts is where it slips most. Prompts there start with no chat history, so a long warm chat saves less. One run, one grader, small set: [the full tables and limits](bench/RESULTS.md).
 
 ## How often the judge is right
 

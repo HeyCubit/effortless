@@ -2209,9 +2209,9 @@ export function routeTo(verdict: ModelKey, inUse: ModelKey): ModelKey | null {
   return MODEL_RANK.indexOf(verdict) < MODEL_RANK.indexOf(inUse) ? verdict : null
 }
 
-// What one input token costs on each model, in Sonnet's price: Opus about 5x, Haiku about a third. These are the ratios
+// What one input token costs on each model, in Sonnet's price: Opus about 2x (measured: the same prompt cost 1.97x on Opus), Haiku about a third. These are the ratios
 // the savings estimate uses; they only have to be right enough to tell which side of a switch is cheaper.
-export const MODEL_PRICE: Record<ModelKey, number> = { haiku: 1 / 3, sonnet: 1, opus: 5, fable: 5 }
+export const MODEL_PRICE: Record<ModelKey, number> = { haiku: 1 / 3, sonnet: 1, opus: 2, fable: 5 }
 /**
  * Whether sending this one prompt to a cheaper model pays. The chat's context is read from the cache (a tenth of the input
  * price) where that model's cache is warm, and written to it (1.25 times) where it is cold. A switch to a cold model

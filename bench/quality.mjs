@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Answer-quality benchmark. For each prompt in quality-cases.json: answer it on Opus (high effort) and on the model and
 // effort a router would pick, then let a blind grader (Opus, high) compare the two answers in random order.
-// Usage: node bench/quality.mjs [--only e01,n02] [--grader opus] [--jobs 4]
+// Usage: node bench/quality.mjs [--only e01,n02] [--grader opus] [--jobs 4] [--base opus:high]
 // Needs the `claude` CLI logged in. Runs are headless with no tools, no MCP and no plugins, so cost is the prompt and answer only.
 import { spawn } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
@@ -15,7 +15,7 @@ const flag = (name, dflt) => { const i = args.indexOf(`--${name}`); return i >= 
 const only = flag('only', '')?.split(',').filter(Boolean)
 const GRADER = flag('grader', 'opus')
 const JOBS = Number(flag('jobs', '4'))
-const BASE = ['opus', 'high']
+const BASE = flag('base', 'opus:high').split(':')
 
 const cases = JSON.parse(readFileSync(join(here, 'quality-cases.json'), 'utf8')).cases.filter(c => !only?.length || only.includes(c.id))
 
@@ -85,6 +85,7 @@ const rows = await pool(cases, JOBS, async c => {
 
 const ok = rows.filter(r => !r.error)
 const sum = (rs, k) => rs.reduce((s, r) => s + r[k], 0)
+const median = xs => { const a = [...xs].sort((x, y) => x - y); return a.length ? a[Math.floor(a.length / 2)] : 0 }
 const pct = (n, d) => d ? `${Math.round(100 * n / d)}%` : '-'
 const line = (label, rs) => {
   const w = rs.filter(r => r.winner === 'routed').length, t = rs.filter(r => r.winner === 'tie').length, l = rs.filter(r => r.winner === 'baseline').length
@@ -95,12 +96,13 @@ const md = [
   `Quality benchmark ${new Date().toISOString().slice(0, 16)}Z. Baseline = ${BASE.join(' ')} for every prompt. Routed = the model and effort in the case file. Grader = ${GRADER} high, blind, random order.`,
   '', '| Tier | Routed better | Tie | Baseline better | Routed as good or better | Routed good enough | Baseline cost | Routed cost | Saved |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
   ...['easy', 'normal', 'hard'].map(t => line(t, ok.filter(r => r.tier === t))), line('all', ok),
+  '', `Median time per answer: baseline ${median(ok.map(r => r.baseMs))} ms, routed ${median(ok.map(r => r.routedMs))} ms (easy: ${median(ok.filter(r => r.tier === 'easy').map(r => r.baseMs))} vs ${median(ok.filter(r => r.tier === 'easy').map(r => r.routedMs))}; normal: ${median(ok.filter(r => r.tier === 'normal').map(r => r.baseMs))} vs ${median(ok.filter(r => r.tier === 'normal').map(r => r.routedMs))}).`,
   '', `Models that actually answered: baseline ${[...new Set(ok.map(r => r.baseModel))].join(', ')}; routed ${[...new Set(ok.map(r => r.routedModel))].join(', ')}.`,
   ...(rows.length - ok.length ? ['', `${rows.length - ok.length} case(s) failed and are left out: ${rows.filter(r => r.error).map(r => r.id).join(', ')}`] : []),
   '', '"Good enough" = routed won, tied, or lost but the grader said it would still serve the user.', '', 'Cases where baseline won:', ...ok.filter(r => r.winner === 'baseline').map(r => `- ${r.id} (${r.route.join(' ')})${r.ok ? '' : ' NOT GOOD ENOUGH'}: ${r.reason}`)
 ].join('\n')
 
-const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')
+const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '') + (BASE.join('-') === 'opus-high' ? '' : `-vs-${BASE.join('-')}`)
 mkdirSync(join(here, 'results'), { recursive: true })
 writeFileSync(join(here, 'results', `quality-${stamp}.json`), JSON.stringify(rows, null, 1))
 writeFileSync(join(here, 'results', `quality-${stamp}.md`), md + '\n')

@@ -146,8 +146,9 @@ describe('auto', () => {
     // Opus chat, cache warm: a cold Sonnet writes the whole chat and costs more; a warm Sonnet is far cheaper.
     expect(routeWorth('sonnet', 'opus', big, { to: false, inUse: true })).toBe(false)
     expect(routeWorth('sonnet', 'opus', big, { to: true, inUse: true })).toBe(true)
-    // Haiku is cheap enough that even a cold write beats a warm read on Opus.
-    expect(routeWorth('haiku', 'opus', big, { to: false, inUse: true })).toBe(true)
+    // A cold Haiku writes the whole chat (a third of the price, 1.25 times) against a warm Opus read (twice the price, a tenth): still more.
+    expect(routeWorth('haiku', 'opus', big, { to: false, inUse: true })).toBe(false)
+    expect(routeWorth('haiku', 'opus', big, { to: true, inUse: true })).toBe(true)
     // The chat's own cache gone cold: staying would write it all again on Opus, so Sonnet wins even cold.
     expect(routeWorth('sonnet', 'opus', big, { to: false, inUse: false })).toBe(true)
     // No context size known: route as before.
@@ -2599,12 +2600,10 @@ describe('dashboard', () => {
     // Sonnet has never answered: its cache is cold, and writing 100k tokens there costs more than reading them on Opus.
     await ask('{"model":"sonnet","effort":"low","why":"small fix"}', 'rename this variable to userId')
     expect(sent.at(-1)).toBe('claude-opus-5-5')
-    // Haiku is cheap enough that a cold write still beats a warm Opus read. Half an hour on, its reply must not restart
-    // the chat's countdown: it never touched the Opus cache.
+    // A cold Haiku loses to a warm Opus read as well, whatever the size of the chat.
     await mocked.advance(30 * 60_000)
     await ask('{"model":"haiku","effort":"low","why":"lookup"}', 'what is the folder called')
-    expect(sent.at(-1)).toBe('claude-haiku-5-5')
-    expect(await cacheLine()).toContain('30 min left')
+    expect(sent.at(-1)).toBe('claude-opus-5-5')
     // An hour and more on, the Opus cache is cold too: staying would write it all again, so Sonnet is worth it now.
     await mocked.advance(61 * 60_000)
     await ask('{"model":"sonnet","effort":"low","why":"small fix"}', 'add a log line here')
@@ -2614,6 +2613,11 @@ describe('dashboard', () => {
     expect(sent.at(-1)).toBe('claude-opus-5-5')
     await ask('{"model":"sonnet","effort":"low","why":"small fix"}', 'fix the typo in the log line')
     expect(sent.at(-1)).toBe('claude-sonnet-5-5')
+    // Twenty minutes on, a routed reply from the warm Sonnet must not restart the chat's countdown: Opus is still 40 min out.
+    await mocked.advance(20 * 60_000)
+    await ask('{"model":"sonnet","effort":"low","why":"small fix"}', 'fix another typo in the log line')
+    expect(sent.at(-1)).toBe('claude-sonnet-5-5')
+    expect(await cacheLine()).toContain('40 min left')
   })
 
   test('looksLikeRedo: a correction after a cheaper answer, not a thank-you or a new task', () => {
@@ -2645,6 +2649,8 @@ describe('dashboard', () => {
       await step($)
     }
     await ask('{"model":"opus","effort":"high","why":"big refactor"}', 'refactor the whole auth layer')
+    // Once the Opus cache has gone cold, a Haiku move is cheaper than writing it all again.
+    await mocked.advance(61 * 60_000)
     await ask(HAIKU, 'what is the folder called')
     expect(sent.at(-1)).toBe('claude-haiku-5-5')
     // The person says it was wrong: the retry runs on Opus, and so do the next ones, though the judge still says Haiku.
@@ -2682,6 +2688,7 @@ describe('dashboard', () => {
       await step($)
     }
     await ask('{"model":"opus","effort":"high","why":"big refactor"}', 'refactor the whole auth layer')
+    await mocked.advance(61 * 60_000)
     await ask(HAIKU, 'what is the folder called')
     await ask(HAIKU, 'no problem, now what is the tests folder called')
     expect(sent.at(-1)).toBe('claude-haiku-5-5')

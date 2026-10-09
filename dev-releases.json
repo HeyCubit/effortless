@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.68.3",
+    "date": "2026-10-09",
+    "note": "Opus price ratio fixed to 2x, bench against Opus medium"
+  },
+  {
     "version": "1.68.2",
     "date": "2026-10-09",
     "note": "Redo detection for cheaper answers, and measure how sure the judge is"
