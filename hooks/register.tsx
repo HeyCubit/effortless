@@ -194,7 +194,7 @@ const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
 ]
 // The Model card: the two ways to run. Effort follows the judge in both.
 const MODEL_CHOICES = [
-  { value: 'on', label: 'Cheaper when it can', about: "A simple prompt runs on Haiku or Sonnet, never above the chat's own model." },
+  { value: 'on', label: 'Cheaper when it can (experimental)', about: "A simple prompt may run on Haiku or Sonnet. Rarely pays: the other model has to reread the whole chat." },
   { value: 'off', label: "Always the chat's", about: "Every prompt keeps the model you picked. Only effort changes." },
 ] as const
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
@@ -626,7 +626,7 @@ let config: JudgeConfig = {
   layout: 'default',
   compactWith: 'haiku',
   handoffButton: 'advised',
-  modelAuto: 'on',
+  modelAuto: 'off',
   theme: 'violet',
   appearance: 'auto',
 }
@@ -648,7 +648,9 @@ export function readConfig(options: unknown): JudgeConfig {
     layout: str(o.layout) === 'minimal' ? 'minimal' : 'default',
     compactWith: str(o.compactWith) === 'session' ? 'session' : 'haiku',
     handoffButton: str(o.handoffButton) === 'always' ? 'always' : 'advised',
-    modelAuto: str(o.modelAuto) === 'off' ? 'off' : 'on',
+    // Off unless switched on: one prompt on another model rewrites the whole chat into that model's cache, which costs
+    // more than it saves in a chat that is in use (measured 2026-10-10).
+    modelAuto: str(o.modelAuto) === 'on' ? 'on' : 'off',
     theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
     appearance: (['dark', 'light'] as const).find(a => a === str(o.appearance)) ?? 'auto',
     // The judge's line is off until switched on; an empty string saved from the panel means everything shows.
@@ -2255,8 +2257,10 @@ export const MODEL_PRICE: Record<ModelKey, number> = { haiku: 1 / 3, sonnet: 1, 
  */
 export function routeWorth(to: ModelKey, inUse: ModelKey, contextTokens: number, warm: { to: boolean; inUse: boolean }): boolean {
   if (!(contextTokens > 0)) return true
-  const stay = contextTokens * MODEL_PRICE[inUse] * (warm.inUse ? WEIGHT.read : WEIGHT.write)
-  const move = contextTokens * MODEL_PRICE[to] * (warm.to ? WEIGHT.read : WEIGHT.write)
+  // Claude Code writes the 1-hour cache, which costs twice the input price (measured), not the 5-minute 1.25.
+  const write = 2
+  const stay = contextTokens * MODEL_PRICE[inUse] * (warm.inUse ? WEIGHT.read : write)
+  const move = contextTokens * MODEL_PRICE[to] * (warm.to ? WEIGHT.read : write)
   return move < stay
 }
 // Until when each model's prompt cache is warm for this chat: set by every main response on it.

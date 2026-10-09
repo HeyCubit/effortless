@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.68.9",
+    "date": "2026-10-09",
+    "note": "Model switching off by default"
+  },
+  {
     "version": "1.68.8",
     "date": "2026-10-09",
     "note": "Debug: the model used on its own line"

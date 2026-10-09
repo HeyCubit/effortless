@@ -171,7 +171,7 @@ describe('auto', () => {
     expect(routeWorth('sonnet', 'opus', 0, { to: false, inUse: true })).toBe(true)
   })
 
-  test('a prompt the judge calls simple runs on Haiku 5.5; the next hard one is back on the chat model', async ($, on) => {
+  test('a prompt the judge calls simple runs on Haiku 5.5; the next hard one is back on the chat model', { options: { modelAuto: 'on' } } as never, async ($, on) => {
     engine(on)
     let verdict = '{"model":"haiku","effort":"low","why":"simple question"}'
     on('model.complete', () => ({ value: { isAnswered: true as const, text: verdict, usage: USAGE } }))
@@ -185,7 +185,7 @@ describe('auto', () => {
     expect(sent[1]).toEqual({ model: 'claude-opus-5-5', effort: 'high' })
   })
 
-  test('a typed skill is judged like a prompt (told what it is); the app\'s own commands are not', async ($, on) => {
+  test('a typed skill is judged like a prompt (told what it is); the app\'s own commands are not', { options: { modelAuto: 'on' } } as never, async ($, on) => {
     engine(on)
     const asked: string[] = []
     on('model.complete', (_$, e) => {
@@ -1120,7 +1120,7 @@ describe('judge choice (plugin settings)', () => {
       layout: 'default',
       compactWith: 'haiku',
       handoffButton: 'advised',
-      modelAuto: 'on',
+      modelAuto: 'off',
       theme: 'violet',
       appearance: 'auto',
     })
@@ -2410,12 +2410,12 @@ describe('settings panel', () => {
     await panel.press({ key: 'settings-card-handoff' })
     await panel.select({ key: 'settings-skill', value: 'session-handoff' })
     await panel.press({ key: 'settings-back' })
-    // Model has its own card: two choices, and the card says which is on.
-    expect(await drawn(panel)).toContain('Cheaper when it can')
-    await panel.press({ key: 'settings-card-model' })
-    await panel.press({ key: 'settings-model-off' })
-    await panel.press({ key: 'settings-back' })
+    // Model has its own card: two choices, and the card says which is on. Off by default.
     expect(await drawn(panel)).toContain("Always the chat's")
+    await panel.press({ key: 'settings-card-model' })
+    await panel.press({ key: 'settings-model-on' })
+    await panel.press({ key: 'settings-back' })
+    expect(await drawn(panel)).toContain('Cheaper when it can')
     // The cards say what is set, unsaved changes included.
     expect(await drawn(panel)).toContain('Smarter · medium to max')
     expect(await drawn(panel)).toContain('/session-handoff · compact alert at')
@@ -2432,7 +2432,7 @@ describe('settings panel', () => {
     expect(set).toContainEqual({ key: 'effortless.effortBias', value: '1' })
     expect(set).toContainEqual({ key: 'effortless.effortFloor', value: 'medium' })
     expect(set).toContainEqual({ key: 'effortless.judge', value: 'jev' })
-    expect(set).toContainEqual({ key: 'effortless.modelAuto', value: 'off' })
+    expect(set).toContainEqual({ key: 'effortless.modelAuto', value: 'on' })
     expect(said.join(' | ')).toContain('key saved')
     expect(files['C:/Users/x/.config/jev/.env']).toBe('OTHER=1\nTYPESAFE_API_KEY=tk-new\n')
     await panel.unmount()
@@ -2603,7 +2603,7 @@ describe('dashboard', () => {
     await guide.unmount()
   }
 
-  test('cache-aware routing, live through the hooks: a cold Sonnet is skipped on a big warm Opus chat, Haiku moves, a cold chat moves, and a routed reply leaves the countdown alone', async ($, on) => {
+  test('cache-aware routing, live through the hooks: a cold Sonnet is skipped on a big warm Opus chat, Haiku moves, a cold chat moves, and a routed reply leaves the countdown alone', { options: { modelAuto: 'on' } } as never, async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
     on('session.usage', () => ({ value: { context: { tokens: 100_000, window: 1_000_000, percent: 10 } } }) as never)
@@ -2657,7 +2657,7 @@ describe('dashboard', () => {
       expect(looksLikeRedo(no)).toBe(false)
   })
 
-  test('a redone cheaper answer: the retry and the next prompts stay on the chat model, and stats count it', async ($, on) => {
+  test('a redone cheaper answer: the retry and the next prompts stay on the chat model, and stats count it', { options: { modelAuto: 'on' } } as never, async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
     on('session.usage', () => ({ value: { context: { tokens: 100_000, window: 1_000_000, percent: 10 } } }) as never)
@@ -2833,7 +2833,7 @@ describe('dashboard', () => {
     expect((await debug()).split(String.fromCharCode(10)).at(-1)).toBe('model used: claude-opus-5-5 at xhigh')
   })
 
-  test('a thank-you after a cheaper answer is not a redo', async ($, on) => {
+  test('a thank-you after a cheaper answer is not a redo', { options: { modelAuto: 'on' } } as never, async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
     on('session.usage', () => ({ value: { context: { tokens: 100_000, window: 1_000_000, percent: 10 } } }) as never)
