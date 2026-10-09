@@ -61,12 +61,12 @@ export function tintHex(hex: string): string {
 // A cherry-blossom petal, and the fall it makes: each sparkle of the art becomes a petal at the same place, falling slowly
 // and turning as it goes. The drawing's own CSS animates sparkles in place; the petals bring their own.
 const PETAL = 'M0 -2.2C1.7 -1.7 1.9 0.9 0 2.2C-1.9 0.9 -1.7 -1.7 0 -2.2Z'
-const PETAL_CSS = '.pt{fill:#ffc9dc;opacity:0;animation-name:fall;animation-timing-function:linear;animation-iteration-count:infinite}@keyframes fall{0%{opacity:0;transform:translate(0,-4px) rotate(0deg)}12%{opacity:.85}85%{opacity:.7}100%{opacity:0;transform:translate(-16px,34px) rotate(280deg)}}'
+const PETAL_CSS = '.pt{fill:#ffb3cf;opacity:0;animation-name:fall;animation-timing-function:linear;animation-iteration-count:infinite}@keyframes fall{0%{opacity:0;transform:translate(0,-4px) rotate(0deg)}12%{opacity:.6}85%{opacity:.5}100%{opacity:0;transform:translate(-16px,34px) rotate(280deg)}}'
 function petals(text: string): string {
   if (!text.includes('class="sp"')) return text
   return text
     .replace(/<path class="sp" style="transform-origin:([\d.]+)px [\d.]+px;animation-duration:([\d.]+)s;animation-delay:([\d.]+)s" d="[^"]*"\/>/g, (_m, x: string, dur: string, delay: string) =>
-      `<g transform="translate(${x} 0)"><path class="pt" style="animation-duration:${(Number(dur) * 1.8).toFixed(1)}s;animation-delay:${delay}s" d="${PETAL}"/></g>`)
+      `<g transform="translate(${x} 0)"><path class="pt" style="animation-duration:${(Number(dur) * 2.2).toFixed(1)}s;animation-delay:${delay}s" d="${PETAL}"/></g>`)
     .replace('</style>', `${PETAL_CSS}</style>`)
 }
 
