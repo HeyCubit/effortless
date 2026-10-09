@@ -78,4 +78,9 @@ let report = fs.readFileSync(new URL('./report.html', import.meta.url), 'utf8').
 if (/__[A-Z_]+__/.test(report)) throw Error('left: ' + report.match(/__[A-Z_]+__/)[0])
 fs.mkdirSync(repo + '/site/report', { recursive: true })
 fs.writeFileSync(repo + '/site/report/index.html', report)
+// Benchmarks, at bench/: the numbers from bench/RESULTS.md as charts and tables, limits included.
+let bench = fs.readFileSync(new URL('./bench.html', import.meta.url), 'utf8').replace(/__SPARK__/g, mark).split('__ICON__').join(map.__ICON__)
+if (/__[A-Z_]+__/.test(bench)) throw Error('left: ' + bench.match(/__[A-Z_]+__/)[0])
+fs.mkdirSync(repo + '/site/bench', { recursive: true })
+fs.writeFileSync(repo + '/site/bench/index.html', bench)
 console.log('bytes', out.length)

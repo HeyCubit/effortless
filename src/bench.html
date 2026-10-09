@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Benchmarks · effortless</title>
+<meta name="description" content="How often the effortless judge picks the right effort, and whether the cheaper model's answer holds up against Opus. Small runs, limits included.">
+<link rel="canonical" href="https://heycubit.github.io/effortless/bench/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="effortless">
+<meta property="og:title" content="effortless benchmarks">
+<meta property="og:description" content="Is the judge right, and does the cheaper answer hold up against Opus? What works, what needs improving, and the limits.">
+<meta property="og:url" content="https://heycubit.github.io/effortless/bench/">
+<meta property="og:image" content="https://heycubit.github.io/effortless/og.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="effortless benchmarks">
+<meta name="twitter:description" content="Is the judge right, and does the cheaper answer hold up against Opus? What works, what needs improving, and the limits.">
+<meta name="twitter:image" content="https://heycubit.github.io/effortless/og.png">
+<meta name="theme-color" content="#121214">
+<link rel="icon" href="__ICON__">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500&display=swap" rel="stylesheet">
+<style>
+/* Benchmarks, laid out like a results sheet: square edges, 1 px rules, bordered grid tables, and the column that
+   matters outlined. Numbers come from bench/RESULTS.md. Chart colours are validated for this dark page: violet is
+   "against Opus high", aqua is "against Opus medium". */
+:root{--page:#121214;--rule:#2e2e35;--rule2:#3b3b44;--text:#ececef;--body:#cfcbdc;--muted:#9a9aa4;--dim:#82828c;--accent:#a79cf7;--hi:#9085e9;--md:#199e70;--hl:#9085e91a;--hlb:#9085e9;--sans:Inter,"Segoe UI",system-ui,-apple-system,sans-serif;--display:Outfit,Inter,"Segoe UI",system-ui,sans-serif;--mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--text);font:15.5px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.top{max-width:1040px;margin:0 auto;padding:22px 24px 0;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.name{display:inline-flex;align-items:center;gap:10px;font:500 23px var(--display);letter-spacing:-.01em;text-decoration:none}
+.name .spark{width:44px;height:44px;margin:-8px -3px -8px -8px}
+.back{color:var(--muted);text-decoration:none;font-size:15.5px}
+.back:hover{color:var(--text)}
+main{max-width:1040px;margin:0 auto;padding:64px 24px 96px}
+.label{font:500 12.5px/1.4 var(--mono);color:var(--muted);letter-spacing:.01em}
+h1{margin:12px 0 0;font:500 clamp(36px,5vw,56px)/1.05 var(--display);letter-spacing:-.025em;color:#f4f2ff}
+.intro{margin:18px 0 0;max-width:36em;color:var(--body);font-size:18px;line-height:1.55}
+.meta{display:flex;flex-wrap:wrap;gap:8px 28px;margin-top:22px}
+h2{margin:8px 0 0;font:500 clamp(26px,3.2vw,34px)/1.15 var(--display);letter-spacing:-.02em;color:#f4f2ff}
+.sec{margin-top:88px}
+.sec>p{margin:12px 0 0;max-width:42em;color:var(--body)}
+code{font:13.5px/1.4 var(--mono);padding:1px 6px;background:#222128;color:var(--text)}
+
+/* The short answer: a ruled strip, one number per cell. */
+.answer{margin-top:44px;border-top:1px solid var(--rule2);border-bottom:1px solid var(--rule)}
+.answer .q{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:24px;padding:22px 0;border-bottom:1px solid var(--rule)}
+.answer .q h3{margin:0;font:500 20px/1.3 var(--display);color:#f4f2ff}
+.answer .q p{margin:0;color:var(--body)}
+.answer .q p b{color:#f4f2ff;font-weight:600}
+.cells{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.cell{padding:22px 22px 24px;border-left:1px solid var(--rule)}
+.cell:first-child{border-left:0;padding-left:0}
+.cell b{display:block;margin-top:10px;font:500 40px/1 var(--display);letter-spacing:-.02em;color:#f4f2ff;font-variant-numeric:tabular-nums}
+.cell span{display:block;margin-top:10px;color:var(--muted);font-size:14px;line-height:1.45}
+
+/* Why it works / what needs improving: two ruled columns of short claims. */
+.split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin-top:28px;border-top:1px solid var(--rule2)}
+.split>div{padding:22px 28px 6px 0}
+.split>div+div{padding-left:28px;border-left:1px solid var(--rule)}
+.split h3{display:flex;align-items:center;gap:10px;margin:0 0 6px;font:500 20px var(--display);color:#f4f2ff}
+.split h3 i{width:10px;height:10px}
+.split .ok h3 i{background:var(--md)}
+.split .no h3 i{background:#d95926}
+.item{padding:16px 0;border-top:1px solid var(--rule)}
+.split h3+.item{border-top:0}
+.item b{display:block;color:#f4f2ff;font-weight:600;font-size:16px}
+.item span{display:block;margin-top:4px;color:var(--body);font-size:14.5px}
+.item em{font-style:normal;color:#f4f2ff;font-weight:600;font-variant-numeric:tabular-nums}
+
+/* Grid tables. The highlighted column gets a tint and a 1 px outline. */
+.tbl{margin-top:26px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{padding:14px 16px;border:1px solid var(--rule);text-align:left;vertical-align:top}
+thead th{font-weight:600;font-size:14.5px;color:#f4f2ff}
+thead th small,tbody th small{display:block;margin-top:3px;font-weight:400;font-size:13px;color:var(--muted)}
+tbody th{font-weight:600;font-size:14.5px;color:#e6e3f0}
+td{font-size:17px;color:var(--body)}
+td small{display:block;margin-top:2px;font-size:12.5px;font-weight:400;color:var(--dim)}
+td.hl,th.hl{background:var(--hl);box-shadow:inset 1px 0 0 var(--hlb),inset -1px 0 0 var(--hlb)}
+thead tr:first-child th.hl{box-shadow:inset 1px 0 0 var(--hlb),inset -1px 0 0 var(--hlb),inset 0 1px 0 var(--hlb)}
+tbody tr:last-child td.hl{box-shadow:inset 1px 0 0 var(--hlb),inset -1px 0 0 var(--hlb),inset 0 -1px 0 var(--hlb)}
+td.hl{color:#f4f2ff;font-weight:600}
+th.grp{text-align:center;font:500 13px var(--mono);color:var(--muted)}
+.judge table{min-width:620px}
+.neg{color:#f0a07a}
+.pos{color:#5fd3a5}
+/* Benchmark 2: one plain comparison. The result column carries the colour, the total row gets a heavier rule. */
+table.plain td b{font-weight:600;color:#f4f2ff}
+table.plain td b.pos{color:#5fd3a5}
+table.plain td b.neg{color:#f0a07a}
+table.plain td:nth-child(2){font-size:15px}
+table.plain tr.total th,table.plain tr.total td{border-top:2px solid var(--rule2);background:#18181c}
+table.plain tr.total td b{font-size:19px}
+@media (max-width:600px){table.plain thead{display:none}table.plain,table.plain tbody{display:block}
+  table.plain tr{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.8fr) minmax(0,1.2fr);border:1px solid var(--rule);border-top:0}
+  table.plain tr:first-child{border-top:1px solid var(--rule)}
+  table.plain th,table.plain td{border:0;padding:10px 12px}
+  table.plain th{grid-column:1/-1;padding-bottom:0}table.plain th small{display:inline;margin-left:6px}
+  table.plain td::before{content:attr(data-l);display:block;margin-bottom:3px;font:500 11.5px/1.3 var(--mono);color:var(--muted)}
+  table.plain td:empty{display:none}table.plain tr.total td:nth-of-type(2){grid-column:2}
+  table.plain tr.total th,table.plain tr.total td{border-top:0}table.plain tr.total{border-top:2px solid var(--rule2);background:#18181c}table.plain tr.total th,table.plain tr.total td{background:none}table.plain td b{font-size:16.5px}table.plain tr.total td b{font-size:18px}}
+.read{margin-top:18px;padding-left:18px;border-left:2px solid var(--hlb);max-width:44em;color:var(--body)}
+.read b{color:#f4f2ff}
+
+
+/* Notes, the fix and the limits: a mono label over a rule. */
+.note{margin-top:16px;color:var(--dim);font-size:14px;max-width:46em}
+.ruled{margin-top:26px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 36px}
+.ruled>div{padding-left:18px;border-left:1px solid var(--rule2)}
+.ruled p{margin:10px 0 0;color:var(--body);font-size:15px}
+.ruled p b{color:#f4f2ff}
+.fix{margin-top:32px;padding-left:18px;border-left:2px solid var(--hlb);max-width:46em}
+.fix p{margin:8px 0 0;color:var(--body)}
+.run{margin-top:26px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--rule)}
+.run>div{padding:20px 22px}
+.run>div+div{border-left:1px solid var(--rule)}
+.run p{margin:10px 0 0;color:var(--body);font-size:15px}
+.run code{display:inline-block;margin-top:10px;max-width:100%;overflow-wrap:anywhere}
+details{margin-top:18px;border-top:1px solid var(--rule)}
+summary{padding:12px 0;cursor:pointer;color:var(--muted);font-size:14.5px}
+summary:hover{color:var(--text)}
+details .tbl{margin-top:8px}
+details table{min-width:560px}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@media (max-width:860px){.cells{grid-template-columns:repeat(2,minmax(0,1fr))}.cell:nth-child(3){border-left:0;padding-left:0}.cell:nth-child(n+3){border-top:1px solid var(--rule)}.answer .q{grid-template-columns:minmax(0,1fr);gap:8px}}
+@media (max-width:760px){.split,.ruled,.run{grid-template-columns:minmax(0,1fr)}.split>div+div{padding-left:0;border-left:0;border-top:1px solid var(--rule2);margin-top:12px}.run>div+div{border-left:0;border-top:1px solid var(--rule)}}
+@media (max-width:560px){.top{padding:16px 16px 0}main{padding:44px 16px 72px}.sec{margin-top:68px}.cell{padding:18px 14px 20px}.cell b{font-size:32px}th,td{padding:12px}}
+@media (max-width:360px){.cells{grid-template-columns:minmax(0,1fr)}.cell,.cell:nth-child(3){border-left:0;padding-left:0}.cell+.cell{border-top:1px solid var(--rule)}}
+@media (pointer:coarse){.back{display:inline-flex;align-items:center;min-height:44px}.name{min-height:44px}summary{padding:13px 0}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="name" href="../">__SPARK__effortless</a>
+  <a class="back" href="../">Back to the site</a>
+</header>
+<main>
+  <div class="label">Benchmarks</div>
+  <h1>Does it pick well, and does it hold up?</h1>
+  <p class="intro">Two tests. One checks how often the judge picks the right effort. The other checks whether the cheaper answer is still good enough next to Opus.</p>
+  <div class="meta"><span class="label">Judge: 73 prompts, 20 held out</span><span class="label">Quality: 30 prompts, run 2026-10-09</span><span class="label">One run, one blind grader</span></div>
+
+  <section class="answer" aria-labelledby="a-h">
+    <div class="q">
+      <h3 id="a-h">Does it beat Opus at medium effort?</h3>
+      <p><b>Not across the board.</b> It is as fast, good enough in 9 of 10 answers, and a little cheaper on this mix of prompts. It saves much more when most of your prompts are simple.</p>
+    </div>
+    <div class="cells">
+      <div class="cell"><div class="label">Cost vs Opus medium</div><b>7%</b><span>cheaper across all 30 prompts</span></div>
+      <div class="cell"><div class="label">Good enough</div><b>90%</b><span>of routed answers, judged blind</span></div>
+      <div class="cell"><div class="label">Median time</div><b>6.4 s</b><span>against 7.4 s on Opus medium</span></div>
+      <div class="cell"><div class="label">Judge accuracy</div><b>93%</b><span>Haiku picks an acceptable effort (Jev 99%)</span></div>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="w-h">
+    <h2 id="w-h">What works, and what needs improving</h2>
+    <div class="split">
+      <div class="ok">
+        <h3><i></i>Why it works</h3>
+        <div class="item"><b>Normal prompts keep their quality at a lower price.</b><span>Sonnet at medium effort was good enough in <em>12 of 12</em>, at <em>60 to 66%</em> less cost.</span></div>
+        <div class="item"><b>The judge is usually right.</b><span>Haiku picks an acceptable effort <em>93%</em> of the time, Jev <em>99%</em>. A fixed effort manages 44 to 51%.</span></div>
+        <div class="item"><b>Hard prompts get more, not less.</b><span>They go to Opus at high effort, which was better or tied in <em>5 of 6</em> against Opus medium.</span></div>
+        <div class="item"><b>It is not slower.</b><span>Median <em>6.4 s</em> per answer against <em>7.4 s</em> on Opus medium.</span></div>
+      </div>
+      <div class="no">
+        <h3><i></i>What needs improving</h3>
+        <div class="item"><b>Easy prompts on Haiku miss sometimes.</b><span>Good enough in <em>9 to 10 of 12</em>. Misses: a shell one-liner that broke in subfolders, a regex with a wrong explanation, a stiff translation, an async explanation that overclaimed.</span></div>
+        <div class="item"><b>Against Opus medium the saving is small.</b><span><em>7%</em> on this mix, because hard prompts go to Opus high and cost <em>26%</em> more there.</span></div>
+        <div class="item"><b>The cheaper answer is rarely better.</b><span>Routed answers beat Opus medium in <em>3 of 30</em>, two of them hard prompts where routing uses Opus high anyway.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec judge" aria-labelledby="j-h">
+    <div class="label">Benchmark 1</div>
+    <h2 id="j-h">Is the judge right?</h2>
+    <p>73 prompts, each labelled by hand with the efforts a careful person would accept. 20 were held out and never used to tune the judge.</p>
+    <div class="tbl"><table>
+      <thead><tr><th scope="col">Prompts with an acceptable effort</th><th scope="col">Always medium<small>no judge</small></th><th scope="col">Always high<small>no judge</small></th><th scope="col" class="hl">Haiku<small>the default judge</small></th><th scope="col">Jev<small>with a TypeSafe key</small></th></tr></thead>
+      <tbody>
+        <tr><th scope="row">All 73 prompts</th><td>44%</td><td>51%</td><td class="hl">93%</td><td>99%</td></tr>
+        <tr><th scope="row">20 held-out prompts</th><td>40%</td><td>50%</td><td class="hl">95%</td><td>100%</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Prompts and labels: <code>bench/judge-cases.json</code>. Judge version 1.5.1.</p>
+  </section>
+
+  <section class="sec qual" aria-labelledby="q-h">
+    <div class="label">Benchmark 2</div>
+    <h2 id="q-h">Does the cheaper answer hold up?</h2>
+    <p>The same 30 prompts went two ways: straight to Opus at medium effort, and through effortless, which picks a model and an effort for each one. A grader (Opus, high effort) saw both answers without knowing which was which and said whether the effortless answer would still do the job.</p>
+    <div class="tbl"><table class="plain" id="vs-medium">
+      <thead><tr><th scope="col">Kind of prompt</th><th scope="col">effortless sent it to</th><th scope="col">Still did the job</th><th scope="col">Cost next to Opus medium</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Easy<small>12 prompts</small></th><td data-l="Sent to">Haiku, low effort</td><td data-l="Did the job"><b>9</b> of 12</td><td data-l="Cost"><b class="pos">77% cheaper</b></td></tr>
+        <tr><th scope="row">Normal<small>12 prompts</small></th><td data-l="Sent to">Sonnet, medium effort</td><td data-l="Did the job"><b>12</b> of 12</td><td data-l="Cost"><b class="pos">60% cheaper</b></td></tr>
+        <tr><th scope="row">Hard<small>6 prompts</small></th><td data-l="Sent to">Opus, high effort</td><td data-l="Did the job"><b>6</b> of 6</td><td data-l="Cost"><b class="neg">26% more expensive</b><small>more effort than the baseline, on purpose</small></td></tr>
+        <tr class="total"><th scope="row">All<small>30 prompts</small></th><td data-l="Sent to"></td><td data-l="Did the job"><b>27</b> of 30</td><td data-l="Cost"><b class="pos">7% cheaper</b></td></tr>
+      </tbody>
+    </table></div>
+    <p class="read"><b>How to read it.</b> Easy and normal prompts get much cheaper. Hard prompts get more effort than Opus medium would spend, and cost more. On this mix the two nearly cancel out, so the more of your prompts are easy, the more you save.</p>
+
+    <details id="more">
+      <summary>Against Opus at high effort, wins and ties, dollars per answer</summary>
+      <div class="tbl"><table class="plain" id="vs-high">
+        <thead><tr><th scope="col">Against Opus high</th><th scope="col">Still did the job</th><th scope="col">Cost next to Opus high</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Easy, 12</th><td data-l="Did the job">10 of 12</td><td data-l="Cost">78% cheaper</td></tr>
+          <tr><th scope="row">Normal, 12</th><td data-l="Did the job">12 of 12</td><td data-l="Cost">66% cheaper</td></tr>
+          <tr><th scope="row">Hard, 6</th><td data-l="Did the job">6 of 6</td><td data-l="Cost">Same<small>same model and effort</small></td></tr>
+          <tr class="total"><th scope="row">All 30</th><td data-l="Did the job">28 of 30</td><td data-l="Cost">19% cheaper</td></tr>
+        </tbody>
+      </table></div>
+      <div class="tbl"><table>
+        <thead><tr><th scope="col">Against Opus medium</th><th scope="col">effortless better</th><th scope="col">Tie</th><th scope="col">Opus better</th><th scope="col">Opus cost</th><th scope="col">effortless cost</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Easy, 12</th><td>0</td><td>5</td><td>7</td><td>$0.124</td><td>$0.029</td></tr>
+          <tr><th scope="row">Normal, 12</th><td>1</td><td>4</td><td>7</td><td>$0.284</td><td>$0.115</td></tr>
+          <tr><th scope="row">Hard, 6</th><td>2</td><td>3</td><td>1</td><td>$0.714</td><td>$0.903</td></tr>
+          <tr><th scope="row">All 30</th><td>3</td><td>12</td><td>15</td><td>$1.121</td><td>$1.046</td></tr>
+        </tbody>
+      </table></div>
+      <div class="tbl"><table>
+        <thead><tr><th scope="col">Against Opus high</th><th scope="col">effortless better</th><th scope="col">Tie</th><th scope="col">Opus better</th><th scope="col">Opus cost</th><th scope="col">effortless cost</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Easy, 12</th><td>0</td><td>1</td><td>11</td><td>$0.126</td><td>$0.028</td></tr>
+          <tr><th scope="row">Normal, 12</th><td>0</td><td>4</td><td>8</td><td>$0.329</td><td>$0.113</td></tr>
+          <tr><th scope="row">Hard, 6</th><td>0</td><td>6</td><td>0</td><td>$1.164</td><td>$1.164</td></tr>
+          <tr><th scope="row">All 30</th><td>0</td><td>11</td><td>19</td><td>$1.620</td><td>$1.306</td></tr>
+        </tbody>
+      </table></div>
+      <p class="note">A tie or an Opus win can still count as doing the job: the grader says which answer is better, then whether the worse one would still do. Median time against Opus medium: easy 4.1 s on Opus and 4.4 s through effortless, normal 9.4 s and 6.5 s. Cost is list-price dollars per answer, not your plan's usage.</p>
+    </details>
+
+    <div class="fix">
+      <div class="label">Fixed along the way</div>
+      <p>The router assumed Opus costs 5 times as much as Sonnet. Measured, it is about 2 times. The fix is in 1.68.3, which is not published yet. With it, the mod stays on your model more often in a warm chat.</p>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="l-h">
+    <div class="label">Read before quoting</div>
+    <h2 id="l-h">Limits</h2>
+    <div class="ruled">
+      <div><div class="label">No chat history</div><p><b>Every prompt starts cold.</b> In a real chat the context is already cached, and moving a prompt to another model means writing that context into the other model's cache. From a warm Opus chat that costs more than staying put, so in a long chat the mod mostly stays on your model and saves less than shown here.</p></div>
+      <div><div class="label">Labels, not the live judge</div><p>Benchmark 2 routes by the label in the case file. How often the live judge agrees with those labels is benchmark 1.</p></div>
+      <div><div class="label">One run, one grader</div><p>One run per baseline, graded by a model from the same family as the baseline, so it may favour Opus-style answers. Run it twice before quoting a close number.</p></div>
+      <div><div class="label">Small and short</div><p>30 prompts, none of them long agentic sessions with tools. Cost is list price per answer, not your plan's usage.</p></div>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="r-h">
+    <h2 id="r-h">Run it yourself</h2>
+    <div class="run">
+      <div><div class="label">Benchmark 1</div><p>In Claude Code, with effortless installed:</p><code>/effortless bench</code></div>
+      <div><div class="label">Benchmark 2</div><p>From the effortless repo:</p><code>node bench/quality.mjs --base opus:medium</code></div>
+    </div>
+    <p class="note">Every number on this page comes from <code>bench/RESULTS.md</code>, with the details per prompt in <code>bench/results/</code>.</p>
+  </section>
+</main>
+</body>
+</html>
