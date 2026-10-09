@@ -11,7 +11,7 @@ one row per step, so nobody has to open ⚙ to get effortless set the way they l
 | 2/4 lean | On close calls, lean cheaper or smarter? | five-stop slider, Next |
 | 3/4 handoff | ⇥ at the bottom moves the chat to a fresh one. Full handoff by: | skill picker, Next |
 | 4/4 footer | Show these (all recommended): | checkbox + name for Cache timer, ⇥ Handoff and Progress bar (on: white box, black tick; off: outlined box), Next |
-| done | ⏻ at the bottom turns Auto on or off, ⚙ changes all this. Auto pauses on Fable. | Done |
+| done | ● at the bottom turns Auto on or off (○ while off), ⚙ changes all this. Auto pauses on Fable. | Done |
 
 - Back on every step but the first; ✕ closes the guide.
 - Choices are held in a draft and saved together at Done or ✕ (each saved setting reloads the plugin and the app posts a notice in the chat). Alert bands are not in the setup; ⚙ switches them.
