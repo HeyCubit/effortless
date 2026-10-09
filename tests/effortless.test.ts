@@ -141,6 +141,22 @@ describe('auto', () => {
     expect(sent[0]).toEqual({ model: 'claude-opus-5-5', effort: 'low' })
   })
 
+  test('Auto switched off: the app effort goes out, not the pick the judge made while Auto was on', async ($, on) => {
+    engine(on)
+    on('model.complete', () => ({ value: { isAnswered: true as const, text: '{"model":"opus","effort":"low","why":"tiny"}', usage: USAGE } }))
+    const sent = recordSteps(on)
+    await $.prompt.submit({ text: 'rename this one variable for me', wait: false, origin: { kind: 'composer' } })
+    await step($, 'xhigh')
+    expect(sent[0].effort).toBe('low')
+    // Auto off, the app still on Extra (no change the mod could see): Extra goes out, not the judge's old low.
+    await $.command.run({ command: 'effortless', args: 'auto' })
+    await step($, 'xhigh')
+    expect(sent[1].effort).toBe('xhigh')
+    await $.prompt.submit({ text: 'now plan the whole architecture', wait: false, origin: { kind: 'composer' } })
+    await step($, 'xhigh')
+    expect(sent[2].effort).toBe('xhigh')
+  })
+
   test('routeWorth: a switch to a cold model pays only when it still comes out cheaper', () => {
     const big = 100_000
     // Opus chat, cache warm: a cold Sonnet writes the whole chat and costs more; a warm Sonnet is far cheaper.
@@ -2783,6 +2799,25 @@ describe('dashboard', () => {
     band = await $.ui.mount(DESK_BAND)
     expect(await drawn(band)).toContain('"backgroundColor":"#141416"')
     await band.unmount()
+  })
+
+  test('a new chat: Low picked by hand in another chat does not beat the effort the app is on when the first prompt goes', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    on('prompt.read', () => ({ value: { text: '', cursor: 0 } }) as never)
+    on('prompt.fill', () => ({ isFilled: true }) as never)
+    const sent = recordSteps(on)
+    await start($, on)
+    await closeSetup($, DESK_BAND)
+    // The other chat: Low picked by hand in effortless, so Auto went off and the pick is kept for the next chat.
+    const rows = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND } as never)
+    await rows.press({ key: 'e-low' })
+    await rows.unmount()
+    // A new chat starts from that; the person sets the app to Extra before the first prompt goes.
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    await $.prompt.submit({ text: 'plan the architecture of the trainer', wait: false, origin: { kind: 'composer' } })
+    await step($, 'xhigh')
+    expect(sent.at(-1)!.effort).toBe('xhigh')
   })
 
   test('a thank-you after a cheaper answer is not a redo', async ($, on) => {

@@ -1042,6 +1042,8 @@ async function proof($: EngineInterface, line: string) {
 // rewrites the request, never the setting). It changing means the person set it (the app's Effort
 // control, their own /effort): that wins and Auto goes off.
 let engineEffort: string | undefined
+// The pick was carried over from the last chat (the store), not made in this one: the app's effort may overrule it.
+let pickCarried = false
 // The slash command this mod last typed into the prompt box.
 let lastTyped = ''
 // The toast about pressing Enter is shown once; on every click it is only noise.
@@ -2072,6 +2074,7 @@ async function toggleAutoEffort($: EngineInterface) {
 }
 
 async function choose($: EngineInterface, next: Pick | null) {
+  pickCarried = false
   const before = await read($, pick)
   await Promise.all([update($, pick, () => next), $.store.set('pick', next)])
   // A change Auto made is shown as "Low → High" for a moment, so the switch is seen.
@@ -3637,7 +3640,7 @@ export const register: Register = (on, options) => {
       typeof storedAuto === 'boolean' ? update($, isAuto, () => storedAuto) : null,
       typeof storedAutoModel === 'boolean' ? update($, isAutoModel, () => storedAutoModel) : null,
       // Auto off means the effort you chose should still be the one in force.
-      storedAuto === false && storedPick && EFFORTS.includes(storedPick.effort) ? update($, pick, () => storedPick) : null,
+      storedAuto === false && storedPick && EFFORTS.includes(storedPick.effort) ? update($, pick, () => storedPick).then(() => { pickCarried = true }) : null,
       // The first time the mod runs, the setup guide opens above the prompt.
       setupDone !== true ? update($, setupStep, () => 'pick').then(() => update($, setupPending, () => true)) : null,
     ])
@@ -3999,7 +4002,10 @@ Saved to ${out}.md and .json` }
       engineEffort = seen
       // The first effort seen is the app's setting; a change the mod did not make is the person's.
       if (isFirst || isByPerson) await update($, appEffort, () => seen)
-      if (isByPerson) {
+      // A new chat with Auto off starts from the pick kept from the last chat; the effort the app is on now is the
+      // person's (they may have set it before this first prompt), so it wins. A pick made in this chat stays.
+      const takesApp = isFirst && pickCarried && !(await read($, isAuto)) && (await read($, pick))?.effort !== seen
+      if (isByPerson || takesApp) {
         await update($, isAuto, () => false)
         await $.store.set('isAuto', false)
         await choose($, { model: await sessionModel($), effort: seen, why: 'your pick in the app', by: 'manual' })
@@ -4020,6 +4026,9 @@ Saved to ${out}.md and .json` }
     const p = e.agentId === undefined ? await read($, pick) : null
     // Haiku takes no effort: decided by the model this request names, never by a stored pick.
     if (!p || keyOf(e.model) === 'haiku' || !cacheSafe(e.model)) return yield* send(e)
+    // Auto off: the app's own effort goes out. A pick the judge made while Auto was on is not the person's choice, and
+    // with the app already on the effort they want, the mod would never see a change to give way to.
+    if (p.by !== 'manual' && !(await read($, isAuto))) return yield* send(e)
     if (e.agentId === undefined) void proof($, `request ${e.index} (${e.model}): effort ${e.effort ?? 'none'} -> ${p.effort}`)
     const result = yield* send({ ...e, effort: p.effort })
     // Only requests Auto steered count.
