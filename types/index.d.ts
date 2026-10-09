@@ -12,6 +12,9 @@ export type Spent = {
   byEffort: Partial<Record<Effort, { prompts: number; cost: number }>>
   /** How often each judge decided, the time it took in all (ms), and its tokens. */
   judge: { jev: number; haiku: number; ms: number; tokens: number }
+  /** Prompts that ran on a cheaper model than the chat's, and how many of those the person then redid. */
+  moved: number
+  redone: number
 }
 
 /** What the next turn runs with, and who decided it. */

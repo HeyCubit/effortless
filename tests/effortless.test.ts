@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { routeWorth, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { setTheme, themedSvg, tint, tintHex } from '../hooks/theme'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
@@ -2614,6 +2614,93 @@ describe('dashboard', () => {
     expect(sent.at(-1)).toBe('claude-opus-5-5')
     await ask('{"model":"sonnet","effort":"low","why":"small fix"}', 'fix the typo in the log line')
     expect(sent.at(-1)).toBe('claude-sonnet-5-5')
+  })
+
+  test('looksLikeRedo: a correction after a cheaper answer, not a thank-you or a new task', () => {
+    for (const yes of ["no, that's wrong", 'Nope. still fails on line 3', 'wrong, it is the other file', "that doesn't work", 'still broken', 'try again please', 'funkar inte', 'fel, det ska vara src', 'inte rätt', "it still doesn't compile"])
+      expect(looksLikeRedo(yes)).toBe(true)
+    for (const no of ['no problem, thanks', 'nothing else to fix', 'now add a test for it', 'looks right, ship it', 'what does this function do', 'normal', 'felsök det här', 'ok'])
+      expect(looksLikeRedo(no)).toBe(false)
+  })
+
+  test('a redone cheaper answer: the retry and the next prompts stay on the chat model, and stats count it', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    on('session.usage', () => ({ value: { context: { tokens: 100_000, window: 1_000_000, percent: 10 } } }) as never)
+    let verdict = '{"model":"opus","effort":"high","why":"big refactor"}'
+    on('model.complete', () => ({ value: { isAnswered: true as const, text: verdict, usage: USAGE } }))
+    const sent: string[] = []
+    const used = { input_tokens: 5, output_tokens: 40, cache_read_input_tokens: 90_000, cache_creation_input_tokens: 10_000, cache_creation: { ephemeral_1h_input_tokens: 10_000 } }
+    on('turn.step', async function* (_$, e) {
+      sent.push(e.model)
+      return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: used } as never
+    })
+    await start($, on)
+    await closeSetup($, DESK_BAND)
+    await mocked.advance(16_000)
+    const HAIKU = '{"model":"haiku","effort":"low","why":"lookup"}'
+    const ask = async (v: string, text: string) => {
+      verdict = v
+      await $.prompt.submit({ text, wait: false, origin: { kind: 'composer' } })
+      await step($)
+    }
+    await ask('{"model":"opus","effort":"high","why":"big refactor"}', 'refactor the whole auth layer')
+    await ask(HAIKU, 'what is the folder called')
+    expect(sent.at(-1)).toBe('claude-haiku-5-5')
+    // The person says it was wrong: the retry runs on Opus, and so do the next ones, though the judge still says Haiku.
+    await ask(HAIKU, "no that's wrong, it is the src folder")
+    expect(sent.at(-1)).toBe('claude-opus-5-5')
+    for (let i = 1; i < REDO_STAY_PROMPTS; i++) {
+      await ask(HAIKU, `which file holds the config number ${i}`)
+      expect(sent.at(-1)).toBe('claude-opus-5-5')
+    }
+    await ask(HAIKU, 'what is the folder for the tests')
+    expect(sent.at(-1)).toBe('claude-haiku-5-5')
+    const stats = String((await $.command.run({ command: 'effortless', args: 'stats' })).text)
+    expect(stats).toContain('Cheaper model: 2 prompts moved down, 1 redone (50 %)')
+  })
+
+  test('a thank-you after a cheaper answer is not a redo', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    on('session.usage', () => ({ value: { context: { tokens: 100_000, window: 1_000_000, percent: 10 } } }) as never)
+    let verdict = '{"model":"opus","effort":"high","why":"big refactor"}'
+    on('model.complete', () => ({ value: { isAnswered: true as const, text: verdict, usage: USAGE } }))
+    const sent: string[] = []
+    const used = { input_tokens: 5, output_tokens: 40, cache_read_input_tokens: 90_000, cache_creation_input_tokens: 10_000, cache_creation: { ephemeral_1h_input_tokens: 10_000 } }
+    on('turn.step', async function* (_$, e) {
+      sent.push(e.model)
+      return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: used } as never
+    })
+    await start($, on)
+    await closeSetup($, DESK_BAND)
+    await mocked.advance(16_000)
+    const HAIKU = '{"model":"haiku","effort":"low","why":"lookup"}'
+    const ask = async (v: string, text: string) => {
+      verdict = v
+      await $.prompt.submit({ text, wait: false, origin: { kind: 'composer' } })
+      await step($)
+    }
+    await ask('{"model":"opus","effort":"high","why":"big refactor"}', 'refactor the whole auth layer')
+    await ask(HAIKU, 'what is the folder called')
+    await ask(HAIKU, 'no problem, now what is the tests folder called')
+    expect(sent.at(-1)).toBe('claude-haiku-5-5')
+    expect(String((await $.command.run({ command: 'effortless', args: 'stats' })).text)).toContain('0 redone')
+  })
+
+  test('the bench report says whether low confidence predicts a miss, and which models the judges picked', () => {
+    const cases = [
+      { id: 'a', kind: 'k', current: { model: 'sonnet', effort: 'medium', why: '', by: 'manual' }, message: 'x', ok: ['low'] },
+      { id: 'b', kind: 'k', current: { model: 'sonnet', effort: 'medium', why: '', by: 'manual' }, message: 'y', ok: ['high'] },
+      { id: 'c', kind: 'k', current: { model: 'sonnet', effort: 'medium', why: '', by: 'manual' }, message: 'z', ok: ['medium'] },
+    ] as never
+    const report = benchReport(cases, [
+      { id: 'a', judge: 'haiku', effort: 'low', sure: 0.95, model: 'haiku', ms: 1, tokens: 1 },
+      { id: 'b', judge: 'haiku', effort: 'low', sure: 0.5, model: 'sonnet', ms: 1, tokens: 1 },
+      { id: 'c', judge: 'haiku', effort: 'medium', sure: 0.9, model: 'sonnet', ms: 1, tokens: 1 },
+    ] as never)
+    expect(report).toContain('| haiku (3 with a score) | 93% | 50% | 1 of 1 | 1 of 1 | 1 | 1 |')
+    expect(report).toContain('| haiku | 1 | 2 | 0 | 0 |')
   })
 
   test("its lines: the effort, cache and context; the judge's reason and the last reply", () => {

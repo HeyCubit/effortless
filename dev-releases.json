@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.68.2",
+    "date": "2026-10-09",
+    "note": "Redo detection for cheaper answers, and measure how sure the judge is"
+  },
+  {
     "version": "1.68.1",
     "date": "2026-10-09",
     "note": "Cherry blossom petals only on the pink art"

@@ -55,7 +55,7 @@ const EFFORT_LABELS: Record<Effort, string> = { low: 'Low', medium: 'Medium', hi
 const isAuto = atom({ plugin: 'effortless', key: 'isAuto' } as const, true)
 const JEV_TIMEOUT_MS = 3000
 const JEV_URL = 'https://api.typesafe.ai/v1/systemone'
-const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, read: 0, out: 0, byEffort: {}, judge: { jev: 0, haiku: 0, ms: 0, tokens: 0 } }
+const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, read: 0, out: 0, byEffort: {}, judge: { jev: 0, haiku: 0, ms: 0, tokens: 0 }, moved: 0, redone: 0 }
 const SWITCHED_MS = 2500
 // The prompt cache lives this long after the last request read or wrote it. A response may say which lifetime its
 // cache writes got (usage.cache_creation: ephemeral_1h / ephemeral_5m); until one does, 1 hour is assumed: 99% of
@@ -834,7 +834,7 @@ async function checkHandoff($: EngineInterface, next: string) {
 // The judge benchmark (/effortless bench): labelled prompts in bench/judge-cases.json, each run through the same
 // pipeline a real prompt takes (a short follow-up keeps the current effort, anything else goes to a judge).
 export type BenchCase = { id: string; kind: string; holdout?: boolean; current: Pick; context?: string; message: string; ok: Effort[] }
-export type BenchAnswer = { id: string; judge: string; effort?: Effort; by?: string; why?: string; ms: number; tokens: number }
+export type BenchAnswer = { id: string; judge: string; effort?: Effort; by?: string; why?: string; sure?: number; model?: ModelKey; ms: number; tokens: number }
 
 /** Where an answer lands against the labels: right, too low (risks quality), too high (wastes), or no answer. */
 export function benchGrade(c: BenchCase, effort: Effort | undefined): 'hit' | 'under' | 'over' | 'none' {
@@ -886,6 +886,26 @@ export function benchReport(cases: BenchCase[], answers: BenchAnswer[]): string 
     })
     lines.push(`| ${k} (${ids.length}) | ${cells.join(' | ')} |`)
   }
+  // Does "unsure" predict a miss? The Smarter lean and the cheaper-model guard both act on it, so it is measured here.
+  const judged = judges.filter(j => !j.startsWith('always'))
+  const sureLines = ['', '| Judge | Sure when right | Sure when wrong | Misses under 65% sure | Misses under 85% sure | Answers under 65% | Answers under 85% |', '| --- | --- | --- | --- | --- | --- | --- |']
+  for (const j of judged) {
+    const mine = answers.filter(a => a.judge === j && a.effort && typeof a.sure === 'number')
+    if (!mine.length) continue
+    const wrong = mine.filter(a => benchGrade(byId.get(a.id)!, a.effort) !== 'hit')
+    const right = mine.filter(a => benchGrade(byId.get(a.id)!, a.effort) === 'hit')
+    const avg = (xs: BenchAnswer[]) => (xs.length ? `${Math.round((xs.reduce((t, a) => t + a.sure!, 0) / xs.length) * 100)}%` : '-')
+    const under = (xs: BenchAnswer[], t: number) => xs.filter(a => a.sure! < t).length
+    sureLines.push(`| ${j} (${mine.length} with a score) | ${avg(right)} | ${avg(wrong)} | ${under(wrong, 0.65)} of ${wrong.length} | ${under(wrong, 0.85)} of ${wrong.length} | ${under(mine, 0.65)} | ${under(mine, 0.85)} |`)
+  }
+  const pickLines = ['', '| Judge | Haiku | Sonnet | Opus | Other |', '| --- | --- | --- | --- | --- |']
+  for (const j of judged) {
+    const mine = answers.filter(a => a.judge === j && a.model)
+    if (!mine.length) continue
+    const n = (k: string) => mine.filter(a => a.model === k).length
+    pickLines.push(`| ${j} | ${n('haiku')} | ${n('sonnet')} | ${n('opus')} | ${mine.length - n('haiku') - n('sonnet') - n('opus')} |`)
+  }
+  lines.push(...(sureLines.length > 3 ? sureLines : []), ...(pickLines.length > 3 ? pickLines : []))
   const misses = answers
     .filter(a => !a.judge.startsWith('always') && benchGrade(byId.get(a.id)!, a.effort) !== 'hit')
     .map(a => `- ${a.judge}${a.by && a.by !== a.judge ? ` (via ${a.by})` : ''} ${a.id}: said ${a.effort ?? 'nothing'}${a.why ? ` (${a.why})` : ''}, wanted ${byId.get(a.id)!.ok.join('/')}: "${byId.get(a.id)!.message.slice(0, 60)}"`)
@@ -923,7 +943,7 @@ async function runBench($: EngineInterface, cases: BenchCase[]): Promise<BenchAn
       }
       const started = await $.clock.now()
       const got = await ask(c).catch(() => undefined)
-      answers.push({ id: c.id, judge: name, effort: got?.verdict?.effort, by: got?.verdict?.by, why: got?.verdict?.why, ms: (await $.clock.now()) - started, tokens: got?.tokens ?? 0 })
+      answers.push({ id: c.id, judge: name, effort: got?.verdict?.effort, by: got?.verdict?.by, why: got?.verdict?.why, sure: got?.verdict?.sure, model: got?.verdict?.model, ms: (await $.clock.now()) - started, tokens: got?.tokens ?? 0 })
     }
   }
   await Promise.all([worker(), worker(), worker(), worker()])
@@ -1057,6 +1077,8 @@ export function asSpent(t: unknown): Spent {
     out: num(v.out),
     byEffort: v.byEffort && typeof v.byEffort === 'object' ? v.byEffort : {},
     judge: { jev: num(judged.jev), haiku: num(judged.haiku), ms: num(judged.ms), tokens: num(judged.tokens) },
+    moved: num(v.moved),
+    redone: num(v.redone),
   }
 }
 
@@ -1265,6 +1287,16 @@ export function resetLabel(iso: string | null, now: number): string {
   const at = new Date(iso)
   const hm = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
   return at.getTime() - now < 20 * 3600_000 ? hm : `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][at.getDay()]} ${hm}`
+}
+
+/**
+ * A message that says the last answer was wrong or did not work. After a prompt ran on a cheaper model, this is the
+ * signal the cheaper model missed: the retry and the next few prompts stay on the chat's own model.
+ */
+const REDO_RE = /^(no|nope|nah)(?![a-z'])(?! +(problem|worries|thanks|thank|need|rush|hurry))|^(that'?s |this is |it'?s )?(wrong|incorrect|not (right|correct|what i))|^(it |that |this )?(still )?(doesn'?t|didn'?t|isn'?t|does not|did not|is not) (work|fix|help|change|run|compile|pass)|^still (not|broken|wrong|failing|fails|the same|happening|doesn'?t)|^(not working|try again|do it again|redo|you missed|you forgot|you broke)|^(fel|inte rätt|funkar inte|fungerar inte|försök igen|gör om|det är fel)(?![a-zåäö])|(still (broken|wrong|failing)|try again|funkar fortfarande inte)/i
+export const REDO_STAY_PROMPTS = 4
+export function looksLikeRedo(text: string): boolean {
+  return REDO_RE.test(text.trim().replace(/^["'“ ]+/, ''))
 }
 
 /**
@@ -1961,7 +1993,7 @@ const share = (part: number, whole: number) => `${Math.round((part / whole) * 10
 export function savedText(raw: Spent): string {
   const t = asSpent(raw)
   const judged = t.judge.jev + t.judge.haiku
-  if (t.prompts === 0 && judged === 0) return 'nothing measured yet'
+  if (t.prompts === 0 && judged === 0 && t.moved === 0) return 'nothing measured yet'
   const input = t.input * WEIGHT.input
   const write = t.write * WEIGHT.write
   const cached = t.read * WEIGHT.read
@@ -1976,6 +2008,9 @@ export function savedText(raw: Spent): string {
     return `${EFFORT_LABELS[e]} ${b.prompts}, average ${tokens(Math.round(b.cost / b.prompts))}`
   })
   if (per.length) lines.push(`Per prompt: ${per.join('; ')}`)
+  if (t.moved) {
+    lines.push(`Cheaper model: ${t.moved} prompt${t.moved === 1 ? '' : 's'} moved down, ${t.redone} redone (${share(t.redone, t.moved)})`)
+  }
   if (judged) {
     lines.push(`Judge: Jev ${t.judge.jev}, Haiku ${t.judge.haiku}, average ${Math.round(t.judge.ms / judged)} ms, ${tokens(t.judge.tokens)} tokens in all`)
   }
@@ -2165,6 +2200,8 @@ const HANDOFF_POLL_MS = 1000
 // own model stays as it is: each request is sent to the cheaper model in turn.step, so the chat model's cache stays warm
 // for the next prompt that needs it.
 let routed: ModelKey | null = null
+// Prompts left that stay on the chat's model, after a cheaper answer was redone.
+let stayUp = 0
 const MODEL_RANK: ModelKey[] = ['haiku', 'sonnet', 'opus', 'fable']
 /** The model a verdict sends this prompt to: a cheaper one than the chat's, or null for the chat's own. Never Fable. */
 export function routeTo(verdict: ModelKey, inUse: ModelKey): ModelKey | null {
@@ -3863,12 +3900,25 @@ Saved to ${out}.md and .json` }
         // A prompt the judge calls simple runs on a cheaper model; a message typed mid-turn leaves the running choice.
         if (!midTurn) {
           let to = wantsEffort && config.modelAuto === 'on' ? routeTo(verdict.model, inUse) : null
+          // The last prompt ran on a cheaper model and this one says it was wrong: that is a miss. The retry runs on the
+          // chat's own model, and so do the next few prompts.
+          if (routed && looksLikeRedo(e.text)) {
+            stayUp = REDO_STAY_PROMPTS
+            await update($, saved, old => ({ ...asSpent(old), redone: asSpent(old).redone + 1 }))
+            void proof($, `redo after ${routed}: the next ${REDO_STAY_PROMPTS} prompts stay on ${inUse}`)
+          }
+          if (stayUp > 0) {
+            stayUp--
+            if (to) void proof($, `stays on ${inUse}: a cheaper answer was just redone (${stayUp} more)`)
+            to = null
+          }
           // A switch to a model whose cache is cold writes the whole chat to it: stay when that costs more than it saves.
           const now = await $.clock.now().catch(() => Date.now())
           if (to && !routeWorth(to, inUse, lastContext?.tokens ?? 0, { to: isWarm(to, now), inUse: !(cacheExpires > 0 && now >= cacheExpires) })) {
             void proof($, `stays on ${inUse}: ${to} has a cold cache, switching would cost more`)
             to = null
           }
+          if (to) await update($, saved, old => ({ ...asSpent(old), moved: asSpent(old).moved + 1 }))
           if (to !== routed) {
             routed = to
             void proof($, to ? `this prompt runs on ${to} (the chat is on ${inUse})` : `back on ${inUse}`)
