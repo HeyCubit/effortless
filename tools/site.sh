@@ -8,7 +8,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-pages=(site/index.html site/whats-new/index.html site/report/index.html)
+pages=(site/index.html site/whats-new/index.html site/report/index.html site/bench/index.html)
 node site/src/build.mjs
 git fetch -q origin
 [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "site stopped: main is not in step with origin/main" >&2; exit 1; }

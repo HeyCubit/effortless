@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Benchmarks · effortless</title>
+<meta name="description" content="How often the effortless judge picks the right effort, and whether the cheaper model's answer holds up against Opus. Small runs, limits included.">
+<link rel="canonical" href="https://heycubit.github.io/effortless/bench/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="effortless">
+<meta property="og:title" content="effortless benchmarks">
+<meta property="og:description" content="Is the judge right, and does the cheaper answer hold up against Opus? Tables, what worked, what did not, and the limits.">
+<meta property="og:url" content="https://heycubit.github.io/effortless/bench/">
+<meta property="og:image" content="https://heycubit.github.io/effortless/og.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="effortless benchmarks">
+<meta name="twitter:description" content="Is the judge right, and does the cheaper answer hold up against Opus? Tables, what worked, what did not, and the limits.">
+<meta name="twitter:image" content="https://heycubit.github.io/effortless/og.png">
+<meta name="theme-color" content="#121214">
+<link rel="icon" href="__ICON__">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500&display=swap" rel="stylesheet">
+<style>
+/* Benchmarks: the numbers from bench/RESULTS.md, with the limits in plain sight. One data block at the bottom draws the
+   charts; the tables carry the same numbers for anyone who wants them exact. Series colours are validated for this
+   dark page: violet is "against Opus high", aqua is "against Opus medium". */
+:root{--page:#121214;--panel:#17171b;--line:#2a2a2f;--text:#ececef;--muted:#9a9aa4;--dim:#82828c;--accent:#a79cf7;--hi:#9085e9;--md:#199e70;--neg:#d95926;--base:#4a4a52;--sans:Inter,"Segoe UI",system-ui,-apple-system,sans-serif;--display:Outfit,Inter,"Segoe UI",system-ui,sans-serif;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--text);font:15px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.top{max-width:880px;margin:0 auto;padding:22px 24px 0;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.name{display:inline-flex;align-items:center;gap:10px;font:500 23px var(--display);letter-spacing:-.01em;text-decoration:none}
+.name .spark{width:44px;height:44px;margin:-8px -3px -8px -8px}
+.back{color:var(--muted);text-decoration:none;font-size:15.5px}
+.back:hover{color:var(--text)}
+main{max-width:880px;margin:0 auto;padding:64px 24px 96px}
+h1{margin:0;font:500 clamp(32px,4.4vw,46px)/1.1 var(--display);letter-spacing:-.02em;color:#f4f2ff}
+.intro{margin:16px 0 0;max-width:40em;color:#c9c5d8;font-size:17px}
+h2{margin:72px 0 6px;font:500 clamp(24px,3vw,30px)/1.2 var(--display);letter-spacing:-.015em;color:#f4f2ff}
+h2 small{display:block;margin-top:6px;font:400 15px/1.5 var(--sans);color:var(--muted);letter-spacing:0}
+p{margin:12px 0 0;color:#cfcbdc}
+code,kbd{font:13.5px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;padding:1px 6px;border-radius:5px;background:#24232a;color:var(--text)}
+
+/* The short answer: three numbers against Opus medium. */
+.verdict{margin-top:36px;padding:22px 24px;border-radius:14px;background:var(--panel);border:1px solid var(--line)}
+.verdict h3{margin:0;font:500 18px var(--display);color:#f4f2ff}
+.verdict p{margin:8px 0 0;color:var(--muted);font-size:14.5px}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}
+.tile{padding:14px 16px;border-radius:10px;background:#1e1d23}
+.tile b{display:block;font:500 30px/1.1 var(--display);color:#f4f2ff;font-variant-numeric:tabular-nums}
+.tile span{display:block;margin-top:6px;color:var(--muted);font-size:13.5px;line-height:1.4}
+
+/* Charts: thin bars, value labels in text colours, one recessive zero line. */
+.chart{margin-top:22px;padding:20px 20px 16px;border-radius:14px;background:var(--panel);border:1px solid var(--line)}
+.chart h3{margin:0 0 4px;font:500 16px var(--sans);color:#e6e3f0}
+.chart .sub{margin:0 0 14px;color:var(--muted);font-size:13.5px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0 0 12px;color:#cfcbdc;font-size:13.5px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:7px;vertical-align:-1px}
+.rows{display:grid;gap:12px}
+.row{display:grid;grid-template-columns:8.5em minmax(0,1fr);align-items:center;gap:12px}
+.row .lab{color:#d9d6e4;font-size:14px;line-height:1.3}
+.row .lab small{display:block;color:var(--dim);font-size:12.5px}
+.track{position:relative;display:grid;gap:4px}
+.bar{position:relative;height:22px}
+.bar .fill{position:absolute;top:0;bottom:0;border-radius:0 4px 4px 0}
+.bar .fill.neg{border-radius:4px 0 0 4px}
+.bar .val{position:absolute;top:50%;transform:translateY(-50%);font-size:13px;font-weight:600;color:#ecebf1;white-space:nowrap;font-variant-numeric:tabular-nums}
+.zero{position:absolute;top:-4px;bottom:-4px;width:1px;background:#3a3a42}
+.scale{display:grid;grid-template-columns:8.5em minmax(0,1fr);gap:12px;margin-top:8px;color:var(--dim);font-size:12px;font-variant-numeric:tabular-nums}
+.scale div{position:relative;height:14px}
+.scale div span{position:absolute;transform:translateX(-50%)}
+.bar:hover .fill,.bar:focus .fill{filter:brightness(1.18)}
+.bar:focus{outline:none}
+.bar:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.detail{min-height:3.1em;margin:14px 0 0;padding:9px 12px;border-radius:8px;background:#1e1d23;color:var(--muted);font-size:13.5px;line-height:1.45}
+.detail b{color:var(--text)}
+.bar.sel .fill{filter:brightness(1.22)}
+
+/* Tables: the exact numbers. They scroll sideways on a phone instead of squeezing. */
+.tbl{margin-top:16px;overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px;border:1px solid var(--line)}
+table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums;min-width:640px}
+caption{caption-side:top;text-align:left;padding:12px 14px 4px;color:#e6e3f0;font-weight:600}
+th,td{padding:9px 14px;text-align:right;border-top:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left;white-space:normal;min-width:8.5em}
+thead th{color:var(--muted);font-weight:500;font-size:13px;border-top:0}
+tbody tr:last-child td{font-weight:600;color:#f4f2ff}
+.tbl.small table{min-width:420px}
+
+/* What worked, what did not, what got fixed. */
+.cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:22px}
+.col{padding:18px 18px 16px;border-radius:14px;background:var(--panel);border:1px solid var(--line)}
+.col h3{margin:0;display:flex;align-items:center;gap:8px;font:500 16px var(--sans);color:#f4f2ff}
+.col h3 i{width:9px;height:9px;border-radius:50%}
+.col ul{margin:10px 0 0;padding-left:18px;color:#cfcbdc;font-size:14.5px}
+.col li{margin-top:7px}
+.col.ok h3 i{background:var(--md)}
+.col.no h3 i{background:var(--neg)}
+.col.fix h3 i{background:var(--hi)}
+
+/* The limits stay on the page, not in a footnote. */
+.limits{margin-top:18px;padding:18px 22px;border-radius:14px;background:#1c1914;border:1px solid #3a3226}
+.limits ul{margin:0;padding-left:18px;color:#e2d8c6;font-size:14.5px}
+.limits li{margin-top:8px}
+.limits li:first-child{margin-top:0}
+.run{margin-top:16px;display:grid;gap:10px}
+.run div{padding:14px 16px;border-radius:12px;background:var(--panel);border:1px solid var(--line)}
+.run b{display:block;margin-bottom:6px;font-weight:600;color:#e6e3f0}
+.note{margin-top:14px;color:var(--dim);font-size:13.5px}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+@media (max-width:760px){.cols{grid-template-columns:minmax(0,1fr)}.tiles{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:560px){.top{padding:16px 16px 0}main{padding:44px 16px 72px}.row,.scale{grid-template-columns:6.4em minmax(0,1fr)}.chart{padding:16px 14px 14px}h2{margin-top:56px}}
+@media (max-width:360px){.row,.scale{grid-template-columns:5.2em minmax(0,1fr);gap:8px}.row .lab{font-size:13px}.bar .val{font-size:12px}}
+@media (pointer:coarse){.back{display:inline-flex;align-items:center;min-height:44px}.name{min-height:44px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="name" href="../">__SPARK__effortless</a>
+  <a class="back" href="../">Back to the site</a>
+</header>
+<main>
+  <h1>Benchmarks</h1>
+  <p class="intro">Two benchmarks anyone with the plugin and the <code>claude</code> CLI can run. Neither is a lab result: small prompt sets, one run, one grader. The limits are further down, and they matter.</p>
+
+  <section class="verdict" aria-labelledby="v-h">
+    <h3 id="v-h">Does it beat Opus at medium effort?</h3>
+    <p>Not across the board. It matches Opus medium on time, is good enough in 9 of 10 answers, and costs a little less on this mix. It saves much more when most of your prompts are simple.</p>
+    <div class="tiles">
+      <div class="tile"><b>7%</b><span>cheaper than Opus medium across 30 prompts</span></div>
+      <div class="tile"><b>90%</b><span>of answers good enough, by a blind grader</span></div>
+      <div class="tile"><b>6.4 s</b><span>median answer time, against 7.4 s for Opus medium</span></div>
+    </div>
+  </section>
+
+  <h2 id="judge">1. Is the judge right?<small>73 hand-labelled prompts, 20 of them held out. Right means the effort a careful person would accept.</small></h2>
+  <div class="chart" role="group" aria-labelledby="c1-h">
+    <h3 id="c1-h">Prompts where the judge picked an acceptable effort</h3>
+    <p class="sub">Grey bars are the fixed choices for comparison.</p>
+    <div class="rows" id="c1"></div>
+    <div class="scale" aria-hidden="true"><span></span><div id="c1s"></div></div>
+    <p class="detail" id="d1" aria-live="polite">Hover or tap a bar for its held-out score.</p>
+  </div>
+  <div class="tbl small"><table>
+    <caption>Judge accuracy</caption>
+    <thead><tr><th scope="col">Judge</th><th scope="col">Right</th><th scope="col">Held out</th></tr></thead>
+    <tbody id="t1"></tbody>
+  </table></div>
+  <p class="note">Prompts and labels: <code>bench/judge-cases.json</code>. Version 1.5.1 of the judge.</p>
+
+  <h2 id="quality">2. Does the cheaper answer hold up?<small>30 self-contained prompts. Each is answered by Opus and by the model a router would pick: Haiku low for easy, Sonnet medium for normal, Opus high for hard. A blind grader (Opus, high effort, answers in random order) says which is better and whether the worse one would still do the job.</small></h2>
+  <div class="chart" id="cost" role="group" aria-labelledby="c2-h">
+    <h3 id="c2-h">Cost saved by routing, per kind of prompt</h3>
+    <p class="sub">Below zero costs more. Hard prompts go to Opus high, so against Opus medium they cost more on purpose.</p>
+    <div class="legend"><span><i style="background:var(--hi)"></i>Against Opus high</span><span><i style="background:var(--md)"></i>Against Opus medium</span></div>
+    <div class="rows" id="c2"></div>
+    <div class="scale" aria-hidden="true"><span></span><div id="c2s"></div></div>
+    <p class="detail" id="d2" aria-live="polite">Hover or tap a bar for the cost in dollars and how often the answer was good enough.</p>
+  </div>
+  <div class="tbl"><table>
+    <caption>Against Opus at high effort</caption>
+    <thead><tr><th scope="col">Prompts</th><th scope="col">Routed better</th><th scope="col">Tie</th><th scope="col">Opus better</th><th scope="col">Good enough</th><th scope="col">Opus cost</th><th scope="col">Routed cost</th><th scope="col">Saved</th></tr></thead>
+    <tbody id="t2h"></tbody>
+  </table></div>
+  <div class="tbl"><table>
+    <caption>Against Opus at medium effort (what most people run)</caption>
+    <thead><tr><th scope="col">Prompts</th><th scope="col">Routed better</th><th scope="col">Tie</th><th scope="col">Opus better</th><th scope="col">Good enough</th><th scope="col">Opus cost</th><th scope="col">Routed cost</th><th scope="col">Saved</th></tr></thead>
+    <tbody id="t2m"></tbody>
+  </table></div>
+  <p class="note">Median time per answer against Opus medium: 7.4 s for Opus, 6.4 s routed (easy 4.1 s vs 4.4 s, normal 9.4 s vs 6.5 s). Routing is not slower, and not meaningfully faster on easy prompts. Run 2026-10-09, one run per baseline. Cost is list-price dollars per answer, not your plan's usage.</p>
+
+  <h2 id="verdicts">3. What worked, and what did not</h2>
+  <div class="cols">
+    <div class="col ok"><h3><i></i>Worked</h3><ul>
+      <li>The judge picks an acceptable effort in 93% (Haiku) to 99% (Jev) of prompts.</li>
+      <li>Normal prompts on Sonnet medium were good enough in all 12, at 60 to 66% less cost.</li>
+      <li>Hard prompts on Opus high were better or tied in 5 of 6 against Opus medium.</li>
+    </ul></div>
+    <div class="col no"><h3><i></i>Did not</h3><ul>
+      <li>Haiku on easy prompts missed 2 to 3 of 12: a shell one-liner that breaks in subfolders, a regex with a wrong explanation, a stiff translation, an async explanation that overclaimed.</li>
+      <li>Against Opus medium the whole mix only saves 7%.</li>
+      <li>The cheaper answer is rarely better. The grader is strict and counts small misses as losses.</li>
+    </ul></div>
+    <div class="col fix"><h3><i></i>Fixed along the way</h3><ul>
+      <li>The router assumed Opus costs 5x Sonnet. Measured, it is about 2x. The fix is in 1.68.3, which is not published yet. With it, the mod stays on your model more often in a warm chat.</li>
+    </ul></div>
+  </div>
+
+  <h2 id="limits">4. Limits</h2>
+  <div class="limits"><ul>
+    <li><b>Prompts start with no chat history.</b> In a real chat the context is already cached. Moving a prompt to another model means writing that context into the other model's cache, and from a warm Opus chat that costs more than staying put. So the savings above are what you get with a small or cold context. In a long warm chat the mod mostly stays on your model, and saves less. This benchmark does not measure that.</li>
+    <li>Routing here follows the label in the case file, not the live judge. How often the live judge agrees with those labels is benchmark 1.</li>
+    <li>One run per baseline and one grader, from the same model family as the baseline, so it may favour Opus-style answers. Run it twice before quoting a close number.</li>
+    <li>30 prompts, none of them long agentic sessions with tools.</li>
+    <li>Cost is the CLI's list-price dollars per answer, not your plan's usage.</li>
+  </ul></div>
+
+  <h2 id="run">5. Run it yourself</h2>
+  <div class="run">
+    <div><b>Is the judge right?</b>In Claude Code with effortless installed: <code>/effortless bench</code></div>
+    <div><b>Does the cheaper answer hold up?</b>From the repo: <code>node bench/quality.mjs --base opus:medium</code></div>
+  </div>
+  <p class="note">Every number on this page comes from <code>bench/RESULTS.md</code> in the effortless repo, with the per-case details in <code>bench/results/</code>.</p>
+</main>
+<script>
+// The numbers, once. Charts and tables are drawn from here so they cannot disagree.
+var JUDGE=[{n:'Always medium',base:true,r:44,h:40},{n:'Always high',base:true,r:51,h:50},{n:'Haiku',r:93,h:95},{n:'Jev',r:99,h:100}];
+var Q={
+  high:[{t:'Easy',c:12,b:0,tie:1,o:11,ge:83,oc:.126,rc:.028,s:78},{t:'Normal',c:12,b:0,tie:4,o:8,ge:100,oc:.329,rc:.113,s:66},{t:'Hard',c:6,note:'same model',b:0,tie:6,o:0,ge:100,oc:1.164,rc:1.164,s:0},{t:'All',c:30,b:0,tie:11,o:19,ge:93,oc:1.620,rc:1.306,s:19}],
+  medium:[{t:'Easy',c:12,b:0,tie:5,o:7,ge:75,oc:.124,rc:.029,s:77},{t:'Normal',c:12,b:1,tie:4,o:7,ge:100,oc:.284,rc:.115,s:60},{t:'Hard',c:6,note:'routed to Opus high',b:2,tie:3,o:1,ge:100,oc:.714,rc:.903,s:-26},{t:'All',c:30,b:3,tie:12,o:15,ge:90,oc:1.121,rc:1.046,s:7}]
+};
+// Hover, focus or tap a bar and its numbers show in the line under its chart. Nothing floats over the other bars.
+function hoverable(el,html,out){el.tabIndex=0;el.setAttribute('role','button');el.setAttribute('aria-label',html.replace(/<br>/g,'. ').replace(/<[^>]+>/g,''));
+  var show=function(){out.innerHTML=html.replace(/<br>/g,' · ');document.querySelectorAll('.bar.sel').forEach(function(b){b.classList.remove('sel')});el.classList.add('sel');};
+  ['mouseenter','focus','click'].forEach(function(e){el.addEventListener(e,show)});}
+function cell(tag,txt){var e=document.createElement(tag);e.textContent=txt;return e}
+function money(v){return '$'+v.toFixed(3)}
+
+// Chart 1: judge accuracy, 0 to 100%.
+(function(){var host=document.getElementById('c1');
+  JUDGE.forEach(function(j){var row=document.createElement('div');row.className='row';
+    var lab=document.createElement('div');lab.className='lab';lab.textContent=j.n;
+    var tr=document.createElement('div');tr.className='track';var bar=document.createElement('div');bar.className='bar';
+    var f=document.createElement('div');f.className='fill';f.style.left='0';f.style.width=(j.r*.86)+'%';f.style.background=j.base?'var(--base)':'var(--hi)';
+    var v=document.createElement('div');v.className='val';v.textContent=j.r+'%';v.style.left='calc('+(j.r*.86)+'% + 8px)';
+    bar.append(f,v);tr.append(bar);row.append(lab,tr);host.append(row);
+    hoverable(bar,'<b>'+j.n+'</b><br>'+j.r+'% right on all 73 prompts<br>'+j.h+'% on the 20 held out',document.getElementById('d1'));
+    var t=document.createElement('tr');t.append(cell('td',j.n),cell('td',j.r+'%'),cell('td',j.h+'%'));document.getElementById('t1').append(t);});
+  var s=document.getElementById('c1s');[0,25,50,75,100].forEach(function(p){var e=cell('span',p+'%');e.style.left=(p*.86)+'%';s.append(e)});})();
+
+// Chart 2: saved per tier, both baselines, on a scale from -30% to +100% with a zero line.
+(function(){var host=document.getElementById('c2'),lo=-30,hi=100,pos=function(v){return (v-lo)/(hi-lo)*100};
+  ['Easy','Normal','Hard','All'].forEach(function(t,i){var row=document.createElement('div');row.className='row';
+    var a=Q.high[i],lab=document.createElement('div');lab.className='lab';lab.textContent=t;var sm=document.createElement('small');sm.textContent=a.c+' prompts';lab.append(sm);
+    var tr=document.createElement('div');tr.className='track';
+    [['high','var(--hi)','Opus high'],['medium','var(--md)','Opus medium']].forEach(function(k){var d=Q[k[0]][i],bar=document.createElement('div');bar.className='bar';
+      var z=document.createElement('div');z.className='zero';z.style.left=pos(0)+'%';
+      var f=document.createElement('div');f.className='fill'+(d.s<0?' neg':'');var x0=pos(Math.min(0,d.s)),x1=pos(Math.max(0,d.s));f.style.left=x0+'%';f.style.width=Math.max(x1-x0,.6)+'%';f.style.background=k[1];
+      var v=document.createElement('div');v.className='val';v.textContent=(d.s>0?'':'')+d.s+'%';v.style.left=d.s<0?'calc('+x0+'% - 3.4em)':'calc('+x1+'% + 8px)';
+      bar.append(z,f,v);tr.append(bar);
+      hoverable(bar,'<b>'+t+' against '+k[2]+'</b>'+(d.note?' ('+d.note+')':'')+'<br>'+money(d.oc)+' on Opus, '+money(d.rc)+' routed: '+(d.s<0?(-d.s)+'% more':d.s+'% saved')+'<br>Good enough: '+d.ge+'%',document.getElementById('d2'));});
+    row.append(lab,tr);host.append(row);});
+  var s=document.getElementById('c2s');[-25,0,25,50,75,100].forEach(function(p){var e=cell('span',p+'%');e.style.left=pos(p)+'%';s.append(e)});
+  ['high','medium'].forEach(function(k){var tb=document.getElementById(k==='high'?'t2h':'t2m');Q[k].forEach(function(d){var r=document.createElement('tr');
+    r.append(cell('td',d.t.toLowerCase()+' ('+d.c+(d.note?', '+d.note:'')+')'),cell('td',d.b),cell('td',d.tie),cell('td',d.o),cell('td',d.ge+'%'),cell('td',money(d.oc)),cell('td',money(d.rc)),cell('td',d.s+'%'));tb.append(r)})});})();
+</script>
+</body>
+</html>
