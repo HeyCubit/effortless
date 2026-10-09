@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.68.10",
+    "date": "2026-10-09",
+    "note": "Say so when the app's effort pick turns Auto off"
+  },
+  {
     "version": "1.68.9",
     "date": "2026-10-09",
     "note": "Model switching off by default"

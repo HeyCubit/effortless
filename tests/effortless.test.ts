@@ -2820,6 +2820,21 @@ describe('dashboard', () => {
     expect(sent.at(-1)!.effort).toBe('xhigh')
   })
 
+  test('picking an effort in the app turns Auto off and says so', async ($, on) => {
+    engine(on)
+    const said: string[] = []
+    on('ui.toast', (_$, e) => {
+      said.push(String((e as { text?: string }).text ?? e))
+      return { value: undefined } as never
+    })
+    const sent = recordSteps(on)
+    await step($, 'high')
+    await step($, 'low')
+    expect(sent.at(-1)!.effort).toBe('low')
+    expect(said.join(' ')).toContain('Auto is off. You picked Low')
+    expect(String((await $.command.run({ command: 'effortless', args: 'auto' })).text)).toContain('Auto on')
+  })
+
   test('/effortless debug says what the app asked for and what was sent', async ($, on) => {
     engine(on)
     const sent = recordSteps(on)

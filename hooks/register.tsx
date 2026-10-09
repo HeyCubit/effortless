@@ -4023,6 +4023,8 @@ Saved to ${out}.md and .json` }
         await $.store.set('isAuto', false)
         await choose($, { model: await sessionModel($), effort: seen, why: 'your pick in the app', by: 'manual' })
         void proof($, `request ${e.index}: you set effort ${seen} yourself, Auto off`)
+        // The app has no event for its effort picker: this is the first request after the pick, so say it plainly.
+        $.ui.toast(`effortless: Auto is off. You picked ${EFFORT_LABELS[seen as Effort] ?? seen}; turn Auto on to hand it back.`)
         return yield* send(e)
       }
     }
