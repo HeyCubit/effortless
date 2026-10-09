@@ -208,6 +208,10 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .pop p{margin:0;color:var(--muted);font-size:14px}
 
 /* ---------- The story: one big chat box, one feature at a time ---------- */
+/* ---------- The launch video, right under the hero: a fixed 16:9 box so nothing moves while it loads ---------- */
+.film{padding:24px var(--frame) 0}
+.film video{display:block;width:100%;max-width:1100px;height:auto;aspect-ratio:16/9;margin:0 auto;border-radius:14px;border:1px solid #2a2a2f;background:#141416;box-shadow:0 30px 60px -36px #000}
+@media (max-width:560px){.film{padding-top:8px}.film video{border-radius:10px}}
 .story{position:relative;height:calc(var(--n) * 90vh + 10vh);overflow-y:clip}
 .pin{--sc:var(--accent);position:sticky;isolation:isolate;top:0;height:100vh;display:flex;flex-direction:column;gap:20px;width:100%;margin:0;padding:calc(var(--bar) * 4.6 + 28px) var(--frame) 0;--z:clamp(15px,1.5vw,30px)}
 .pin:before{content:"";position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:-1;pointer-events:none;background:radial-gradient(45% 40% at 50% 86%,color-mix(in srgb,var(--sc) 12%,transparent),transparent 72%),radial-gradient(#2a2733 1.1px,transparent 1.5px) 0 0/22px 22px;-webkit-mask-image:radial-gradient(60% 75% at 50% 60%,#000 35%,transparent);mask-image:radial-gradient(60% 75% at 50% 60%,#000 35%,transparent);transition:background .6s}
@@ -583,6 +587,9 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 </header>
 
 <main>
+  <section class="film" aria-label="effortless in 50 seconds">
+    <video id="film" src="assets/effortless-short.mp4" poster="assets/effortless-short-poster.jpg" width="1280" height="720" autoplay muted loop playsinline preload="auto" aria-label="A 50 second video: the bar picks the model and effort for each prompt, warns when the cache goes cold or the chat gets heavy, and offers a handoff."></video>
+  </section>
   <section class="story" id="how" style="--n:6" aria-label="What effortless does">
     <div class="pin">
       <div class="head">
@@ -857,6 +864,14 @@ var Dash=(function(){
   }
   fit();addEventListener('resize',fit);
   if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fit);
+})();
+// The launch video plays muted on a loop while it is on screen and stops when scrolled away. With reduced motion,
+// or where the browser refuses autoplay, it waits on its poster with the normal controls.
+(function(){var v=document.getElementById('film');if(!v)return;
+  function still(){v.pause();v.controls=true;}
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){v.removeAttribute('autoplay');still();return;}
+  function go(){var p=v.play();if(p&&p.catch)p.catch(still);}
+  if('IntersectionObserver' in window)new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){if(!v.controls)go();}else if(!v.controls)v.pause();});},{threshold:.25}).observe(v);
 })();
 </script>
 </body>
