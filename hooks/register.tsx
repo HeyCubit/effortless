@@ -415,6 +415,15 @@ const JEV_TASK =
   'question about how to do something that needs no tools is low. "think hard", "ultrathink" or "be thorough" means ' +
   'at least high; "quick question" means low.'
 
+/** The skill or custom command a typed "/name args" runs, or nothing for the app's own commands and effortless's. */
+async function typedSkill($: EngineInterface, text: string): Promise<{ name: string; description: string } | undefined> {
+  const name = text.trim().slice(1).split(/\s+/)[0]
+  if (!name) return undefined
+  const found = (await $.command.list().catch(() => [])).find(c => c.name === name)
+  if (!found || !['user', 'plugin', 'mcp'].includes(found.source) || found.plugin === 'effortless') return undefined
+  return { name, description: found.description ?? '' }
+}
+
 /** A short follow-up such as "go", "ok", "yes", "continue": two words and a dozen characters at most. */
 export function isFollowUp(text: string): boolean {
   const t = text.trim()
@@ -3773,7 +3782,11 @@ Saved to ${out}.md and .json` }
     if (byPerson && !e.text.trim().startsWith('/') && !isFollowUp(e.text)) void checkHandoff($, e.text).catch(() => undefined)
     const wantsEffort = await read($, isAuto)
     const wantsModel = await read($, isAutoModel)
-    if (!byPerson || e.text.trim().startsWith('/') || (!wantsEffort && !wantsModel)) return next(e)
+    // A typed slash command is judged only when it is a skill or a custom command (what the person added); the app's own
+    // (/compact, /clear, /model) and effortless's never are. The judge is told what the command is, since its name alone says little.
+    const slash = e.text.trim().startsWith('/')
+    const skill = slash && byPerson ? await typedSkill($, e.text) : undefined
+    if (!byPerson || (slash && !skill) || (!wantsEffort && !wantsModel)) return next(e)
     // On a model where an effort change rewrites the cache, Auto waits instead of judging.
     const modelId = await $.session.model()
     await modelIs($, modelId)
@@ -3783,8 +3796,11 @@ Saved to ${out}.md and .json` }
     // A message with an image is never a bare follow-up: "fix this" plus a screenshot is new work.
     // Typed while a turn ran (e.turnId), it often steers that task: the judge is told, so it can keep the effort.
     const midTurn = e.turnId !== undefined && before !== null
-    const shown = midTurn ? withMidTurn(withAttachments(e.text, e.attachments), before.effort) : withAttachments(e.text, e.attachments)
-    if (wantsEffort && before && before.by !== 'manual' && !e.attachments?.length && isFollowUp(e.text) && keepsEffort(e.text, await recentContext($).catch(() => ''))) {
+    const said = skill ? `${e.text}
+
+[This is a slash command that runs a skill: ${skill.description || skill.name}. Judge the work the skill will do.]` : e.text
+    const shown = midTurn ? withMidTurn(withAttachments(said, e.attachments), before.effort) : withAttachments(said, e.attachments)
+    if (wantsEffort && before && before.by !== 'manual' && !e.attachments?.length && !slash && isFollowUp(e.text) && keepsEffort(e.text, await recentContext($).catch(() => ''))) {
       await countPrompt($, before.effort, undefined, 0, 0)
       void proof($, `follow-up "${e.text.trim()}": keeping ${before.effort}`)
       return next(e)

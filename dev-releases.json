@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.67.2",
+    "date": "2026-10-09",
+    "note": "Typed skills and custom slash commands are judged"
+  },
+  {
     "version": "1.67.1",
     "date": "2026-10-09",
     "note": "Cache-aware routing, back in dev with a live test"

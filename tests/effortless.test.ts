@@ -168,6 +168,25 @@ describe('auto', () => {
     expect(sent[1]).toEqual({ model: 'claude-opus-5-5', effort: 'high' })
   })
 
+  test('a typed skill is judged like a prompt (told what it is); the app\'s own commands are not', async ($, on) => {
+    engine(on)
+    const asked: string[] = []
+    on('model.complete', (_$, e) => {
+      asked.push(String((e as { prompt?: string }).prompt ?? ''))
+      return { value: { isAnswered: true as const, text: '{"model":"haiku","effort":"low","why":"small job"}', usage: USAGE } }
+    })
+    const sent = recordSteps(on)
+    // /session-handoff is a user skill (see engine's command list): judged, even though it is short enough to look like a follow-up.
+    await $.prompt.submit({ text: '/session-handoff', wait: false, origin: { kind: 'composer' } })
+    await step($)
+    expect(asked.length).toBe(1)
+    expect(asked[0]).toContain('slash command that runs a skill')
+    expect(sent[0].model).toBe('claude-haiku-5-5')
+    // /model is the app's own: never judged.
+    await $.prompt.submit({ text: '/model', wait: false, origin: { kind: 'composer' } })
+    expect(asked.length).toBe(1)
+  })
+
   test('the judge never moves a prompt to a dearer model than the chat model, nor to Fable', async ($, on) => {
     engine(on, {}, 'claude-sonnet-5-5')
     judgeSays(on, '{"model":"opus","effort":"high","why":"hard"}')
