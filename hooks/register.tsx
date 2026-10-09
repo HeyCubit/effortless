@@ -4453,14 +4453,15 @@ Saved to ${out}.md and .json` }
               <Button key="compact-to-handoff" plain dimColor label="Handoff instead" onPress={async () => { await update($, compactAsk, () => false); await openHandoffBar($) }} />
             </Box>
           </Box>
-          <Box key="compact-controls" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end" alignItems="center" gap={1}>
+          <Box key="compact-controls" position="relative" flexGrow={1} flexShrink={1} minWidth={0} flexDirection="row" justifyContent="flex-end" alignItems="center" gap={1}>
             <Box position="absolute" top={0} left={0} />
             {/* The field shows through a window anchored right: its own Enter hint (a submit button 12 px wide, 6 px
                 after the field) is pushed past the window's right edge and clipped, whatever width the app gives the
                 field. Three cells out, one cell of padding back: the field ends 2 px inside, the hint starts 4 px out. */}
             {/* The window reaches a row above and below the field (absolutely, so the bar stays one line): one line tall,
                 it cut the field's focus ring off at the top and bottom. */}
-            <Box key="compact-field" position="relative" width={48} height={1} flexShrink={0}>
+            {/* It gives way before the Compact button does: in a narrow pane the field shrinks, the button stays. */}
+            <Box key="compact-field" position="relative" width={48} minWidth={6} height={1} flexShrink={1}>
               <Box position="absolute" top={-1} bottom={-1} left={0} right={0} overflow="hidden">
                 <Box position="absolute" top={0} bottom={0} right={-3} width={60} flexDirection="row" alignItems="center" justifyContent="flex-end" paddingRight={1}>
                   <Input key="compact-note" placeholder="Summary (optional)" submitLabel={'​'}
