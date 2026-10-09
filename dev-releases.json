@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.67.8",
+    "date": "2026-10-09",
+    "note": "Add the answer-quality benchmark and its results"
+  },
+  {
     "version": "1.67.7",
     "date": "2026-10-09",
     "note": "Model gets its own settings card"

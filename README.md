@@ -135,6 +135,10 @@ Measured over 80k requests of real Claude Code use, about 76% of the cost is the
 - Against a medium default it mostly saves a few percent, and gives hard jobs high on their own.
 - Keeping chats short and compacting before the cache goes cold often saves more than effort does. That is what the countdown is for.
 
+## Does the cheaper answer hold up?
+
+`node bench/quality.mjs` answers 30 prompts on Opus and on the model a router would pick, then a blind grader compares them. On 2026-10-09 the cheaper answer was good enough in 28 of 30 (it missed on two Haiku answers), and cost 66 to 78% less on the prompts that moved down. It was almost never better, often slightly worse. One run, one grader, small set: [the full table and its limits](bench/RESULTS.md).
+
 ## How often the judge is right
 
 `/effortless bench` runs labelled prompts through each judge you have set up, using the same code a real prompt goes
