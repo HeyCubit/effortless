@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.66.3",
+    "date": "2026-10-09",
+    "note": "Hold the cache-aware router back until it is tested live"
+  },
+  {
     "version": "1.66.2",
     "date": "2026-10-09",
     "note": "Routing is cache-aware: a cheaper model only when switching pays"
