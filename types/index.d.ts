@@ -55,7 +55,7 @@ export type SettingsDraft = {
   handoffButton?: string
   /** on: a prompt the judge calls simple runs on a cheaper model than the chat's; off: always the chat's model. */
   modelAuto?: string
-  /** violet (the brand) or orange (Claude's). */
+  /** violet (the brand), orange (Claude's) or rose (cherry blossom). */
   theme?: string
 }
 

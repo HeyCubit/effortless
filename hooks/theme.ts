@@ -2,11 +2,15 @@
 // family, so the theme turns them in one place instead of keeping two sets of colours: any #rrggbb in a violet hue is
 // moved to the orange hue, neutrals and the other signal colours (green, yellow, red, blue) are left alone.
 
-export type ThemeName = 'violet' | 'orange'
-export const THEMES: readonly ThemeName[] = ['violet', 'orange']
+export type ThemeName = 'violet' | 'orange' | 'rose'
+export const THEMES: readonly ThemeName[] = ['violet', 'orange', 'rose']
+// The hue each theme turns the violets to. Rose is a cherry-blossom pink; its sparkles are drawn as falling petals (see petals).
+const HUES: Record<Exclude<ThemeName, 'violet'>, number> = { orange: 15, rose: 340 }
 
 let current: ThemeName = 'violet'
 export const setTheme = (name: ThemeName) => {
+  // The turned colours are remembered per hex, so a new theme starts with none: orange's would show in rose.
+  if (name !== current) memo.clear()
   current = name
 }
 export const getTheme = () => current
@@ -16,7 +20,6 @@ export const VIOLET = '#a79cf7'
 
 // Claude's orange (#d97757) sits at hue 15, saturation 63%, lightness 60%. The brand violet is lighter and stronger, so
 // the saturation and the lightness of what turns come down to meet it.
-const ORANGE_HUE = 15
 const hexRe = /#[0-9a-fA-F]{6}\b/g
 const memo = new Map<string, string>()
 
@@ -50,14 +53,28 @@ export function tintHex(hex: string): string {
   const n = parseInt(key.slice(1), 16)
   const [h, s, l, chroma] = toHsl((n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255)
   // Violet hues with real colour in them; the greys that lean blue (hardly any chroma or saturation) are not in the family.
-  const out = h >= 235 && h <= 300 && chroma >= 0.03 && s >= 0.15 ? fromHsl(ORANGE_HUE, Math.min(1, s * 0.75), l > 0.5 ? Math.max(0.5, l - 0.19) : l) : hex
+  const out = h >= 235 && h <= 300 && chroma >= 0.03 && s >= 0.15 ? fromHsl(HUES[current], Math.min(1, s * (current === 'rose' ? 0.9 : 0.75)), l > 0.5 ? Math.max(0.5, l - (current === 'rose' ? 0.08 : 0.19)) : l) : hex
   memo.set(key, out)
   return out
 }
 
+// A cherry-blossom petal, and the fall it makes: each sparkle of the art becomes a petal at the same place, falling slowly
+// and turning as it goes. The drawing's own CSS animates sparkles in place; the petals bring their own.
+const PETAL = 'M0 -2.2C1.7 -1.7 1.9 0.9 0 2.2C-1.9 0.9 -1.7 -1.7 0 -2.2Z'
+const PETAL_CSS = '.pt{fill:#ffc9dc;opacity:0;animation-name:fall;animation-timing-function:linear;animation-iteration-count:infinite}@keyframes fall{0%{opacity:0;transform:translate(0,-4px) rotate(0deg)}12%{opacity:.85}85%{opacity:.7}100%{opacity:0;transform:translate(-16px,34px) rotate(280deg)}}'
+function petals(text: string): string {
+  if (!text.includes('class="sp"')) return text
+  return text
+    .replace(/<path class="sp" style="transform-origin:([\d.]+)px [\d.]+px;animation-duration:([\d.]+)s;animation-delay:([\d.]+)s" d="[^"]*"\/>/g, (_m, x: string, dur: string, delay: string) =>
+      `<g transform="translate(${x} 0)"><path class="pt" style="animation-duration:${(Number(dur) * 1.8).toFixed(1)}s;animation-delay:${delay}s" d="${PETAL}"/></g>`)
+    .replace('</style>', `${PETAL_CSS}</style>`)
+}
+
 /** Every hex in a string (an SVG, a style) in the current theme. */
 export function tint(text: string): string {
-  return current === 'violet' ? text : text.replace(hexRe, tintHex)
+  if (current === 'violet') return text
+  const turned = text.replace(hexRe, tintHex)
+  return current === 'rose' ? petals(turned) : turned
 }
 
 /** The accent as text colour. */

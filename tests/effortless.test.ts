@@ -3411,6 +3411,35 @@ describe('theme', () => {
     }
   })
 
+  test('rose turns the violets pink, leaves the signal colours alone, and draws the sparkles as falling petals', () => {
+    expect(readConfig({ theme: 'rose' }).theme).toBe('rose')
+    try {
+      setTheme('rose')
+      const hue = (hex: string) => {
+        const n = parseInt(hex.slice(1), 16)
+        const [r, g, b] = [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]
+        const max = Math.max(r, g, b), d = max - Math.min(r, g, b)
+        const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+        return (h * 60 + 360) % 360
+      }
+      for (const violet of ['#a79cf7', '#b9a7ff', '#7c6cf0', '#4a3f80', '#9b7bff'])
+        expect(Math.abs(hue(tintHex(violet)) - 340) < 4).toBe(true)
+      for (const same of ['#ffffff', '#141416', '#7fe0a4', '#e0a33a', '#7cc4ff', '#e5534b'])
+        expect(tintHex(same)).toBe(same)
+      const art = '<svg><style>.sp{fill:#fff}</style><path class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" d="M168 6.4 L168.34 7.66 Z"/></svg>'
+      const petals = tint(art)
+      expect(petals).toContain('class="pt"')
+      expect(petals).toContain('<g transform="translate(168 0)">')
+      expect(petals).toContain('@keyframes fall')
+      expect(petals).not.toContain('class="sp"')
+      // Orange keeps the sparkles.
+      setTheme('orange')
+      expect(tint(art)).toContain('class="sp"')
+    } finally {
+      setTheme('violet')
+    }
+  })
+
   test('violet changes nothing and the Svg is left as it is', () => {
     setTheme('violet')
     const Svg = (p: Record<string, unknown>) => p

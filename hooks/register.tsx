@@ -34,7 +34,7 @@ function applyTheme() {
   BRAND_HEAD = tintHex('#221c3a')
   FLASH_COLOR = tintHex('#9b7bff')
   // The panel greys lean blue beside the violet; with Claude orange they are the app's own neutral greys.
-  const neutral = config.theme === 'orange'
+  const neutral = config.theme !== 'violet'
   DASH_BG = neutral ? '#151515' : '#141416'
   DASH_EDGE = neutral ? '#2a2a2a' : '#2a2a2f'
   DASH_HEAD = neutral ? '#191919' : '#18181b'
@@ -570,7 +570,7 @@ export type JudgeConfig = {
   handoffButton: 'advised' | 'always'
   /** A prompt the judge calls simple runs on a cheaper model than the chat's (never a dearer one). */
   modelAuto: 'on' | 'off'
-  /** The accent colour of everything effortless draws: the brand violet or Claude orange. */
+  /** The accent colour of everything effortless draws: the brand violet, Claude orange or cherry-blossom rose. */
   theme: ThemeName
 }
 
@@ -4471,7 +4471,7 @@ Saved to ${out}.md and .json` }
                     options={[{ value: 'default', label: 'Dashboard' }, { value: 'minimal', label: 'Minimal' }]}
                     onSelect={set('layout')} />,
                   <Select key="settings-theme" label="Theme" value={shown.theme}
-                    options={[{ value: 'violet', label: 'Violet' }, { value: 'orange', label: 'Claude orange' }]}
+                    options={[{ value: 'violet', label: 'Violet' }, { value: 'orange', label: 'Claude orange' }, { value: 'rose', label: 'Cherry blossom' }]}
                     onSelect={set('theme')} />,
                 ]),
             ...toggles,
