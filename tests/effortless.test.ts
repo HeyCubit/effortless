@@ -2829,6 +2829,8 @@ describe('dashboard', () => {
     await step($, 'xhigh')
     expect(sent.at(-1)!.effort).toBe('xhigh')
     expect(await debug()).toContain('last request: app asked claude-opus-5-5 at xhigh, sent claude-opus-5-5 at xhigh (unchanged)')
+    // The model that ran is also on a line of its own.
+    expect((await debug()).split(String.fromCharCode(10)).at(-1)).toBe('model used: claude-opus-5-5 at xhigh')
   })
 
   test('a thank-you after a cheaper answer is not a redo', async ($, on) => {

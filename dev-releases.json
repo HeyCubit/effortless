@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.68.8",
+    "date": "2026-10-09",
+    "note": "Debug: the model used on its own line"
+  },
+  {
     "version": "1.68.7",
     "date": "2026-10-09",
     "note": "Debug shows what was asked and what was sent"

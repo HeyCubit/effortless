@@ -3813,7 +3813,10 @@ export const register: Register = (on, options) => {
             ? `last request: app asked ${lastRequest.appModel} at ${lastRequest.appEffort ?? 'none'}, sent ${lastRequest.model} at ${lastRequest.effort ?? 'none'}${lastRequest.model === lastRequest.appModel && lastRequest.effort === lastRequest.appEffort ? ' (unchanged)' : ' (changed by effortless)'}, ${ago(lastRequest.at)}`
             : 'last request: none yet',
           `compact with: ${config.compactWith}${lastHaikuCompact ? `, last by Haiku ${ago(lastHaikuCompact)}` : ''}`,
-        ].join(' | '),
+        ].join(' | ') +
+          // On its own line, easy to find: the model and effort the last request actually ran on.
+          `
+model used: ${lastRequest ? `${lastRequest.model} at ${lastRequest.effort ?? 'none'}` : 'none yet'}`,
       }
     }
     if (arg === 'settings') {
