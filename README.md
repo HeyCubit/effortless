@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/readme/banner.png" alt="effortless, a Claude Code mod: one bar above the prompt that picks the model and the reasoning effort for every prompt" width="100%">
+  <img src="docs/readme/banner.png" alt="effortless, a Claude Code mod: one bar above the prompt that picks the reasoning effort for every prompt" width="100%">
 </p>
 
 <p align="center">
@@ -11,10 +11,11 @@
 
 https://github.com/user-attachments/assets/9b5af48e-2ad8-4826-9443-4aeea1306664
 
-A Claude Code mod that picks the model and the reasoning effort for every prompt. Easy questions run on **Haiku** or
-**Sonnet** at a low effort; hard jobs get **High** on your own model, and you never touch the model or Effort control.
-In one long chat on Opus about half the replies ran on Sonnet or Haiku, roughly half the cost by our estimate. One bar above the prompt also shows how full the chat is, how long
-the prompt cache stays warm, and hands off or compacts in one click when a chat gets heavy.
+A Claude Code mod that picks the reasoning effort for every prompt. Quick questions get **Low**, hard jobs get **High**,
+and you never touch the Effort control. On real coding tasks it cut the cost of Opus by **21%** against Anthropic's
+recommended medium, **29%** against high and **42%** against xhigh, with every answer still right
+([the benchmark](#what-it-saves-measured)). One bar above the prompt also shows how full the chat is, how long the
+prompt cache stays warm, and hands off or compacts in one click when a chat gets heavy.
 
 <p align="center">
   <img src="docs/readme/story.gif" alt="effortless in a Claude Code chat: effort per prompt, Handoff, cold cache, heavy chat, limits and settings" width="100%">
@@ -27,11 +28,11 @@ it is built for. effortless uses it in three places:
 
 | | |
 |---|---|
-| **The judge** | reads each prompt and picks the effort and model, in about a second, on your own Claude login |
-| **Cheaper model when it can** | a prompt the judge calls simple runs on Haiku 5.5 (or Sonnet), never above your chat's model. Only that prompt moves: your chat stays on its model, and that model's cache stays warm for the next hard prompt. The bar shows the model beside the effort: `Low · Haiku`, `High · Opus` |
+| **The judge** | reads each prompt and picks the effort, in about a second, on your own Claude login |
+| **Cheaper model when it can** | experimental, off by default. When on, a prompt the judge calls simple may run on Haiku 5.5 (or Sonnet), never above your chat's model, but only when the switch pays: each model keeps its own prompt cache, so in a chat that is in use the switch usually costs more than it saves ([why](#why-model-switching-is-off)) |
 | **Compaction** | every compaction, `/compact` and the automatic one included, is summarized by Haiku 5.5. If Haiku fails, Claude Code compacts as usual |
 
-Each can be switched off: Settings → Judge → Model, and Settings → Handoff → Compact with.
+The cheaper model is switched on in Settings → Model; compaction is switched in Settings → Handoff → Compact with.
 
 ## Install
 
@@ -72,15 +73,15 @@ new version in the chat you pressed it in, with nothing to type.
 
 | On the bar | Means |
 |---|---|
-| **High · Opus** | the effort and the model Auto picked for this prompt. `Deciding` while the judge thinks; a switch flashes violet and fades to white. A cheaper model after it (`Low · Haiku`) means only this prompt runs there |
+| **High · Opus** | the effort Auto picked for this prompt, and the model the chat runs on. `Deciding` while the judge thinks; a switch flashes violet and fades to white |
 | **◔ 38%** | how full the chat's context is |
 | **cache 59:00** | time until the prompt cache goes cold, after which the next message pays full price to re-read the chat |
 | *Haiku: a refactor…* | who judged and why |
-| **Auto** | switches the judge on and off. Changing effort in the app yourself also turns Auto off: you always win |
+| **Auto** | switches the judge on and off. Changing effort in the app yourself also turns Auto off at your next message, and says so: you always win |
 | **Compact** | compacts the chat. It turns into a glowing **Handoff** when Haiku says a fresh chat would pay off, with Compact as quiet text beside it. Set Settings → Handoff → Handoff button to **Always** to keep Handoff on the bar |
 | **⚙** | settings |
 
-Prefer it quiet? Settings → Customize has a **Minimal** look with no bar.
+Prefer it quiet? Settings → Customize has a **Minimal** look with no bar. It also sets the **Appearance** (match Claude Code, dark or light) and the **Theme** (violet, Claude orange or cherry blossom).
 
 ### When a chat gets heavy
 
@@ -127,17 +128,36 @@ Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and 
 - A key is sent only to TypeSafe, and to nothing else. Use a key with a spending limit if your provider offers one.
 - Like any Claude Code plugin, this mod runs code on your machine. Its code is in [`hooks/`](hooks/): read it before you install if you do not know the author. The programs it starts are `claude` itself (to update or uninstall the mod when you press those buttons), `git` (to see if a new version is out) and, on Update, a plain file copy of the new version into the folder your open chat runs from.
 
-## What it saves, honestly
+## What it saves, measured
 
-Measured over 80k requests of real Claude Code use, about 76% of the cost is the context being read back from the cache on every tool call, 16% cache writes and only 8% output. Effort mostly changes how many tool calls a prompt makes.
+Four real coding tasks in a fresh copy of this repo, each run 3 times with effortless on and with it off, through
+Anthropic's API so the cost is real. Every answer was checked. Run 2026-10-10, 96 runs:
 
-- Against a high default (high, xhigh) Auto saves a lot: a median xhigh prompt cost about three times a medium one.
-- Against a medium default it mostly saves a few percent, and gives hard jobs high on their own.
-- Keeping chats short and compacting before the cache goes cold often saves more than effort does. That is what the countdown is for.
+| Opus 5.5 | Correct | Cost per task | Requests | Time |
+| --- | --- | --- | --- | --- |
+| medium (recommended), no effortless | 12 of 12 | $0.190 | 7.3 | 24 s |
+| high, no effortless | 12 of 12 | $0.209 | 8.0 | 27 s |
+| xhigh, no effortless | 12 of 12 | $0.257 | 9.9 | 44 s |
+| **effortless on** | **12 of 12** | **$0.149** | **5.8** | **20 s** |
 
-## Does the cheaper answer hold up?
+That is **21%** less than medium, **29%** less than high and **42%** less than xhigh. On Sonnet it came out even
+against medium (Sonnet at medium is already lean) and saved 10% against high and 35% against xhigh.
 
-`node bench/quality.mjs` answers 30 prompts on Opus and on the model a router would pick, then a blind grader compares them. On 2026-10-09 the cheaper answer was good enough in 28 of 30 against Opus at high effort and 27 of 30 against Opus at medium. It cost 60 to 78% less on the easy and normal prompts that moved down. Against Opus medium the whole mix came out only 7% cheaper, because hard prompts go to Opus at high effort. It was almost never better, often slightly worse, and Haiku on easy prompts is where it slips most. Prompts there start with no chat history, so a long warm chat saves less. One run, one grader, small set: [the full tables and limits](bench/RESULTS.md).
+The saving comes from fewer steps: every request rereads the whole chat, and at a lower effort the model makes fewer of
+them. Over 80k requests of real Claude Code use, about 76% of the cost was that reread, 16% cache writes and 8% output.
+Keeping chats short and compacting before the cache goes cold saves on the same 76%; that is what the countdown is for.
+
+Limits: four tasks, three runs each, mostly easy work where effortless goes low. On hard work it picks more effort and
+saves less. Fresh chats through the API, not long chats on a plan. Run it again with `bash bench/agentic/run.sh`;
+all numbers and limits are in [bench/RESULTS.md](bench/RESULTS.md).
+
+## Why model switching is off
+
+Moving a simple prompt to Haiku looks cheap on a single prompt: the cheaper answers were good enough in 27 of 30 and
+cost 60 to 77% less. But each model keeps its own prompt cache, so a prompt moved mid-chat has to write the whole chat
+into the other model's cache first. Measured on an 80k-token chat, that costs about 5 times what staying on a warm
+Opus does (10 times for Sonnet). So **Cheaper model when it can** is off by default and marked experimental.
+[Details](bench/RESULTS.md#3-why-model-switching-is-off-node-benchquality-mjs).
 
 ## How often the judge is right
 
@@ -196,6 +216,7 @@ Tested on Claude Code 2.1.285 (stable), 2.1.286 and 2.1.288 at 80 and 120 column
 | `/effortless stats` | what the prompts Auto steered cost this session, per effort, and what the judge took |
 | `/effortless cold`, `swamp`, `hot`, `down` | shows that bar now, to try it |
 | `/effortless bench` | scores each judge you have on the labelled prompts in [`bench/judge-cases.json`](bench/judge-cases.json) |
+| `/effortless debug` | what the mod sees, and on its last line the model and effort the last request ran on |
 | `/effortless update` | checks for a new version now |
 
 ## Open source

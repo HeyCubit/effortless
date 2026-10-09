@@ -4,19 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Benchmarks · effortless</title>
-<meta name="description" content="How often the effortless judge picks the right effort, and whether the cheaper model's answer holds up against Opus. Small runs, limits included.">
+<meta name="description" content="How much effortless saves on real coding tasks: 21% against Opus medium, 29% against high, 42% against xhigh, with every answer still right. Small runs, limits included.">
 <link rel="canonical" href="https://heycubit.github.io/effortless/bench/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="effortless">
 <meta property="og:title" content="effortless benchmarks">
-<meta property="og:description" content="Is the judge right, and does the cheaper answer hold up against Opus? What works, what needs improving, and the limits.">
+<meta property="og:description" content="effortless on and off on real coding tasks: 21% cheaper than Opus medium, 29% than high, 42% than xhigh, every answer still right.">
 <meta property="og:url" content="https://heycubit.github.io/effortless/bench/">
 <meta property="og:image" content="https://heycubit.github.io/effortless/og.png">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="effortless benchmarks">
-<meta name="twitter:description" content="Is the judge right, and does the cheaper answer hold up against Opus? What works, what needs improving, and the limits.">
+<meta name="twitter:description" content="effortless on and off on real coding tasks: 21% cheaper than Opus medium, 29% than high, 42% than xhigh, every answer still right.">
 <meta name="twitter:image" content="https://heycubit.github.io/effortless/og.png">
 <meta name="theme-color" content="#121214">
 <link rel="icon" href="__ICON__">
@@ -141,44 +141,72 @@ a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-of
 </header>
 <main>
   <div class="label">Benchmarks</div>
-  <h1>Does it pick well, and does it hold up?</h1>
-  <p class="intro">Two tests. One checks how often the judge picks the right effort. The other checks whether the cheaper answer is still good enough next to Opus.</p>
-  <div class="meta"><span class="label">Judge: 73 prompts, 20 held out</span><span class="label">Quality: 30 prompts, run 2026-10-09</span><span class="label">One run, one blind grader</span></div>
+  <h1>How much does it save?</h1>
+  <p class="intro">Real coding tasks, each run with effortless on and with it off, on Opus and on Sonnet, through Anthropic's API. Every answer was checked, not just priced.</p>
+  <div class="meta"><span class="label">96 runs, 2026-10-10</span><span class="label">4 tasks, 3 runs each</span><span class="label">Every answer checked</span></div>
 
   <section class="answer" aria-labelledby="a-h">
     <div class="q">
-      <h3 id="a-h">Does it beat Opus at medium effort?</h3>
-      <p><b>Not across the board.</b> It is as fast, good enough in 9 of 10 answers, and a little cheaper on this mix of prompts. It saves much more when most of your prompts are simple.</p>
+      <h3 id="a-h">Does it save money against Opus at medium effort?</h3>
+      <p><b>Yes, about a fifth, with the same answers.</b> Medium is what Anthropic recommends. Against high and xhigh, where many people sit, it saves more.</p>
     </div>
     <div class="cells">
-      <div class="cell"><div class="label">Cost vs Opus medium</div><b>7%</b><span>cheaper across all 30 prompts</span></div>
-      <div class="cell"><div class="label">Good enough</div><b>90%</b><span>of routed answers, judged blind</span></div>
-      <div class="cell"><div class="label">Median time</div><b>6.4 s</b><span>against 7.4 s on Opus medium</span></div>
-      <div class="cell"><div class="label">Judge accuracy</div><b>93%</b><span>Haiku picks an acceptable effort (Jev 99%)</span></div>
+      <div class="cell"><div class="label">Vs Opus medium</div><b>21%</b><span>cheaper per task</span></div>
+      <div class="cell"><div class="label">Vs Opus high</div><b>29%</b><span>cheaper per task</span></div>
+      <div class="cell"><div class="label">Vs Opus xhigh</div><b>42%</b><span>cheaper per task</span></div>
+      <div class="cell"><div class="label">Correct</div><b>12 of 12</b><span>in every setup, with and without it</span></div>
     </div>
   </section>
 
   <section class="sec" aria-labelledby="w-h">
-    <h2 id="w-h">What works, and what needs improving</h2>
+    <h2 id="w-h">What works, and what does not</h2>
     <div class="split">
       <div class="ok">
-        <h3><i></i>Why it works</h3>
-        <div class="item"><b>Normal prompts keep their quality at a lower price.</b><span>Sonnet at medium effort was good enough in <em>12 of 12</em>, at <em>60 to 66%</em> less cost.</span></div>
-        <div class="item"><b>The judge is usually right.</b><span>Haiku picks an acceptable effort <em>93%</em> of the time, Jev <em>99%</em>. A fixed effort manages 44 to 51%.</span></div>
-        <div class="item"><b>Hard prompts get more, not less.</b><span>They go to Opus at high effort, which was better or tied in <em>5 of 6</em> against Opus medium.</span></div>
-        <div class="item"><b>It is not slower.</b><span>Median <em>6.4 s</em> per answer against <em>7.4 s</em> on Opus medium.</span></div>
+        <h3><i></i>What works</h3>
+        <div class="item"><b>Opus costs less at every setting.</b><span><em>21%</em> less than medium, <em>29%</em> less than high, <em>42%</em> less than xhigh, and every answer still right.</span></div>
+        <div class="item"><b>Fewer steps, not just less thinking.</b><span><em>5.8</em> requests per task against <em>7.3</em> on medium. Every request rereads the whole chat, so fewer requests is where the saving comes from.</span></div>
+        <div class="item"><b>Faster too.</b><span><em>20 s</em> per task against <em>24 s</em> on medium and <em>44 s</em> on xhigh.</span></div>
+        <div class="item"><b>The judge is usually right.</b><span>On 73 hand-labelled prompts, Haiku picks an acceptable effort <em>93%</em> of the time, Jev <em>99%</em>. A fixed effort manages 44 to 51%.</span></div>
       </div>
       <div class="no">
-        <h3><i></i>What needs improving</h3>
-        <div class="item"><b>Easy prompts on Haiku miss sometimes.</b><span>Good enough in <em>9 to 10 of 12</em>. Misses: a shell one-liner that broke in subfolders, a regex with a wrong explanation, a stiff translation, an async explanation that overclaimed.</span></div>
-        <div class="item"><b>Against Opus medium the saving is small.</b><span><em>7%</em> on this mix, because hard prompts go to Opus high and cost <em>26%</em> more there.</span></div>
-        <div class="item"><b>The cheaper answer is rarely better.</b><span>Routed answers beat Opus medium in <em>3 of 30</em>, two of them hard prompts where routing uses Opus high anyway.</span></div>
+        <h3><i></i>What does not</h3>
+        <div class="item"><b>Sonnet at medium is already lean.</b><span>Against it, effortless came out even (<em>4%</em> more, inside the noise). It still saved <em>10%</em> against high and <em>35%</em> against xhigh.</span></div>
+        <div class="item"><b>Switching models per prompt does not pay.</b><span>Each model keeps its own cache, so moving one prompt to a cheaper model makes it reread the whole chat. In a chat that is in use that costs more than it saves, so this is now off by default (see Benchmark 3).</span></div>
+        <div class="item"><b>Mostly easy tasks.</b><span>effortless saves most by going low on simple work. On hard work it picks more effort, and saves less.</span></div>
       </div>
     </div>
   </section>
 
-  <section class="sec judge" aria-labelledby="j-h">
+  <section class="sec qual" aria-labelledby="s-h">
     <div class="label">Benchmark 1</div>
+    <h2 id="s-h">effortless on and off, same tasks</h2>
+    <p>Four tasks in a fresh copy of the effortless repo: find and explain a setting, add doc comments without touching code, write and run a small script, and trace a flow through several files. Each ran three times per setup. Without effortless the app sat at medium, high or xhigh; with it, the app started on medium and effortless picked the effort for each prompt.</p>
+    <div class="label">Opus 5.5</div>
+    <div class="tbl"><table class="plain" id="opus">
+      <thead><tr><th scope="col">Opus 5.5</th><th scope="col">Correct</th><th scope="col">Cost per task</th><th scope="col">Requests</th><th scope="col">Time</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Medium<small>recommended, no effortless</small></th><td data-l="Correct">12 of 12</td><td data-l="Cost">$0.190</td><td data-l="Requests">7.3</td><td data-l="Time">24 s</td></tr>
+        <tr><th scope="row">High<small>no effortless</small></th><td data-l="Correct">12 of 12</td><td data-l="Cost">$0.209</td><td data-l="Requests">8.0</td><td data-l="Time">27 s</td></tr>
+        <tr><th scope="row">Xhigh<small>no effortless</small></th><td data-l="Correct">12 of 12</td><td data-l="Cost">$0.257</td><td data-l="Requests">9.9</td><td data-l="Time">44 s</td></tr>
+        <tr class="total"><th scope="row">effortless on</th><td data-l="Correct">12 of 12</td><td data-l="Cost"><b class="pos">$0.149</b></td><td data-l="Requests">5.8</td><td data-l="Time">20 s</td></tr>
+      </tbody>
+    </table></div>
+    <div class="label">Sonnet 5.5</div>
+    <div class="tbl"><table class="plain" id="sonnet">
+      <thead><tr><th scope="col">Sonnet 5.5</th><th scope="col">Correct</th><th scope="col">Cost per task</th><th scope="col">Requests</th><th scope="col">Time</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Medium<small>no effortless</small></th><td data-l="Correct">12 of 12</td><td data-l="Cost">$0.092</td><td data-l="Requests">6.4</td><td data-l="Time">15 s</td></tr>
+        <tr><th scope="row">High<small>no effortless</small></th><td data-l="Correct">12 of 12</td><td data-l="Cost">$0.107</td><td data-l="Requests">8.8</td><td data-l="Time">20 s</td></tr>
+        <tr><th scope="row">Xhigh<small>no effortless</small></th><td data-l="Correct">12 of 12</td><td data-l="Cost">$0.146</td><td data-l="Requests">11.4</td><td data-l="Time">31 s</td></tr>
+        <tr class="total"><th scope="row">effortless on</th><td data-l="Correct">12 of 12</td><td data-l="Cost"><b>$0.096</b></td><td data-l="Requests">7.5</td><td data-l="Time">18 s</td></tr>
+      </tbody>
+    </table></div>
+    <p class="read"><b>How to read it.</b> effortless picked low effort on the simple tasks and kept medium or high for the rest (on Opus: low 9 times, medium 3). The answers stayed right, and the cost fell because the model took fewer steps.</p>
+    <p class="note">Cost is the CLI's list-price dollars, billed to an API key. The judge (Haiku) adds about $0.001 to $0.002 per prompt, under 1% of these tasks, and is not in the figures above.</p>
+  </section>
+
+  <section class="sec judge" aria-labelledby="j-h">
+    <div class="label">Benchmark 2</div>
     <h2 id="j-h">Is the judge right?</h2>
     <p>73 prompts, each labelled by hand with the efforts a careful person would accept. 20 were held out and never used to tune the judge.</p>
     <div class="tbl"><table>
@@ -191,77 +219,43 @@ a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-of
     <p class="note">Prompts and labels: <code>bench/judge-cases.json</code>. Judge version 1.5.1.</p>
   </section>
 
-  <section class="sec qual" aria-labelledby="q-h">
-    <div class="label">Benchmark 2</div>
-    <h2 id="q-h">Does the cheaper answer hold up?</h2>
-    <p>The same 30 prompts went two ways: straight to Opus at medium effort, and through effortless, which picks a model and an effort for each one. A grader (Opus, high effort) saw both answers without knowing which was which and said whether the effortless answer would still do the job.</p>
-    <div class="tbl"><table class="plain" id="vs-medium">
-      <thead><tr><th scope="col">Kind of prompt</th><th scope="col">effortless sent it to</th><th scope="col">Still did the job</th><th scope="col">Cost next to Opus medium</th></tr></thead>
-      <tbody>
-        <tr><th scope="row">Easy<small>12 prompts</small></th><td data-l="Sent to">Haiku, low effort</td><td data-l="Did the job"><b>9</b> of 12</td><td data-l="Cost"><b class="pos">77% cheaper</b></td></tr>
-        <tr><th scope="row">Normal<small>12 prompts</small></th><td data-l="Sent to">Sonnet, medium effort</td><td data-l="Did the job"><b>12</b> of 12</td><td data-l="Cost"><b class="pos">60% cheaper</b></td></tr>
-        <tr><th scope="row">Hard<small>6 prompts</small></th><td data-l="Sent to">Opus, high effort</td><td data-l="Did the job"><b>6</b> of 6</td><td data-l="Cost"><b class="neg">26% more expensive</b><small>more effort than the baseline, on purpose</small></td></tr>
-        <tr class="total"><th scope="row">All<small>30 prompts</small></th><td data-l="Sent to"></td><td data-l="Did the job"><b>27</b> of 30</td><td data-l="Cost"><b class="pos">7% cheaper</b></td></tr>
-      </tbody>
-    </table></div>
-    <p class="read"><b>How to read it.</b> Easy and normal prompts get much cheaper. Hard prompts get more effort than Opus medium would spend, and cost more. On this mix the two nearly cancel out, so the more of your prompts are easy, the more you save.</p>
-
+  <section class="sec" aria-labelledby="m-h">
+    <div class="label">Benchmark 3</div>
+    <h2 id="m-h">Why model switching is off</h2>
+    <p>An earlier version also moved simple prompts to Haiku or Sonnet. Measured on single prompts, the cheaper answers were good enough in 27 of 30 and cost 60 to 77% less. But those prompts started with no chat history. In a real chat the context sits in the chat model's cache, and each model keeps its own: a prompt moved to Haiku has to write the whole chat into Haiku's cache first, at twice the input price. From a warm Opus chat that costs about 5 times what staying on Opus does (10 times for Sonnet).</p>
+    <p class="read"><b>So:</b> "Cheaper model when it can" is now off by default and marked experimental. The saving that holds up in real chats is effort, Benchmark 1.</p>
     <details id="more">
-      <summary>Against Opus at high effort, wins and ties, dollars per answer</summary>
-      <div class="tbl"><table class="plain" id="vs-high">
-        <thead><tr><th scope="col">Against Opus high</th><th scope="col">Still did the job</th><th scope="col">Cost next to Opus high</th></tr></thead>
+      <summary>The single-prompt numbers</summary>
+      <div class="tbl"><table class="plain">
+        <thead><tr><th scope="col">Kind of prompt</th><th scope="col">Sent to</th><th scope="col">Still did the job</th><th scope="col">Cost next to Opus medium</th></tr></thead>
         <tbody>
-          <tr><th scope="row">Easy, 12</th><td data-l="Did the job">10 of 12</td><td data-l="Cost">78% cheaper</td></tr>
-          <tr><th scope="row">Normal, 12</th><td data-l="Did the job">12 of 12</td><td data-l="Cost">66% cheaper</td></tr>
-          <tr><th scope="row">Hard, 6</th><td data-l="Did the job">6 of 6</td><td data-l="Cost">Same<small>same model and effort</small></td></tr>
-          <tr class="total"><th scope="row">All 30</th><td data-l="Did the job">28 of 30</td><td data-l="Cost">19% cheaper</td></tr>
+          <tr><th scope="row">Easy<small>12 prompts</small></th><td data-l="Sent to">Haiku, low effort</td><td data-l="Did the job">9 of 12</td><td data-l="Cost">77% cheaper</td></tr>
+          <tr><th scope="row">Normal<small>12 prompts</small></th><td data-l="Sent to">Sonnet, medium effort</td><td data-l="Did the job">12 of 12</td><td data-l="Cost">60% cheaper</td></tr>
+          <tr><th scope="row">Hard<small>6 prompts</small></th><td data-l="Sent to">Opus, high effort</td><td data-l="Did the job">6 of 6</td><td data-l="Cost">26% more</td></tr>
         </tbody>
       </table></div>
-      <div class="tbl"><table>
-        <thead><tr><th scope="col">Against Opus medium</th><th scope="col">effortless better</th><th scope="col">Tie</th><th scope="col">Opus better</th><th scope="col">Opus cost</th><th scope="col">effortless cost</th></tr></thead>
-        <tbody>
-          <tr><th scope="row">Easy, 12</th><td>0</td><td>5</td><td>7</td><td>$0.124</td><td>$0.029</td></tr>
-          <tr><th scope="row">Normal, 12</th><td>1</td><td>4</td><td>7</td><td>$0.284</td><td>$0.115</td></tr>
-          <tr><th scope="row">Hard, 6</th><td>2</td><td>3</td><td>1</td><td>$0.714</td><td>$0.903</td></tr>
-          <tr><th scope="row">All 30</th><td>3</td><td>12</td><td>15</td><td>$1.121</td><td>$1.046</td></tr>
-        </tbody>
-      </table></div>
-      <div class="tbl"><table>
-        <thead><tr><th scope="col">Against Opus high</th><th scope="col">effortless better</th><th scope="col">Tie</th><th scope="col">Opus better</th><th scope="col">Opus cost</th><th scope="col">effortless cost</th></tr></thead>
-        <tbody>
-          <tr><th scope="row">Easy, 12</th><td>0</td><td>1</td><td>11</td><td>$0.126</td><td>$0.028</td></tr>
-          <tr><th scope="row">Normal, 12</th><td>0</td><td>4</td><td>8</td><td>$0.329</td><td>$0.113</td></tr>
-          <tr><th scope="row">Hard, 6</th><td>0</td><td>6</td><td>0</td><td>$1.164</td><td>$1.164</td></tr>
-          <tr><th scope="row">All 30</th><td>0</td><td>11</td><td>19</td><td>$1.620</td><td>$1.306</td></tr>
-        </tbody>
-      </table></div>
-      <p class="note">A tie or an Opus win can still count as doing the job: the grader says which answer is better, then whether the worse one would still do. Median time against Opus medium: easy 4.1 s on Opus and 4.4 s through effortless, normal 9.4 s and 6.5 s. Cost is list-price dollars per answer, not your plan's usage.</p>
+      <p class="note">Blind grader (Opus, high effort), one run, 2026-10-09. Single prompts with no chat history, so the cache cost of switching is not in these figures.</p>
     </details>
-
-    <div class="fix">
-      <div class="label">Fixed along the way</div>
-      <p>The router assumed Opus costs 5 times as much as Sonnet. Measured, it is about 2 times. The fix is in 1.68.3, which is not published yet. With it, the mod stays on your model more often in a warm chat.</p>
-    </div>
   </section>
 
   <section class="sec" aria-labelledby="l-h">
     <div class="label">Read before quoting</div>
     <h2 id="l-h">Limits</h2>
     <div class="ruled">
-      <div><div class="label">No chat history</div><p><b>Every prompt starts cold.</b> In a real chat the context is already cached, and moving a prompt to another model means writing that context into the other model's cache. From a warm Opus chat that costs more than staying put, so in a long chat the mod mostly stays on your model and saves less than shown here.</p></div>
-      <div><div class="label">Labels, not the live judge</div><p>Benchmark 2 routes by the label in the case file. How often the live judge agrees with those labels is benchmark 1.</p></div>
-      <div><div class="label">One run, one grader</div><p>One run per baseline, graded by a model from the same family as the baseline, so it may favour Opus-style answers. Run it twice before quoting a close number.</p></div>
-      <div><div class="label">Small and short</div><p>30 prompts, none of them long agentic sessions with tools. Cost is list price per answer, not your plan's usage.</p></div>
+      <div><div class="label">Small set</div><p><b>Four tasks, three runs each.</b> The percentages could move a few points on a rerun.</p></div>
+      <div><div class="label">Mostly easy work</div><p>effortless saves most on simple tasks, where it goes low. On hard tasks it picks more effort and saves less; that was not measured here.</p></div>
+      <div><div class="label">Checks, not taste</div><p>Each answer was checked for the right fact, file or number. Not for how well it was written.</p></div>
+      <div><div class="label">API, fresh chats</div><p>Run through Anthropic's API in fresh chats. Long chats in the app, and plan usage, were not measured.</p></div>
     </div>
   </section>
 
   <section class="sec" aria-labelledby="r-h">
     <h2 id="r-h">Run it yourself</h2>
     <div class="run">
-      <div><div class="label">Benchmark 1</div><p>In Claude Code, with effortless installed:</p><code>/effortless bench</code></div>
-      <div><div class="label">Benchmark 2</div><p>From the effortless repo:</p><code>node bench/quality.mjs --base opus:medium</code></div>
+      <div><div class="label">Benchmark 1</div><p>From the effortless repo, with an API key in <code>~/.config/effortless-bench.env</code>:</p><code>bash bench/agentic/run.sh</code></div>
+      <div><div class="label">Benchmark 2</div><p>In Claude Code, with effortless installed:</p><code>/effortless bench</code></div>
     </div>
-    <p class="note">Every number on this page comes from <code>bench/RESULTS.md</code>, with the details per prompt in <code>bench/results/</code>.</p>
+    <p class="note">Every number on this page comes from <code>bench/RESULTS.md</code>, with every run in <code>bench/results/</code>.</p>
   </section>
 </main>
 </body>

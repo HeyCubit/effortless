@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.68.11",
+    "date": "2026-10-09",
+    "note": "Measured savings: README, site and benchmark page"
+  },
+  {
     "version": "1.68.10",
     "date": "2026-10-09",
     "note": "Say so when the app's effort pick turns Auto off"
