@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>effortless</title>
-<meta name="description" content="A Claude Code plugin that sets the reasoning effort for every prompt and counts down how long the prompt cache stays warm.">
+<meta name="description" content="A Claude Code plugin that picks the model and the reasoning effort for every prompt, and counts down how long the prompt cache stays warm.">
 <meta name="theme-color" content="#121214">
 <link rel="canonical" href="https://heycubit.github.io/effortless/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="effortless">
 <meta property="og:title" content="effortless">
-<meta property="og:description" content="A Claude Code plugin that sets the reasoning effort for every prompt and counts down how long the prompt cache stays warm.">
+<meta property="og:description" content="A Claude Code plugin that picks the model and the reasoning effort for every prompt, and counts down how long the prompt cache stays warm.">
 <meta property="og:url" content="https://heycubit.github.io/effortless/">
 <meta property="og:image" content="https://heycubit.github.io/effortless/og.png">
 <meta property="og:image:width" content="1280">
@@ -18,7 +18,7 @@
 <meta property="og:image:alt" content="effortless: picks the reasoning effort for every prompt in Claude Code">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="effortless">
-<meta name="twitter:description" content="A Claude Code plugin that sets the reasoning effort for every prompt and counts down how long the prompt cache stays warm.">
+<meta name="twitter:description" content="A Claude Code plugin that picks the model and the reasoning effort for every prompt, and counts down how long the prompt cache stays warm.">
 <meta name="twitter:image" content="https://heycubit.github.io/effortless/og.png">
 <link rel="icon" href="__ICON__">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -545,7 +545,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
     <div class="intro">
       <h1>__SPARK__<span class="word" aria-label="effortless"><span class="crisp" aria-hidden="true">effortless</span><span class="soft" aria-hidden="true">effortless</span></span></h1>
       <p class="kind"><img src="__CLAUDE__" alt="" width="22" height="22">A Claude Code mod</p>
-      <p class="lede">One bar above the prompt. It picks the reasoning effort for every prompt, and tells you when the cache goes cold or the chat gets heavy.</p>
+      <p class="lede">One bar above the prompt. It picks the model and the effort for every prompt, so the easy ones run cheaper, and tells you when the cache goes cold or the chat gets heavy.</p>
       <div class="cta">
         <a class="gh" href="https://github.com/HeyCubit/effortless">__GITHUB__<span>Star on GitHub</span>__STARS_BADGE__</a>
         <a class="ghost" href="#install">Install<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
@@ -570,7 +570,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   </div>
 </section>
 
-<template id="dash-tpl"><div class="dash">__SPARK__<span class="w">Medium</span><span class="pc"><i></i><b>22%</b></span><span class="cache">cache 59:00</span><span class="why">Haiku 5.5: a small fix in one file</span><span class="end"><span class="auto"><span class="sw"></span><span class="al">Auto</span></span><span class="co">Compact</span><span class="ho"><span>Compact</span></span><svg class="gear" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" d="M12.91 6.63L14.44 6.56 14.44 9.44 12.91 9.37 12.44 10.5 13.57 11.54 11.54 13.57 10.5 12.44 9.37 12.91 9.44 14.44 6.56 14.44 6.63 12.91 5.5 12.44 4.46 13.57 2.43 11.54 3.56 10.5 3.09 9.37 1.56 9.44 1.56 6.56 3.09 6.63 3.56 5.5 2.43 4.46 4.46 2.43 5.5 3.56 6.63 3.09 6.56 1.56 9.44 1.56 9.37 3.09 10.5 3.56 11.54 2.43 13.57 4.46 12.44 5.5Z"/><circle cx="8" cy="8" r="2.1" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></span></div></template>
+<template id="dash-tpl"><div class="dash">__SPARK__<span class="w">Medium<span class="mdl"> · Opus</span></span><span class="pc"><i></i><b>22%</b></span><span class="cache">cache 59:00</span><span class="why">Haiku 5.5: a small fix in one file</span><span class="end"><span class="auto"><span class="sw"></span><span class="al">Auto</span></span><span class="co">Compact</span><span class="ho"><span>Compact</span></span><svg class="gear" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" d="M12.91 6.63L14.44 6.56 14.44 9.44 12.91 9.37 12.44 10.5 13.57 11.54 11.54 13.57 10.5 12.44 9.37 12.91 9.44 14.44 6.56 14.44 6.63 12.91 5.5 12.44 4.46 13.57 2.43 11.54 3.56 10.5 3.09 9.37 1.56 9.44 1.56 6.56 3.09 6.63 3.56 5.5 2.43 4.46 4.46 2.43 5.5 3.56 6.63 3.09 6.56 1.56 9.44 1.56 9.37 3.09 10.5 3.56 11.54 2.43 13.57 4.46 12.44 5.5Z"/><circle cx="8" cy="8" r="2.1" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></span></div></template>
 
 <header class="topbar" id="topbar">
   <a class="name" href="#top">__SPARK__effortless<span class="tag">Beta</span></a>
@@ -610,8 +610,8 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
     <h2>Powered by Haiku&nbsp;5.5<img class="cm" src="__CLAUDE_ORANGE__" alt="Claude" width="96" height="96"><span class="or">or Jev</span><img class="jm" src="__TYPESAFE_VIOLET__" alt="Jev" width="64" height="96"></h2>
     <p>Haiku 5.5 is about 75% cheaper than Haiku 4.5 and does three jobs. Jev, with a TypeSafe key, judges about 4x faster.</p>
     <ul class="uses">
-      <li><b>Judges every prompt</b><span>Picks the effort, and lights up Handoff when a fresh chat would pay off. On your own Claude login.</span></li>
-      <li><b>Runs the simple ones</b><span>A quick prompt runs on Haiku. Your chat keeps its model and its warm cache.</span></li>
+      <li><b>Judges every prompt</b><span>Picks the model and the effort, and lights up Handoff when a fresh chat would pay off. On your own Claude login.</span></li>
+      <li><b>Runs the simple ones cheaper</b><span>A quick prompt runs on Haiku or Sonnet, and the bar shows which. Your chat keeps its model.</span></li>
       <li><b>Writes your compactions</b><span>Every compact, by hand or automatic, is summarized by Haiku 5.5.</span></li>
     </ul>
   </section>
@@ -711,7 +711,7 @@ var Dash=(function(){
 // The bar at the top of the stack: High, a refactor, Handoff already glowing.
 (function(){
   var host=document.querySelector('[data-dash="stack"]');if(!host)return;
-  var d=Dash(host);d.word('High');d.pct(38);d.secs(3539);d.reason('Haiku 5.5: a refactor');
+  var d=Dash(host);d.word('High · Opus');d.pct(38);d.secs(3539);d.reason('Haiku 5.5: a refactor');
 })();
 
 // The story plays in the first time it scrolls into view.
@@ -752,7 +752,7 @@ var Dash=(function(){
     later(700,function(){d.word(level,true);d.reason('Haiku 5.5: '+why);d.secs(3599);d.pct(Math.min(d.p+3,99));msg('ai',reply);later(1900,function(){done&&done();});});});}
   function ramp(to,ms,done){var from=d.p,t0=0,steps=Math.max(1,Math.round(ms/80));
     (function step(i){d.pct(from+(to-from)*i/steps);if(i<steps)later(80,function(){step(i+1)});else done&&done();})(still?steps:1);}
-  function base(){chat.innerHTML='';clear();host.classList.remove('away');input('');d.auto(true);d.word('Medium');d.pct(22);d.secs(3540);d.reason('Haiku 5.5: a small fix in one file');}
+  function base(){chat.innerHTML='';clear();host.classList.remove('away');input('');d.auto(true);d.word('Medium · Opus');d.pct(22);d.secs(3540);d.reason('Haiku 5.5: a small fix in one file');}
   function again(f,ms){if(!still)later(ms||2600,f);}
 
   // A scene names the parts of the bar it is about; they stay lit while the rest dims, and swell when they change.
@@ -777,8 +777,8 @@ var Dash=(function(){
   var scenes=[
     function effort(){base();aim([d.w]);
       later(900,function(){ask('rename this variable to userId','Low · Haiku','a rename in one place','Renamed in 4 files.',function(){
-        ask('plan the billing migration, all services','XHigh','a plan across every service','Here is a plan in five stages, starting with the read path…',function(){
-          ask('add a test for the date parser','Medium','a small fix in one file','Added 6 cases, including leap days.',function(){again(effort);});});});});},
+        ask('plan the billing migration, all services','XHigh · Opus','a plan across every service','Here is a plan in five stages, starting with the read path…',function(){
+          ask('add a test for the date parser','Medium · Sonnet','a small fix in one file','Added 6 cases, including leap days.',function(){again(effort);});});});});},
     function handoff(){only(HANDOFF);d.pct(48);},
     function cold(){only(COLD);d.secs(0);},
     function swamp(){only(SWAMP);d.pct(82);},
@@ -808,10 +808,10 @@ var Dash=(function(){
 (function(){
   var host=document.getElementById('demo-dash');if(!host)return;
   var d=Dash(host),text=document.getElementById('demo-text'),ph=document.getElementById('demo-ph'),send=document.getElementById('demo-send');
-  var runs=[['rename this variable to userId','Low','a rename in one place'],['why does the token refresh fail after a deploy?','High','a bug across services'],['thanks','Low','a short reply'],['add a test for the date parser','Medium','a small fix in one file'],['plan the billing migration, all services','XHigh','a plan across every service']];
-  function fresh(){d.word('Auto');d.pct(3);d.secs(null);d.reason('Auto picks the effort at the next prompt');}
+  var runs=[['rename this variable to userId','Low · Haiku','a rename in one place'],['why does the token refresh fail after a deploy?','High · Opus','a bug across services'],['thanks','Low · Haiku','a short reply'],['add a test for the date parser','Medium · Sonnet','a small fix in one file'],['plan the billing migration, all services','XHigh · Opus','a plan across every service']];
+  function fresh(){d.word('Auto');d.pct(3);d.secs(null);d.reason('Auto picks the model and effort at the next prompt');}
   function show(s){text.textContent=s;ph.hidden=!!s;send.classList.toggle('on',!!s);}
-  if(matchMedia('(prefers-reduced-motion: reduce)').matches){show(runs[1][0]);d.word('High');d.pct(38);d.secs(3539);d.reason('Haiku 5.5: '+runs[1][2]);return;}
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){show(runs[1][0]);d.word('High · Opus');d.pct(38);d.secs(3539);d.reason('Haiku 5.5: '+runs[1][2]);return;}
   fresh();
   var i=0;
   function type(s,k,done){show(s.slice(0,k));if(k<s.length)setTimeout(function(){type(s,k+1,done)},32+Math.random()*40);else setTimeout(done,450);}
