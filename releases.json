@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.66.0",
+    "date": "2026-10-09",
+    "note": "The bar shows the model too",
+    "public": true
+  },
+  {
     "version": "1.65.0",
     "date": "2026-10-09",
     "note": "Compact button stays visible in a narrow pane",
