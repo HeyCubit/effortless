@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>effortless</title>
-<meta name="description" content="A Claude Code plugin that picks the model and the reasoning effort for every prompt, and counts down how long the prompt cache stays warm.">
+<meta name="description" content="A Claude Code plugin that picks the reasoning effort for every prompt: 21% cheaper than Opus at medium on real coding tasks, with the same answers. It also counts down how long the prompt cache stays warm.">
 <meta name="theme-color" content="#121214">
 <link rel="canonical" href="https://heycubit.github.io/effortless/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="effortless">
 <meta property="og:title" content="effortless">
-<meta property="og:description" content="A Claude Code plugin that picks the model and the reasoning effort for every prompt, and counts down how long the prompt cache stays warm.">
+<meta property="og:description" content="A Claude Code plugin that picks the reasoning effort for every prompt: 21% cheaper than Opus at medium on real coding tasks, with the same answers. It also counts down how long the prompt cache stays warm.">
 <meta property="og:url" content="https://heycubit.github.io/effortless/">
 <meta property="og:image" content="https://heycubit.github.io/effortless/og.png">
 <meta property="og:image:width" content="1280">
@@ -18,7 +18,7 @@
 <meta property="og:image:alt" content="effortless: picks the reasoning effort for every prompt in Claude Code">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="effortless">
-<meta name="twitter:description" content="A Claude Code plugin that picks the model and the reasoning effort for every prompt, and counts down how long the prompt cache stays warm.">
+<meta name="twitter:description" content="A Claude Code plugin that picks the reasoning effort for every prompt: 21% cheaper than Opus at medium on real coding tasks, with the same answers. It also counts down how long the prompt cache stays warm.">
 <meta name="twitter:image" content="https://heycubit.github.io/effortless/og.png">
 <link rel="icon" href="__ICON__">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -643,7 +643,7 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
     <div class="intro">
       <h1>__SPARK__<span class="word" aria-label="effortless"><span class="crisp" aria-hidden="true">effortless</span><span class="soft" aria-hidden="true">effortless</span></span></h1>
       <p class="kind"><img src="__CLAUDE__" alt="" width="22" height="22">A Claude Code mod</p>
-      <p class="lede">One bar that picks the model and the effort for every prompt.</p>
+      <p class="lede">One bar that picks the effort for every prompt. 21% cheaper than Opus at medium, same answers.</p>
       <div class="cta">
         <a class="gh" href="https://github.com/HeyCubit/effortless">__GITHUB__<span>Star on GitHub</span>__STARS_BADGE__</a>
         <a class="ghost" href="#install">Install<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
@@ -709,10 +709,9 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 
   <section class="power" aria-label="Powered by Haiku 5.5">
     <h2>Powered by Haiku&nbsp;5.5<img class="cm" src="__CLAUDE_ORANGE__" alt="Claude" width="96" height="96"><span class="or">or Jev</span><img class="jm" src="__TYPESAFE_VIOLET__" alt="Jev" width="64" height="96"></h2>
-    <p>Haiku 5.5 is about 75% cheaper than Haiku 4.5 and does three jobs. Jev, with a TypeSafe key, judges about 4x faster.</p>
+    <p>Haiku 5.5 is about 75% cheaper than Haiku 4.5 and does two jobs. Jev, with a TypeSafe key, judges about 4x faster.</p>
     <ul class="uses">
-      <li><b>Judges every prompt</b><span>Picks the model and the effort, and lights up Handoff when a fresh chat would pay off. On your own Claude login.</span></li>
-      <li><b>Runs the simple ones cheaper</b><span>A quick prompt runs on Haiku or Sonnet, and the bar shows which. Your chat keeps its model.</span></li>
+      <li><b>Judges every prompt</b><span>Picks the effort, and lights up Handoff when a fresh chat would pay off. On your own Claude login.</span></li>
       <li><b>Writes your compactions</b><span>Every compact, by hand or automatic, is summarized by Haiku 5.5.</span></li>
     </ul>
   </section>
@@ -788,7 +787,7 @@ var Dash=(function(){
       // A new verdict turns the word violet, holds it a second, then fades it back to white.
       word:function(v,flash){w.classList.remove('deciding');clearTimeout(ft);
         if(w.textContent!==v&&flash){w.classList.add('flash');ft=setTimeout(function(){w.classList.remove('flash')},1000);}else w.classList.remove('flash');
-        // "Low · Haiku": the effort word, then the cheaper model it moved the prompt to, dimmed.
+        // "Low · Opus": the effort word, then the model the chat runs on, dimmed.
         var at=v.indexOf(' · ');w.textContent=at<0?v:v.slice(0,at);
         if(at>=0){var m=document.createElement('span');m.className='mdl';m.textContent=v.slice(at);w.appendChild(m);}},
       deciding:function(){clearTimeout(ft);w.classList.remove('flash');w.textContent='Deciding';w.classList.add('deciding');},
@@ -877,9 +876,9 @@ var Dash=(function(){
   function only(html){base();aim([]);return band(html);}
   var scenes=[
     function effort(){base();aim([d.w]);
-      later(900,function(){ask('rename this variable to userId','Low · Haiku','a rename in one place','Renamed in 4 files.',function(){
+      later(900,function(){ask('rename this variable to userId','Low · Opus','a rename in one place','Renamed in 4 files.',function(){
         ask('plan the billing migration, all services','XHigh · Opus','a plan across every service','Here is a plan in five stages, starting with the read path…',function(){
-          ask('add a test for the date parser','Medium · Sonnet','a small fix in one file','Added 6 cases, including leap days.',function(){again(effort);});});});});},
+          ask('add a test for the date parser','Medium · Opus','a small fix in one file','Added 6 cases, including leap days.',function(){again(effort);});});});});},
     function handoff(){only(HANDOFF);d.pct(48);},
     function cold(){only(COLD);d.secs(0);},
     function swamp(){only(SWAMP);d.pct(82);},
@@ -909,8 +908,8 @@ var Dash=(function(){
 (function(){
   var host=document.getElementById('demo-dash');if(!host)return;
   var d=Dash(host),text=document.getElementById('demo-text'),ph=document.getElementById('demo-ph'),send=document.getElementById('demo-send');
-  var runs=[['rename this variable to userId','Low · Haiku','a rename in one place'],['why does the token refresh fail after a deploy?','High · Opus','a bug across services'],['thanks','Low · Haiku','a short reply'],['add a test for the date parser','Medium · Sonnet','a small fix in one file'],['plan the billing migration, all services','XHigh · Opus','a plan across every service']];
-  function fresh(){d.word('Auto');d.pct(3);d.secs(null);d.reason('Auto picks the model and effort at the next prompt');}
+  var runs=[['rename this variable to userId','Low · Opus','a rename in one place'],['why does the token refresh fail after a deploy?','High · Opus','a bug across services'],['thanks','Low · Opus','a short reply'],['add a test for the date parser','Medium · Opus','a small fix in one file'],['plan the billing migration, all services','XHigh · Opus','a plan across every service']];
+  function fresh(){d.word('Auto');d.pct(3);d.secs(null);d.reason('Auto picks the effort at the next prompt');}
   function show(s){text.textContent=s;ph.hidden=!!s;send.classList.toggle('on',!!s);}
   if(matchMedia('(prefers-reduced-motion: reduce)').matches){show(runs[1][0]);d.word('High · Opus');d.pct(38);d.secs(3539);d.reason('Haiku 5.5: '+runs[1][2]);return;}
   fresh();
