@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.67.7",
+    "date": "2026-10-09",
+    "note": "Model gets its own settings card"
+  },
+  {
     "version": "1.67.6",
     "date": "2026-10-09",
     "note": "Model switch on the Effort card"

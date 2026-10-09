@@ -2379,6 +2379,12 @@ describe('settings panel', () => {
     await panel.press({ key: 'settings-card-handoff' })
     await panel.select({ key: 'settings-skill', value: 'session-handoff' })
     await panel.press({ key: 'settings-back' })
+    // Model has its own card: two choices, and the card says which is on.
+    expect(await drawn(panel)).toContain('Cheaper when it can')
+    await panel.press({ key: 'settings-card-model' })
+    await panel.press({ key: 'settings-model-off' })
+    await panel.press({ key: 'settings-back' })
+    expect(await drawn(panel)).toContain("Always the chat's")
     // The cards say what is set, unsaved changes included.
     expect(await drawn(panel)).toContain('Smarter · medium to max')
     expect(await drawn(panel)).toContain('/session-handoff · compact alert at')
@@ -2395,6 +2401,7 @@ describe('settings panel', () => {
     expect(set).toContainEqual({ key: 'effortless.effortBias', value: '1' })
     expect(set).toContainEqual({ key: 'effortless.effortFloor', value: 'medium' })
     expect(set).toContainEqual({ key: 'effortless.judge', value: 'jev' })
+    expect(set).toContainEqual({ key: 'effortless.modelAuto', value: 'off' })
     expect(said.join(' | ')).toContain('key saved')
     expect(files['C:/Users/x/.config/jev/.env']).toBe('OTHER=1\nTYPESAFE_API_KEY=tk-new\n')
     await panel.unmount()

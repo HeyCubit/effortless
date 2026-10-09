@@ -161,15 +161,21 @@ const installedSkills = atom({ plugin: 'effortless', key: 'installedSkills' } as
 const settingsDraft = atom({ plugin: 'effortless', key: 'settingsDraft' } as const, {})
 const judgeDown = atom({ plugin: 'effortless', key: 'judgeDown' } as const, null)
 // Which part of the settings panel is open: null for the cards.
-type SettingsCard = 'effort' | 'judge' | 'handoff' | 'show'
+type SettingsCard = 'effort' | 'model' | 'judge' | 'handoff' | 'show'
 const settingsCard = atom({ plugin: 'effortless', key: 'settingsCard' } as const, null)
 /** The settings panel's parts: a card each on the overview, and what the part is for, said once it is open. */
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits.' },
+  { id: 'model', title: 'Model', about: "Whether a simple prompt may run on a cheaper model. Effort is judged either way." },
   { id: 'handoff', title: 'Handoff', about: 'The skill that writes a full handoff, and at what share of context to suggest compacting or handing off.' },
   { id: 'show', title: 'Customize', about: 'How effortless looks and which parts it shows. Uninstall removes it.' },
   { id: 'judge', title: 'Judge', about: 'Haiku judges prompts and handoffs. Add Jev for quicker effort calls. Test checks it answers.' },
 ]
+// The Model card: the two ways to run. Effort follows the judge in both.
+const MODEL_CHOICES = [
+  { value: 'on', label: 'Cheaper when it can', about: "A simple prompt runs on Haiku or Sonnet, never above the chat's own model." },
+  { value: 'off', label: "Always the chat's", about: "Every prompt keeps the model you picked. Only effort changes." },
+] as const
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
 // The settings panel's judge test: running, or what it found. Null before a test and once the panel closes.
 const judgeTest = atom({ plugin: 'effortless', key: 'judgeTest' } as const, null)
@@ -2036,10 +2042,12 @@ export function settingsSvg(color: string): string {
 
 /** The settings rows' icons, drawn in the cog's outline style (14 px, 1.3 stroke) rather than font glyphs, which
  * differ per font. */
-export function rowIconSvg(kind: 'effort' | 'judge' | 'handoff' | 'show' | 'quick' | 'full', color: string): string {
+export function rowIconSvg(kind: 'effort' | 'model' | 'judge' | 'handoff' | 'show' | 'quick' | 'full', color: string): string {
   const shapes = {
     // A gauge: an open arc with a needle.
     effort: '<path d="M2.6 10.4A5 5 0 1 1 11.4 10.4"/><path d="M7 8.2L9.6 5.2"/><circle cx="7" cy="8.6" r=".9"/>',
+    // Layers: the models, stacked.
+    model: '<path d="M7 2 12.2 4.7 7 7.4 1.8 4.7Z"/><path d="M1.8 7.3 7 10 12.2 7.3"/><path d="M1.8 9.9 7 12.6 12.2 9.9"/>',
     // Scales: a beam on a post, two pans.
     judge: '<path d="M7 2.4V11.6M4.4 11.6H9.6M2.6 4.2H11.4"/><path d="M2.6 4.2L1.2 7.6A1.5 1.5 0 0 0 4 7.6Z"/><path d="M11.4 4.2L10 7.6A1.5 1.5 0 0 0 12.8 7.6Z"/>',
     // An arrow into a bar: hand off.
@@ -4248,6 +4256,7 @@ Saved to ${out}.md and .json` }
       const judgeName = shown.judge === 'haiku' ? 'Haiku' : hasKey || shown.judge === 'jev' ? 'Haiku + Jev' : 'Haiku'
       const summaries: Record<SettingsCard, string> = {
         effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}`,
+        model: shown.modelAuto === 'on' ? 'Cheaper when it can' : "Always the chat's",
         judge: tested && tested.ok !== null ? `${judgeName} · ${tested.ok ? 'working' : 'failing'}` : judgeName,
         handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · compact alert at ${shown.swampAt}%`,
         show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${2 - ['timer', 'reason'].filter(h => hidden.includes(h)).length} of 2 on`,
@@ -4425,16 +4434,10 @@ Saved to ${out}.md and .json` }
                   <Box key="gap" width={2} />,
                   <Select key="settings-floor" label="Min" value={shown.floor} options={opts(EFFORTS)} onSelect={set('floor')} />,
                   <Select key="settings-ceiling" label="Max" value={shown.ceiling} options={opts(EFFORTS)} onSelect={set('ceiling')} />,
-                  <Select key="settings-effort-model" label="Model" value={shown.modelAuto}
-                    options={[{ value: 'on', label: 'Cheaper when it can' }, { value: 'off', label: "Always the chat's" }]}
-                    onSelect={set('modelAuto')} />,
                 ]),
 ] : card === 'judge' ? (bare ? [] : [
             <Select key="settings-judge-pick" value={shown.judge} options={[{ value: 'auto', label: hasKey ? 'Haiku + Jev' : 'Haiku (Jev if added)' }, { value: 'haiku', label: 'Haiku only' }]}
               onSelect={v => set('judge')(v === 'haiku' ? 'haiku' : 'auto')} />,
-            <Select key="settings-model-auto" label="Model" value={shown.modelAuto}
-              options={[{ value: 'on', label: 'Cheaper when it can' }, { value: 'off', label: "Always the chat's" }]}
-              onSelect={set('modelAuto')} />,
             ...(shown.judge !== 'haiku'
               ? [field('key-field', <Input key="settings-key" placeholder={hasKey ? 'Key saved. Paste to replace' : 'Paste TypeSafe key'}
                   value={draft.key ?? ''} submitLabel="ok" onInput={set('key')} onSubmit={set('key')} />, 30)]
@@ -4451,7 +4454,12 @@ Saved to ${out}.md and .json` }
             ...(tested && tested.ok !== null
               ? [<Text key="settings-judge-result" color={tested.ok ? '#7fd49b' : '#ff8a80'}>{`${tested.ok ? '✓' : '✗'} ${tested.text}`}</Text>]
               : []),
-]) : card === 'handoff' ? (bare ? [] : [
+]) : card === 'model' ? (bare ? [] : MODEL_CHOICES.map(c => (
+            <Box key={`model-${c.value}`} flexDirection="column" flexGrow={1} flexShrink={1} minWidth={26}>
+              <Button key={`settings-model-${c.value}`} plain label={`${shown.modelAuto === c.value ? '◉' : '○'} ${c.label}`} onPress={() => set('modelAuto')(c.value)} />
+              <Text dimColor wrap="wrap">{c.about}</Text>
+            </Box>
+          ))) : card === 'handoff' ? (bare ? [] : [
             <Select key="settings-skill" label="Handoff skill" value={shown.handoffSkill || '-'}
               options={[
                 { value: '-', label: 'effortless (built in)' },
