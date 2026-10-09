@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/readme/banner.png" alt="effortless, a Claude Code mod: one bar above the prompt that picks the reasoning effort for every prompt" width="100%">
+  <img src="docs/readme/banner.png" alt="effortless, a Claude Code mod: one bar above the prompt that picks the model and the reasoning effort for every prompt" width="100%">
 </p>
 
 <p align="center">
@@ -9,8 +9,9 @@
   <a href="#pick-your-judge"><b>Judges</b></a>
 </p>
 
-A Claude Code mod that picks the reasoning effort, and the model, for every prompt. Easy questions run on **Low**,
-often on **Haiku 5.5**; hard jobs get **High** on your own model, and you never touch the Effort control. One bar above the prompt also shows how full the chat is, how long
+A Claude Code mod that picks the model and the reasoning effort for every prompt. Easy questions run on **Haiku** or
+**Sonnet** at a low effort; hard jobs get **High** on your own model, and you never touch the model or Effort control.
+In one long chat on Opus about half the replies ran on Sonnet or Haiku, roughly half the cost by our estimate. One bar above the prompt also shows how full the chat is, how long
 the prompt cache stays warm, and hands off or compacts in one click when a chat gets heavy.
 
 <p align="center">
@@ -25,7 +26,7 @@ it is built for. effortless uses it in three places:
 | | |
 |---|---|
 | **The judge** | reads each prompt and picks the effort and model, in about a second, on your own Claude login |
-| **Cheaper model when it can** | a prompt the judge calls simple runs on Haiku 5.5 (or Sonnet), never above your chat's model. Only that prompt moves: your chat stays on its model, and that model's cache stays warm for the next hard prompt. The bar shows it as `Low · Haiku` |
+| **Cheaper model when it can** | a prompt the judge calls simple runs on Haiku 5.5 (or Sonnet), never above your chat's model. Only that prompt moves: your chat stays on its model, and that model's cache stays warm for the next hard prompt. The bar shows the model beside the effort: `Low · Haiku`, `High · Opus` |
 | **Compaction** | every compaction, `/compact` and the automatic one included, is summarized by Haiku 5.5. If Haiku fails, Claude Code compacts as usual |
 
 Each can be switched off: Settings → Judge → Model, and Settings → Handoff → Compact with.
@@ -69,7 +70,7 @@ new version in the chat you pressed it in, with nothing to type.
 
 | On the bar | Means |
 |---|---|
-| **High** | the effort Auto picked for this prompt. `Deciding` while the judge thinks; a switch flashes violet and fades to white. `· Haiku` after it: this prompt runs on a cheaper model |
+| **High · Opus** | the effort and the model Auto picked for this prompt. `Deciding` while the judge thinks; a switch flashes violet and fades to white. A cheaper model after it (`Low · Haiku`) means only this prompt runs there |
 | **◔ 38%** | how full the chat's context is |
 | **cache 59:00** | time until the prompt cache goes cold, after which the next message pays full price to re-read the chat |
 | *Haiku: a refactor…* | who judged and why |
