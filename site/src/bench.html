@@ -86,39 +86,27 @@ thead tr:first-child th.hl{box-shadow:inset 1px 0 0 var(--hlb),inset -1px 0 0 va
 tbody tr:last-child td.hl{box-shadow:inset 1px 0 0 var(--hlb),inset -1px 0 0 var(--hlb),inset 0 -1px 0 var(--hlb)}
 td.hl{color:#f4f2ff;font-weight:600}
 th.grp{text-align:center;font:500 13px var(--mono);color:var(--muted)}
-/* In the two-column group the outline goes round the group, not round each column. */
-.qual .main tbody td.hl:nth-child(2),.qual .main thead tr:nth-child(2) th.hl:nth-child(1){box-shadow:inset 1px 0 0 var(--hlb)}
-.qual .main tbody td.hl:nth-child(3),.qual .main thead tr:nth-child(2) th.hl:nth-child(2){box-shadow:inset -1px 0 0 var(--hlb)}
-.qual .main tbody tr:last-child td.hl:nth-child(2){box-shadow:inset 1px 0 0 var(--hlb),inset 0 -1px 0 var(--hlb)}
-.qual .main tbody tr:last-child td.hl:nth-child(3){box-shadow:inset -1px 0 0 var(--hlb),inset 0 -1px 0 var(--hlb)}
 .judge table{min-width:620px}
-.qual .main table{min-width:640px}
 .neg{color:#f0a07a}
+.pos{color:#5fd3a5}
+/* Benchmark 2: one plain comparison. The result column carries the colour, the total row gets a heavier rule. */
+table.plain td b{font-weight:600;color:#f4f2ff}
+table.plain td b.pos{color:#5fd3a5}
+table.plain td b.neg{color:#f0a07a}
+table.plain td:nth-child(2){font-size:15px}
+table.plain tr.total th,table.plain tr.total td{border-top:2px solid var(--rule2);background:#18181c}
+table.plain tr.total td b{font-size:19px}
+@media (max-width:600px){table.plain thead{display:none}table.plain,table.plain tbody{display:block}
+  table.plain tr{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.8fr) minmax(0,1.2fr);border:1px solid var(--rule);border-top:0}
+  table.plain tr:first-child{border-top:1px solid var(--rule)}
+  table.plain th,table.plain td{border:0;padding:10px 12px}
+  table.plain th{grid-column:1/-1;padding-bottom:0}table.plain th small{display:inline;margin-left:6px}
+  table.plain td::before{content:attr(data-l);display:block;margin-bottom:3px;font:500 11.5px/1.3 var(--mono);color:var(--muted)}
+  table.plain td:empty{display:none}table.plain tr.total td:nth-of-type(2){grid-column:2}
+  table.plain tr.total th,table.plain tr.total td{border-top:0}table.plain tr.total{border-top:2px solid var(--rule2);background:#18181c}table.plain tr.total th,table.plain tr.total td{background:none}table.plain td b{font-size:16.5px}table.plain tr.total td b{font-size:18px}}
+.read{margin-top:18px;padding-left:18px;border-left:2px solid var(--hlb);max-width:44em;color:var(--body)}
+.read b{color:#f4f2ff}
 
-/* The cost chart: square box, thin bars, labels in text colours, one zero line. */
-.chart{margin-top:26px;border:1px solid var(--rule);padding:22px 22px 16px}
-.chart h3{margin:0;font:600 15px var(--sans);color:#e6e3f0}
-.chart .sub{margin:4px 0 14px;color:var(--muted);font-size:13.5px}
-.legend{display:flex;flex-wrap:wrap;gap:6px 22px;margin:0 0 14px;color:var(--body);font-size:13.5px}
-.legend i{display:inline-block;width:12px;height:12px;margin-right:8px;vertical-align:-1px}
-.rows{display:grid;gap:14px}
-.row{display:grid;grid-template-columns:9em minmax(0,1fr);align-items:center;gap:14px}
-.row .lab{color:#d9d6e4;font-size:14px;line-height:1.3}
-.row .lab small{display:block;color:var(--dim);font-size:12.5px}
-.track{display:grid;gap:4px}
-.bar{position:relative;height:20px;cursor:pointer}
-.bar .fill{position:absolute;top:0;bottom:0;border-radius:0 4px 4px 0}
-.bar .fill.neg{border-radius:4px 0 0 4px}
-.bar .val{position:absolute;top:50%;transform:translateY(-50%);font-size:13px;font-weight:600;color:#ecebf1;white-space:nowrap;font-variant-numeric:tabular-nums}
-.zero{position:absolute;top:-5px;bottom:-5px;width:1px;background:var(--rule2)}
-.scale{display:grid;grid-template-columns:9em minmax(0,1fr);gap:14px;margin-top:10px;color:var(--dim);font:12px var(--mono)}
-.scale div{position:relative;height:14px}
-.scale div span{position:absolute;transform:translateX(-50%)}
-.bar.sel .fill,.bar:hover .fill{filter:brightness(1.22)}
-.bar:focus{outline:none}
-.bar:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.detail{min-height:3.2em;margin:16px 0 0;padding:10px 0 0;border-top:1px solid var(--rule);color:var(--muted);font-size:14px;line-height:1.45}
-.detail b{color:var(--text)}
 
 /* Notes, the fix and the limits: a mono label over a rule. */
 .note{margin-top:16px;color:var(--dim);font-size:14px;max-width:46em}
@@ -141,8 +129,8 @@ details table{min-width:560px}
 a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 @media (max-width:860px){.cells{grid-template-columns:repeat(2,minmax(0,1fr))}.cell:nth-child(3){border-left:0;padding-left:0}.cell:nth-child(n+3){border-top:1px solid var(--rule)}.answer .q{grid-template-columns:minmax(0,1fr);gap:8px}}
 @media (max-width:760px){.split,.ruled,.run{grid-template-columns:minmax(0,1fr)}.split>div+div{padding-left:0;border-left:0;border-top:1px solid var(--rule2);margin-top:12px}.run>div+div{border-left:0;border-top:1px solid var(--rule)}}
-@media (max-width:560px){.top{padding:16px 16px 0}main{padding:44px 16px 72px}.sec{margin-top:68px}.cell{padding:18px 14px 20px}.cell b{font-size:32px}.row,.scale{grid-template-columns:6.4em minmax(0,1fr);gap:10px}.chart{padding:18px 14px 14px}th,td{padding:12px}}
-@media (max-width:360px){.row,.scale{grid-template-columns:5.2em minmax(0,1fr);gap:8px}.row .lab{font-size:13px}.bar .val{font-size:12px}.cells{grid-template-columns:minmax(0,1fr)}.cell,.cell:nth-child(3){border-left:0;padding-left:0}.cell+.cell{border-top:1px solid var(--rule)}}
+@media (max-width:560px){.top{padding:16px 16px 0}main{padding:44px 16px 72px}.sec{margin-top:68px}.cell{padding:18px 14px 20px}.cell b{font-size:32px}th,td{padding:12px}}
+@media (max-width:360px){.cells{grid-template-columns:minmax(0,1fr)}.cell,.cell:nth-child(3){border-left:0;padding-left:0}.cell+.cell{border-top:1px solid var(--rule)}}
 @media (pointer:coarse){.back{display:inline-flex;align-items:center;min-height:44px}.name{min-height:44px}summary{padding:13px 0}}
 </style>
 </head>
@@ -206,33 +194,31 @@ a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-of
   <section class="sec qual" aria-labelledby="q-h">
     <div class="label">Benchmark 2</div>
     <h2 id="q-h">Does the cheaper answer hold up?</h2>
-    <p>30 prompts, each answered twice: by Opus, and by the model a router would pick. A blind grader (Opus, high effort, answers in random order) says which is better and whether the worse one would still do the job.</p>
-    <div class="tbl main"><table>
-      <thead>
-        <tr><th scope="col" rowspan="2">Prompts<small>routed to</small></th><th scope="colgroup" colspan="2" class="grp hl">Against Opus medium</th><th scope="colgroup" colspan="2" class="grp">Against Opus high</th></tr>
-        <tr><th scope="col" class="hl">Good enough</th><th scope="col" class="hl">Cost saved</th><th scope="col">Good enough</th><th scope="col">Cost saved</th></tr>
-      </thead>
+    <p>The same 30 prompts went two ways: straight to Opus at medium effort, and through effortless, which picks a model and an effort for each one. A grader (Opus, high effort) saw both answers without knowing which was which and said whether the effortless answer would still do the job.</p>
+    <div class="tbl"><table class="plain" id="vs-medium">
+      <thead><tr><th scope="col">Kind of prompt</th><th scope="col">effortless sent it to</th><th scope="col">Still did the job</th><th scope="col">Cost next to Opus medium</th></tr></thead>
       <tbody>
-        <tr><th scope="row">Easy, 12<small>Haiku, low effort</small></th><td class="hl">75%</td><td class="hl">77%</td><td>83%</td><td>78%</td></tr>
-        <tr><th scope="row">Normal, 12<small>Sonnet, medium effort</small></th><td class="hl">100%</td><td class="hl">60%</td><td>100%</td><td>66%</td></tr>
-        <tr><th scope="row">Hard, 6<small>Opus, high effort</small></th><td class="hl">100%</td><td class="hl"><span class="neg">-26%</span><small>costs more</small></td><td>100%</td><td>0%<small>same model</small></td></tr>
-        <tr><th scope="row">All 30</th><td class="hl">90%</td><td class="hl">7%</td><td>93%</td><td>19%</td></tr>
+        <tr><th scope="row">Easy<small>12 prompts</small></th><td data-l="Sent to">Haiku, low effort</td><td data-l="Did the job"><b>9</b> of 12</td><td data-l="Cost"><b class="pos">77% cheaper</b></td></tr>
+        <tr><th scope="row">Normal<small>12 prompts</small></th><td data-l="Sent to">Sonnet, medium effort</td><td data-l="Did the job"><b>12</b> of 12</td><td data-l="Cost"><b class="pos">60% cheaper</b></td></tr>
+        <tr><th scope="row">Hard<small>6 prompts</small></th><td data-l="Sent to">Opus, high effort</td><td data-l="Did the job"><b>6</b> of 6</td><td data-l="Cost"><b class="neg">26% more expensive</b><small>more effort than the baseline, on purpose</small></td></tr>
+        <tr class="total"><th scope="row">All<small>30 prompts</small></th><td data-l="Sent to"></td><td data-l="Did the job"><b>27</b> of 30</td><td data-l="Cost"><b class="pos">7% cheaper</b></td></tr>
       </tbody>
     </table></div>
+    <p class="read"><b>How to read it.</b> Easy and normal prompts get much cheaper. Hard prompts get more effort than Opus medium would spend, and cost more. On this mix the two nearly cancel out, so the more of your prompts are easy, the more you save.</p>
 
-    <div class="chart" id="cost" role="group" aria-labelledby="c2-h">
-      <h3 id="c2-h">Cost saved by routing, per kind of prompt</h3>
-      <p class="sub">Below zero costs more. Tap or hover a bar for the dollars.</p>
-      <div class="legend"><span><i style="background:var(--md)"></i>Against Opus medium</span><span><i style="background:var(--hi)"></i>Against Opus high</span></div>
-      <div class="rows" id="c2"></div>
-      <div class="scale" aria-hidden="true"><span></span><div id="c2s"></div></div>
-      <p class="detail" id="d2" aria-live="polite">Tap or hover a bar for the cost in dollars and how often the answer was good enough.</p>
-    </div>
-
-    <details>
-      <summary>Wins, ties and dollars per answer</summary>
+    <details id="more">
+      <summary>Against Opus at high effort, wins and ties, dollars per answer</summary>
+      <div class="tbl"><table class="plain" id="vs-high">
+        <thead><tr><th scope="col">Against Opus high</th><th scope="col">Still did the job</th><th scope="col">Cost next to Opus high</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Easy, 12</th><td data-l="Did the job">10 of 12</td><td data-l="Cost">78% cheaper</td></tr>
+          <tr><th scope="row">Normal, 12</th><td data-l="Did the job">12 of 12</td><td data-l="Cost">66% cheaper</td></tr>
+          <tr><th scope="row">Hard, 6</th><td data-l="Did the job">6 of 6</td><td data-l="Cost">Same<small>same model and effort</small></td></tr>
+          <tr class="total"><th scope="row">All 30</th><td data-l="Did the job">28 of 30</td><td data-l="Cost">19% cheaper</td></tr>
+        </tbody>
+      </table></div>
       <div class="tbl"><table>
-        <thead><tr><th scope="col">Against Opus medium</th><th scope="col">Routed better</th><th scope="col">Tie</th><th scope="col">Opus better</th><th scope="col">Opus cost</th><th scope="col">Routed cost</th></tr></thead>
+        <thead><tr><th scope="col">Against Opus medium</th><th scope="col">effortless better</th><th scope="col">Tie</th><th scope="col">Opus better</th><th scope="col">Opus cost</th><th scope="col">effortless cost</th></tr></thead>
         <tbody>
           <tr><th scope="row">Easy, 12</th><td>0</td><td>5</td><td>7</td><td>$0.124</td><td>$0.029</td></tr>
           <tr><th scope="row">Normal, 12</th><td>1</td><td>4</td><td>7</td><td>$0.284</td><td>$0.115</td></tr>
@@ -241,7 +227,7 @@ a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-of
         </tbody>
       </table></div>
       <div class="tbl"><table>
-        <thead><tr><th scope="col">Against Opus high</th><th scope="col">Routed better</th><th scope="col">Tie</th><th scope="col">Opus better</th><th scope="col">Opus cost</th><th scope="col">Routed cost</th></tr></thead>
+        <thead><tr><th scope="col">Against Opus high</th><th scope="col">effortless better</th><th scope="col">Tie</th><th scope="col">Opus better</th><th scope="col">Opus cost</th><th scope="col">effortless cost</th></tr></thead>
         <tbody>
           <tr><th scope="row">Easy, 12</th><td>0</td><td>1</td><td>11</td><td>$0.126</td><td>$0.028</td></tr>
           <tr><th scope="row">Normal, 12</th><td>0</td><td>4</td><td>8</td><td>$0.329</td><td>$0.113</td></tr>
@@ -249,7 +235,7 @@ a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-of
           <tr><th scope="row">All 30</th><td>0</td><td>11</td><td>19</td><td>$1.620</td><td>$1.306</td></tr>
         </tbody>
       </table></div>
-      <p class="note">Median time against Opus medium: easy 4.1 s on Opus and 4.4 s routed, normal 9.4 s and 6.5 s. Cost is list-price dollars per answer, not your plan's usage.</p>
+      <p class="note">A tie or an Opus win can still count as doing the job: the grader says which answer is better, then whether the worse one would still do. Median time against Opus medium: easy 4.1 s on Opus and 4.4 s through effortless, normal 9.4 s and 6.5 s. Cost is list-price dollars per answer, not your plan's usage.</p>
     </details>
 
     <div class="fix">
@@ -278,28 +264,5 @@ a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-of
     <p class="note">Every number on this page comes from <code>bench/RESULTS.md</code>, with the details per prompt in <code>bench/results/</code>.</p>
   </section>
 </main>
-<script>
-// The cost chart: saved per tier against both baselines, on a scale from -30% to +100% with a zero line.
-// Hover, focus or tap a bar and its numbers show in the line under the chart. Nothing floats over the bars.
-var Q={medium:[{t:'Easy',c:12,ge:75,oc:.124,rc:.029,s:77},{t:'Normal',c:12,ge:100,oc:.284,rc:.115,s:60},{t:'Hard',c:6,note:'routed to Opus high',ge:100,oc:.714,rc:.903,s:-26},{t:'All',c:30,ge:90,oc:1.121,rc:1.046,s:7}],
-  high:[{t:'Easy',c:12,ge:83,oc:.126,rc:.028,s:78},{t:'Normal',c:12,ge:100,oc:.329,rc:.113,s:66},{t:'Hard',c:6,note:'same model',ge:100,oc:1.164,rc:1.164,s:0},{t:'All',c:30,ge:93,oc:1.620,rc:1.306,s:19}]};
-function cell(tag,txt){var e=document.createElement(tag);e.textContent=txt;return e}
-function money(v){return '$'+v.toFixed(3)}
-function hoverable(el,html,out){el.tabIndex=0;el.setAttribute('role','button');el.setAttribute('aria-label',html.replace(/<br>/g,'. ').replace(/<[^>]+>/g,''));
-  var show=function(){out.innerHTML=html.replace(/<br>/g,' · ');document.querySelectorAll('.bar.sel').forEach(function(b){b.classList.remove('sel')});el.classList.add('sel');};
-  ['mouseenter','focus','click'].forEach(function(e){el.addEventListener(e,show)});}
-(function(){var host=document.getElementById('c2'),out=document.getElementById('d2'),lo=-30,hi=100,pos=function(v){return (v-lo)/(hi-lo)*100};
-  ['Easy','Normal','Hard','All'].forEach(function(t,i){var row=document.createElement('div');row.className='row';
-    var lab=document.createElement('div');lab.className='lab';lab.textContent=t;lab.append(cell('small',Q.high[i].c+' prompts'));
-    var tr=document.createElement('div');tr.className='track';
-    [['medium','var(--md)','Opus medium'],['high','var(--hi)','Opus high']].forEach(function(k){var d=Q[k[0]][i],bar=document.createElement('div');bar.className='bar';
-      var z=document.createElement('div');z.className='zero';z.style.left=pos(0)+'%';
-      var f=document.createElement('div');f.className='fill'+(d.s<0?' neg':'');var x0=pos(Math.min(0,d.s)),x1=pos(Math.max(0,d.s));f.style.left=x0+'%';f.style.width=Math.max(x1-x0,.6)+'%';f.style.background=k[1];
-      var v=cell('div',d.s+'%');v.className='val';v.style.left=d.s<0?'calc('+x0+'% - 3.4em)':'calc('+x1+'% + 8px)';
-      bar.append(z,f,v);tr.append(bar);
-      hoverable(bar,'<b>'+t+' against '+k[2]+'</b>'+(d.note?' ('+d.note+')':'')+'<br>'+money(d.oc)+' on Opus, '+money(d.rc)+' routed: '+(d.s<0?(-d.s)+'% more':d.s+'% saved')+'<br>Good enough: '+d.ge+'%',out);});
-    row.append(lab,tr);host.append(row);});
-  var s=document.getElementById('c2s');[-25,0,25,50,75,100].forEach(function(p){var e=cell('span',p+'%');e.style.left=pos(p)+'%';s.append(e)});})();
-</script>
 </body>
 </html>
