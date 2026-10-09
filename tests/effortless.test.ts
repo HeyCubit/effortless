@@ -2687,7 +2687,9 @@ describe('dashboard', () => {
       return 0.2126 * f(n >> 16) + 0.7152 * f((n >> 8) & 255) + 0.0722 * f(n & 255)
     }
     const contrast = (a: string, b: string) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05)
-    for (const dark of ['#141416', '#15121f', '#0e1820', '#111710', '#1a110c', '#0f1c15', '#2a2a2f', '#4a3f80']) {
+    // Edges stay a visible step darker than the panels they frame.
+    for (const edge of ['#2a2a2f', '#4a3f80']) expect(lum(lightHex(edge, 'surface'))).toBeGreaterThan(0.45)
+    for (const dark of ['#141416', '#15121f', '#0e1820', '#111710', '#1a110c', '#0f1c15']) {
       const pale = lightHex(dark, 'surface')
       expect(lum(pale)).toBeGreaterThan(0.6)
     }

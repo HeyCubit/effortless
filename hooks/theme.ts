@@ -111,7 +111,11 @@ export function lightHex(hex: string, role: 'text' | 'surface' | 'art' = 'art'):
       out = fromHsl(h, sat, at)
     }
   } else {
-    out = l >= 0.5 ? key.slice(0, 7) : fromHsl(h, Math.min(s, 0.45), Math.max(0.86, Math.min(0.95, 1 - l)))
+    // Near white like the app's own light panels: the darkest surfaces (the panel itself) come out lightest, and the
+    // lighter ones (hover, edges, header) a step darker, as they were a step lighter on dark.
+    // A tinted surface (an alert band, the brand panel) keeps more of its colour, so cold still reads blue and swamp green.
+    const top = s >= 0.2 ? 0.955 : 0.99
+    out = l >= 0.5 ? key.slice(0, 7) : fromHsl(h, Math.min(s, s >= 0.2 ? 0.6 : 0.35), Math.max(0.8, Math.min(top, top - (l - 0.07) * 0.9)))
   }
   const result = key.length === 9 ? out + key.slice(7) : out
   lmemo.set(memoKey, result)
@@ -125,7 +129,10 @@ export function tint(text: string): string {
   const turned = current === 'violet' ? text : text.replace(hexRe, tintHex)
   // Petals only where the art was violet and has turned pink: the green, yellow, blue and red cards keep their sparkles.
   const drawn = current === 'rose' && turned !== text ? petals(turned) : turned
-  return light ? drawn.replace(lightRe, hex => lightHex(hex)) : drawn
+  if (!light) return drawn
+  // A shape marked data-keep (a switch's knob) keeps its colour: it sits on a colour of its own, not on the panel.
+  return drawn.replace(/(<[^>]*>)|([^<]+)/g, (part: string, tag?: string) =>
+    tag && tag.includes('data-keep') ? part : part.replace(lightRe, hex => lightHex(hex)))
 }
 
 /** The accent as text colour. */

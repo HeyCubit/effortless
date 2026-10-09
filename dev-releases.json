@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.68.5",
+    "date": "2026-10-09",
+    "note": "Light mode: near-white panels, white switch knobs"
+  },
+  {
     "version": "1.68.4",
     "date": "2026-10-09",
     "note": "Light appearance"
