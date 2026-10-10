@@ -205,7 +205,8 @@ const judgeDownHidden = atom({ plugin: 'effortless', key: 'judgeDownHidden' } as
 // A usage limit is close: which window, how much is used, when it resets. Null below the line.
 const hot = atom({ plugin: 'effortless', key: 'hot' } as const, null)
 // The running-hot band was closed at this many percent; it returns ten points later or in a new window.
-const hotHidden = atom({ plugin: 'effortless', key: 'hotHidden' } as const, null)
+// The running-hot band closed with its cross: in which window and how full. Kept in the store too, so a new chat keeps it closed.
+const hotHidden = atom({ plugin: 'effortless', key: 'hotHidden' } as const, null as HotClosed | null)
 // The agent panel: this chat's subagents, and the card opened in it (hooks/agents.tsx).
 const agentsState = atom({ plugin: 'effortless', key: 'agents' } as const, [])
 const agentsOpen = atom({ plugin: 'effortless', key: 'agentsOpen' } as const, null)
@@ -609,9 +610,9 @@ export type JudgeConfig = {
 export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
 
 /** The parts of effortless a person can switch off: the footer's (setup) and the progress bar's (setup, settings).
- * The alerts (cold, swamp, running hot, judge down) and the line under replies always show; each alert has its own ✕.
- * An older hide list naming them is read without them. */
-export const HIDEABLE = ['handoff', 'timer', 'reason', 'progress', 'sounds'] as const
+ * The context (swamp), running-low (hot) and cold-cache alerts can be switched off for good in Customize; the judge-down
+ * alert always shows. Each alert also has its own ✕. */
+export const HIDEABLE = ['handoff', 'timer', 'reason', 'progress', 'sounds', 'swamp', 'hot', 'cold'] as const
 export type Hideable = (typeof HIDEABLE)[number]
 // What the app passed to register, so settings kept in the store can be laid over it at session start.
 let pluginOptions: Record<string, unknown> = {}
@@ -1221,8 +1222,7 @@ async function turnWarning($: EngineInterface): Promise<TurnWarning | null> {
     return { kind: 'cold', title: 'Chat went cold', line: `Next message rereads ${kTokens(coldTokens)} tokens at full price. Hand off or /compact first.`, color: ICE, bg: ICE_BG, edge: ICE_EDGE, art: FROST_SVG }
   }
   const heat = await read($, hot)
-  const heatHidden = await read($, hotHidden)
-  if (heat && !config.hide.includes('hot') && (heatHidden === null || heat.percent >= heatHidden + HOT_REGROW)) {
+  if (heat && !config.hide.includes('hot') && hotVisible(heat, await hotClosedNow($))) {
     const window = heat.kind === 'five_hour' ? '5h' : 'weekly'
     return {
       kind: 'hot',
@@ -1304,8 +1304,37 @@ const SWAMP_REGROW = 50_000
 /** Whether the context is swamped, from the status line's figures. Cheap: no counting, no model call. */
 // A usage window this full shows the running-hot band.
 const HOT_PERCENT = 80
-// Closed, the running-hot band returns this many points later.
-const HOT_REGROW = 10
+// Closed, the running-hot band stays away for the rest of its window, and comes back once at this many percent.
+export const HOT_FINAL = 95
+
+/** The running-hot band closed with its cross: the window (kind and reset time) and how full it was then. */
+export type HotClosed = { window: string; percent: number }
+const hotWindow = (heat: { kind: string; resetsAt: string | null }) =>
+  // To the quarter hour: the reset time the app reports can shift by seconds between checks.
+  `${heat.kind} ${heat.resetsAt ? Math.round(new Date(heat.resetsAt).getTime() / 900_000) : ''}`
+
+/** Whether the running-hot band shows: always until closed; closed, not again in that window unless it passes HOT_FINAL. */
+export function hotVisible(heat: { kind: string; percent: number; resetsAt: string | null }, closed: HotClosed | null): boolean {
+  if (!closed || closed.window !== hotWindow(heat)) return true
+  return heat.percent >= HOT_FINAL && closed.percent < HOT_FINAL
+}
+
+let hotClosedLoaded = false
+/** The closed band as the store keeps it, read once per session (a new chat starts with the atom empty). */
+async function hotClosedNow($: EngineInterface): Promise<HotClosed | null> {
+  if (!hotClosedLoaded) {
+    hotClosedLoaded = true
+    const kept = (await $.store.get('hotClosed').catch(() => null)) as HotClosed | null
+    if (kept && typeof kept.window === 'string') await update($, hotHidden, () => kept)
+  }
+  return read($, hotHidden)
+}
+
+async function closeHot($: EngineInterface, heat: { kind: string; percent: number; resetsAt: string | null }) {
+  const closed: HotClosed = { window: hotWindow(heat), percent: heat.percent }
+  await update($, hotHidden, () => closed)
+  await $.store.set('hotClosed', closed).catch(() => undefined)
+}
 
 /** The fullest of the 5-hour and weekly windows, once one passes HOT_PERCENT. Save mode ends with its window. */
 async function checkHot($: EngineInterface, limits: readonly { kind: string; percentUsed: number; resetsAt?: string }[]) {
@@ -1668,6 +1697,18 @@ async function writeHandoff($: EngineInterface) {
       if (config.handoffSkill) await $.command.run({ command: config.handoffSkill, args: '' })
       else await $.prompt.submit({ text: HANDOFF_FULL_PROMPT })
       return
+    }
+    // A cold cache: a fork would reread the whole chat at full price and write it to the cache again (one handoff took
+    // 8% of a person's 5-hour limit). Haiku writes it from the transcript instead, at a fraction of the price.
+    const now = await $.clock.now().catch(() => Date.now())
+    if ((await read($, cacheLeft)) === 0 || (cacheExpires > 0 && now >= cacheExpires)) {
+      const messages = await $.session.messages().catch(() => [])
+      const got = messages.length ? await haikuHandoff($, messages).catch(() => null) : null
+      await $.store.set('lastFork', { at: Date.now(), outcome: got ? 'cold cache: written by Haiku' : 'cold cache: Haiku failed, forked' }).catch(() => undefined)
+      if (got) {
+        handoffText = got
+        return
+      }
     }
     // The built-in handoff is written by a fork: the same model over this chat as it stands, its start read from the
     // prompt cache, no tools and no turn in the chat. Much quicker than a turn that may go exploring first.
@@ -3658,6 +3699,22 @@ async function haikuCompaction($: EngineInterface, messages: Parameters<typeof c
   return r.text.trim().length > 200 ? { text: r.text.trim() } : { fail: 'the summary came back empty' }
 }
 
+/** The quick handoff written by Haiku from the transcript, for a chat whose cache went cold; null when it fails. */
+async function haikuHandoff($: EngineInterface, messages: Parameters<typeof compactTranscript>[0]): Promise<string | null> {
+  let transcript = compactTranscript(messages)
+  if (transcript.length > COMPACT_MAX_CHARS) transcript = compactTranscript(messages, 300, 4000)
+  if (transcript.length > COMPACT_MAX_CHARS) return null
+  const r = await $.model.complete({
+    model: COMPACT_MODEL,
+    system: 'You read a conversation between a user and Claude Code, an AI coding agent, and write the handoff the user asks for.',
+    prompt: `${transcript}\n\n---\n${HANDOFF_PROMPT}`,
+    maxTokens: 4000,
+    effort: 'medium',
+    timeoutMs: 120_000,
+  })
+  return r.isAnswered && r.text.trim().length > 100 ? r.text.trim() : null
+}
+
 export const register: Register = (on, options) => {
   loadedAt = Date.now()
   firstDrawLogged = false
@@ -3831,6 +3888,7 @@ export const register: Register = (on, options) => {
     if (arg === 'hot') {
       // Shows the running-hot band now, to try it: the next check puts back the real figures.
       await update($, hotHidden, () => null)
+      await $.store.set('hotClosed', null).catch(() => undefined)
       await update($, hot, () => ({ kind: 'five_hour', percent: 82, resetsAt: new Date(Date.now() + 2 * 3600_000).toISOString() }))
       $.ui.invalidate('ui.render')
       return { text: 'The running-hot band is showing now (a test). It goes away at the next check unless a limit really is close.' }
@@ -4466,14 +4524,17 @@ Saved to ${out}.md and .json` }
         model: shown.modelAuto === 'on' ? 'Cheaper when it can' : "Always the chat's",
         judge: tested && tested.ok !== null ? `${judgeName} · ${tested.ok ? 'working' : 'failing'}` : judgeName,
         handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · compact alert at ${shown.swampAt}%`,
-        show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${2 - ['timer', 'reason'].filter(h => hidden.includes(h)).length} of 2 on`,
+        show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${5 - ['timer', 'reason', 'swamp', 'hot', 'cold'].filter(h => hidden.includes(h)).length} of 5 on`,
       }
-      // The cache timer and the judge's line (who picked and how sure) can be switched
-      // off here: the alerts each have their own ✕, and the rest is the mod itself. A ticked box in plain text, dim when off: lighter than a row of white buttons.
+      // The cache timer, the judge's line (who picked and how sure) and the three alerts can be switched off here (an
+      // alert's ✕ only closes it for now); the rest is the mod itself. A ticked box in plain text, dim when off: lighter than a row of white buttons.
       const toggles = (
         [
           ['timer', 'Cache timer'],
           ['reason', 'Judge line'],
+          ['swamp', 'Context alert'],
+          ['hot', 'Running low alert'],
+          ['cold', 'Cold cache alert'],
         ] as const
       ).map(([part, label]) => {
         const off = hidden.includes(part)
@@ -5045,8 +5106,7 @@ Saved to ${out}.md and .json` }
     }
     // A usage limit is close: Save mode keeps Auto at medium or below until it resets.
     const heat = await read($, hot)
-    const heatHidden = await read($, hotHidden)
-    if (heat && !config.hide.includes('hot') && (heatHidden === null || heat.percent >= heatHidden + HOT_REGROW)) {
+    if (heat && !config.hide.includes('hot') && hotVisible(heat, await hotClosedNow($))) {
       const saving = (await read($, saveUntil)) !== null
       const window = heat.kind === 'five_hour' ? '5h' : 'weekly'
       const resets = resetLabel(heat.resetsAt, await $.clock.now())
@@ -5057,7 +5117,7 @@ Saved to ${out}.md and .json` }
           buttons: [
             <Button key="hot-save" variant="primary" hotkey="s" label={saving ? 'Save mode on' : 'Save mode'}
               onPress={async () => { $.ui.toast(`effortless: ${await toggleSave($)}`) }} />,
-            <Button key="hot-close" plain role="dismiss" label="✕" onPress={() => update($, hotHidden, () => heat.percent)} />,
+            <Button key="hot-close" plain role="dismiss" label="✕" onPress={() => closeHot($, heat)} />,
           ],
         })
       return (
@@ -5083,7 +5143,7 @@ Saved to ${out}.md and .json` }
                 $.ui.toast(`effortless: ${await toggleSave($)}`)
               }}
             />
-            <Button key="hot-close" plain role="dismiss" label="✕" onPress={() => update($, hotHidden, () => heat.percent)} />
+            <Button key="hot-close" plain role="dismiss" label="✕" onPress={() => closeHot($, heat)} />
           </Box>
         </Box>
       )

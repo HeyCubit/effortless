@@ -1,6 +1,6 @@
 {
   "name": "effortless",
-  "version": "1.69.4",
+  "version": "1.69.5",
   "description": "Sets the reasoning effort for every prompt automatically, shows it under the prompt box, and counts down how long the prompt cache stays warm.",
   "types": "./types/index.d.ts",
   "userConfig": {
@@ -81,7 +81,7 @@
     "hide": {
       "type": "string",
       "title": "Switched off",
-      "description": "Comma-separated: handoff (the footer button), timer (the cache countdown), reason (the judge's line). The alert bands always show. Empty shows everything. The judge's line is off unless switched on.",
+      "description": "Comma-separated: handoff (the footer button), timer (the cache countdown), reason (the judge's line), swamp (the context alert), hot (the running-low alert), cold (the cold-cache alert). Empty shows everything. The judge's line is off unless switched on.",
       "default": "reason"
     },
     "modelAuto": {

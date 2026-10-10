@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.69.5",
+    "date": "2026-10-10",
+    "note": "Alerts stay closed, cold handoffs by Haiku, alert switches"
+  },
+  {
     "version": "1.69.4",
     "date": "2026-10-10",
     "note": "Bench: helpers at medium floor"

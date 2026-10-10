@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { helperFloor, looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { helperFloor, hotVisible, looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
@@ -1723,11 +1723,11 @@ describe('handoff', () => {
     await bar.unmount()
   }
 
-  function handoffEngine(on: On) {
+  function handoffEngine(on: On, said: { role: string; text: string }[] = []) {
     mock.store(on)
     mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
     on('ui.status', () => ({ value: undefined }))
-    on('session.messages', () => ({ value: [] }) as never)
+    on('session.messages', () => ({ value: said }) as never)
     on('session.model', () => ({ value: 'claude-opus-5-5' }))
     on('command.list', () => ({ value: [{ name: 'model' }, { name: 'effort' }] as never }))
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
@@ -1771,6 +1771,35 @@ describe('handoff', () => {
     expect(await after.find({ key: 'handoff-go' })).toBeUndefined()
     await after.unmount()
     await footer.unmount()
+  })
+
+  test('on a cold cache, Quick is written by Haiku from the transcript, not a fork that rereads the chat', async ($, on) => {
+    const { forked, submitted } = handoffEngine(on, [{ role: 'user', text: 'build the thing' }, { role: 'assistant', text: 'built it' }])
+    const asked: string[] = []
+    on('model.complete', (_$, e) => {
+      asked.push(String(e.model))
+      return { value: { isAnswered: true as const, text: `Goal: from Haiku. ${'x'.repeat(120)}`, usage: USAGE } }
+    })
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    await $.command.run({ command: 'effortless', args: 'cold' })
+    const footer = await $.ui.mount(FOOTER)
+    await handOff($, footer, ['handoff-quick'])
+    await mocked.advance(2500)
+    expect(forked).toEqual([])
+    expect(asked.some(m => m.includes('haiku'))).toBe(true)
+    expect(submitted.some(t => t.includes('Goal: from Haiku'))).toBe(true)
+    await footer.unmount()
+  })
+
+  test('hotVisible: closed, the band stays away for its window and comes back once at 95%', () => {
+    const heat = { kind: 'five_hour', percent: 82, resetsAt: '2026-10-10T20:00:00Z' }
+    expect(hotVisible(heat, null)).toBe(true)
+    const closed = { window: 'five_hour ' + Math.round(new Date(heat.resetsAt).getTime() / 900_000), percent: 82 }
+    expect(hotVisible({ ...heat, percent: 91 }, closed)).toBe(false)
+    expect(hotVisible({ ...heat, percent: 96 }, closed)).toBe(true)
+    expect(hotVisible({ ...heat, percent: 96 }, { ...closed, percent: 96 })).toBe(false)
+    expect(hotVisible({ ...heat, resetsAt: '2026-10-11T01:00:00Z' }, closed)).toBe(true)
   })
 
   test('with a skill set, Quick forks and Full runs the skill', { options: { handoffSkill: 'session-handoff' } } as never, async ($, on) => {
@@ -2429,7 +2458,8 @@ describe('settings panel', () => {
     await panel.press({ key: 'show-box-reason' })
     expect(await panel.find({ key: 'show-box-sounds' })).toBeUndefined()
     // The judge line starts off, so its box switches it on; the cache timer goes off. No progress, sounds or alert.
-    expect(await panel.find({ key: 'show-box-swamp' })).toBeUndefined()
+    // The three alerts each have a box too; this one is left on.
+    expect(await panel.find({ key: 'show-box-swamp' })).toBeDefined()
     expect(set).toEqual([])
     await panel.press({ key: 'settings-save' })
     expect(set).toContainEqual({ key: 'effortless.hide', value: 'timer' })
@@ -2452,11 +2482,11 @@ describe('settings panel', () => {
 })
 
 describe('switching parts off', () => {
-  test('readConfig keeps only parts that can be switched off; the alerts are not among them', () => {
-    expect(readConfig({ hide: 'swamp, handoff,bogus,down,progress' }).hide).toEqual(['handoff', 'progress'])
+  test('readConfig keeps only parts that can be switched off; the judge-down alert is not among them', () => {
+    expect(readConfig({ hide: 'swamp, handoff,bogus,down,progress' }).hide).toEqual(['swamp', 'handoff', 'progress'])
   })
 
-  test('a hidden handoff button is not in the footer; an old hide list cannot hide the swamp band', { options: { hide: 'handoff,swamp' } } as never, async ($, on) => {
+  test('a hidden handoff button is not in the footer; a switched-off context alert does not show', { options: { hide: 'handoff,swamp' } } as never, async ($, on) => {
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
     on('command.register', () => ({ value: undefined }) as never)
     engine(on)
@@ -2467,9 +2497,8 @@ describe('switching parts off', () => {
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
     await mocked.advance(16_000)
-    const band = await $.ui.mount(DESK_BAND)
-    expect(await drawn(band)).toContain('Chat is getting swamped')
-    await band.unmount()
+    // Nothing above the prompt: the swamp band was the only thing to draw.
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
     const footer = await $.ui.mount(FOOTER)
     expect(await footer.find({ key: 'handoff' })).toBeUndefined()
     await footer.unmount()
