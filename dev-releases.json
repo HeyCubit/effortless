@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.69.11",
+    "date": "2026-10-10",
+    "note": "Helpers switch: a cover that takes the click"
+  },
+  {
     "version": "1.69.10",
     "date": "2026-10-10",
     "note": "Helpers switch like Auto, compact alert at 70%, no card under replies"
