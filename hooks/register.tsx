@@ -625,7 +625,7 @@ let config: JudgeConfig = {
   floor: 'low',
   ceiling: 'max',
   hide: ['reason'],
-  swampAt: 80,
+  swampAt: 70,
   layout: 'default',
   compactWith: 'haiku',
   handoffButton: 'advised',
@@ -648,7 +648,7 @@ export function readConfig(options: unknown): JudgeConfig {
     bias: Math.max(-2, Math.min(2, Math.round(Number(str(o.effortBias)) || 0))),
     floor: EFFORTS.includes(str(o.effortFloor) as Effort) ? (str(o.effortFloor) as Effort) : 'low',
     ceiling: EFFORTS.includes(str(o.effortCeiling) as Effort) ? (str(o.effortCeiling) as Effort) : 'max',
-    swampAt: SWAMP_STEPS.includes(Number(str(o.swampAt)) as (typeof SWAMP_STEPS)[number]) ? Number(str(o.swampAt)) : 80,
+    swampAt: SWAMP_STEPS.includes(Number(str(o.swampAt)) as (typeof SWAMP_STEPS)[number]) ? Number(str(o.swampAt)) : 70,
     layout: str(o.layout) === 'minimal' ? 'minimal' : 'default',
     compactWith: str(o.compactWith) === 'session' ? 'session' : 'haiku',
     handoffButton: str(o.handoffButton) === 'always' ? 'always' : 'advised',
@@ -1210,29 +1210,6 @@ async function coldWorth($: EngineInterface): Promise<number | null> {
   const tokens = lastContext?.tokens
   if (coldForced) return tokens ?? 0
   return tokens !== undefined && tokens >= COLD_MIN_TOKENS ? tokens : null
-}
-
-type TurnWarning = { kind: 'cold' | 'hot'; title: string; line: string; color: string; bg: string; edge: string; art: string }
-
-/** What the cold and hot bands would warn about now, as the card under the newest reply says it: the same order and the same
- *  hiding (a part switched off, a band closed with ✕), with a command in place of the band's buttons. */
-async function turnWarning($: EngineInterface): Promise<TurnWarning | null> {
-  const coldTokens = await coldWorth($)
-  if (coldTokens !== null) {
-    return { kind: 'cold', title: 'Chat went cold', line: `Next message rereads ${kTokens(coldTokens)} tokens at full price. Hand off or /compact first.`, color: ICE, bg: ICE_BG, edge: ICE_EDGE, art: FROST_SVG }
-  }
-  const heat = await read($, hot)
-  if (heat && !config.hide.includes('hot') && hotVisible(heat, await hotClosedNow($))) {
-    const window = heat.kind === 'five_hour' ? '5h' : 'weekly'
-    return {
-      kind: 'hot',
-      title: `Running hot · ${Math.round(heat.percent)}% of your ${window} limit`,
-      line: 'Save mode keeps Auto at medium or below: /effortless save.',
-      color: EMBER, bg: EMBER_BG, edge: EMBER_EDGE, art: EMBER_SVG,
-    }
-  }
-  // Swamped is said by the band above the prompt only: a card under every reply was noise in a long chat.
-  return null
 }
 
 /** The countdown's colour for whole minutes left (rounded up, as cacheMinutes gives): none (grey), yellow or red. */
@@ -3186,6 +3163,8 @@ export function autoGlowSvg(on: boolean): string {
 let autoSeen: boolean | undefined
 let autoOnAt = -Infinity
 let autoFlipAt = 0
+let helpersSeen: string | undefined
+let helpersFlipAt = 0
 
 /** The dashboard: what effortless is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
 async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
@@ -4290,7 +4269,7 @@ Saved to ${out}.md and .json` }
   })
 
   // The terminal's line under each reply ("Baked 3s") in the brand's colours, with the effort and the cache. The
-  // desktop draws no such line; there the warning card hangs under the reply instead (AssistantMessage, below).
+  // desktop draws no such line; the bands above the prompt warn there (a card under the reply repeated them, removed).
   // The agent panel. Each subagent the chat sends off gets a record: spawned, what it does now, its own steps, how it
   // ended. Teammates and workflow agents are left out for now.
   on('agent.spawn', async ($, e, next) => {
@@ -4396,37 +4375,6 @@ Saved to ${out}.md and .json` }
     )
   })
 
-  // Under the newest reply's last block, when a band would warn: a small card in the band's colours and art, naming
-  // the command that does what the band's button would. Split view's right pane draws no bands but draws replies.
-  // Older replies stop matching the newest answer, so their card goes when a new one lands.
-  on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) => {
-    if (config.hide.includes('line')) return next(e)
-    const answer = await read($, lastAnswer)
-    const text = e.props.text.trim()
-    if (!answer || !text || !answer.endsWith(text)) return next(e)
-    // The handoff's and compact's cards are above the prompt (see compactCard), not under the reply.
-    const warn = await turnWarning($)
-    if (!warn || turnBusy()) return next(e)
-    const { Box, Text, Svg } = themedEls($.ui.resolve(e))
-    const drawn = await next(e)
-    return (
-      <Box key="reply" flexDirection="column" gap={1}>
-        {drawn}
-        <Box key="reply-warn" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
-          backgroundColor={warn.bg} borderStyle="round" borderColor={warn.edge}>
-          {/* A still image: an animated one sits in a frame the app rebuilds on every redraw. */}
-          <Box key="reply-warn-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={warn.art} alt={warn.title} width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
-          </Box>
-          <Box key="reply-warn-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
-            <Text color={warn.color} bold wrap="truncate">{`✦ ${warn.title}`}</Text>
-            <Text wrap="truncate">{warn.line}</Text>
-          </Box>
-        </Box>
-      </Box>
-    )
-  })
-
   // Above the prompt: the terminal's rows (effort steps, Auto, and the model row when it is switched on).
   // On desktop nothing is drawn here, except the question when the judge suggests another model.
   // Draws the bands and the settings panel. Counted and guarded so /effortless debug can say whether the app asks
@@ -4510,6 +4458,10 @@ Saved to ${out}.md and .json` }
         theme: draft.theme ?? config.theme,
         appearance: draft.appearance ?? config.appearance,
       }
+      // The Helpers switch slides like Auto's: the time it flipped, seen by the draw after the click.
+      const helpersNow = await $.clock.now()
+      if (helpersSeen !== undefined && helpersSeen !== shown.helpers) helpersFlipAt = helpersNow
+      helpersSeen = shown.helpers
       // Dirty only while the draft differs from what is saved: a control set back to its saved value is no change.
       const sameSet = (a: string, b: string) => a.split(',').filter(Boolean).sort().join() === b.split(',').filter(Boolean).sort().join()
       const dirty = Object.entries(draft).some(([field, value]) =>
@@ -4697,19 +4649,19 @@ Saved to ${out}.md and .json` }
                   <Box key="gap" width={2} />,
                   <Select key="settings-floor" label="Min" value={shown.floor} options={opts(EFFORTS)} onSelect={set('floor')} />,
                   <Select key="settings-ceiling" label="Max" value={shown.ceiling} options={opts(EFFORTS)} onSelect={set('ceiling')} />,
-                  // Effort for helpers on a row of its own: its name where the slider's starts, the dashboard's Auto
-                  // switch, and what it does now. A blank button over the switch takes the click.
-                  <Box key="settings-helpers" width="100%" flexDirection="row" alignItems="center" gap={1}>
-                    <Button key="settings-helpers-switch" plain dimColor label="Helpers" onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
+                  // Effort for helpers on a row of its own: the dashboard's Auto switch exactly (switch, word, slide,
+                  // one blank button laid over both), then what it does now.
+                  <Box key="settings-helpers-row" width="100%" flexDirection="row" alignItems="center" gap={1}>
                     {Svg ? (
-                      <Box position="relative" flexDirection="row" alignItems="center">
-                        <Svg source={autoSwitchSvg(shown.helpers === 'on')} alt={shown.helpers === 'on' ? 'Helpers on' : 'Helpers off'} width={26} height={15} />
+                      <Box key="settings-helpers" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}>
+                        <Svg source={autoSwitchSvg(shown.helpers === 'on', helpersNow - helpersFlipAt)} alt={shown.helpers === 'on' ? 'Helpers on' : 'Helpers off'} width={26} height={15} />
+                        <Text color={shown.helpers === 'on' ? DASH_TEXT : DASH_DIM}>Helpers</Text>
                         <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                          <Button key="settings-helpers-knob" plain hover={{ backgroundColor: '#00000000' }} label={' '.repeat(4)} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
+                          <Button key="settings-helpers-switch" plain label={' '.repeat(24)} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
                         </Box>
                       </Box>
                     ) : (
-                      <Button key="settings-helpers-knob" plain label={shown.helpers === 'on' ? '◉ on' : '○ off'} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
+                      <Button key="settings-helpers-switch" plain label={`${shown.helpers === 'on' ? '◉' : '○'} Helpers`} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
                     )}
                     <Text dimColor wrap="truncate">{shown.helpers === 'on' ? "The judge picks each subagent's effort, medium or more" : "Subagents run at the chat's effort"}</Text>
                   </Box>,

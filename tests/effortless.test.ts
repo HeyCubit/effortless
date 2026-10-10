@@ -1116,7 +1116,7 @@ describe('judge choice (plugin settings)', () => {
       floor: 'low',
       ceiling: 'max',
       hide: ['reason'],
-      swampAt: 80,
+      swampAt: 70,
       layout: 'default',
       compactWith: 'haiku',
       handoffButton: 'advised',
@@ -1126,7 +1126,7 @@ describe('judge choice (plugin settings)', () => {
       appearance: 'auto',
     })
     expect(readConfig({ swampAt: '20' })).toMatchObject({ swampAt: 20 })
-    expect(readConfig({ swampAt: '33' }).swampAt).toBe(80)
+    expect(readConfig({ swampAt: '33' }).swampAt).toBe(70)
     expect(readConfig({ handoffSkill: '/session-handoff', handoffAfter: 'confirm' })).toMatchObject({
       handoffSkill: 'session-handoff',
       handoffAfter: 'confirm',
@@ -2060,7 +2060,7 @@ describe('swamp band and setup entry', () => {
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
   }
 
-  test('the swamp band waits for the threshold set: 21% of a 1M window is not swamped at the default 50%', async ($, on) => {
+  test('the swamp band waits for the threshold set: 21% of a 1M window is not swamped at the default 70%', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
     on('session.usage', () => ({ value: { context: { tokens: 208_000, window: 1_000_000, percent: 21 } } }) as never)
@@ -2093,7 +2093,7 @@ describe('swamp band and setup entry', () => {
     engine(on)
     const mocked = mock.clock(on)
     let tokens = 180_000
-    on('session.usage', () => ({ value: { context: { tokens, window: 300_000, percent: Math.round(tokens / 3_000) } } }) as never)
+    on('session.usage', () => ({ value: { context: { tokens, window: 250_000, percent: Math.round(tokens / 2_500) } } }) as never)
     await start($, on)
     const guide = await $.ui.mount(DESK_BAND)
     await guide.press({ key: 'setup-close' })
@@ -2118,7 +2118,7 @@ describe('swamp band and setup entry', () => {
     engine(on)
     const mocked = mock.clock(on)
     on('turn.complete', () => ({ text: '' }) as never)
-    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 300_000, percent: 67 } } }) as never)
+    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 250_000, percent: 80 } } }) as never)
     await start($, on)
     const guide = await $.ui.mount(DESK_BAND)
     await guide.press({ key: 'setup-close' })
@@ -2144,7 +2144,7 @@ describe('swamp band and setup entry', () => {
         release = () => resolve({ text: 'ok' })
       }) as never
     })
-    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 300_000, percent: 67 } } }) as never)
+    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 250_000, percent: 80 } } }) as never)
     await start($, on)
     const guide = await $.ui.mount(DESK_BAND)
     await guide.press({ key: 'setup-close' })
@@ -2173,7 +2173,7 @@ describe('swamp band and setup entry', () => {
         release = () => resolve({ text: 'ok' })
       }) as never
     })
-    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 300_000, percent: 67 } } }) as never)
+    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 250_000, percent: 80 } } }) as never)
     on('turn.complete', (_$, e) => ({ text: e.answer }))
     on('ui.render', { component: 'AssistantMessage' }, (h, e) => {
       const { Text } = h.ui.resolve(e)
@@ -2209,7 +2209,7 @@ describe('swamp band and setup entry', () => {
   test('a swamped chat draws no card under the reply: the band above the prompt says it', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
-    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 300_000, percent: 67 } } }) as never)
+    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 250_000, percent: 80 } } }) as never)
     on('turn.complete', (_$, e) => ({ text: e.answer }))
     // The app's own drawing of a reply block, beneath the plugin.
     on('ui.render', { component: 'AssistantMessage' }, (h, e) => {
