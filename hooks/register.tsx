@@ -3535,13 +3535,21 @@ export function helperQuestion(prompt: string, type: string): string {
 [This is the task Claude gave a ${type} subagent, not a message from the person. Judge the effort that subagent needs to do it well.]`
 }
 
+/** The lowest effort a helper gets: medium, or the person's Min when higher, never above their Max. A helper's answer
+ * goes back to the chat unchecked, and at low it miscounted where medium did not (bench/results/helpers-2026-10-10.md). */
+export function helperFloor(floor: Effort, ceiling: Effort): Effort {
+  const i = Math.min(Math.max(EFFORTS.indexOf(floor), EFFORTS.indexOf('medium')), EFFORTS.indexOf(ceiling))
+  return EFFORTS[i]
+}
+
 /** The judge's effort for a subagent's task, within the person's slider, Min and Max and save mode; null without a verdict. */
 async function helperEffort($: EngineInterface, prompt: string, type: string): Promise<Pick | null> {
   const { verdict } = await judge($, helperQuestion(prompt, type), null)
   if (!verdict || verdict.why === UNSURE) return null
   const saving = (await read($, saveUntil)) !== null
-  const effort = capped(bounded(tipped(verdict.effort, verdict.sure, config.bias), config.floor, config.ceiling), saving)
-  return { ...verdict, effort }
+  const leaned = tipped(verdict.effort, verdict.sure, config.bias)
+  const effort = capped(bounded(leaned, helperFloor(config.floor, config.ceiling), config.ceiling), saving)
+  return { ...verdict, effort, why: effort !== leaned && EFFORTS.indexOf(leaned) < EFFORTS.indexOf(effort) ? `${verdict.why} (helpers start at medium)` : verdict.why }
 }
 
 /** The effort picked for this subagent, claiming a waiting pick the first time its id is seen. */

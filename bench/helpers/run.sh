@@ -4,11 +4,11 @@
 #   off = subagents run at the app's effort (what Claude Code does without effortless)
 #   on  = the judge picks each subagent's effort before it starts
 # Billed to an API key, never your plan: put ANTHROPIC_API_KEY=... in ~/.config/effortless-bench.env.
-# Usage: bash bench/helpers/run.sh [model] [effort] [reps] [jobs] [tasks]   e.g. bash bench/helpers/run.sh opus high 2 4
+# Usage: bash bench/helpers/run.sh [model] [effort] [reps] [jobs] [tasks] [setups]   e.g. bash bench/helpers/run.sh opus high 2 4
 # Then:  node bench/helpers/score.cjs
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
-MODEL="${1:-opus}"; EFF="${2:-high}"; REPS="${3:-2}"; JOBS="${4:-4}"; TASKS="${5:-s1 s2 s3 s4}"
+MODEL="${1:-opus}"; EFF="${2:-high}"; REPS="${3:-2}"; JOBS="${4:-4}"; TASKS="${5:-s1 s2 s3 s4}"; CONDS="${6:-off on}"
 KEYFILE="$HOME/.config/effortless-bench.env"
 [ -f "$KEYFILE" ] || { echo "no $KEYFILE with ANTHROPIC_API_KEY=..." >&2; exit 1; }
 export B="${EFFORTLESS_BENCH_DIR:-${TEMP:-/tmp}/effbench}"
@@ -44,7 +44,7 @@ one() {
 }
 export -f one; export REPO KEYFILE MODEL EFF
 
-for rep in $(seq 1 "$REPS"); do for t in $TASKS; do for c in off on; do
+for rep in $(seq 1 "$REPS"); do for t in $TASKS; do for c in $CONDS; do
   echo "$t $c $rep"
 done; done; done | xargs -P "$JOBS" -L 1 bash -c 'one "$@"' _
 echo "all runs done: node $REPO/bench/helpers/score.cjs"

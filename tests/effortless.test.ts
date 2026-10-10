@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { helperFloor, looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
@@ -3639,11 +3639,13 @@ describe('agent panel', () => {
         // drain
       }
     }
-    expect(sent.map(s => s.effort)).toEqual(['low', 'low'])
+    // Helpers start at medium: a low verdict comes up to it.
+    expect(sent.map(s => s.effort)).toEqual(['medium', 'medium'])
     await $.command.run({ command: 'effortless', args: 'agents' })
     const pane = await $.ui.mount(PANE)
     await pane.press({ key: 'agent-h1-press' }).catch(() => undefined)
-    expect(await drawn(pane)).toContain('Low')
+    expect(await drawn(pane)).toContain('Medium')
+    expect(await drawn(pane)).toContain('helpers start at medium')
     await pane.unmount()
   })
 
@@ -3664,7 +3666,13 @@ describe('agent panel', () => {
     })
     await start($, on)
     await $.agent.spawn({ prompt: 'list the files under hooks', description: 'find files', subagentType: 'Explore' } as never)
-    expect(sent.map(s => s.effort)).toEqual(['low'])
+    expect(sent.map(s => s.effort)).toEqual(['medium'])
+  })
+
+  test("helperFloor: medium, the person's Min when higher, never above their Max", () => {
+    expect(helperFloor('low', 'max')).toBe('medium')
+    expect(helperFloor('high', 'max')).toBe('high')
+    expect(helperFloor('low', 'low')).toBe('low')
   })
 
   test('with Helpers off, a subagent runs at the chat\'s effort and the judge is not asked', async ($, on) => {

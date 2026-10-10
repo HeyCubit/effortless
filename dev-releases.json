@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.69.3",
+    "date": "2026-10-10",
+    "note": "Helpers start at medium"
+  },
+  {
     "version": "1.69.2",
     "date": "2026-10-10",
     "note": "Bench: effort for helpers on vs off"
