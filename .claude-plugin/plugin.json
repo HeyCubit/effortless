@@ -141,6 +141,16 @@
         "light"
       ]
     },
+    "clock": {
+      "type": "string",
+      "title": "Clock",
+      "description": "How times of day read, such as when a usage limit resets. 24h: 14:20. 12h: 2:20 PM.",
+      "default": "24h",
+      "options": [
+        "24h",
+        "12h"
+      ]
+    },
     "theme": {
       "type": "string",
       "title": "Theme",
