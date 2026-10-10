@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.69.12",
+    "date": "2026-10-10",
+    "note": "Settings cards: clickable edge to edge"
+  },
+  {
     "version": "1.69.11",
     "date": "2026-10-10",
     "note": "Helpers switch: a cover that takes the click"
