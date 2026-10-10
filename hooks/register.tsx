@@ -186,7 +186,7 @@ type SettingsCard = 'effort' | 'model' | 'judge' | 'handoff' | 'show'
 const settingsCard = atom({ plugin: 'effortless', key: 'settingsCard' } as const, null)
 /** The settings panel's parts: a card each on the overview, and what the part is for, said once it is open. */
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
-  { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits.' },
+  { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits. Helpers: the judge picks for subagents too.' },
   { id: 'model', title: 'Model', about: "Whether a simple prompt may run on a cheaper model. Effort is judged either way." },
   { id: 'handoff', title: 'Handoff', about: 'The skill that writes a full handoff, and at what share of context to suggest compacting or handing off.' },
   { id: 'show', title: 'Customize', about: 'How effortless looks and which parts it shows. Uninstall removes it.' },
@@ -597,6 +597,8 @@ export type JudgeConfig = {
   handoffButton: 'advised' | 'always'
   /** A prompt the judge calls simple runs on a cheaper model than the chat's (never a dearer one). */
   modelAuto: 'on' | 'off'
+  /** on: every subagent the chat sends off gets an effort picked by the judge before it starts. */
+  helpers: 'on' | 'off'
   /** The accent colour of everything effortless draws: the brand violet, Claude orange or cherry-blossom rose. */
   theme: ThemeName
   /** auto: light when Claude Code's own theme is light. dark and light fix it. */
@@ -627,6 +629,7 @@ let config: JudgeConfig = {
   compactWith: 'haiku',
   handoffButton: 'advised',
   modelAuto: 'off',
+  helpers: 'off',
   theme: 'violet',
   appearance: 'auto',
 }
@@ -651,6 +654,7 @@ export function readConfig(options: unknown): JudgeConfig {
     // Off unless switched on: one prompt on another model rewrites the whole chat into that model's cache, which costs
     // more than it saves in a chat that is in use (measured 2026-10-10).
     modelAuto: str(o.modelAuto) === 'on' ? 'on' : 'off',
+    helpers: str(o.helpers) === 'on' ? 'on' : 'off',
     theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
     appearance: (['dark', 'light'] as const).find(a => a === str(o.appearance)) ?? 'auto',
     // The judge's line is off until switched on; an empty string saved from the panel means everything shows.
@@ -1110,6 +1114,11 @@ export function asSpent(t: unknown): Spent {
     judge: { jev: num(judged.jev), haiku: num(judged.haiku), ms: num(judged.ms), tokens: num(judged.tokens) },
     moved: num(v.moved),
     redone: num(v.redone),
+    helpers: {
+      runs: v.helpers?.runs && typeof v.helpers.runs === 'object' ? v.helpers.runs : {},
+      requests: num(v.helpers?.requests),
+      cost: num(v.helpers?.cost),
+    },
   }
 }
 
@@ -1759,6 +1768,7 @@ const SETTING_FIELDS = {
   compactWith: 'compactWith',
   handoffButton: 'handoffButton',
   modelAuto: 'modelAuto',
+  helpers: 'helpers',
   theme: 'theme',
   appearance: 'appearance',
 } as const
@@ -1789,6 +1799,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     compactWith: config.compactWith,
     handoffButton: config.handoffButton,
     modelAuto: config.modelAuto,
+    helpers: config.helpers,
     theme: config.theme,
     appearance: config.appearance,
     [SETTING_FIELDS[field]]: value,
@@ -2030,7 +2041,8 @@ const share = (part: number, whole: number) => `${Math.round((part / whole) * 10
 export function savedText(raw: Spent): string {
   const t = asSpent(raw)
   const judged = t.judge.jev + t.judge.haiku
-  if (t.prompts === 0 && judged === 0 && t.moved === 0) return 'nothing measured yet'
+  const helperRuns = EFFORTS.reduce((n, e) => n + (t.helpers.runs[e] ?? 0), 0)
+  if (t.prompts === 0 && judged === 0 && t.moved === 0 && helperRuns === 0) return 'nothing measured yet'
   const input = t.input * WEIGHT.input
   const write = t.write * WEIGHT.write
   const cached = t.read * WEIGHT.read
@@ -2047,6 +2059,10 @@ export function savedText(raw: Spent): string {
   if (per.length) lines.push(`Per prompt: ${per.join('; ')}`)
   if (t.moved) {
     lines.push(`Cheaper model: ${t.moved} prompt${t.moved === 1 ? '' : 's'} moved down, ${t.redone} redone (${share(t.redone, t.moved)})`)
+  }
+  if (helperRuns) {
+    const per = EFFORTS.filter(e => t.helpers.runs[e]).map(e => `${EFFORT_LABELS[e]} ${t.helpers.runs[e]}`)
+    lines.push(`Helpers: ${helperRuns} subagent${helperRuns === 1 ? '' : 's'} (${per.join(', ')}), ${t.helpers.requests} requests, cost about ${tokens(Math.round(t.helpers.cost))} tokens`)
   }
   if (judged) {
     lines.push(`Judge: Jev ${t.judge.jev}, Haiku ${t.judge.haiku}, average ${Math.round(t.judge.ms / judged)} ms, ${tokens(t.judge.tokens)} tokens in all`)
@@ -3506,6 +3522,49 @@ async function agentCost($: EngineInterface, id: string, cost: number) {
   await agentSet($, id, a => ({ ...a, cost: (a.cost ?? 0) + cost }))
 }
 
+// Effort for helpers: the effort the judge picked for each subagent, by its id. A subagent's first request can come
+// before its spawn resolves with the id (seen 2026-10-10), so a pick waits under the spawn's description and type
+// until a request from an unknown subagent claims it through $.agent.list().
+const helperPicks = new Map<string, Effort>()
+let helperWaiting: { description: string; type: string; parentId?: string; effort: Effort }[] = []
+
+/** What the judge reads for a subagent: its task, said to be one, so it judges the subagent's work. */
+export function helperQuestion(prompt: string, type: string): string {
+  return `${prompt.slice(0, 4000)}
+
+[This is the task Claude gave a ${type} subagent, not a message from the person. Judge the effort that subagent needs to do it well.]`
+}
+
+/** The judge's effort for a subagent's task, within the person's slider, Min and Max and save mode; null without a verdict. */
+async function helperEffort($: EngineInterface, prompt: string, type: string): Promise<Pick | null> {
+  const { verdict } = await judge($, helperQuestion(prompt, type), null)
+  if (!verdict || verdict.why === UNSURE) return null
+  const saving = (await read($, saveUntil)) !== null
+  const effort = capped(bounded(tipped(verdict.effort, verdict.sure, config.bias), config.floor, config.ceiling), saving)
+  return { ...verdict, effort }
+}
+
+/** The effort picked for this subagent, claiming a waiting pick the first time its id is seen. */
+async function helperEffortOf($: EngineInterface, id: string): Promise<Effort | undefined> {
+  const known = helperPicks.get(id)
+  if (known || helperWaiting.length === 0) return known
+  const info = (await $.agent.list().catch(() => [])).find(a => a.id === id)
+  if (!info) return undefined
+  const match = helperWaiting.find(w => w.description === info.description && w.type === info.type && w.parentId === info.parentId)
+  if (!match) return undefined
+  helperWaiting = helperWaiting.filter(w => w !== match)
+  helperPicks.set(id, match.effort)
+  return match.effort
+}
+
+/** Counts one request of a helper the judge steered, for /effortless stats. */
+async function helperTally($: EngineInterface, usage: Parameters<typeof weighted>[0]) {
+  await update($, saved, old => {
+    const t = asSpent(old)
+    return { ...t, helpers: { ...t.helpers, requests: t.helpers.requests + 1, cost: t.helpers.cost + weighted(usage) } }
+  })
+}
+
 /** A file read or changed by the main chat or an agent: added to the map, its imports read the first time. */
 async function fileTouched($: EngineInterface, path: string, edited: boolean, by: string) {
   const rel = relPath(path, await $.session.root())
@@ -4038,6 +4097,16 @@ Saved to ${out}.md and .json` }
       if (picked && picked.by !== 'manual' && result.usage) await tally($, picked.effort, result.usage)
       return result
     }
+    // A helper the judge picked an effort for at its spawn runs every request at it. Haiku takes no effort.
+    if (e.agentId !== undefined && config.helpers === 'on' && typeof e.effort === 'string' && keyOf(e.model) !== 'haiku') {
+      const effort = await helperEffortOf($, e.agentId)
+      if (effort) {
+        if (e.index === 0) void proof($, `helper ${e.agentId} request 0 (${e.model}): effort ${e.effort} -> ${effort}`)
+        const result = yield* send({ ...e, effort })
+        if (result.usage) await helperTally($, result.usage).catch(() => undefined)
+        return result
+      }
+    }
     const p = e.agentId === undefined ? await read($, pick) : null
     // Haiku takes no effort: decided by the model this request names, never by a stored pick.
     if (!p || keyOf(e.model) === 'haiku' || !cacheSafe(e.model)) return yield* send(e)
@@ -4159,11 +4228,33 @@ Saved to ${out}.md and .json` }
   // The agent panel. Each subagent the chat sends off gets a record: spawned, what it does now, its own steps, how it
   // ended. Teammates and workflow agents are left out for now.
   on('agent.spawn', async ($, e, next) => {
+    // Effort for helpers: the judge reads the subagent's task before it starts (a fork shares the chat's context and
+    // keeps its effort). Without a verdict it runs at the chat's effort, as with the setting off.
+    const helper = config.helpers === 'on' && !e.fork && !e.isTeammate && !e.workflow
+      ? await helperEffort($, e.prompt, e.subagentType).catch(() => null)
+      : null
+    const waiting = helper ? { description: e.description, type: e.subagentType, parentId: e.parentAgentId, effort: helper.effort } : null
+    if (waiting) helperWaiting = [...helperWaiting, waiting].slice(-20)
     const result = await next(e)
+    if (waiting) {
+      helperWaiting = helperWaiting.filter(w => w !== waiting)
+      if ('agentId' in result && result.agentId && !helperPicks.has(result.agentId)) helperPicks.set(result.agentId, waiting.effort)
+      if ('agentId' in result && result.agentId) {
+        await update($, saved, old => {
+          const t = asSpent(old)
+          return { ...t, helpers: { ...t.helpers, runs: { ...t.helpers.runs, [waiting.effort]: (t.helpers.runs[waiting.effort] ?? 0) + 1 } } }
+        }).catch(() => undefined)
+        void proof($, `helper ${e.subagentType} "${e.description}": ${waiting.effort} (${helper?.why})`)
+      }
+    }
     if (e.isTeammate || e.workflow || !('agentId' in result) || !result.agentId) return result
     const id = result.agentId
     const now = await $.clock.now()
     const rec: AgentRec = { id, type: e.fork ? 'fork' : e.subagentType, task: e.description, state: 'running', startedAt: now, model: result.model }
+    if (helper) {
+      rec.effort = EFFORT_LABELS[helper.effort]
+      rec.why = helper.why
+    }
     if (e.parentAgentId) rec.parentId = e.parentAgentId
     await update($, agentsState, list => [...list.filter(a => a.id !== id), rec].slice(-40))
     return result
@@ -4349,6 +4440,7 @@ Saved to ${out}.md and .json` }
         compactWith: draft.compactWith ?? config.compactWith,
         handoffButton: draft.handoffButton ?? config.handoffButton,
         modelAuto: draft.modelAuto ?? config.modelAuto,
+        helpers: draft.helpers ?? config.helpers,
         theme: draft.theme ?? config.theme,
         appearance: draft.appearance ?? config.appearance,
       }
@@ -4362,7 +4454,7 @@ Saved to ${out}.md and .json` }
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
       const judgeName = shown.judge === 'haiku' ? 'Haiku' : hasKey || shown.judge === 'jev' ? 'Haiku + Jev' : 'Haiku'
       const summaries: Record<SettingsCard, string> = {
-        effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}`,
+        effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.helpers === 'on' ? ' · helpers' : ''}`,
         model: shown.modelAuto === 'on' ? 'Cheaper when it can' : "Always the chat's",
         judge: tested && tested.ok !== null ? `${judgeName} · ${tested.ok ? 'working' : 'failing'}` : judgeName,
         handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · compact alert at ${shown.swampAt}%`,
@@ -4541,6 +4633,19 @@ Saved to ${out}.md and .json` }
                   <Box key="gap" width={2} />,
                   <Select key="settings-floor" label="Min" value={shown.floor} options={opts(EFFORTS)} onSelect={set('floor')} />,
                   <Select key="settings-ceiling" label="Max" value={shown.ceiling} options={opts(EFFORTS)} onSelect={set('ceiling')} />,
+                  <Box key="gap-helpers" width={2} />,
+                  // Effort for helpers: the dashboard's Auto switch again, with a blank button over it to take the click.
+                  Svg ? (
+                    <Box key="settings-helpers" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}>
+                      <Svg source={autoSwitchSvg(shown.helpers === 'on')} alt={shown.helpers === 'on' ? 'Helpers on' : 'Helpers off'} width={26} height={15} />
+                      <Text dimColor={shown.helpers !== 'on'}>Helpers</Text>
+                      <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+                        <Button key="settings-helpers-switch" plain label={' '.repeat(14)} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
+                      </Box>
+                    </Box>
+                  ) : (
+                    <Button key="settings-helpers-switch" plain label={`${shown.helpers === 'on' ? '◉' : '○'} Helpers`} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
+                  ),
                 ]),
 ] : card === 'judge' ? (bare ? [] : [
             <Select key="settings-judge-pick" value={shown.judge} options={[{ value: 'auto', label: hasKey ? 'Haiku + Jev' : 'Haiku (Jev if added)' }, { value: 'haiku', label: 'Haiku only' }]}

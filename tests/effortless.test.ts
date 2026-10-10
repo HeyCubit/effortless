@@ -1121,6 +1121,7 @@ describe('judge choice (plugin settings)', () => {
       compactWith: 'haiku',
       handoffButton: 'advised',
       modelAuto: 'off',
+      helpers: 'off',
       theme: 'violet',
       appearance: 'auto',
     })
@@ -2403,6 +2404,10 @@ describe('settings panel', () => {
     await panel.press({ key: 'settings-card-effort' })
     await panel.press({ key: 'bias3' })
     await panel.select({ key: 'settings-floor', value: 'medium' })
+    // Helpers: the Auto switch again, off by default.
+    expect(await drawn(panel)).toContain('Helpers off')
+    await panel.press({ key: 'settings-helpers-switch' })
+    expect(await drawn(panel)).toContain('Helpers on')
     await panel.press({ key: 'settings-back' })
     await panel.press({ key: 'settings-card-judge' })
     await panel.input({ key: 'settings-key', text: ' tk-new ' })
@@ -2417,7 +2422,7 @@ describe('settings panel', () => {
     await panel.press({ key: 'settings-back' })
     expect(await drawn(panel)).toContain('Cheaper when it can')
     // The cards say what is set, unsaved changes included.
-    expect(await drawn(panel)).toContain('Smarter · medium to max')
+    expect(await drawn(panel)).toContain('Smarter · medium to max · helpers')
     expect(await drawn(panel)).toContain('/session-handoff · compact alert at')
     await panel.press({ key: 'settings-card-show' })
     await panel.press({ key: 'show-box-timer' })
@@ -2433,6 +2438,7 @@ describe('settings panel', () => {
     expect(set).toContainEqual({ key: 'effortless.effortFloor', value: 'medium' })
     expect(set).toContainEqual({ key: 'effortless.judge', value: 'jev' })
     expect(set).toContainEqual({ key: 'effortless.modelAuto', value: 'on' })
+    expect(set).toContainEqual({ key: 'effortless.helpers', value: 'on' })
     expect(said.join(' | ')).toContain('key saved')
     expect(files['C:/Users/x/.config/jev/.env']).toBe('OTHER=1\nTYPESAFE_API_KEY=tk-new\n')
     await panel.unmount()
@@ -3618,6 +3624,60 @@ describe('agent panel', () => {
     expect(text).toContain('All done')
     expect(text).toContain('✓ 1 done')
     await pane.unmount()
+  })
+
+  test('with Helpers on, the judge picks a subagent\'s effort at its spawn and every request of it runs at that', { options: { helpers: 'on' } } as never, async ($, on) => {
+    const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"quick search"}')
+    on('agent.spawn', () => ({ agentId: 'h1', model: 'claude-opus-5-5' }) as never)
+    on('turn.complete', () => ({ text: '' }))
+    const sent = recordSteps(on)
+    await start($, on)
+    await $.agent.spawn({ prompt: 'list the files under hooks', description: 'find files', subagentType: 'Explore' } as never)
+    expect(asked.some(p => p.includes('Explore subagent'))).toBe(true)
+    for (const index of [0, 1]) {
+      for await (const _ of $.turn.step({ turnId: 't1', index, model: 'claude-opus-5-5', effort: 'high', messageCount: 1, agentId: 'h1' } as never)) {
+        // drain
+      }
+    }
+    expect(sent.map(s => s.effort)).toEqual(['low', 'low'])
+    await $.command.run({ command: 'effortless', args: 'agents' })
+    const pane = await $.ui.mount(PANE)
+    await pane.press({ key: 'agent-h1-press' }).catch(() => undefined)
+    expect(await drawn(pane)).toContain('Low')
+    await pane.unmount()
+  })
+
+  test('a subagent\'s first request before its spawn resolves still gets the picked effort', { options: { helpers: 'on' } } as never, async ($, on) => {
+    judgeSays(on, '{"model":"opus","effort":"low","why":"quick search"}')
+    const sent = recordSteps(on)
+    on('agent.list', () => ({ value: [{ id: 'h2', description: 'find files', type: 'Explore', status: 'running' }] }) as never)
+    // The engine's own spawn: the subagent's first request goes out before the spawn answers with its id.
+    let early: Promise<void> | null = null
+    on('agent.spawn', async () => {
+      early = (async () => {
+        for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', effort: 'high', messageCount: 1, agentId: 'h2' } as never)) {
+          // drain
+        }
+      })()
+      await early
+      return { agentId: 'h2', model: 'claude-opus-5-5' } as never
+    })
+    await start($, on)
+    await $.agent.spawn({ prompt: 'list the files under hooks', description: 'find files', subagentType: 'Explore' } as never)
+    expect(sent.map(s => s.effort)).toEqual(['low'])
+  })
+
+  test('with Helpers off, a subagent runs at the chat\'s effort and the judge is not asked', async ($, on) => {
+    const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"quick search"}')
+    on('agent.spawn', () => ({ agentId: 'h3', model: 'claude-opus-5-5' }) as never)
+    const sent = recordSteps(on)
+    await start($, on)
+    await $.agent.spawn({ prompt: 'list the files', description: 'find files', subagentType: 'Explore' } as never)
+    for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', effort: 'high', messageCount: 1, agentId: 'h3' } as never)) {
+      // drain
+    }
+    expect(asked.some(p => p.includes('subagent'))).toBe(false)
+    expect(sent.map(s => s.effort)).toEqual(['high'])
   })
 
   test('the demo map shows the parts touched; a part opens to its files', async ($, on) => {

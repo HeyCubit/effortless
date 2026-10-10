@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.69.1",
+    "date": "2026-10-10",
+    "note": "Effort for helpers: the judge picks each subagent's effort"
+  },
+  {
     "version": "1.68.11",
     "date": "2026-10-09",
     "note": "Measured savings: README, site and benchmark page"
