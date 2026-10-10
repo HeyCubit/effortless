@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.69.2",
+    "date": "2026-10-10",
+    "note": "Bench: effort for helpers on vs off"
+  },
+  {
     "version": "1.69.1",
     "date": "2026-10-10",
     "note": "Effort for helpers: the judge picks each subagent's effort"
