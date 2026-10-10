@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, parseClefToken, parseClefAccount, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, parseClefToken, parseClefAccount, savedText, judgeLabel, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
@@ -1438,6 +1438,7 @@ describe('setup guide', () => {
     expect(setupBack('look')).toBe('handoff')
     expect(setupBack('done')).toBe('look')
     expect(setupCounter('jev')).toBe('1/4')
+    expect(setupCounter('clef')).toBe('1/4')
     expect(setupCounter('handoff')).toBe('3/4')
     expect(setupCounter('look')).toBe('4/4')
     expect(setupCounter('done')).toBe('')
@@ -1446,6 +1447,17 @@ describe('setup guide', () => {
   test('savedText counts Clef among the judges, so a Clef-only tally still names its judge line', () => {
     const clefOnly = asSpent({ prompts: 2, judge: { jev: 0, clef: 2, haiku: 0, ms: 90, tokens: 640 } })
     expect(savedText(clefOnly)).toContain('Judge: Jev 0, Clef 2, Haiku 0, average 45 ms')
+  })
+
+  test('judgeLabel names the exact judge that answered, not just its family', () => {
+    const pick = (by: 'jev' | 'clef' | 'haiku' | 'manual', judgeModel?: 'clef' | 'clef-flash') =>
+      ({ model: 'opus' as const, effort: 'low' as const, why: 'x', by, judgeModel })
+    expect(judgeLabel(pick('clef', 'clef-flash'))).toBe('Clef-flash')
+    expect(judgeLabel(pick('clef', 'clef'))).toBe('Clef')
+    expect(judgeLabel(pick('clef'))).toBe('Clef-flash')
+    expect(judgeLabel(pick('haiku'))).toBe('Haiku')
+    expect(judgeLabel(pick('jev'))).toBe('Jev')
+    expect(judgeLabel(pick('manual'))).toBe('You')
   })
 
   test('opens by itself the first time; the choices are saved together at Done, which closes it for good', async ($, on) => {

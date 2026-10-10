@@ -24,6 +24,8 @@ export type Pick = {
   /** A few words on why, shown dim in the band. */
   why: string
   by: 'jev' | 'clef' | 'haiku' | 'manual'
+  /** Clef only: which of Cloudflare's models answered, clef or clef-flash; flash when unsaid (the default). */
+  judgeModel?: 'clef' | 'clef-flash'
   /** How sure the judge was of the effort, 0-1, when it said. */
   sure?: number
   /** Haiku only: why a handoff would suit now (a few words), when it said it would. */

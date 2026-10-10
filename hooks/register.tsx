@@ -760,6 +760,15 @@ async function haikuAfter($: EngineInterface, quick: Judged, prompt: string, cur
   return haiku.verdict ? { verdict: haiku.verdict, tokens: haiku.tokens + quick.tokens } : quick
 }
 
+/** Who made a pick, by name, for the line under the reply: the exact model when Clef answered. */
+export function judgeLabel(pick: Pick | null): string {
+  if (!pick) return 'Haiku'
+  if (pick.by === 'manual') return 'You'
+  if (pick.by === 'jev') return 'Jev'
+  if (pick.by === 'clef') return pick.judgeModel === 'clef' ? 'Clef' : 'Clef-flash'
+  return 'Haiku'
+}
+
 /** The System One request Jev and Clef share: the task, the state and the typed questions. */
 function systemOneBody(model: string, prompt: string, current: Pick | null, context: string) {
   return {
@@ -840,7 +849,7 @@ async function askClef($: EngineInterface, creds: ClefCreds, prompt: string, cur
         // No usage in the reply: counted as 0.
       }
       if (await read($, judgeDown)) await update($, judgeDown, () => null)
-      return { verdict: { ...verdict, by: 'clef' }, tokens: used }
+      return { verdict: { ...verdict, by: 'clef', judgeModel: model }, tokens: used }
     }
   } catch (error) {
     // Clef down or slow: fall through to Haiku, and say so.
@@ -2065,7 +2074,7 @@ async function typesafeKeyAnywhere($: EngineInterface): Promise<string | undefin
   return parseJevKey(typeof text === 'string' ? text : '')
 }
 
-export type SetupStep = 'pick' | 'jev' | 'lean' | 'handoff' | 'look' | 'done'
+export type SetupStep = 'pick' | 'jev' | 'clef' | 'lean' | 'handoff' | 'look' | 'done'
 
 /** The lean's five stops, cheaper to smarter: a name, and what it does to the judge's pick (see tipped). */
 export const LEAN_STOPS = [
@@ -2096,7 +2105,7 @@ export function setupBack(step: SetupStep): SetupStep | null {
 
 /** "2/3" for the step shown; the closing step has no number. */
 export function setupCounter(step: SetupStep): string {
-  const n = { pick: 1, jev: 1, lean: 2, handoff: 3, look: 4, done: 0 }[step]
+  const n = { pick: 1, jev: 1, clef: 1, lean: 2, handoff: 3, look: 4, done: 0 }[step]
   return n ? `${n}/4` : ''
 }
 
@@ -2214,7 +2223,7 @@ const share = (part: number, whole: number) => `${Math.round((part / whole) * 10
  */
 export function savedText(raw: Spent): string {
   const t = asSpent(raw)
-  const judged = t.judge.jev + t.judge.haiku
+  const judged = t.judge.jev + t.judge.clef + t.judge.haiku
   if (t.prompts === 0 && judged === 0 && t.moved === 0) return 'nothing measured yet'
   const input = t.input * WEIGHT.input
   const write = t.write * WEIGHT.write
@@ -3334,9 +3343,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   }
   autoSeen = v.auto
   const effortNow = effortOf(v, v.modelNow ?? (await sessionModel($)))
-  const by = v.current?.by
   const reason = v.current
-    ? `${by === 'manual' ? 'You' : by === 'jev' ? 'Jev' : by === 'clef' ? 'Clef' : 'Haiku'}: ${v.current.why}`
+    ? `${judgeLabel(v.current)}: ${v.current.why}`
     : v.auto
       ? 'Auto picks the effort at the next prompt'
       : 'You pick the effort'
@@ -3615,7 +3623,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
     : notAligned
       ? `/effort shows ${EFFORT_LABELS[shownByApp as Effort] ?? shownByApp}`
       : current
-        ? `${current.by === 'manual' ? 'You' : current.by === 'jev' ? 'Jev' : current.by === 'clef' ? 'Clef' : 'Haiku'}: ${current.why}`
+        ? `${judgeLabel(current)}: ${current.why}`
         : auto
           ? 'Picks the effort at the next prompt'
           : 'Pick an effort'
