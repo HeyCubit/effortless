@@ -4657,9 +4657,12 @@ Saved to ${out}.md and .json` }
                       <Box key="settings-helpers" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}>
                         <Svg source={autoSwitchSvg(shown.helpers === 'on', helpersNow - helpersFlipAt)} alt={shown.helpers === 'on' ? 'Helpers on' : 'Helpers off'} width={26} height={15} />
                         <Text color={shown.helpers === 'on' ? DASH_TEXT : DASH_DIM}>Helpers</Text>
-                        <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                          {/* No-break spaces, as the cards' cover: plain spaces collapse here and left a one-dot target. */}
-                          <Button key="settings-helpers-switch" plain hover={{ backgroundColor: '#00000000' }} label={' '.repeat(16)} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
+                        {/* The cards' cover: no-break spaces (plain ones collapse to a dot), wider than the switch and its
+                            word, clipped to them, so the click reaches both edges. */}
+                        <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center" justifyContent="center" overflow="hidden">
+                          <Box flexShrink={0}>
+                            <Button key="settings-helpers-switch" plain hover={{ backgroundColor: '#00000000' }} label={'\u00a0'.repeat(40)} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
+                          </Box>
                         </Box>
                       </Box>
                     ) : (
