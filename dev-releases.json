@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.69.14",
+    "date": "2026-10-10",
+    "note": "Settings cards: cover the whole card at any width"
+  },
+  {
     "version": "1.69.13",
     "date": "2026-10-10",
     "note": "Helpers switch: cover reaches both edges"
