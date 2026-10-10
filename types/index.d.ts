@@ -11,7 +11,7 @@ export type Spent = {
   out: number
   byEffort: Partial<Record<Effort, { prompts: number; cost: number }>>
   /** How often each judge decided, the time it took in all (ms), and its tokens. */
-  judge: { jev: number; haiku: number; ms: number; tokens: number }
+  judge: { jev: number; clef: number; haiku: number; ms: number; tokens: number }
   /** Prompts that ran on a cheaper model than the chat's, and how many of those the person then redid. */
   moved: number
   redone: number
@@ -23,7 +23,9 @@ export type Pick = {
   effort: Effort
   /** A few words on why, shown dim in the band. */
   why: string
-  by: 'jev' | 'haiku' | 'manual'
+  by: 'jev' | 'clef' | 'haiku' | 'manual'
+  /** Clef only: which of Cloudflare's models answered, clef or clef-flash; flash when unsaid (the default). */
+  judgeModel?: 'clef' | 'clef-flash'
   /** How sure the judge was of the effort, 0-1, when it said. */
   sure?: number
   /** Haiku only: why a handoff would suit now (a few words), when it said it would. */
@@ -49,6 +51,12 @@ export type SettingsDraft = {
   /** Comma-separated parts switched off: handoff, cold, swamp, hot, down. */
   hide?: string
   key?: string
+  /** A Cloudflare token pasted for the clef judge; with clefAccount it goes to ~/.config/clef/.env on save. */
+  clefKey?: string
+  /** The Cloudflare account id pasted beside the token. */
+  clefAccount?: string
+  /** clef (the 27B model) or clef-flash (the quick one, the default). */
+  clefModel?: string
   swampAt?: string
   /** default (dashboard band) or minimal (footer buttons). */
   layout?: string

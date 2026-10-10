@@ -76,7 +76,7 @@ const EFFORT_LABELS: Record<Effort, string> = { low: 'Low', medium: 'Medium', hi
 const isAuto = atom({ plugin: 'effortless', key: 'isAuto' } as const, true)
 const JEV_TIMEOUT_MS = 3000
 const JEV_URL = 'https://api.typesafe.ai/v1/systemone'
-const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, read: 0, out: 0, byEffort: {}, judge: { jev: 0, haiku: 0, ms: 0, tokens: 0 }, moved: 0, redone: 0 }
+const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, read: 0, out: 0, byEffort: {}, judge: { jev: 0, clef: 0, haiku: 0, ms: 0, tokens: 0 }, moved: 0, redone: 0 }
 const SWITCHED_MS = 2500
 // The prompt cache lives this long after the last request read or wrote it. A response may say which lifetime its
 // cache writes got (usage.cache_creation: ephemeral_1h / ephemeral_5m); until one does, 1 hour is assumed: 99% of
@@ -190,7 +190,7 @@ const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'model', title: 'Model', about: "Whether a simple prompt may run on a cheaper model. Effort is judged either way." },
   { id: 'handoff', title: 'Handoff', about: 'The skill that writes a full handoff, and at what share of context to suggest compacting or handing off.' },
   { id: 'show', title: 'Customize', about: 'How effortless looks and which parts it shows. Uninstall removes it.' },
-  { id: 'judge', title: 'Judge', about: 'Haiku judges prompts and handoffs. Add Jev for quicker effort calls. Test checks it answers.' },
+  { id: 'judge', title: 'Judge', about: 'Haiku judges prompts and handoffs. Add Jev or Clef for quicker effort calls. Test checks it answers.' },
 ]
 // The Model card: the two ways to run. Effort follows the judge in both.
 const MODEL_CHOICES = [
@@ -498,6 +498,18 @@ export function parseJevKey(text: string): string | undefined {
   return value || undefined
 }
 
+/** The Cloudflare token in a ~/.config/clef/.env file's text, the file the clef judge reads. */
+export function parseClefToken(text: string): string | undefined {
+  const value = text.match(/^\s*CLOUDFLARE_API_TOKEN\s*=\s*(.*?)\s*$/m)?.[1].replace(/^['"]|['"]$/g, '')
+  return value || undefined
+}
+
+/** The Cloudflare account id in a ~/.config/clef/.env file's text. */
+export function parseClefAccount(text: string): string | undefined {
+  const value = text.match(/^\s*CLOUDFLARE_ACCOUNT_ID\s*=\s*(.*?)\s*$/m)?.[1].replace(/^['"]|['"]$/g, '')
+  return value || undefined
+}
+
 /**
  * Jev's answer as a verdict. Below even odds on the effort it is unsure, and an unsure call keeps the
  * current effort: that is what a "go" between two steps of work should do.
@@ -525,6 +537,7 @@ export function parseJevAnswer(text: string, current: Pick | null): { model: Mod
 let askJevFile: EnvAsk | undefined
 // A key was saved from the settings panel into ~/.config/jev/.env: that file wins over an older key in the settings.
 let keyFromFile = false
+let askClefFile: EnvAsk | undefined
 /**
  * The TypeSafe key: from the settings, else TYPESAFE_API_KEY. Only when the person picked the jev judge outright is
  * ~/.config/jev/.env read as well: a mod should not open a file holding a secret it was not asked to use.
@@ -543,6 +556,34 @@ async function jevKey($: EngineInterface): Promise<string | undefined> {
       return parseJevKey(typeof text === 'string' ? text : '')
     })()
   return askJevFile
+}
+
+/** What the clef judge needs to call Workers AI: a Cloudflare token and the account id it belongs to. */
+type ClefCreds = { token: string; account: string }
+/**
+ * Clef's credentials: from the settings, else CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, and only when the
+ * person picked the clef judge outright is ~/.config/clef/.env read too (the same rule as the jev file). A token
+ * pasted in the panel lives in that file, so it wins over an ambient wrangler environment.
+ */
+async function clefCreds($: EngineInterface): Promise<ClefCreds | undefined> {
+  const fromEnv = async () => ({ token: await envClefToken($), account: await envClefAccount($) })
+  let { token, account } = await fromEnv()
+  if (config.clefToken) token = config.clefToken
+  if (config.clefAccount) account = config.clefAccount
+  if (token && account) return { token, account }
+  if (config.judge !== 'clef') return undefined
+  askClefFile =
+    askClefFile ??
+    (async () => {
+      const home = (await envUserProfile($)) ?? (await envHome($))
+      if (!home) return ''
+      const text = await $.fs.read(`${home}/.config/clef/.env`).catch(() => '')
+      return typeof text === 'string' ? text : ''
+    })()
+  const file = await askClefFile
+  token = parseClefToken(file) ?? token
+  account = parseClefAccount(file) ?? account
+  return token && account ? { token, account } : undefined
 }
 
 type Judged = { verdict?: Pick; tokens: number }
@@ -572,8 +613,14 @@ function warnJudge($: EngineInterface, reason: string) {
 
 /** Which judge the person picked in the plugin's settings, and what it needs. */
 export type JudgeConfig = {
-  judge: 'auto' | 'haiku' | 'jev'
+  judge: 'auto' | 'haiku' | 'jev' | 'clef'
   typesafeKey: string
+  /** A Cloudflare token for the clef judge, when it came through the plugin's options rather than a paste. */
+  clefToken: string
+  /** The Cloudflare account id the clef judge calls. */
+  clefAccount: string
+  /** Which of Cloudflare's decision models judges: clef (27B) or clef-flash (the quick one). */
+  clefModel: 'clef' | 'clef-flash'
   /** A skill or slash command that writes the handoff instead of the built-in prompt, e.g. "session-handoff". */
   handoffSkill: string
   /** What follows the handoff: clear and carry on, clear and wait, or keep the chat and copy the handoff. The handoff
@@ -616,6 +663,9 @@ let pluginOptions: Record<string, unknown> = {}
 let config: JudgeConfig = {
   judge: 'auto',
   typesafeKey: '',
+  clefToken: '',
+  clefAccount: '',
+  clefModel: 'clef-flash',
   handoffSkill: '',
   handoffAfter: 'continue',
   bias: 0,
@@ -637,8 +687,11 @@ export function readConfig(options: unknown): JudgeConfig {
   const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
   const picked = str(o.judge)
   return {
-    judge: picked === 'haiku' || picked === 'jev' ? picked : 'auto',
+    judge: picked === 'haiku' || picked === 'jev' || picked === 'clef' ? picked : 'auto',
     typesafeKey: str(o.typesafeKey),
+    clefToken: str(o.clefToken),
+    clefAccount: str(o.clefAccount),
+    clefModel: str(o.clefModel) === 'clef' ? 'clef' : 'clef-flash',
     handoffSkill: str(o.handoffSkill).replace(/^\//, ''),
     handoffAfter: (['confirm', 'copy'] as const).find(a => a === str(o.handoffAfter)) ?? 'continue',
     bias: Math.max(-2, Math.min(2, Math.round(Number(str(o.effortBias)) || 0))),
@@ -673,24 +726,65 @@ function judgeQuestion(prompt: string, current: Pick | null, context: string): s
 }
 
 /**
- * Haiku always judges; Jev is the optional quick one. Jev is asked first when a TypeSafe key is found (unless the
- * setting is haiku), and Haiku makes the call whenever Jev is unsure, down or slow. Any judge that fails or takes longer than JEV_TIMEOUT_MS falls back to
- * Haiku, which needs nothing but the session's own login. Never throws.
+ * Haiku always judges; Jev and Clef are the optional quick ones. The judge picked outright (jev or clef) is asked
+ * first; in auto, Jev comes before Clef when both keys are found. Haiku makes the call whenever the quick judge is
+ * unsure, down or slow. Any judge that fails or takes longer than JEV_TIMEOUT_MS falls back to Haiku, which needs
+ * nothing but the session's own login. Never throws.
  */
 async function judge($: EngineInterface, prompt: string, current: Pick | null): Promise<Judged> {
   const context = await recentContext($).catch(() => '')
-  const key = config.judge !== 'haiku' ? await jevKey($).catch(() => undefined) : undefined
-  if (key) {
-    const jev = await askJev($, key, prompt, current, context)
-    if (jev) return jev.verdict?.why === UNSURE ? haikuAfter($, jev, prompt, current, context) : jev
+  if (config.judge !== 'haiku') {
+    const quick: (() => Promise<Judged | undefined>)[] = []
+    if (config.judge === 'clef') {
+      const creds = await clefCreds($).catch(() => undefined)
+      if (creds) quick.push(() => askClef($, creds, prompt, current, context))
+    } else {
+      const key = await jevKey($).catch(() => undefined)
+      if (key) quick.push(() => askJev($, key, prompt, current, context))
+      if (config.judge !== 'jev') {
+        const creds = await clefCreds($).catch(() => undefined)
+        if (creds) quick.push(() => askClef($, creds, prompt, current, context))
+      }
+    }
+    for (const ask of quick) {
+      const judged = await ask()
+      if (judged) return judged.verdict?.why === UNSURE ? haikuAfter($, judged, prompt, current, context) : judged
+    }
   }
   return askHaiku($, prompt, current, context)
 }
 
-/** Jev was unsure: Haiku makes the call, and both judges' tokens count. */
-async function haikuAfter($: EngineInterface, jev: Judged, prompt: string, current: Pick | null, context: string): Promise<Judged> {
+/** A quick judge was unsure: Haiku makes the call, and both judges' tokens count. */
+async function haikuAfter($: EngineInterface, quick: Judged, prompt: string, current: Pick | null, context: string): Promise<Judged> {
   const haiku = await askHaiku($, prompt, current, context)
-  return haiku.verdict ? { verdict: haiku.verdict, tokens: haiku.tokens + jev.tokens } : jev
+  return haiku.verdict ? { verdict: haiku.verdict, tokens: haiku.tokens + quick.tokens } : quick
+}
+
+/** Who made a pick, by name, for the line under the reply: the exact model when Clef answered. */
+export function judgeLabel(pick: Pick | null): string {
+  if (!pick) return 'Haiku'
+  if (pick.by === 'manual') return 'You'
+  if (pick.by === 'jev') return 'Jev'
+  if (pick.by === 'clef') return pick.judgeModel === 'clef' ? 'Clef' : 'Clef-flash'
+  return 'Haiku'
+}
+
+/** The System One request Jev and Clef share: the task, the state and the typed questions. */
+function systemOneBody(model: string, prompt: string, current: Pick | null, context: string) {
+  return {
+    model,
+    state: {
+      task: JEV_TASK,
+      current_model: current?.model ?? null,
+      current_effort: current?.effort ?? null,
+      recent_conversation: context,
+      next_message: prompt.slice(0, 4000),
+    },
+    questions: {
+      effort: { type: 'choice', instructions: 'Which effort fits the next message?', criteria: JEV_EFFORTS },
+      model: { type: 'choice', instructions: 'Which model fits the next message?', criteria: JEV_MODELS },
+    },
+  }
 }
 
 /** Jev on TypeSafe: an answer, or nothing when it fails, is unsure of its own format or takes too long. */
@@ -701,20 +795,7 @@ async function askJev($: EngineInterface, key: string, prompt: string, current: 
       $.http.fetch((await envJevUrl($)) ?? JEV_URL, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-        body: JSON.stringify({
-          model: 'jev-latest',
-          state: {
-            task: JEV_TASK,
-            current_model: current?.model ?? null,
-            current_effort: current?.effort ?? null,
-            recent_conversation: context,
-            next_message: prompt.slice(0, 4000),
-          },
-          questions: {
-            effort: { type: 'choice', instructions: 'Which effort fits the next message?', criteria: JEV_EFFORTS },
-            model: { type: 'choice', instructions: 'Which model fits the next message?', criteria: JEV_MODELS },
-          },
-        }),
+        body: JSON.stringify(systemOneBody('jev-latest', prompt, current, context)),
       }),
       $.clock.sleep(JEV_TIMEOUT_MS).then(() => {
         throw new Error('jev timeout')
@@ -740,6 +821,43 @@ async function askJev($: EngineInterface, key: string, prompt: string, current: 
   return undefined
 }
 
+/** Clef on Workers AI answers the same System One questions; the REST reply wraps them in a result envelope, which
+ *  parseJevAnswer reads as well. An answer, or nothing when it fails, is unsure of its own format or takes too long. */
+async function askClef($: EngineInterface, creds: ClefCreds, prompt: string, current: Pick | null, context: string): Promise<Judged | undefined> {
+  const model = config.clefModel
+  try {
+    // A stalled endpoint must not hold the prompt: after JEV_TIMEOUT_MS the judge falls through to Haiku.
+    const res = await Promise.race([
+      $.http.fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(creds.account)}/ai/run/@cf/cloudflare/${model}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${creds.token}` },
+        body: JSON.stringify(systemOneBody(model, prompt, current, context)),
+      }),
+      $.clock.sleep(JEV_TIMEOUT_MS).then(() => {
+        throw new Error('clef timeout')
+      }),
+    ])
+    if (!res.ok) warnJudge($, judgeFailure('Clef', res.status))
+    const verdict = res.ok ? parseJevAnswer(res.text, current) : undefined
+    if (verdict) {
+      let used = 0
+      try {
+        const parsed = JSON.parse(res.text) as { usage?: { input_tokens?: number; output_tokens?: number }; result?: { usage?: { input_tokens?: number; output_tokens?: number } } }
+        const usage = parsed.usage ?? parsed.result?.usage
+        used = (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0)
+      } catch {
+        // No usage in the reply: counted as 0.
+      }
+      if (await read($, judgeDown)) await update($, judgeDown, () => null)
+      return { verdict: { ...verdict, by: 'clef', judgeModel: model }, tokens: used }
+    }
+  } catch (error) {
+    // Clef down or slow: fall through to Haiku, and say so.
+    warnJudge($, String(error).includes('timeout') ? judgeFailure('Clef', 'timeout') : 'Clef could not be reached')
+  }
+  return undefined
+}
+
 // Set while the settings panel tests a judge: warnJudge leaves its reason here instead of warning.
 let judgeTesting: { reason?: string } | null = null
 /** The prompt a judge test sends: small and plain, so any working judge answers it. */
@@ -747,13 +865,23 @@ const JUDGE_TEST_PROMPT = 'rename one variable in a single file'
 
 /** Asks the judge picked in the panel (its unsaved key, URL and model included) one sample prompt, and says in a line
  * whether it answered, with what and how fast, or why not. Never falls back to Haiku: the point is the judge itself. */
-async function testJudge($: EngineInterface, judgeKind: string, draftKey: string): Promise<{ ok: boolean; text: string }> {
+async function testJudge($: EngineInterface, judgeKind: string, draftKey: string, draftAccount = ''): Promise<{ ok: boolean; text: string }> {
   const start = await $.clock.now()
   const took = async () => `${(((await $.clock.now()) - start) / 1000).toFixed(1)} s`
   const said = (name: string, j: Judged | undefined) =>
     j?.verdict?.why === UNSURE ? `${name} answered, unsure on the sample` : `${name} answered: ${j?.verdict?.effort}`
   judgeTesting = {}
   try {
+    if (judgeKind === 'clef') {
+      const known = await clefCreds($).catch(() => undefined)
+      const creds = draftKey.trim() && (draftAccount.trim() || known?.account)
+        ? { token: draftKey.trim(), account: draftAccount.trim() || known!.account }
+        : known
+      if (!creds) return { ok: false, text: 'No Cloudflare token and account id found' }
+      const c = await askClef($, creds, JUDGE_TEST_PROMPT, null, '')
+      if (c?.verdict) return { ok: true, text: `${said('Clef', c)} in ${await took()}` }
+      return { ok: false, text: judgeTesting.reason ?? 'Clef gave no usable answer' }
+    }
     if (judgeKind === 'jev' || judgeKind === 'auto') {
       const key = parseJevKey(draftKey) ?? (draftKey.trim() || undefined) ?? (await jevKey($).catch(() => undefined)) ?? (await typesafeKeyAnywhere($).catch(() => undefined))
       if (!key && judgeKind === 'jev') return { ok: false, text: 'No TypeSafe key found' }
@@ -954,6 +1082,16 @@ async function runBench($: EngineInterface, cases: BenchCase[]): Promise<BenchAn
         return jev.verdict?.why === UNSURE ? haikuAfter($, jev, c.message, c.current, c.context ?? '') : jev
       },
     ])
+  const creds = await clefCreds($).catch(() => undefined)
+  if (creds)
+    judges.push([
+      'clef',
+      async c => {
+        const clef = await askClef($, creds, c.message, c.current, c.context ?? '')
+        if (!clef) return askHaiku($, c.message, c.current, c.context ?? '')
+        return clef.verdict?.why === UNSURE ? haikuAfter($, clef, c.message, c.current, c.context ?? '') : clef
+      },
+    ])
   const answers: BenchAnswer[] = []
   // Baselines: what a fixed effort would score on the same labels.
   for (const fixed of ['medium', 'high'] as Effort[])
@@ -1015,6 +1153,8 @@ let askTmpdir: EnvAsk
 let askModelUi: EnvAsk
 let askJevUrl: EnvAsk
 let askJevKey: EnvAsk
+let askClefToken: EnvAsk
+let askClefAccount: EnvAsk
 let askUserProfile: EnvAsk
 let askHome: EnvAsk
 const envLog = ($: EngineInterface) => (askLog = askLog ?? $.env.get('EFFORTLESS_LOG'))
@@ -1023,6 +1163,8 @@ const envTmpdir = ($: EngineInterface) => (askTmpdir = askTmpdir ?? $.env.get('T
 const envModelUi = ($: EngineInterface) => (askModelUi = askModelUi ?? $.env.get('EFFORTLESS_MODEL_UI'))
 const envJevUrl = ($: EngineInterface) => (askJevUrl = askJevUrl ?? $.env.get('JEV_URL'))
 const envJevKey = ($: EngineInterface) => (askJevKey = askJevKey ?? $.env.get('TYPESAFE_API_KEY'))
+const envClefToken = ($: EngineInterface) => (askClefToken = askClefToken ?? $.env.get('CLOUDFLARE_API_TOKEN'))
+const envClefAccount = ($: EngineInterface) => (askClefAccount = askClefAccount ?? $.env.get('CLOUDFLARE_ACCOUNT_ID'))
 const envUserProfile = ($: EngineInterface) => (askUserProfile = askUserProfile ?? $.env.get('USERPROFILE'))
 const envHome = ($: EngineInterface) => (askHome = askHome ?? $.env.get('HOME'))
 
@@ -1107,7 +1249,7 @@ export function asSpent(t: unknown): Spent {
     read: num(v.read),
     out: num(v.out),
     byEffort: v.byEffort && typeof v.byEffort === 'object' ? v.byEffort : {},
-    judge: { jev: num(judged.jev), haiku: num(judged.haiku), ms: num(judged.ms), tokens: num(judged.tokens) },
+    judge: { jev: num(judged.jev), clef: num(judged.clef), haiku: num(judged.haiku), ms: num(judged.ms), tokens: num(judged.tokens) },
     moved: num(v.moved),
     redone: num(v.redone),
   }
@@ -1153,6 +1295,7 @@ async function countPrompt($: EngineInterface, effort: Effort | undefined, by: P
     const t = asSpent(old)
     const judged = {
       jev: t.judge.jev + (by === 'jev' ? 1 : 0),
+      clef: t.judge.clef + (by === 'clef' ? 1 : 0),
       haiku: t.judge.haiku + (by === 'haiku' ? 1 : 0),
       ms: t.judge.ms + ms,
       tokens: t.judge.tokens + judgeTokens,
@@ -1748,6 +1891,7 @@ const ICON_HANDOFF = '⇥'
 const ICON_SHOW = '◉'
 const SETTING_FIELDS = {
   judge: 'judge',
+  clefModel: 'clefModel',
   bias: 'effortBias',
   floor: 'effortFloor',
   ceiling: 'effortCeiling',
@@ -1814,15 +1958,17 @@ function savedCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
 /** Saves every change in the panel's draft, then closes the panel. Nothing changed applies before this. */
 async function saveDraft($: EngineInterface) {
   const draft = await read($, settingsDraft)
-  const { key, ...rest } = draft
-  // The key goes to its file first; the settings then go through the store queue, since each one reloads the plugin.
+  const { key, clefKey, clefAccount, ...rest } = draft
+  // The keys go to their files first; the settings then go through the store queue, since each one reloads the plugin.
   if (key?.trim()) await saveJevKey($, key, false)
+  if (clefKey?.trim() || clefAccount?.trim()) await saveClefToken($, clefKey ?? '', clefAccount ?? '')
   const changes: Record<string, string> = {}
   for (const field of Object.keys(SETTING_FIELDS) as (keyof typeof SETTING_FIELDS)[]) {
     const value = rest[field]
     if (value !== undefined) changes[field] = value
   }
   if (key?.trim() && (changes.judge ?? config.judge) !== 'jev') changes.judge = 'jev'
+  if ((clefKey?.trim() || clefAccount?.trim()) && (changes.judge ?? config.judge) !== 'clef') changes.judge = 'clef'
   await update($, settingsDraft, () => ({}))
   await update($, settingsOpen, () => false)
   // Said by a card above the prompt, not a toast. Kept in the store: each setting written reloads the plugin.
@@ -1874,6 +2020,50 @@ async function findTypesafeKey($: EngineInterface): Promise<boolean> {
   return Boolean(await typesafeKeyAnywhere($))
 }
 
+/** Clef's token and account id in an .env file's text: each replaced where it is, added where it is not. */
+export function withClefEnv(text: string, token: string, account: string): string {
+  let out = text
+  for (const [name, value] of [
+    ['CLOUDFLARE_API_TOKEN', token.trim()],
+    ['CLOUDFLARE_ACCOUNT_ID', account.trim()],
+  ] as const) {
+    if (!value) continue
+    const line = `${name}=${value}`
+    out = new RegExp(`^\\s*${name}\\s*=.*$`, 'm').test(out)
+      ? out.replace(new RegExp(`^\\s*${name}\\s*=.*$`, 'm'), line)
+      : `${out}${out && !out.endsWith('\n') ? '\n' : ''}${line}\n`
+  }
+  return out
+}
+
+/**
+ * A Cloudflare token (with its account id) pasted in the panel goes to ~/.config/clef/.env, the same protection the
+ * Jev key gets: a plugin cannot write the app's secret settings. Only what was pasted is replaced; the other lines
+ * stay. From then on that file wins over an ambient wrangler environment.
+ */
+async function saveClefToken($: EngineInterface, token: string, account: string) {
+  if (!token.trim() && !account.trim()) return
+  const home = (await envUserProfile($)) ?? (await envHome($))
+  if (!home) {
+    $.ui.toast('effortless: no home folder found to save the Cloudflare token in.')
+    return
+  }
+  const path = `${home}/.config/clef/.env`
+  const before = await $.fs.read(path).catch(() => '')
+  try {
+    await $.fs.write(path, withClefEnv(typeof before === 'string' ? before : '', token, account))
+  } catch (error) {
+    $.ui.toast(`effortless: could not save the Cloudflare token: ${(error instanceof Error ? error.message : String(error)).slice(0, 120)}`)
+    return
+  }
+  askClefFile = undefined
+  if (config.judge !== 'clef') await saveSetting($, 'judge', 'clef')
+  await update($, judgeDown, () => null)
+  warned.clear()
+  $.ui.toast('effortless: Clef saved. It judges from the next message.')
+  $.ui.invalidate('ui.render')
+}
+
 /** The TypeSafe key from the settings, TYPESAFE_API_KEY or ~/.config/jev/.env, for a step the person asked for. */
 async function typesafeKeyAnywhere($: EngineInterface): Promise<string | undefined> {
   const known = config.typesafeKey || (await envJevKey($))
@@ -1884,7 +2074,7 @@ async function typesafeKeyAnywhere($: EngineInterface): Promise<string | undefin
   return parseJevKey(typeof text === 'string' ? text : '')
 }
 
-export type SetupStep = 'pick' | 'jev' | 'lean' | 'handoff' | 'look' | 'done'
+export type SetupStep = 'pick' | 'jev' | 'clef' | 'lean' | 'handoff' | 'look' | 'done'
 
 /** The lean's five stops, cheaper to smarter: a name, and what it does to the judge's pick (see tipped). */
 export const LEAN_STOPS = [
@@ -1895,18 +2085,18 @@ export const LEAN_STOPS = [
   ['Smartest', 'more picks go higher'],
 ] as const
 
-/** The guide's step after this one: the judge (with its key or URL), the lean, the handoff, then done. */
+/** The guide's step after this one: the judge (with its key or token), the lean, the handoff, then done. */
 export function setupNext(step: SetupStep): SetupStep | null {
-  if (step === 'pick' || step === 'jev') return 'lean'
+  if (step === 'pick' || step === 'jev' || step === 'clef') return 'lean'
   if (step === 'lean') return 'handoff'
   if (step === 'handoff') return 'look'
   if (step === 'look') return 'done'
   return null
 }
 
-/** The step Back goes to: the judge's key or URL goes back to the pick, as does the lean. */
+/** The step Back goes to: the judge's key or token goes back to the pick, as does the lean. */
 export function setupBack(step: SetupStep): SetupStep | null {
-  if (step === 'jev' || step === 'lean') return 'pick'
+  if (step === 'jev' || step === 'clef' || step === 'lean') return 'pick'
   if (step === 'handoff') return 'lean'
   if (step === 'look') return 'handoff'
   if (step === 'done') return 'look'
@@ -1915,7 +2105,7 @@ export function setupBack(step: SetupStep): SetupStep | null {
 
 /** "2/3" for the step shown; the closing step has no number. */
 export function setupCounter(step: SetupStep): string {
-  const n = { pick: 1, jev: 1, lean: 2, handoff: 3, look: 4, done: 0 }[step]
+  const n = { pick: 1, jev: 1, clef: 1, lean: 2, handoff: 3, look: 4, done: 0 }[step]
   return n ? `${n}/4` : ''
 }
 
@@ -1998,16 +2188,20 @@ async function closeSetup($: EngineInterface) {
 }
 
 /** The person picked a judge in the guide: then the judge's key or URL, or the next step. Saved at the end. */
-async function pickJudge($: EngineInterface, choice: 'haiku' | 'jev') {
+async function pickJudge($: EngineInterface, choice: 'haiku' | 'jev' | 'clef') {
   // Haiku is saved as Auto: Jev whenever a TypeSafe key is there, Haiku otherwise and whenever Jev does not answer.
   await update($, setupDraft, d => ({ ...d, judge: choice === 'haiku' ? 'auto' : choice }))
   await markSetupDone($)
   if (choice === 'haiku') {
-    $.ui.toast('effortless: Haiku 5.5 judges, no key needed. Add a Jev key later for faster answers.')
+    $.ui.toast('effortless: Haiku 5.5 judges, no key needed. Add a Jev key or a Cloudflare token later for faster answers.')
     return goSetup($, 'lean')
   }
   if (choice === 'jev' && (await findTypesafeKey($))) {
     $.ui.toast('effortless: Jev judges with the TypeSafe key it found.')
+    return goSetup($, 'lean')
+  }
+  if (choice === 'clef' && (await clefCreds($).catch(() => undefined))) {
+    $.ui.toast('effortless: Clef judges with the Cloudflare token it found.')
     return goSetup($, 'lean')
   }
   await goSetup($, choice)
@@ -2029,7 +2223,7 @@ const share = (part: number, whole: number) => `${Math.round((part / whole) * 10
  */
 export function savedText(raw: Spent): string {
   const t = asSpent(raw)
-  const judged = t.judge.jev + t.judge.haiku
+  const judged = t.judge.jev + t.judge.clef + t.judge.haiku
   if (t.prompts === 0 && judged === 0 && t.moved === 0) return 'nothing measured yet'
   const input = t.input * WEIGHT.input
   const write = t.write * WEIGHT.write
@@ -2049,7 +2243,7 @@ export function savedText(raw: Spent): string {
     lines.push(`Cheaper model: ${t.moved} prompt${t.moved === 1 ? '' : 's'} moved down, ${t.redone} redone (${share(t.redone, t.moved)})`)
   }
   if (judged) {
-    lines.push(`Judge: Jev ${t.judge.jev}, Haiku ${t.judge.haiku}, average ${Math.round(t.judge.ms / judged)} ms, ${tokens(t.judge.tokens)} tokens in all`)
+    lines.push(`Judge: Jev ${t.judge.jev}, Clef ${t.judge.clef}, Haiku ${t.judge.haiku}, average ${Math.round(t.judge.ms / judged)} ms, ${tokens(t.judge.tokens)} tokens in all`)
   }
   return lines.join('\n')
 }
@@ -3149,9 +3343,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   }
   autoSeen = v.auto
   const effortNow = effortOf(v, v.modelNow ?? (await sessionModel($)))
-  const by = v.current?.by
   const reason = v.current
-    ? `${by === 'manual' ? 'You' : by === 'jev' ? 'Jev' : 'Haiku'}: ${v.current.why}`
+    ? `${judgeLabel(v.current)}: ${v.current.why}`
     : v.auto
       ? 'Auto picks the effort at the next prompt'
       : 'You pick the effort'
@@ -3430,7 +3623,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
     : notAligned
       ? `/effort shows ${EFFORT_LABELS[shownByApp as Effort] ?? shownByApp}`
       : current
-        ? `${current.by === 'manual' ? 'You' : current.by === 'jev' ? 'Jev' : 'Haiku'}: ${current.why}`
+        ? `${judgeLabel(current)}: ${current.why}`
         : auto
           ? 'Picks the effort at the next prompt'
           : 'Pick an effort'
@@ -4316,6 +4509,7 @@ Saved to ${out}.md and .json` }
       // cannot open a file dialog, and a skill is run by its name anyway.
       const skillNames = await read($, installedSkills)
       const hasKey = Boolean(await jevKey($).catch(() => undefined)) || Boolean(await typesafeKeyAnywhere($).catch(() => undefined))
+      const hasClef = Boolean(await clefCreds($).catch(() => undefined))
       // A plain button with its own handler: a dismiss-role button may be taken by the app before onPress runs.
       const checking = await read($, updateCheck)
       const close = async () => {
@@ -4342,6 +4536,7 @@ Saved to ${out}.md and .json` }
         floor: (draft.floor ?? config.floor) as Effort,
         ceiling: (draft.ceiling ?? config.ceiling) as Effort,
         judge: (draft.judge ?? config.judge) as JudgeConfig['judge'],
+        clefModel: (draft.clefModel ?? config.clefModel) as JudgeConfig['clefModel'],
         handoffAfter: draft.handoffAfter ?? config.handoffAfter,
         handoffSkill: draft.handoffSkill ?? config.handoffSkill,
         swampAt: draft.swampAt ?? String(config.swampAt),
@@ -4356,11 +4551,18 @@ Saved to ${out}.md and .json` }
       const sameSet = (a: string, b: string) => a.split(',').filter(Boolean).sort().join() === b.split(',').filter(Boolean).sort().join()
       const dirty = Object.entries(draft).some(([field, value]) =>
         value === undefined ? false
-        : field === 'key' ? Boolean(value.trim())
+        : field === 'key' || field === 'clefKey' || field === 'clefAccount' ? Boolean(value.trim())
         : field === 'hide' ? !sameSet(value, config.hide.join(','))
-        : value !== String(config[field as Exclude<keyof SettingsDraft, 'key' | 'hide'>] ?? ''))
+        : value !== String(config[field as Exclude<keyof SettingsDraft, 'key' | 'clefKey' | 'clefAccount' | 'hide'>] ?? ''))
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
-      const judgeName = shown.judge === 'haiku' ? 'Haiku' : hasKey || shown.judge === 'jev' ? 'Haiku + Jev' : 'Haiku'
+      const judgeName =
+        shown.judge === 'clef' || (shown.judge === 'auto' && !hasKey && hasClef)
+          ? 'Haiku + Clef'
+          : shown.judge === 'haiku'
+            ? 'Haiku'
+            : hasKey || shown.judge === 'jev'
+              ? 'Haiku + Jev'
+              : 'Haiku'
       const summaries: Record<SettingsCard, string> = {
         effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}`,
         model: shown.modelAuto === 'on' ? 'Cheaper when it can' : "Always the chat's",
@@ -4543,18 +4745,32 @@ Saved to ${out}.md and .json` }
                   <Select key="settings-ceiling" label="Max" value={shown.ceiling} options={opts(EFFORTS)} onSelect={set('ceiling')} />,
                 ]),
 ] : card === 'judge' ? (bare ? [] : [
-            <Select key="settings-judge-pick" value={shown.judge} options={[{ value: 'auto', label: hasKey ? 'Haiku + Jev' : 'Haiku (Jev if added)' }, { value: 'haiku', label: 'Haiku only' }]}
-              onSelect={v => set('judge')(v === 'haiku' ? 'haiku' : 'auto')} />,
-            ...(shown.judge !== 'haiku'
-              ? [field('key-field', <Input key="settings-key" placeholder={hasKey ? 'Key saved. Paste to replace' : 'Paste TypeSafe key'}
-                  value={draft.key ?? ''} submitLabel="ok" onInput={set('key')} onSubmit={set('key')} />, 30)]
-              : []),
+            <Select key="settings-judge-pick" value={shown.judge} options={[
+                { value: 'auto', label: hasClef && !hasKey ? 'Haiku + Clef' : hasKey ? 'Haiku + Jev' : 'Haiku (Jev or Clef if added)' },
+                { value: 'clef', label: hasClef ? 'Haiku + Clef' : 'Clef (needs Cloudflare token)' },
+                { value: 'haiku', label: 'Haiku only' },
+              ]}
+              onSelect={v => set('judge')(v === 'haiku' ? 'haiku' : v === 'clef' ? 'clef' : 'auto')} />,
+            ...(shown.judge === 'clef'
+              ? [
+                  field('clef-token-field', <Input key="settings-clef-token" placeholder={hasClef ? 'Token saved. Paste to replace' : 'Paste Cloudflare API token'}
+                    value={draft.clefKey ?? ''} submitLabel="ok" onInput={set('clefKey')} onSubmit={set('clefKey')} />, 30),
+                  field('clef-account-field', <Input key="settings-clef-account" placeholder={hasClef ? 'Account id saved. Paste to replace' : 'Paste Cloudflare account id'}
+                    value={draft.clefAccount ?? ''} submitLabel="ok" onInput={set('clefAccount')} onSubmit={set('clefAccount')} />, 30),
+                  <Select key="settings-clef-model" label="Model" value={shown.clefModel}
+                    options={[{ value: 'clef-flash', label: 'clef-flash (quick)' }, { value: 'clef', label: 'clef (27B)' }]}
+                    onSelect={set('clefModel')} />,
+                ]
+              : shown.judge !== 'haiku'
+                ? [field('key-field', <Input key="settings-key" placeholder={hasKey ? 'Key saved. Paste to replace' : 'Paste TypeSafe key'}
+                    value={draft.key ?? ''} submitLabel="ok" onInput={set('key')} onSubmit={set('key')} />, 30)]
+                : []),
             <Button key="settings-judge-test" variant="secondary" dimColor={tested?.ok === null} label={tested?.ok === null ? 'Testing…' : 'Test'}
               onPress={async () => {
                 if (tested?.ok === null) return
                 await update($, judgeTest, () => ({ ok: null, text: '' }))
                 $.ui.invalidate('ui.render')
-                const result = await testJudge($, shown.judge, draft.key ?? '')
+                const result = await testJudge($, shown.judge, shown.judge === 'clef' ? (draft.clefKey ?? '') : (draft.key ?? ''), draft.clefAccount ?? '')
                 await update($, judgeTest, () => result)
                 $.ui.invalidate('ui.render')
               }} />,
@@ -4808,9 +5024,9 @@ Saved to ${out}.md and .json` }
         </Box>
       )
       if (step === 'pick')
-        return band('Haiku judges. Add Jev too?', 62, [
-          // Haiku first and filled: it needs no key. Jev is the optional faster one; with a key, it is tried first and
-          // Haiku stands in whenever it does not answer. Each mark sits tight against its own button.
+        return band('Haiku judges. Add Jev or Clef too?', 62, [
+          // Haiku first and filled: it needs no key. Jev and Clef are the optional faster ones; with a key, the quick
+          // judge is tried first and Haiku stands in whenever it does not answer. Each mark sits tight against its button.
           <Box key="pick-haiku" flexDirection="row" gap={1} alignItems="center">
             <Svg source={CLAUDE_MARK} alt="Claude" width={16} height={16} />
             <Button key="setup-haiku" variant="primary" label="Just Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />
@@ -4818,6 +5034,10 @@ Saved to ${out}.md and .json` }
           <Box key="pick-jev" flexDirection="row" gap={1} alignItems="center">
             <Svg source={TYPESAFE_MARK} alt="TypeSafe" width={12} height={18} />
             <Button key="setup-jev" variant="secondary" label="Add Jev (needs a key)" onPress={() => pickJudge($, 'jev')} />
+          </Box>,
+          <Box key="pick-clef" flexDirection="row" gap={1} alignItems="center">
+            <Text color="#f6821f" bold>C</Text>
+            <Button key="setup-clef" variant="secondary" label="Add Clef (Cloudflare)" onPress={() => pickJudge($, 'clef')} />
           </Box>,
           ...nav(
             <Button key="setup-skip" plain dimColor label="Skip" onPress={async () => {
@@ -4835,6 +5055,30 @@ Saved to ${out}.md and .json` }
                 if (!v.trim()) return
                 await update($, setupDraft, d => ({ ...d, key: undefined }))
                 await saveJevKey($, v, false)
+                await goSetup($, 'lean')
+              }} />
+          </Box>,
+          ...nav(<Button key="setup-skip" plain label="Skip" onPress={go('lean')} />),
+        ])
+      if (step === 'clef')
+        return band('Token and account id from Cloudflare:', 52, [
+          <Box key="clef-token-field" width={30} flexShrink={1}>
+            <Input key="setup-clef-token" placeholder="Cloudflare API token" value={draft.clefKey ?? ''} submitLabel="Save"
+              onInput={(v: string) => pick('clefKey', v)}
+              onSubmit={async (v: string) => {
+                if (!v.trim()) return
+                await update($, setupDraft, d => ({ ...d, clefKey: undefined }))
+                await saveClefToken($, v, draft.clefAccount ?? '')
+                await goSetup($, 'lean')
+              }} />
+          </Box>,
+          <Box key="clef-account-field" width={22} flexShrink={1}>
+            <Input key="setup-clef-account" placeholder="Account id" value={draft.clefAccount ?? ''} submitLabel="Save"
+              onInput={(v: string) => pick('clefAccount', v)}
+              onSubmit={async (v: string) => {
+                if (!v.trim() && !draft.clefKey?.trim()) return
+                await update($, setupDraft, d => ({ ...d, clefAccount: undefined }))
+                await saveClefToken($, draft.clefKey ?? '', v)
                 await goSetup($, 'lean')
               }} />
           </Box>,
