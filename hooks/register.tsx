@@ -2174,7 +2174,7 @@ type Snap = Awaited<ReturnType<typeof snap>>
 /** The hover cards' text: what Auto did and why, and what the cache countdown means with the context it guards. */
 function hoverTips(v: Snap): { effort: string; cache: string } {
   const effortTip = !v.auto
-    ? 'Auto is off: the effort stays as you set it. The power button turns Auto on.'
+    ? 'Auto is off: the effort stays as you set it. The ○ at the bottom turns Auto on.'
     : v.pausedNow
       ? 'Auto waits on this model: an effort change would rewrite its prompt cache.'
       : !effortOf(v, v.modelNow ?? 'sonnet')
@@ -4097,8 +4097,9 @@ Saved to ${out}.md and .json` }
             {' Off '}
           </Text>
         )}
-        {/* The one thing to click: it switches Auto off and on. Text cannot be clicked, so it is a small button. */}
-        <Button key="auto" plain dimColor label=" ⏻ " hover={{ scope: 'power', backgroundColor: HOVER_BOX }} onPress={() => toggleAutoEffort($)} />
+        {/* The one thing to click: it switches Auto off and on. Text cannot be clicked, so it is a small button. A
+            filled or empty circle, which every font has: ⏻ is missing from some Windows fonts and drew as a box. */}
+        <Button key="auto" plain dimColor label={v.auto ? ' ● ' : ' ○ '} hover={{ scope: 'power', backgroundColor: HOVER_BOX }} onPress={() => toggleAutoEffort($)} />
         {/* Until a judge is picked the footer offers the setup; after that the same place opens the settings panel. */}
         {needsSetup ? (
           <Button
@@ -4893,7 +4894,7 @@ Saved to ${out}.md and .json` }
           ...nav(nextButton),
         ])
       }
-      return band('⏻ Auto on or off. ⚙ all settings. Auto pauses on Fable.', 24, [
+      return band('● Auto on, ○ off. ⚙ all settings. Auto pauses on Fable.', 24, [
         ...nav(<Button key="setup-done" variant="primary" autoFocus label="Done" onPress={() => finishSetup($)} />),
       ])
     }
