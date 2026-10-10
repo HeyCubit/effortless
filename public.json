@@ -1,5 +1,21 @@
 [
   {
+    "version": "1.70.0",
+    "date": "2026-10-10",
+    "note": "Alerts that stay closed, cheaper handoffs",
+    "detail": [
+      "Close the running-low alert and it stays closed until your limit resets, in new chats too. It comes back once at 95%.",
+      "Switch the context, running-low and cold-cache alerts on or off in Settings, under Handoff & alerts.",
+      "A quick handoff on a cold cache is now written by Haiku from the chat, instead of rereading the whole chat at full price.",
+      "The compact alert waits until 70% of the context by default.",
+      "No more warning card under replies: the band above the prompt says it.",
+      "New, off by default: Helpers. The judge picks the effort for each subagent too, never below medium.",
+      "Compact with moved to the Model card, and cheaper models are marked experimental.",
+      "Settings fixes: buttons and cards take clicks edge to edge, Helpers has its own row."
+    ],
+    "public": true
+  },
+  {
     "version": "1.69.0",
     "date": "2026-10-09",
     "note": "Model switching off by default, 21% cheaper than Opus medium",
