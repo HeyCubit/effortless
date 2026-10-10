@@ -186,7 +186,7 @@ type SettingsCard = 'effort' | 'model' | 'judge' | 'handoff' | 'show'
 const settingsCard = atom({ plugin: 'effortless', key: 'settingsCard' } as const, null)
 /** The settings panel's parts: a card each on the overview, and what the part is for, said once it is open. */
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
-  { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits. Helpers: the judge picks for subagents too.' },
+  { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits.' },
   { id: 'model', title: 'Model', about: "Whether a simple prompt may run on a cheaper model, and which model writes a compaction." },
   { id: 'handoff', title: 'Handoff & alerts', about: 'The full handoff skill, when to suggest compacting, and which alerts show.' },
   { id: 'show', title: 'Customize', about: 'How effortless looks and which parts it shows. Uninstall removes it.' },
@@ -4542,7 +4542,7 @@ Saved to ${out}.md and .json` }
       // The slider: five stops, the marker on the one in force. No animation, a click moves it.
       const track: unknown[] = []
       for (const n of [-2, -1, 0, 1, 2]) {
-        if (n > -2) track.push(<Text key={`t${n}`} dimColor>──</Text>)
+        if (n > -2) track.push(<Text key={`t${n}`} dimColor>─</Text>)
         track.push(<Button key={`bias${n + 2}`} plain label={n === shown.bias ? '◉' : '○'} onPress={() => set('bias')(String(n))} />)
       }
       // The terminal has no art and few rows: no gaps, one row under the title.
@@ -4697,20 +4697,22 @@ Saved to ${out}.md and .json` }
                   <Box key="gap" width={2} />,
                   <Select key="settings-floor" label="Min" value={shown.floor} options={opts(EFFORTS)} onSelect={set('floor')} />,
                   <Select key="settings-ceiling" label="Max" value={shown.ceiling} options={opts(EFFORTS)} onSelect={set('ceiling')} />,
-                  <Box key="gap-helpers" width={2} />,
-                  // Effort for helpers: the dashboard's Auto switch again, with a blank button over it to take the click.
-                  Svg ? (
-                    <Box key="settings-helpers" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}>
-                      <Svg source={autoSwitchSvg(shown.helpers === 'on')} alt={shown.helpers === 'on' ? 'Helpers on' : 'Helpers off'} width={26} height={15} />
-                      <Box position="absolute" top={0} bottom={0} left={0} width={6} alignItems="center" justifyContent="center">
-                        <Button key="settings-helpers-knob" plain label={' '.repeat(5)} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
+                  // Effort for helpers on a row of its own: its name where the slider's starts, the dashboard's Auto
+                  // switch, and what it does now. A blank button over the switch takes the click.
+                  <Box key="settings-helpers" width="100%" flexDirection="row" alignItems="center" gap={1}>
+                    <Button key="settings-helpers-switch" plain dimColor label="Helpers" onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
+                    {Svg ? (
+                      <Box position="relative" flexDirection="row" alignItems="center">
+                        <Svg source={autoSwitchSvg(shown.helpers === 'on')} alt={shown.helpers === 'on' ? 'Helpers on' : 'Helpers off'} width={26} height={15} />
+                        <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+                          <Button key="settings-helpers-knob" plain hover={{ backgroundColor: '#00000000' }} label={' '.repeat(4)} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
+                        </Box>
                       </Box>
-                      {/* The word is a button of its own: a cover laid over the whole row took clicks on a few cells only. */}
-                      <Button key="settings-helpers-switch" plain dimColor={shown.helpers !== 'on'} label="Helpers" onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
-                    </Box>
-                  ) : (
-                    <Button key="settings-helpers-switch" plain label={`${shown.helpers === 'on' ? '◉' : '○'} Helpers`} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
-                  ),
+                    ) : (
+                      <Button key="settings-helpers-knob" plain label={shown.helpers === 'on' ? '◉ on' : '○ off'} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
+                    )}
+                    <Text dimColor wrap="truncate">{shown.helpers === 'on' ? "The judge picks each subagent's effort, medium or more" : "Subagents run at the chat's effort"}</Text>
+                  </Box>,
                 ]),
 ] : card === 'judge' ? (bare ? [] : [
             <Select key="settings-judge-pick" value={shown.judge} options={[{ value: 'auto', label: hasKey ? 'Haiku + Jev' : 'Haiku (Jev if added)' }, { value: 'haiku', label: 'Haiku only' }]}
