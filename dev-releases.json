@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.69.4",
+    "date": "2026-10-10",
+    "note": "Bench: helpers at medium floor"
+  },
+  {
     "version": "1.69.3",
     "date": "2026-10-10",
     "note": "Helpers start at medium"
