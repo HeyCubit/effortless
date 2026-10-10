@@ -2,25 +2,45 @@
   {
     "version": "1.69.0",
     "date": "2026-10-09",
-    "note": "Measured: 21% cheaper than Opus at medium, same answers",
+    "note": "Model switching off by default, 21% cheaper than Opus medium",
+    "detail": [
+      "Model switching is off by default. effortless sets the effort and leaves your model alone, because switching models mid-chat costs more than it saves: every model keeps its own cache. You can turn it back on in Settings → Model.",
+      "Measured on 96 real coding tasks: 21% cheaper than Opus at medium, 29% cheaper than high and 42% cheaper than xhigh. Every answer was still correct.",
+      "Light mode: a new Appearance setting (match Claude Code, dark or light) covers every panel and band.",
+      "Fixed: with Auto off, a stale effort was still sent. Now the effort you pick in the app is the one that goes out, and the bar says when your own pick turns Auto off.",
+      "/effortless debug shows the model and effort each request ran on."
+    ],
     "public": true
   },
   {
     "version": "1.68.0",
     "date": "2026-10-09",
     "note": "Model card, cherry blossom theme, quality benchmark",
+    "detail": [
+      "New Model card in Settings: keep every prompt on your chat's model, or allow a cheaper one for simple prompts.",
+      "New Cherry blossom theme: violets turn pink and the sparkles become falling petals.",
+      "The judge benchmark and the answer-quality benchmark are in the repo (bench/RESULTS.md)."
+    ],
     "public": true
   },
   {
     "version": "1.67.0",
     "date": "2026-10-09",
     "note": "Haiku compaction keeps your latest work",
+    "detail": [
+      "Haiku compaction keeps your latest messages almost whole, so the most recent work is not summarised away.",
+      "The README says where your keys are kept: pasted keys in a plain file, `/plugin configure` in secure storage."
+    ],
     "public": true
   },
   {
     "version": "1.66.0",
     "date": "2026-10-09",
     "note": "The bar shows the model too",
+    "detail": [
+      "The bar shows the model next to the effort, for example High · Opus.",
+      "The site and README lead with the model and the effort."
+    ],
     "public": true
   },
   {

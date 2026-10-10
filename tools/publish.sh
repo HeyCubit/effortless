@@ -3,7 +3,8 @@
 # at, and the update card offers the newest entry of public.json. Releases (tools/release.sh) go to main and reach only
 # the dev channel; nothing reaches users until this runs.
 #
-# Usage: tools/publish.sh [--dry-run] "<what's new, one line>" ["<more detail>"]
+# Usage: tools/publish.sh [--dry-run] "<what's new, one line>" ["<detail>"]
+# The detail is one line per bullet (separate them with newlines); it is stored as `detail` and shown under the headline.
 #
 # It needs a clean index and main in step with origin. It runs the tests, bumps the minor version (1.35.x -> 1.36.0),
 # writes the release into releases.json and public.json, commits, pushes main, then moves stable to that commit.
@@ -28,15 +29,17 @@ out=$(CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude plugin test . 2>&1) || true
 echo "$out" | grep -qE '^ *0 fail' || { echo "$out" | tail -20; echo "publish stopped: tests fail" >&2; exit 1; }
 
 node -e '
-const fs = require("fs"), [v, note] = process.argv.slice(1)
+const fs = require("fs")
+const [v, note, detailText] = process.argv.slice(1)
 const p = JSON.parse(fs.readFileSync(".claude-plugin/plugin.json", "utf8")); p.version = v
 fs.writeFileSync(".claude-plugin/plugin.json", JSON.stringify(p, null, 2) + String.fromCharCode(10))
-const entry = { version: v, date: new Date().toISOString().slice(0, 10), note, public: true }
+const lines = (detailText || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+const entry = { version: v, date: new Date().toISOString().slice(0, 10), note, ...(lines.length ? { detail: lines.length === 1 ? lines[0] : lines } : {}), public: true }
 for (const file of ["releases.json", "public.json"]) {
   const list = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : []
   list.unshift(entry)
   fs.writeFileSync(file, JSON.stringify(list, null, 2) + String.fromCharCode(10))
-}' "$new" "$1"
+}' "$new" "$1" "${2:-}"
 blob=$(git show HEAD:HANDOFF.md | sed "s/version $old/version $new/" | git hash-object -w --stdin)
 git update-index --cacheinfo "100644,$blob,HANDOFF.md"
 git add -- .claude-plugin/plugin.json releases.json public.json
