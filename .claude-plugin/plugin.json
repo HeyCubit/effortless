@@ -7,12 +7,13 @@
     "judge": {
       "type": "string",
       "title": "Judge",
-      "description": "Haiku (your own Claude login, no key) always judges handoffs and, unless Jev answers, the effort. auto: Jev as well when a TypeSafe key is set. haiku: Haiku only. jev: Jev as well, and its key may also come from ~/.config/jev/.env.",
+      "description": "Haiku (your own Claude login, no key) always judges handoffs and, unless a quick judge answers, the effort. auto: Jev when a TypeSafe key is set, else Clef when Cloudflare credentials are set. haiku: Haiku only. jev: Jev, and its key may also come from ~/.config/jev/.env. clef: Cloudflare's Clef, with its token and account id from CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, or ~/.config/clef/.env.",
       "default": "auto",
       "options": [
         "auto",
         "haiku",
-        "jev"
+        "jev",
+        "clef"
       ]
     },
     "typesafeKey": {
@@ -21,6 +22,29 @@
       "description": "For the jev judge. Stored as a secret by Claude Code. Left empty, TYPESAFE_API_KEY is used, and with judge set to jev also ~/.config/jev/.env.",
       "sensitive": true,
       "default": ""
+    },
+    "clefToken": {
+      "type": "string",
+      "title": "Cloudflare API token (optional, only for clef)",
+      "description": "For the clef judge. Stored as a secret by Claude Code. Left empty, CLOUDFLARE_API_TOKEN is used, and with judge set to clef also ~/.config/clef/.env.",
+      "sensitive": true,
+      "default": ""
+    },
+    "clefAccount": {
+      "type": "string",
+      "title": "Cloudflare account id (optional, only for clef)",
+      "description": "The account whose Workers AI runs Clef. Left empty, CLOUDFLARE_ACCOUNT_ID is used, and with judge set to clef also ~/.config/clef/.env.",
+      "default": ""
+    },
+    "clefModel": {
+      "type": "string",
+      "title": "Clef model",
+      "description": "clef-flash: Cloudflare's quick decision model (the default). clef: the 27B one, more careful, a little slower.",
+      "default": "clef-flash",
+      "options": [
+        "clef-flash",
+        "clef"
+      ]
     },
     "handoffSkill": {
       "type": "string",

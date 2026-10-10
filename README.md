@@ -105,27 +105,30 @@ limit passes 80% (with a Save mode that caps effort at Medium), and when your ju
 
 <p align="center"><img src="docs/readme/settings.png" alt="The settings panel: Effort, Judge, Handoff, Customize" width="100%"></p>
 
-## Haiku, and Jev if you add it
+## Haiku, and Jev or Clef if you add one
 
 Haiku 5.5 runs on your own Claude login and needs no key. It always makes the handoff call: from 30% of context, every second message, it reads what the chat was for, the trail of topics, the last reply and how full the context is, and says a fresh chat would suit only for a clear reason. Then the Compact button turns into a lit Handoff with the reason. Want Handoff on the bar all the time? Settings → Handoff → Handoff button → **Always**.
 
-Haiku also picks the effort, unless you add Jev, TypeSafe's faster judge (about 0.25 s against about 1 s). With a key, Jev answers the effort first and Haiku steps in whenever Jev is unsure. Run `/plugin configure effortless@effortless` in Claude Code, or use the setup guide or the Judge card in Settings.
+Haiku also picks the effort, unless you add a quicker judge: **Jev** (a TypeSafe key, about 0.25 s against about 1 s) or **Clef**, Cloudflare's decision model on Workers AI ([clef-flash](https://developers.cloudflare.com/workers-ai/models/clef-flash/) answers in tens of milliseconds). With a key, the quick judge answers the effort first and Haiku steps in whenever it is unsure. Run `/plugin configure effortless@effortless` in Claude Code, or use the setup guide or the Judge card in Settings.
 
 | Setting | What it does |
 |---|---|
-| `auto` (default) | Haiku, and Jev too when a [TypeSafe](https://typesafe.ai) key is set in the settings or `TYPESAFE_API_KEY` |
+| `auto` (default) | Haiku, and Jev too when a [TypeSafe](https://typesafe.ai) key is set in the settings or `TYPESAFE_API_KEY`; else Clef when Cloudflare credentials are set (see below) |
 | `haiku` | Haiku only, a key is never used |
 | `jev` | Haiku and Jev, and the key may also come from `~/.config/jev/.env` |
+| `clef` | Haiku and Clef. Its token and account id come from the settings, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, or `~/.config/clef/.env` |
 
-A key set with `/plugin configure` is kept in Claude Code's secure storage. A key pasted in the setup guide or the Judge card is written in plain text to `~/.config/jev/.env` (the file the jev skills read), never to a file of this repo. If Jev fails or takes longer than 3 seconds, Haiku judges that prompt and effortless tells you why once per session (out of credits, key rejected, no answer).
+Clef needs two things: a Cloudflare API token allowed to run Workers AI, and the account id it belongs to. Both can be set with `/plugin configure`, or pasted in the Judge card (written in plain text to `~/.config/clef/.env`). The model is picked in Settings → Judge → Model: `clef-flash` (the default, the quick one) or `clef` (the 27B one, more careful, a little slower). If your machine already has `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the environment (wrangler does this), Clef works with no setup at all in `auto`.
+
+A key set with `/plugin configure` is kept in Claude Code's secure storage. A key pasted in the setup guide or the Judge card is written in plain text to `~/.config/jev/.env` (the file the jev skills read), never to a file of this repo. If Jev or Clef fails or takes longer than 3 seconds, Haiku judges that prompt and effortless tells you why once per session (out of credits, key rejected, no answer).
 
 Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and ask no judge.
 
 ## Keys and trust
 
 - The default judge needs **no key**: Haiku runs on your own Claude login.
-- A key is only needed to add Jev. Enter it with `/plugin configure`, never on the command line, so it stays out of your shell history: Claude Code then keeps it in its secure storage. A key pasted in the setup guide or the Judge card is saved in plain text to `~/.config/jev/.env` instead, so prefer `/plugin configure` on a shared machine.
-- A key is sent only to TypeSafe, and to nothing else. Use a key with a spending limit if your provider offers one.
+- A key is only needed to add Jev or Clef. Enter it with `/plugin configure`, never on the command line, so it stays out of your shell history: Claude Code then keeps it in its secure storage. A key pasted in the setup guide or the Judge card is saved in plain text to `~/.config/jev/.env` (or `~/.config/clef/.env` for Clef) instead, so prefer `/plugin configure` on a shared machine.
+- A TypeSafe key is sent only to TypeSafe; a Cloudflare token only to Cloudflare, and to nothing else. Use a key with a spending limit if your provider offers one.
 - Like any Claude Code plugin, this mod runs code on your machine. Its code is in [`hooks/`](hooks/): read it before you install if you do not know the author. The programs it starts are `claude` itself (to update or uninstall the mod when you press those buttons), `git` (to see if a new version is out) and, on Update, a plain file copy of the new version into the folder your open chat runs from.
 
 ## What it saves, measured

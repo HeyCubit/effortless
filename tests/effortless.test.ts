@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, parseClefToken, parseClefAccount, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
@@ -36,6 +36,22 @@ const jevReply = (effort: string, sure = 0.9, model = 'opus') =>
   JSON.stringify({
     answers: { effort: { choice: effort, confidence: sure }, model: { choice: model, confidence: 0.8 } },
     usage: { input_tokens: 480, output_tokens: 54 },
+  })
+
+/** A Workers AI REST reply: the same System One answer, wrapped in Cloudflare's result envelope. */
+const clefReply = (effort: string, sure = 0.9, model = 'opus') =>
+  JSON.stringify({
+    result: {
+      model: 'clef-flash',
+      answers: {
+        effort: { type: 'choice', choice: effort, confidence: sure, probabilities: { [effort]: sure } },
+        model: { type: 'choice', choice: model, confidence: 0.8, probabilities: { [model]: 0.8 } },
+      },
+      usage: { input_tokens: 300, output_tokens: 12 },
+    },
+    success: true,
+    errors: [],
+    messages: [],
   })
 
 /** Haiku as the judge answers this reply, and counts how often it was asked. */
@@ -272,6 +288,99 @@ describe('auto', () => {
     await $.prompt.submit({ text: 'hard task', wait: false, origin: { kind: 'composer' } })
     expect(read.map(path => path.replaceAll('\\', '/'))).toEqual(['C:/Users/x/.config/jev/.env'])
     expect(auth).toEqual(['Bearer from-file'])
+    expect(asked.length).toBe(0)
+  })
+
+  test('clef-flash on Workers AI decides when CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are set, and Haiku is not asked', async ($, on) => {
+    engine(on, { CLOUDFLARE_API_TOKEN: 't', CLOUDFLARE_ACCOUNT_ID: 'acc1' })
+    mock.clock(on)
+    const asked = judgeSays(on, '{"model":"haiku","effort":"low","why":"x"}')
+    const calls: { url: string; auth?: string; body: Record<string, any> }[] = []
+    on('http.fetch', (_$, e) => {
+      calls.push({
+        url: e.url,
+        auth: (e.init?.headers as Record<string, string> | undefined)?.authorization,
+        body: JSON.parse(String(e.init?.body)),
+      })
+      return { value: { status: 200, ok: true, headers: {}, text: clefReply('max') } }
+    })
+    const sent = recordSteps(on)
+
+    await $.prompt.submit({ text: 'designa om hela relayn', wait: false, origin: { kind: 'composer' } })
+    await step($)
+
+    expect(calls.length).toBe(1)
+    expect(calls[0].url).toBe('https://api.cloudflare.com/client/v4/accounts/acc1/ai/run/@cf/cloudflare/clef-flash')
+    expect(calls[0].auth).toBe('Bearer t')
+    expect(calls[0].body.model).toBe('clef-flash')
+    expect(calls[0].body.state.next_message).toBe('designa om hela relayn')
+    expect(calls[0].body.questions.effort.type).toBe('choice')
+    expect(Object.keys(calls[0].body.questions.effort.criteria)).toEqual(['low', 'medium', 'high', 'xhigh', 'max'])
+    expect(asked.length).toBe(0)
+    expect(sent[0]).toEqual({ model: 'claude-opus-5-5', effort: 'max' })
+  })
+
+  test('the clefModel setting picks the big clef model over flash', { options: { judge: 'clef', clefModel: 'clef' } } as never, async ($, on) => {
+    engine(on, { CLOUDFLARE_API_TOKEN: 't', CLOUDFLARE_ACCOUNT_ID: 'acc1' })
+    mock.clock(on)
+    const asked = judgeSays(on, '{"model":"haiku","effort":"low","why":"x"}')
+    const calls: { url: string; model: string }[] = []
+    on('http.fetch', (_$, e) => {
+      const body = JSON.parse(String(e.init?.body))
+      calls.push({ url: e.url, model: body.model })
+      return { value: { status: 200, ok: true, headers: {}, text: clefReply('high') } }
+    })
+
+    await $.prompt.submit({ text: 'hard task', wait: false, origin: { kind: 'composer' } })
+
+    expect(calls).toEqual([{ url: 'https://api.cloudflare.com/client/v4/accounts/acc1/ai/run/@cf/cloudflare/clef', model: 'clef' }])
+    expect(asked.length).toBe(0)
+  })
+
+  test('clef picked outright answers before Jev even when a TypeSafe key is present', { options: { judge: 'clef' } } as never, async ($, on) => {
+    engine(on, { TYPESAFE_API_KEY: 'jev-key', CLOUDFLARE_API_TOKEN: 't', CLOUDFLARE_ACCOUNT_ID: 'acc1' })
+    mock.clock(on)
+    const asked = judgeSays(on, '{"model":"haiku","effort":"low","why":"x"}')
+    const urls: string[] = []
+    on('http.fetch', (_$, e) => {
+      urls.push(e.url)
+      return { value: { status: 200, ok: true, headers: {}, text: e.url.includes('cloudflare') ? clefReply('medium') : jevReply('max') } }
+    })
+
+    await $.prompt.submit({ text: 'hard task', wait: false, origin: { kind: 'composer' } })
+
+    expect(urls).toEqual(['https://api.cloudflare.com/client/v4/accounts/acc1/ai/run/@cf/cloudflare/clef-flash'])
+    expect(asked.length).toBe(0)
+  })
+
+  test('clef answering with an error status falls through to Haiku', async ($, on) => {
+    engine(on, { CLOUDFLARE_API_TOKEN: 't', CLOUDFLARE_ACCOUNT_ID: 'acc1' })
+    mock.clock(on)
+    const asked = judgeSays(on, '{"model":"sonnet","effort":"low","why":"x"}')
+    on('http.fetch', () => ({ value: { status: 500, ok: false, headers: {}, text: 'boom' } }))
+
+    await $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
+    expect(asked.length).toBe(1)
+  })
+
+  test('with the clef judge picked, the token is read from ~/.config/clef/.env when the environment has none', { options: { judge: 'clef' } } as never, async ($, on) => {
+    engine(on, { USERPROFILE: 'C:/Users/x' })
+    mock.clock(on)
+    const asked = judgeSays(on, '{"model":"haiku","effort":"low","why":"x"}')
+    const read: string[] = []
+    on('fs.read', (_$, e) => {
+      read.push(e.path)
+      return { value: 'OTHER=1\nCLOUDFLARE_API_TOKEN="from-file"\nCLOUDFLARE_ACCOUNT_ID=acc9\n' } as never
+    })
+    const calls: { url: string; auth?: string }[] = []
+    on('http.fetch', (_$, e) => {
+      calls.push({ url: e.url, auth: (e.init?.headers as Record<string, string> | undefined)?.authorization })
+      return { value: { status: 200, ok: true, headers: {}, text: clefReply('high') } }
+    })
+    await $.prompt.submit({ text: 'hard task', wait: false, origin: { kind: 'composer' } })
+    expect(read.length).toBe(1)
+    expect(read[0].replaceAll('\\', '/')).toContain('.config/clef/.env')
+    expect(calls).toEqual([{ url: 'https://api.cloudflare.com/client/v4/accounts/acc9/ai/run/@cf/cloudflare/clef-flash', auth: 'Bearer from-file' }])
     expect(asked.length).toBe(0)
   })
 
@@ -618,7 +727,7 @@ describe('footer text', () => {
     expect(text).toContain('1 prompts, 1 requests, cost about 5.1k')
     expect(text).toContain('cache reads 20 %, cache writes 20 %, output 59 %')
     expect(text).toContain('Low 1, average 5.1k')
-    expect(text).toContain('Judge: Jev 0, Haiku 1')
+    expect(text).toContain('Judge: Jev 0, Clef 0, Haiku 1')
     expect(text).not.toContain('saved about')
   })
 
@@ -685,6 +794,23 @@ describe('helpers', () => {
     expect(parseJevAnswer(jevReply('turbo'), current)).toBeUndefined()
     expect(parseJevAnswer('nope', current)).toBeUndefined()
   })
+
+  test('parseJevAnswer reads a Workers AI REST reply: the answers under the result envelope count the same', () => {
+    const current = { model: 'opus' as const, effort: 'high' as const, why: '', by: 'manual' as const }
+    expect(parseJevAnswer(clefReply('low', 0.9), current)?.effort).toBe('low')
+    expect(parseJevAnswer(clefReply('low', 0.4), current)?.effort).toBe('high')
+    expect(parseJevAnswer(clefReply('turbo'), current)).toBeUndefined()
+    expect(JSON.parse(clefReply('low')).success).toBe(true)
+  })
+
+  test('parseClefToken and parseClefAccount read their lines, quoted or not, and nothing else', () => {
+    expect(parseClefToken('CLOUDFLARE_API_TOKEN=abc')).toBe('abc')
+    expect(parseClefToken('X=1\n  CLOUDFLARE_API_TOKEN = "q w" \n')).toBe('q w')
+    expect(parseClefToken('CLOUDFLARE_ACCOUNT_ID=nope')).toBeUndefined()
+    expect(parseClefAccount('CLOUDFLARE_ACCOUNT_ID=acc9')).toBe('acc9')
+    expect(parseClefAccount('CLOUDFLARE_ACCOUNT_ID = "acc 9"')).toBe('acc 9')
+    expect(parseClefAccount('OTHER=1')).toBeUndefined()
+  })
 })
 
 describe('follow-ups', () => {
@@ -708,7 +834,7 @@ describe('follow-ups', () => {
 describe('state from an older version', () => {
   test('the pre-0.2.0 tally { requests, actual, baseline } reads as an empty tally, never throws', () => {
     const old = { requests: 3, actual: 900, baseline: 1500 } as never
-    expect(asSpent(old).judge).toEqual({ jev: 0, haiku: 0, ms: 0, tokens: 0 })
+    expect(asSpent(old).judge).toEqual({ jev: 0, clef: 0, haiku: 0, ms: 0, tokens: 0 })
     expect(asSpent(old).byEffort).toEqual({})
     expect(() => savedText(old)).not.toThrow()
     expect(asSpent(undefined).prompts).toBe(0)
@@ -1107,9 +1233,13 @@ describe('judge choice (plugin settings)', () => {
     // The Custom judge is gone: a saved 'custom' reads as auto.
     expect(readConfig({ judge: 'custom' }).judge).toBe('auto')
     expect(readConfig({ judge: ' jev ' }).judge).toBe('jev')
+    expect(readConfig({ judge: ' clef ' }).judge).toBe('clef')
     expect(readConfig({})).toEqual({
       judge: 'auto',
       typesafeKey: '',
+      clefToken: '',
+      clefAccount: '',
+      clefModel: 'clef-flash',
       handoffSkill: '',
       handoffAfter: 'continue',
       bias: 0,
@@ -1124,6 +1254,8 @@ describe('judge choice (plugin settings)', () => {
       theme: 'violet',
       appearance: 'auto',
     })
+    expect(readConfig({ clefModel: 'clef' }).clefModel).toBe('clef')
+    expect(readConfig({ clefModel: 'turbo' }).clefModel).toBe('clef-flash')
     expect(readConfig({ swampAt: '20' })).toMatchObject({ swampAt: 20 })
     expect(readConfig({ swampAt: '33' }).swampAt).toBe(80)
     expect(readConfig({ handoffSkill: '/session-handoff', handoffAfter: 'confirm' })).toMatchObject({
