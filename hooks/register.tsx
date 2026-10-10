@@ -601,6 +601,8 @@ export type JudgeConfig = {
   theme: ThemeName
   /** auto: light when Claude Code's own theme is light. dark and light fix it. */
   appearance: 'auto' | 'dark' | 'light'
+  /** How times of day read: 24h ("14:20") or 12h ("2:20 PM"). */
+  clock: '24h' | '12h'
 }
 
 /** The swamp thresholds the settings offer, in percent of the context window. */
@@ -629,6 +631,7 @@ let config: JudgeConfig = {
   modelAuto: 'off',
   theme: 'violet',
   appearance: 'auto',
+  clock: '24h',
 }
 
 /** The settings as the engine hands them over (defaults filled in), cleaned to the shape the judge reads. */
@@ -653,6 +656,7 @@ export function readConfig(options: unknown): JudgeConfig {
     modelAuto: str(o.modelAuto) === 'on' ? 'on' : 'off',
     theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
     appearance: (['dark', 'light'] as const).find(a => a === str(o.appearance)) ?? 'auto',
+    clock: str(o.clock) === '12h' ? '12h' : '24h',
     // The judge's line is off until switched on; an empty string saved from the panel means everything shows.
     hide: (o.hide === undefined ? 'reason' : str(o.hide))
       .split(',')
@@ -1312,11 +1316,14 @@ async function checkHot($: EngineInterface, limits: readonly { kind: string; per
   if (until !== null && (await $.clock.now()) >= until) await update($, saveUntil, () => null)
 }
 
-/** "14:20" for a reset time today, "Mon 14:20" further out. */
-export function resetLabel(iso: string | null, now: number): string {
+/** "14:20" for a reset time today, "Mon 14:20" further out; "2:20 PM" and "Mon 2:20 PM" on a 12h clock. */
+export function resetLabel(iso: string | null, now: number, clock: JudgeConfig['clock'] = '24h'): string {
   if (!iso) return ''
   const at = new Date(iso)
-  const hm = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
+  const mm = String(at.getMinutes()).padStart(2, '0')
+  const hm = clock === '12h'
+    ? `${at.getHours() % 12 || 12}:${mm} ${at.getHours() < 12 ? 'AM' : 'PM'}`
+    : `${String(at.getHours()).padStart(2, '0')}:${mm}`
   return at.getTime() - now < 20 * 3600_000 ? hm : `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][at.getDay()]} ${hm}`
 }
 
@@ -1761,6 +1768,7 @@ const SETTING_FIELDS = {
   modelAuto: 'modelAuto',
   theme: 'theme',
   appearance: 'appearance',
+  clock: 'clock',
 } as const
 
 async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELDS, value: string) {
@@ -1791,6 +1799,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     modelAuto: config.modelAuto,
     theme: config.theme,
     appearance: config.appearance,
+    clock: config.clock,
     [SETTING_FIELDS[field]]: value,
   }
   config = { ...readConfig(raw), typesafeKey: config.typesafeKey }
@@ -4351,6 +4360,7 @@ Saved to ${out}.md and .json` }
         modelAuto: draft.modelAuto ?? config.modelAuto,
         theme: draft.theme ?? config.theme,
         appearance: draft.appearance ?? config.appearance,
+        clock: draft.clock ?? config.clock,
       }
       // Dirty only while the draft differs from what is saved: a control set back to its saved value is no change.
       const sameSet = (a: string, b: string) => a.split(',').filter(Boolean).sort().join() === b.split(',').filter(Boolean).sort().join()
@@ -4594,6 +4604,9 @@ Saved to ${out}.md and .json` }
                   <Select key="settings-theme" label="Theme" value={shown.theme}
                     options={[{ value: 'violet', label: 'Violet' }, { value: 'orange', label: 'Claude orange' }, { value: 'rose', label: 'Cherry blossom' }]}
                     onSelect={set('theme')} />,
+                  <Select key="settings-clock" label="Clock" value={shown.clock}
+                    options={[{ value: '24h', label: '24-hour' }, { value: '12h', label: '12-hour' }]}
+                    onSelect={set('clock')} />,
                 ]),
             ...toggles,
             ...(bare ? [] : [uninstallButton($, themedEls($.ui.resolve(e)))]),
@@ -4936,7 +4949,7 @@ Saved to ${out}.md and .json` }
     if (heat && !config.hide.includes('hot') && (heatHidden === null || heat.percent >= heatHidden + HOT_REGROW)) {
       const saving = (await read($, saveUntil)) !== null
       const window = heat.kind === 'five_hour' ? '5h' : 'weekly'
-      const resets = resetLabel(heat.resetsAt, await $.clock.now())
+      const resets = resetLabel(heat.resetsAt, await $.clock.now(), config.clock)
       if (e.surface === 'terminal')
         return terminalBand($, e, {
           key: 'hot', kind: 'hot', color: EMBER, bg: EMBER_BG, edge: EMBER_EDGE, title: 'Running hot',

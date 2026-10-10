@@ -61,6 +61,7 @@ export type SettingsDraft = {
   /** violet (the brand), orange (Claude's) or rose (cherry blossom). */
   theme?: string
   appearance?: string
+  clock?: string
 }
 
 /** One step of the task the progress bar follows: a todo or a task. */
