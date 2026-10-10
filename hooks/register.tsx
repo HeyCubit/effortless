@@ -187,7 +187,7 @@ const settingsCard = atom({ plugin: 'effortless', key: 'settingsCard' } as const
 /** The settings panel's parts: a card each on the overview, and what the part is for, said once it is open. */
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits. Helpers: the judge picks for subagents too.' },
-  { id: 'model', title: 'Model', about: "Whether a simple prompt may run on a cheaper model. Effort is judged either way." },
+  { id: 'model', title: 'Model', about: "Whether a simple prompt may run on a cheaper model, and which model writes a compaction." },
   { id: 'handoff', title: 'Handoff & alerts', about: 'The full handoff skill, when to suggest compacting, and which alerts show.' },
   { id: 'show', title: 'Customize', about: 'How effortless looks and which parts it shows. Uninstall removes it.' },
   { id: 'judge', title: 'Judge', about: 'Haiku judges prompts and handoffs. Add Jev for quicker effort calls. Test checks it answers.' },
@@ -4740,7 +4740,12 @@ Saved to ${out}.md and .json` }
               </Box>
               <Text dimColor wrap="wrap">{c.about}</Text>
             </Box>
-          ))) : card === 'handoff' ? (bare ? [] : [
+          )).concat([
+            // Which model writes a compaction's summary: a model choice, so it sits with the others.
+            <Select key="settings-compact-with" label="Compact with" value={shown.compactWith}
+              options={[{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }]}
+              onSelect={set('compactWith')} />,
+          ])) : card === 'handoff' ? (bare ? [] : [
             <Select key="settings-skill" label="Handoff skill" value={shown.handoffSkill || '-'}
               options={[
                 { value: '-', label: 'effortless (built in)' },
@@ -4752,9 +4757,6 @@ Saved to ${out}.md and .json` }
             <Select key="settings-handoff-button" label="Handoff button" value={shown.handoffButton}
               options={[{ value: 'advised', label: 'When advised' }, { value: 'always', label: 'Always' }]}
               onSelect={set('handoffButton')} />,
-            <Select key="settings-compact-with" label="Compact with" value={shown.compactWith}
-              options={[{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }]}
-              onSelect={set('compactWith')} />,
             ...alertToggles,
 ]) : [
             ...(bare

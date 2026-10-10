@@ -2450,6 +2450,8 @@ describe('settings panel', () => {
     expect(await drawn(panel)).toContain("Always the chat's")
     await panel.press({ key: 'settings-card-model' })
     await panel.press({ key: 'settings-model-on' })
+    // Compact with is a model choice: it lives here, not in the Handoff card.
+    expect(await panel.find({ key: 'settings-compact-with' })).toBeDefined()
     await panel.press({ key: 'settings-back' })
     expect(await drawn(panel)).toContain('Cheaper when it can')
     // The cards say what is set, unsaved changes included.

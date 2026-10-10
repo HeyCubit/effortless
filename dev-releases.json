@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.69.8",
+    "date": "2026-10-10",
+    "note": "Settings: Compact with moves to the Model card"
+  },
+  {
     "version": "1.69.7",
     "date": "2026-10-10",
     "note": "Settings: alerts in the Handoff card, Helpers easy to click"
