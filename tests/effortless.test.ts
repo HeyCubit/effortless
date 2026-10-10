@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, contextAgainst, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
@@ -2964,6 +2964,31 @@ describe('dashboard', () => {
     expect(await drawn(band)).toContain('⇥ Handoff')
     await band.unmount()
     await expect($.ui.mount(FOOTER)).rejects.toThrow()
+  })
+
+  test('a chat that compacts at 350k on a 1M model reads its share of 350k, not of 1M', DASH, async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    const context = { tokens: 175_000, window: 1_000_000, percent: 18 }
+    on('session.usage', (_$, e) =>
+      ({ value: { context: (e as { breakdown?: string } | undefined)?.breakdown ? { ...context, breakdown: { rawMaxTokens: 350_000, autocompactSource: 'settings' } } : context } }) as never)
+    await start($, on)
+    await closeSetup($, DESK_BAND)
+    await mocked.advance(16_000)
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('"children":["50%"]')
+    await band.unmount()
+  })
+
+  test('the compaction window only counts when it is smaller than the model window', () => {
+    const context = { tokens: 175_000, window: 1_000_000, percent: 18 }
+    expect(contextAgainst(context, 350_000)).toEqual({ tokens: 175_000, window: 350_000, percent: 50 })
+    expect(contextAgainst(context, undefined)).toBe(context)
+    expect(contextAgainst(context, 1_000_000)).toBe(context)
+    expect(contextAgainst({ ...context, tokens: 400_000 }, 350_000).percent).toBe(100)
+    expect(contextAgainst({ ...context, tokens: 180_000 }, 350_000).percent).toBe(51)
+    // Before the first response there are no tokens: nothing to measure yet.
+    expect(contextAgainst({ window: 1_000_000 }, 350_000)).toEqual({ window: 350_000, percent: undefined })
   })
 
   test('Handoff button set to always: Handoff from the start, calm, no glow, with Compact beside it', { options: { layout: 'default', handoffButton: 'always' } } as never, async ($, on) => {

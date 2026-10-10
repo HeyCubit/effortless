@@ -1381,8 +1381,35 @@ async function previewPercent($: EngineInterface): Promise<number | undefined> {
   }
 }
 
+/** The window the chat really fills: the compaction window when it is smaller than the model's (autoCompactWindow,
+ * CLAUDE_CODE_AUTO_COMPACT_WINDOW), so a chat that compacts at 350k on a 1M model reads 100% there, not 35%. */
+export function contextAgainst<T extends { tokens?: number; window: number; percent?: number }>(context: T, compactAt: number | undefined): T {
+  if (!compactAt || !context.window || compactAt >= context.window) return context
+  // A whole number, as the app's own share is: the band prints it as it is.
+  const percent = context.tokens === undefined ? context.percent : Math.min(100, Math.round((context.tokens / compactAt) * 100))
+  return { ...context, window: compactAt, percent }
+}
+
+// The compaction window and the model window it was read for: /context's breakdown measures against it. Read again
+// when the model's window changes (a switch of model); a settings change reloads the mod and starts over.
+let compactWindow: { model: number; at: number | undefined } | undefined
+async function compactWindowFor($: EngineInterface, context: { tokens?: number; window: number }): Promise<number | undefined> {
+  if (!context.window) return undefined
+  if (compactWindow?.model === context.window) return compactWindow.at
+  // The breakdown needs a session with a response: before one, read it on a later check.
+  if (context.tokens === undefined) return undefined
+  const usage = await $.session.usage({ breakdown: 'summary' }).catch(() => undefined)
+  // No breakdown (an engine without one) is kept too, so the 15 s check does not ask again each time.
+  const at = usage?.context.breakdown?.rawMaxTokens || undefined
+  compactWindow = { model: context.window, at }
+  if (at) void proof($, `context window ${context.window}, compacts at ${at} (${usage?.context.breakdown?.autocompactSource ?? '?'})`)
+  return at
+}
+
 async function checkSwamp($: EngineInterface) {
-  const { context, rateLimits } = await $.session.usage()
+  const usage = await $.session.usage()
+  const rateLimits = usage.rateLimits
+  const context = contextAgainst(usage.context, await compactWindowFor($, usage.context))
   const preview = await previewPercent($)
   const tokens = preview === undefined ? (context.tokens ?? 0) : Math.round(((context.window || 200_000) * preview) / 100)
   // The app may leave the percent out (or give 0) while it has the tokens and the window: work it out then.
@@ -3623,6 +3650,8 @@ export const register: Register = (on, options) => {
   })
   on('session.start', async ($, e, next) => {
     sessionStarted = Date.now()
+    // Each chat reads its own compaction window (its model, its --settings).
+    compactWindow = undefined
     // Everything the first draw needs, asked for at once: one after the other they held the start (and with it the
     // band) for a second or more. What the draw does not need runs after, unawaited.
     const [sid, kept, kff, storedAuto, storedAutoModel, storedPick, setupDone] = await Promise.all([
