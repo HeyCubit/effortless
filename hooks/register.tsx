@@ -188,7 +188,7 @@ const settingsCard = atom({ plugin: 'effortless', key: 'settingsCard' } as const
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits. Helpers: the judge picks for subagents too.' },
   { id: 'model', title: 'Model', about: "Whether a simple prompt may run on a cheaper model. Effort is judged either way." },
-  { id: 'handoff', title: 'Handoff', about: 'The skill that writes a full handoff, and at what share of context to suggest compacting or handing off.' },
+  { id: 'handoff', title: 'Handoff & alerts', about: 'The full handoff skill, when to suggest compacting, and which alerts show.' },
   { id: 'show', title: 'Customize', about: 'How effortless looks and which parts it shows. Uninstall removes it.' },
   { id: 'judge', title: 'Judge', about: 'Haiku judges prompts and handoffs. Add Jev for quicker effort calls. Test checks it answers.' },
 ]
@@ -4524,26 +4524,21 @@ Saved to ${out}.md and .json` }
         model: shown.modelAuto === 'on' ? 'Cheaper when it can' : "Always the chat's",
         judge: tested && tested.ok !== null ? `${judgeName} · ${tested.ok ? 'working' : 'failing'}` : judgeName,
         handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · compact alert at ${shown.swampAt}%`,
-        show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${5 - ['timer', 'reason', 'swamp', 'hot', 'cold'].filter(h => hidden.includes(h)).length} of 5 on`,
+        show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${2 - ['timer', 'reason'].filter(h => hidden.includes(h)).length} of 2 on`,
       }
       // The cache timer, the judge's line (who picked and how sure) and the three alerts can be switched off here (an
       // alert's ✕ only closes it for now); the rest is the mod itself. A ticked box in plain text, dim when off: lighter than a row of white buttons.
-      const toggles = (
-        [
-          ['timer', 'Cache timer'],
-          ['reason', 'Judge line'],
-          ['swamp', 'Context alert'],
-          ['hot', 'Running low alert'],
-          ['cold', 'Cold cache alert'],
-        ] as const
-      ).map(([part, label]) => {
+      const box = ([part, label]: readonly [Hideable, string]) => {
         const off = hidden.includes(part)
         const after = off ? hidden.filter(h => h !== part) : [...hidden, part]
         return (
           <Button key={`show-box-${part}`} plain dimColor={off} label={`${off ? '☐' : '☑'}︎ ${label}`}
             onPress={() => set('hide')(after.join(','))} />
         )
-      })
+      }
+      const toggles = ([['timer', 'Cache timer'], ['reason', 'Judge line']] as const).map(box)
+      // The alerts sit in the Handoff card, next to the share of context the context alert waits for.
+      const alertToggles = ([['swamp', 'Context alert'], ['hot', 'Running low alert'], ['cold', 'Cold cache alert']] as const).map(box)
       // The slider: five stops, the marker on the one in force. No animation, a click moves it.
       const track: unknown[] = []
       for (const n of [-2, -1, 0, 1, 2]) {
@@ -4707,10 +4702,11 @@ Saved to ${out}.md and .json` }
                   Svg ? (
                     <Box key="settings-helpers" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}>
                       <Svg source={autoSwitchSvg(shown.helpers === 'on')} alt={shown.helpers === 'on' ? 'Helpers on' : 'Helpers off'} width={26} height={15} />
-                      <Text dimColor={shown.helpers !== 'on'}>Helpers</Text>
-                      <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                        <Button key="settings-helpers-switch" plain label={' '.repeat(14)} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
+                      <Box position="absolute" top={0} bottom={0} left={0} width={6} alignItems="center" justifyContent="center">
+                        <Button key="settings-helpers-knob" plain label={' '.repeat(5)} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
                       </Box>
+                      {/* The word is a button of its own: a cover laid over the whole row took clicks on a few cells only. */}
+                      <Button key="settings-helpers-switch" plain dimColor={shown.helpers !== 'on'} label="Helpers" onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
                     </Box>
                   ) : (
                     <Button key="settings-helpers-switch" plain label={`${shown.helpers === 'on' ? '◉' : '○'} Helpers`} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
@@ -4759,6 +4755,7 @@ Saved to ${out}.md and .json` }
             <Select key="settings-compact-with" label="Compact with" value={shown.compactWith}
               options={[{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }]}
               onSelect={set('compactWith')} />,
+            ...alertToggles,
 ]) : [
             ...(bare
               ? []

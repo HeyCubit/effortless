@@ -2443,6 +2443,8 @@ describe('settings panel', () => {
     await panel.press({ key: 'settings-back' })
     await panel.press({ key: 'settings-card-handoff' })
     await panel.select({ key: 'settings-skill', value: 'session-handoff' })
+    expect(await panel.find({ key: 'show-box-swamp' })).toBeDefined()
+    expect(await panel.find({ key: 'show-box-cold' })).toBeDefined()
     await panel.press({ key: 'settings-back' })
     // Model has its own card: two choices, and the card says which is on. Off by default.
     expect(await drawn(panel)).toContain("Always the chat's")
@@ -2458,8 +2460,8 @@ describe('settings panel', () => {
     await panel.press({ key: 'show-box-reason' })
     expect(await panel.find({ key: 'show-box-sounds' })).toBeUndefined()
     // The judge line starts off, so its box switches it on; the cache timer goes off. No progress, sounds or alert.
-    // The three alerts each have a box too; this one is left on.
-    expect(await panel.find({ key: 'show-box-swamp' })).toBeDefined()
+    // The alerts are in the Handoff card, beside when the context alert shows.
+    expect(await panel.find({ key: 'show-box-swamp' })).toBeUndefined()
     expect(set).toEqual([])
     await panel.press({ key: 'settings-save' })
     expect(set).toContainEqual({ key: 'effortless.hide', value: 'timer' })

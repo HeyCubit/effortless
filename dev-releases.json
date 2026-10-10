@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.69.7",
+    "date": "2026-10-10",
+    "note": "Settings: alerts in the Handoff card, Helpers easy to click"
+  },
+  {
     "version": "1.69.6",
     "date": "2026-10-10",
     "note": "Model card: experimental as a yellow warning tag"
