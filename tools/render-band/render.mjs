@@ -100,6 +100,7 @@ const windowImport = importsOf.find((i) => /^function \w+\(e\)\{return e\?\(\w+\
 const elementImport = importsOf.find((i) => /^function \w+\(e\)\{return e\?\.nodeType===1\?e:null\}/.test(definitionOf(i.file, i.name)))
 if (!tokensImport || !windowImport || !elementImport)
   fail(`renderer imports changed: tokens ${!!tokensImport}, ownerWindow ${!!windowImport}, asElement ${!!elementImport}`)
+const names = rendererNames(rendererSource)
 
 // --- 1. The tree, from the real mod -------------------------------------------------------------------------------------
 const dumped = treeFile ? JSON.parse(readFileSync(treeFile, 'utf8')) : dumpTree()
@@ -118,6 +119,8 @@ const rig = {
   matchZoom: serveOnly ? zoom : 0,
   windowImport: keyOf(windowImport),
   elementImport: keyOf(elementImport),
+  names,
+  hit: (opt('hit', '') || '').split(',').filter(Boolean),
   used: [],
   trace,
 }
@@ -170,7 +173,9 @@ if (serveOnly) {
   console.log(`state     ${JSON.stringify({ ...params, glow })}`)
   console.log(`page      ${out}`)
   console.log(`png       ${png}  (${shot.size}, zoom ${zoom.toFixed(4)})`)
-  console.log(`measure   ${JSON.stringify(shot.measure)}`)
+  const { hit, ...boxes } = shot.measure
+  console.log(`measure   ${JSON.stringify(boxes)}`)
+  if (hit) console.log(hitTable(hit))
   server.close()
 }
 
@@ -207,6 +212,65 @@ function traceOf(text) {
   }
   if (!steps.length) fail(`--trace: the mod logged no steps:\n${text.slice(-3000)}`)
   return steps
+}
+
+/**
+ * The local names of the renderer's own functions that the page calls. The bundler renames them on every app build
+ * (shapeTree was `hh`, then `Mm`), so each is found by what it does: a string, a property name or a shape that only
+ * that function has. A miss, or two candidates, stops the run and names the function that moved.
+ */
+function rendererNames(src) {
+  const id = '[\\w$]+'
+  const esc = (x) => x.replace(/[$]/g, '\\$')
+  const names = {}
+  const find = (role, what, pattern, group = 1) => {
+    const hits = new Set([...src.matchAll(new RegExp(pattern, 'g'))].map((m) => m[group]))
+    if (hits.size !== 1)
+      fail(`renderer chunk changed: ${hits.size ? `${hits.size} candidates (${[...hits].join(', ')})` : 'not found'} for ${role}, ${what}`)
+    names[role] = [...hits][0]
+  }
+  // The AbovePrompt site hands the band's tree shaper and surface CSS to the shared site component as named props.
+  find('shapeTree', "the band's tree shaper (the AbovePrompt site's default shapeTree)",
+    `component:"AbovePrompt"[^}]*?shapeTree:(?:${id}\\.shapeTree\\?\\?)?(${id})`)
+  find('surfaceCss', "the band's surface CSS (the AbovePrompt site's surfaceCss, which sets --engine-band-line)",
+    `component:"AbovePrompt"[^}]*?surfaceCss:(${id})`)
+  // Opens the host's shadow root once and puts the engine CSS plus the site's CSS in a <style> as its first child.
+  find('attachRoot', 'the shadow-root setup (if (host.shadowRoot) return it; else attachShadow and add the engine CSS)',
+    `function (${id})\\((${id}),${id}\\)\\{if\\(\\2\\.shadowRoot\\)return \\2\\.shadowRoot;let ${id}=\\2\\.attachShadow\\(`)
+  // A fresh collector for what one draw leaves behind: the image leaves, the hover rules, the groups.
+  find('newMarks', 'the marks collector (() => ({leaves: [], hoverRules: [], ...}))', `(${id})=\\(\\)=>\\(\\{leaves:\\[\\],hoverRules:\\[\\]`)
+  // The element renderer takes the marks collector's result as a default parameter, after the colour resolver.
+  find('buildTree', 'the element renderer (tree, handlers, colorOf = ..., marks = newMarks(), ...)',
+    `function (${id})\\(${id},${id},${id}=${id},${id}=${esc(names.newMarks)}\\(\\)`)
+  find('colorOf', "the colour resolver (the element renderer's default colorOf)",
+    `function ${esc(names.buildTree)}\\(${id},${id},${id}=(${id}),`)
+  // Where the shared site draws, the ink (the host's computed colour and font) comes from a helper called on the host.
+  find('inkOf', "the host's ink (the argument the site passes the element renderer before liftsHoverCards)",
+    `${esc(names.buildTree)}\\(${id},${id}\\.handlers,${id},${id},(${id})\\(${id}\\),${id}\\.liftsHoverCards`)
+  // Writes the collected hover rules into one <style>, wrapped in @media (hover:hover).
+  find('applyHover', 'the hover-rule writer (one <style> with @media (hover:hover){...})',
+    `function (${id})\\((${id}),(${id})\\)\\{let ${id}=\\3\\.length===0\\?"":\`@media \\(hover:hover\\)\\{`)
+  return names
+}
+
+/** --hit results as text: per key, its box and its buttons' boxes, then a grid of the button key each point hits. */
+function hitTable(results) {
+  const b = (r) => (r ? `x ${r.x} y ${r.y} w ${r.w} h ${r.h}` : 'clipped away')
+  const lines = []
+  for (const r of results) {
+    lines.push('', `hit ${r.key}${r.kind ? ` (${r.kind})` : ''}`)
+    if (r.error) {
+      lines.push(`  ${r.error}`)
+      continue
+    }
+    lines.push(`  box      ${b(r.box)}`, `  visible  ${b(r.visible)}`)
+    for (const btn of r.buttons) lines.push(`  button   ${btn.key}: ${b(btn.box)}; visible ${b(btn.visible)}`)
+    const head = ['', ...r.rows[0].hits.map((h) => `${h.x} (${h.at[0]})`)]
+    const grid = [head, ...r.rows.map((row) => [`${row.y} (${row.hits[0].at[1]})`, ...row.hits.map((h) => h.hit)])]
+    const widths = head.map((_, i) => Math.max(...grid.map((g) => g[i].length)))
+    for (const g of grid) lines.push('  ' + g.map((c, i) => c.padEnd(widths[i])).join('  ').trimEnd())
+  }
+  return lines.join('\n').replace(/^\n/, '')
 }
 
 function fail(message) {
@@ -349,6 +413,11 @@ async function screenshot(pageUrl, png) {
     // --wait S: let S seconds of real time pass before the shot, so animations that run once can be seen at their end.
     await sleep(300 + Number(opt("wait", "0") || 0) * 1000)
     const measure = JSON.parse((await send('Runtime.evaluate', { expression: 'JSON.stringify(RIG_MEASURE)', returnByValue: true })).result.value)
+    if (rig.hit.length) {
+      const res = await send('Runtime.evaluate', { expression: 'JSON.stringify(RIG_HIT())', returnByValue: true })
+      if (res.exceptionDetails) fail(`--hit: ${res.exceptionDetails.exception?.description ?? res.exceptionDetails.text}`)
+      measure.hit = JSON.parse(res.result.value)
+    }
     const rect = JSON.parse(
       (await send('Runtime.evaluate', { expression: 'JSON.stringify(document.querySelector("[data-rig-band]").getBoundingClientRect())', returnByValue: true })).result.value,
     )
@@ -377,7 +446,10 @@ async function screenshot(pageUrl, png) {
   } finally {
     chrome.kill()
     await sleep(300)
-    rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+    // Chrome can hold its profile a moment after the kill; a leftover temp folder must not hide the run's own result.
+    try {
+      rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+    } catch {}
   }
 }
 
