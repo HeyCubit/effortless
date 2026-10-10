@@ -25,7 +25,9 @@ const heroArt = `<svg class="stars" viewBox="0 0 1000 600" preserveAspectRatio="
 // it); releases.json also lists dev versions users never get. The latest 10 show; the rest wait behind "Show all".
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 const releases = JSON.parse(fs.readFileSync(repo + "/public.json", "utf8")).filter(r => r.public)
-const row = r => `<li>__SPARK__<b class="v">${esc(r.version)}</b><span class="n">${esc(r.note)}</span><time datetime="${esc(r.date)}">${esc(r.date)}</time></li>`
+// A release may carry `detail`: one line or a list of lines saying what changed. They show under the headline.
+const lines = d => [].concat(d || []).filter(Boolean)
+const row = r => `<li>__SPARK__<b class="v">${esc(r.version)}</b><span class="n">${esc(r.note)}</span><time datetime="${esc(r.date)}">${esc(r.date)}</time>${lines(r.detail).length ? `<div class="d">${lines(r.detail).map(t => `<p>${esc(t)}</p>`).join("")}</div>` : ""}</li>`
 const news = `<ol class="rel">${releases.slice(0, 10).map(row).join("")}</ol>` + (releases.length > 10 ? `<details class="more"><summary>Show all</summary><ol class="rel">${releases.slice(10).map(row).join("")}</ol></details>` : "")
 // The star count, read once at build time so the page never calls the GitHub API (it is rate limited per visitor IP).
 // gh is signed in and allowed far more calls; without it the plain API is tried. No count, or zero, shows no badge.
