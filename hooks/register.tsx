@@ -194,8 +194,8 @@ const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
 ]
 // The Model card: the two ways to run. Effort follows the judge in both.
 const MODEL_CHOICES = [
-  { value: 'on', label: 'Cheaper when it can (experimental)', about: "A simple prompt may run on Haiku or Sonnet. Rarely pays: the other model has to reread the whole chat." },
-  { value: 'off', label: "Always the chat's", about: "Every prompt keeps the model you picked. Only effort changes." },
+  { value: 'on', label: 'Cheaper when it can', tag: 'experimental', about: "A simple prompt may run on Haiku or Sonnet. Rarely pays: the other model has to reread the whole chat." },
+  { value: 'off', label: "Always the chat's", tag: '', about: "Every prompt keeps the model you picked. Only effort changes." },
 ] as const
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
 // The settings panel's judge test: running, or what it found. Null before a test and once the panel closes.
@@ -4737,7 +4737,11 @@ Saved to ${out}.md and .json` }
               : []),
 ]) : card === 'model' ? (bare ? [] : MODEL_CHOICES.map(c => (
             <Box key={`model-${c.value}`} flexDirection="column" flexGrow={1} flexShrink={1} minWidth={26}>
-              <Button key={`settings-model-${c.value}`} plain label={`${shown.modelAuto === c.value ? '◉' : '○'} ${c.label}`} onPress={() => set('modelAuto')(c.value)} />
+              <Box flexDirection="row" gap={1} alignItems="center">
+                <Button key={`settings-model-${c.value}`} plain label={`${shown.modelAuto === c.value ? '◉' : '○'} ${c.label}`} onPress={() => set('modelAuto')(c.value)} />
+                {/* A warning in the cache countdown's yellow: this choice rarely pays. */}
+                {c.tag ? <Text key={`model-tag-${c.value}`} color={YELLOW} bold>{`⚠ ${c.tag}`}</Text> : null}
+              </Box>
               <Text dimColor wrap="wrap">{c.about}</Text>
             </Box>
           ))) : card === 'handoff' ? (bare ? [] : [
