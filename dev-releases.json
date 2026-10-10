@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.70.1",
+    "date": "2026-10-10",
+    "note": "Named effort levels skip the judge; subagents follow the turn"
+  },
+  {
     "version": "1.69.14",
     "date": "2026-10-10",
     "note": "Settings cards: cover the whole card at any width"

@@ -25,7 +25,8 @@ export type Pick = {
   effort: Effort
   /** A few words on why, shown dim in the band. */
   why: string
-  by: 'jev' | 'haiku' | 'manual'
+  /** named: the person said the level in the prompt ("max effort"). */
+  by: 'jev' | 'haiku' | 'manual' | 'named'
   /** How sure the judge was of the effort, 0-1, when it said. */
   sure?: number
   /** Haiku only: why a handoff would suit now (a few words), when it said it would. */

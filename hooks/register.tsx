@@ -452,6 +452,24 @@ async function typedSkill($: EngineInterface, text: string): Promise<{ name: str
   return { name, description: found.description ?? '' }
 }
 
+const LEVEL_WORD = '(low|medium|high|xhigh|x-high|extra[- ]high|max|maximum)'
+const NAMED_LEVEL = new RegExp(`\\b${LEVEL_WORD}\\s+effort\\b|\\beffort(?:\\s+level)?\\s*(?:[:=]|to|at|of|on)?\\s*${LEVEL_WORD}\\b|\\bxhigh\\b`, 'gi')
+const LEVEL_OF: Record<string, Effort> = { low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', 'x-high': 'xhigh', 'extra high': 'xhigh', 'extra-high': 'xhigh', max: 'max', maximum: 'max' }
+
+/**
+ * The level a prompt asks for by name ("max effort", "effort: high", "xhigh"), or nothing. The word effort must sit
+ * beside the level, so "a medium sized image" names nothing, and "don't use max effort" is a no. A named level runs
+ * without the judge: effort-auto found Haiku also calls prompts that only describe hard work "named".
+ */
+export function namedEffort(text: string): Effort | undefined {
+  for (const m of text.matchAll(NAMED_LEVEL)) {
+    const before = text.slice(Math.max(0, m.index - 20), m.index).toLowerCase()
+    if (/\b(not|no|don'?t|never|without|instead of)\b/.test(before)) continue
+    return LEVEL_OF[(m[1] ?? m[2] ?? 'xhigh').toLowerCase().replace(/\s+/, ' ')]
+  }
+  return undefined
+}
+
 /** A short follow-up such as "go", "ok", "yes", "continue": two words and a dozen characters at most. */
 export function isFollowUp(text: string): boolean {
   const t = text.trim()
@@ -3187,7 +3205,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   const effortNow = effortOf(v, v.modelNow ?? (await sessionModel($)))
   const by = v.current?.by
   const reason = v.current
-    ? `${by === 'manual' ? 'You' : by === 'jev' ? 'Jev' : 'Haiku'}: ${v.current.why}`
+    ? `${by === 'manual' || by === 'named' ? 'You' : by === 'jev' ? 'Jev' : 'Haiku'}: ${v.current.why}`
     : v.auto
       ? 'Auto picks the effort at the next prompt'
       : 'You pick the effort'
@@ -4000,6 +4018,23 @@ Saved to ${out}.md and .json` }
       void proof($, `follow-up "${e.text.trim()}": keeping ${before.effort}`)
       return next(e)
     }
+    // "max effort", "effort: low": the person said the level, so it runs, past Min, Max and save mode, and no judge is asked.
+    const named = wantsEffort && !slash ? namedEffort(e.text) : undefined
+    if (named) {
+      const inUse = await sessionModel($)
+      const applied: Pick = { model: inUse, effort: named, why: 'you asked for it', by: 'named' }
+      const running = await read($, pick)
+      if (midTurn && running && EFFORTS.indexOf(named) < EFFORTS.indexOf(running.effort)) heldPick = applied
+      else {
+        heldPick = null
+        await choose($, applied)
+      }
+      if (!midTurn && routed) routed = null
+      await countPrompt($, inUse !== 'haiku' ? named : undefined, 'named', 0, 0)
+      void proof($, `named level ${named} in "${e.text.slice(0, 50)}": no judge`)
+      $.ui.invalidate('ui.render')
+      return next(e)
+    }
 
     judgeStartedAt = await $.clock.now().catch(() => Date.now())
     judgeEndedAt = null
@@ -4152,12 +4187,22 @@ Saved to ${out}.md and .json` }
         return result
       }
     }
-    const p = e.agentId === undefined ? await read($, pick) : null
+    const p = await read($, pick)
     // Haiku takes no effort: decided by the model this request names, never by a stored pick.
     if (!p || keyOf(e.model) === 'haiku' || !cacheSafe(e.model)) return yield* send(e)
     // Auto off: the app's own effort goes out. A pick the judge made while Auto was on is not the person's choice, and
     // with the app already on the effort they want, the mod would never see a change to give way to.
     if (p.by !== 'manual' && !(await read($, isAuto))) return yield* send(e)
+    // A subagent of a turn Auto picked for (Helpers off, or no verdict for it) runs at that turn's effort, no extra
+    // judge call, but never below medium: a helper's answer goes back unchecked (see helperFloor). A subagent whose
+    // definition sets its own effort cannot be told apart from one that inherits it, so it follows the turn too.
+    if (e.agentId !== undefined) {
+      if (p.by === 'manual') return yield* send(e)
+      const floor = helperFloor(config.floor, config.ceiling)
+      const effort = EFFORTS.indexOf(p.effort) < EFFORTS.indexOf(floor) ? floor : p.effort
+      if (e.index === 0) void proof($, `subagent ${e.agentId} (${e.model}): effort ${e.effort ?? 'none'} -> ${effort}, the turn's`)
+      return yield* send({ ...e, effort })
+    }
     if (e.agentId === undefined) void proof($, `request ${e.index} (${e.model}): effort ${e.effort ?? 'none'} -> ${p.effort}`)
     const result = yield* send({ ...e, effort: p.effort })
     // Only requests Auto steered count.

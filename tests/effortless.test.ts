@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { helperFloor, hotVisible, looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { helperFloor, namedEffort, hotVisible, looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
@@ -702,6 +702,37 @@ describe('follow-ups', () => {
     await step($, 'medium')
     expect(asked.length).toBe(1)
     expect(sent[0].effort).toBe('high')
+  })
+})
+
+describe('named level', () => {
+  test('namedEffort: a level said with the word effort, or xhigh, counts; other senses and negations do not', () => {
+    expect(namedEffort('do this with max effort please')).toBe('max')
+    expect(namedEffort('Effort: high, then refactor the relay')).toBe('high')
+    expect(namedEffort('run it at effort low')).toBe('low')
+    expect(namedEffort('use extra high effort for this one')).toBe('xhigh')
+    expect(namedEffort('xhigh, review the whole repo')).toBe('xhigh')
+    expect(namedEffort('maximum effort on this bug')).toBe('max')
+    expect(namedEffort('make a medium sized image')).toBeUndefined()
+    expect(namedEffort('this needs a lot of effort, the bug is high up in the stack')).toBeUndefined()
+    expect(namedEffort("don't use max effort for this")).toBeUndefined()
+    expect(namedEffort('no need for high effort here')).toBeUndefined()
+    expect(namedEffort('a high effort job: migrate everything')).toBe('high')
+  })
+
+  test('a prompt that names a level runs at it without asking the judge, past Max', { options: { effortCeiling: 'high' } } as never, async ($, on) => {
+    engine(on)
+    const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"small"}')
+    const sent = recordSteps(on)
+    await $.prompt.submit({ text: 'max effort: find why the relay drops messages', wait: false, origin: { kind: 'composer' } })
+    await step($, 'medium')
+    expect(asked.length).toBe(0)
+    expect(sent[0].effort).toBe('max')
+    // The next prompt without a level goes back to the judge, within Max.
+    await $.prompt.submit({ text: 'now rename the helper in utils', wait: false, origin: { kind: 'composer' } })
+    await step($, 'medium')
+    expect(asked.length).toBe(1)
+    expect(sent[1].effort).toBe('low')
   })
 })
 
@@ -3719,6 +3750,32 @@ describe('agent panel', () => {
     }
     expect(asked.some(p => p.includes('subagent'))).toBe(false)
     expect(sent.map(s => s.effort)).toEqual(['high'])
+  })
+
+  test('with Helpers off, a subagent of a judged turn runs at the turn\'s effort, never below medium', async ($, on) => {
+    engine(on)
+    let verdict = '{"model":"opus","effort":"xhigh","why":"hard"}'
+    const asked: string[] = []
+    on('model.complete', (_$, e) => {
+      asked.push(e.prompt)
+      return { value: { isAnswered: true as const, text: verdict, usage: USAGE } }
+    })
+    on('agent.spawn', () => ({ agentId: 'h4', model: 'claude-opus-5-5' }) as never)
+    const sent = recordSteps(on)
+    const sub = async () => {
+      for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', effort: 'medium', messageCount: 1, agentId: 'h4' } as never)) {
+        // drain
+      }
+    }
+    await $.prompt.submit({ text: 'find why the relay drops messages', wait: false, origin: { kind: 'composer' } })
+    await $.agent.spawn({ prompt: 'read relay/worker.js', description: 'read relay', subagentType: 'Explore' } as never)
+    await sub()
+    verdict = '{"model":"opus","effort":"low","why":"small"}'
+    await $.prompt.submit({ text: 'list the files in hooks', wait: false, origin: { kind: 'composer' } })
+    await sub()
+    // No judge call for the subagent itself; it follows the turn, raised to medium at least.
+    expect(asked.some(p => p.includes('subagent'))).toBe(false)
+    expect(sent.map(s => s.effort)).toEqual(['xhigh', 'medium'])
   })
 
   test('the demo map shows the parts touched; a part opens to its files', async ($, on) => {
