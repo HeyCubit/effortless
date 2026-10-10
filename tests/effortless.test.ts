@@ -1426,12 +1426,14 @@ describe('setup guide', () => {
   test('the steps run judge, lean, handoff, done; Back goes one step back', () => {
     expect(setupNext('pick')).toBe('lean')
     expect(setupNext('jev')).toBe('lean')
+    expect(setupNext('clef')).toBe('lean')
     expect(setupNext('lean')).toBe('handoff')
     expect(setupNext('handoff')).toBe('look')
     expect(setupNext('look')).toBe('done')
     expect(setupNext('done')).toBeNull()
     expect(setupBack('pick')).toBeNull()
     expect(setupBack('jev')).toBe('pick')
+    expect(setupBack('clef')).toBe('pick')
     expect(setupBack('lean')).toBe('pick')
     expect(setupBack('look')).toBe('handoff')
     expect(setupBack('done')).toBe('look')
@@ -1439,6 +1441,11 @@ describe('setup guide', () => {
     expect(setupCounter('handoff')).toBe('3/4')
     expect(setupCounter('look')).toBe('4/4')
     expect(setupCounter('done')).toBe('')
+  })
+
+  test('savedText counts Clef among the judges, so a Clef-only tally still names its judge line', () => {
+    const clefOnly = asSpent({ prompts: 2, judge: { jev: 0, clef: 2, haiku: 0, ms: 90, tokens: 640 } })
+    expect(savedText(clefOnly)).toContain('Judge: Jev 0, Clef 2, Haiku 0, average 45 ms')
   })
 
   test('opens by itself the first time; the choices are saved together at Done, which closes it for good', async ($, on) => {

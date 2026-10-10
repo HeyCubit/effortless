@@ -1240,13 +1240,9 @@ export function asSpent(t: unknown): Spent {
     read: num(v.read),
     out: num(v.out),
     byEffort: v.byEffort && typeof v.byEffort === 'object' ? v.byEffort : {},
-<<<<<<< HEAD
     judge: { jev: num(judged.jev), clef: num(judged.clef), haiku: num(judged.haiku), ms: num(judged.ms), tokens: num(judged.tokens) },
     moved: num(v.moved),
     redone: num(v.redone),
-=======
-    judge: { jev: num(judged.jev), clef: num(judged.clef), haiku: num(judged.haiku), ms: num(judged.ms), tokens: num(judged.tokens) },
->>>>>>> 290b6a6 (Add Cloudflare Clef and Clef-flash as judges)
   }
 }
 
@@ -2080,18 +2076,18 @@ export const LEAN_STOPS = [
   ['Smartest', 'more picks go higher'],
 ] as const
 
-/** The guide's step after this one: the judge (with its key or URL), the lean, the handoff, then done. */
+/** The guide's step after this one: the judge (with its key or token), the lean, the handoff, then done. */
 export function setupNext(step: SetupStep): SetupStep | null {
-  if (step === 'pick' || step === 'jev') return 'lean'
+  if (step === 'pick' || step === 'jev' || step === 'clef') return 'lean'
   if (step === 'lean') return 'handoff'
   if (step === 'handoff') return 'look'
   if (step === 'look') return 'done'
   return null
 }
 
-/** The step Back goes to: the judge's key or URL goes back to the pick, as does the lean. */
+/** The step Back goes to: the judge's key or token goes back to the pick, as does the lean. */
 export function setupBack(step: SetupStep): SetupStep | null {
-  if (step === 'jev' || step === 'lean') return 'pick'
+  if (step === 'jev' || step === 'clef' || step === 'lean') return 'pick'
   if (step === 'handoff') return 'lean'
   if (step === 'look') return 'handoff'
   if (step === 'done') return 'look'
@@ -2183,16 +2179,20 @@ async function closeSetup($: EngineInterface) {
 }
 
 /** The person picked a judge in the guide: then the judge's key or URL, or the next step. Saved at the end. */
-async function pickJudge($: EngineInterface, choice: 'haiku' | 'jev') {
+async function pickJudge($: EngineInterface, choice: 'haiku' | 'jev' | 'clef') {
   // Haiku is saved as Auto: Jev whenever a TypeSafe key is there, Haiku otherwise and whenever Jev does not answer.
   await update($, setupDraft, d => ({ ...d, judge: choice === 'haiku' ? 'auto' : choice }))
   await markSetupDone($)
   if (choice === 'haiku') {
-    $.ui.toast('effortless: Haiku 5.5 judges, no key needed. Add a Jev key later for faster answers.')
+    $.ui.toast('effortless: Haiku 5.5 judges, no key needed. Add a Jev key or a Cloudflare token later for faster answers.')
     return goSetup($, 'lean')
   }
   if (choice === 'jev' && (await findTypesafeKey($))) {
     $.ui.toast('effortless: Jev judges with the TypeSafe key it found.')
+    return goSetup($, 'lean')
+  }
+  if (choice === 'clef' && (await clefCreds($).catch(() => undefined))) {
+    $.ui.toast('effortless: Clef judges with the Cloudflare token it found.')
     return goSetup($, 'lean')
   }
   await goSetup($, choice)
@@ -5016,9 +5016,9 @@ Saved to ${out}.md and .json` }
         </Box>
       )
       if (step === 'pick')
-        return band('Haiku judges. Add Jev too?', 62, [
-          // Haiku first and filled: it needs no key. Jev is the optional faster one; with a key, it is tried first and
-          // Haiku stands in whenever it does not answer. Each mark sits tight against its own button.
+        return band('Haiku judges. Add Jev or Clef too?', 62, [
+          // Haiku first and filled: it needs no key. Jev and Clef are the optional faster ones; with a key, the quick
+          // judge is tried first and Haiku stands in whenever it does not answer. Each mark sits tight against its button.
           <Box key="pick-haiku" flexDirection="row" gap={1} alignItems="center">
             <Svg source={CLAUDE_MARK} alt="Claude" width={16} height={16} />
             <Button key="setup-haiku" variant="primary" label="Just Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />
@@ -5026,6 +5026,10 @@ Saved to ${out}.md and .json` }
           <Box key="pick-jev" flexDirection="row" gap={1} alignItems="center">
             <Svg source={TYPESAFE_MARK} alt="TypeSafe" width={12} height={18} />
             <Button key="setup-jev" variant="secondary" label="Add Jev (needs a key)" onPress={() => pickJudge($, 'jev')} />
+          </Box>,
+          <Box key="pick-clef" flexDirection="row" gap={1} alignItems="center">
+            <Text color="#f6821f" bold>C</Text>
+            <Button key="setup-clef" variant="secondary" label="Add Clef (Cloudflare)" onPress={() => pickJudge($, 'clef')} />
           </Box>,
           ...nav(
             <Button key="setup-skip" plain dimColor label="Skip" onPress={async () => {
@@ -5043,6 +5047,30 @@ Saved to ${out}.md and .json` }
                 if (!v.trim()) return
                 await update($, setupDraft, d => ({ ...d, key: undefined }))
                 await saveJevKey($, v, false)
+                await goSetup($, 'lean')
+              }} />
+          </Box>,
+          ...nav(<Button key="setup-skip" plain label="Skip" onPress={go('lean')} />),
+        ])
+      if (step === 'clef')
+        return band('Token and account id from Cloudflare:', 52, [
+          <Box key="clef-token-field" width={30} flexShrink={1}>
+            <Input key="setup-clef-token" placeholder="Cloudflare API token" value={draft.clefKey ?? ''} submitLabel="Save"
+              onInput={(v: string) => pick('clefKey', v)}
+              onSubmit={async (v: string) => {
+                if (!v.trim()) return
+                await update($, setupDraft, d => ({ ...d, clefKey: undefined }))
+                await saveClefToken($, v, draft.clefAccount ?? '')
+                await goSetup($, 'lean')
+              }} />
+          </Box>,
+          <Box key="clef-account-field" width={22} flexShrink={1}>
+            <Input key="setup-clef-account" placeholder="Account id" value={draft.clefAccount ?? ''} submitLabel="Save"
+              onInput={(v: string) => pick('clefAccount', v)}
+              onSubmit={async (v: string) => {
+                if (!v.trim() && !draft.clefKey?.trim()) return
+                await update($, setupDraft, d => ({ ...d, clefAccount: undefined }))
+                await saveClefToken($, draft.clefKey ?? '', v)
                 await goSetup($, 'lean')
               }} />
           </Box>,
