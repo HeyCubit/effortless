@@ -1881,6 +1881,23 @@ describe('handoff', () => {
     await footer.unmount()
   })
 
+  test('pressing Handoff again while it waits calls it off', async ($, on) => {
+    const { forked, ran } = handoffEngine(on)
+    let status = 'waiting'
+    on('agent.list', () => ({ value: [{ id: 'a1', description: 'plan', type: 'Plan', status }] }) as never)
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const footer = await $.ui.mount(FOOTER)
+    await handOff($, footer, ['handoff-quick'])
+    await mocked.advance(2500)
+    await footer.press({ key: 'handoff' })
+    status = 'completed'
+    await mocked.advance(2500)
+    expect(forked).toEqual([])
+    expect(ran).not.toContain('clear')
+    await footer.unmount()
+  })
+
   test("Full pressed mid-turn waits for the turn, and that turn's answer is not taken as the handoff", { options: { handoffSkill: 'session-handoff' } } as never, async ($, on) => {
     const { ran, submitted } = handoffEngine(on)
     const mocked = mock.clock(on)

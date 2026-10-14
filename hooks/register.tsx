@@ -1643,6 +1643,16 @@ async function lastHandoffChoice($: EngineInterface): Promise<HandoffChoice> {
 
 /** Opens the handoff bar above the prompt: the footer's ⇥ and the swamp band's Handoff. */
 async function openHandoffBar($: EngineInterface) {
+  // Pressed again while the handoff still waits for the chat to settle: called off, so an agent that never finishes
+  // cannot hold it for good.
+  if (handoffQueued) {
+    handoffQueued = false
+    handoffWaitSaid = false
+    await update($, handoffStage, () => null)
+    await update($, handoffCard, () => null)
+    $.ui.toast('effortless: handoff called off')
+    return
+  }
   if ((await read($, handoffStage)) !== null) return
   const choice = await lastHandoffChoice($)
   await update($, handoffPick, () => choice)
@@ -1759,7 +1769,7 @@ export async function finishHandoff($: EngineInterface) {
   if ((handoffQueued || handoffText !== undefined) && chatBusy()) {
     if (agentsLive > 0 && !handoffWaitSaid) {
       handoffWaitSaid = true
-      $.ui.toast(`effortless: the handoff waits for ${agentsLive} agent${agentsLive === 1 ? '' : 's'} to finish`)
+      $.ui.toast(`effortless: the handoff waits for ${agentsLive} agent${agentsLive === 1 ? '' : 's'} to finish. Press Handoff again to call it off`)
     }
     return
   }
