@@ -1645,8 +1645,9 @@ async function lastHandoffChoice($: EngineInterface): Promise<HandoffChoice> {
 async function openHandoffBar($: EngineInterface) {
   // Pressed again while the handoff still waits for the chat to settle: called off, so an agent that never finishes
   // cannot hold it for good.
-  if (handoffQueued) {
+  if ((handoffQueued || handoffText !== undefined) && !handoffDriving) {
     handoffQueued = false
+    handoffText = undefined
     handoffWaitSaid = false
     await update($, handoffStage, () => null)
     await update($, handoffCard, () => null)
