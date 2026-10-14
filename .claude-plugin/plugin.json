@@ -28,6 +28,12 @@
       "description": "A skill or slash command that writes the Full handoff, e.g. session-handoff. Empty: effortless writes it itself (checks git, saves HANDOFF.md). Quick is always a fast fork with the built-in prompt.",
       "default": ""
     },
+    "resumeSkill": {
+      "type": "string",
+      "title": "Resume skill (optional)",
+      "description": "A skill the fresh chat runs first after a Full handoff written by your handoff skill, e.g. om-resume, to load what that skill saved. Empty: the fresh chat reads it itself.",
+      "default": ""
+    },
     "handoffAfter": {
       "type": "string",
       "title": "After a handoff (first choice)",
