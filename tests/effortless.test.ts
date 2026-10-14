@@ -4069,3 +4069,20 @@ describe('theme', () => {
     }
   })
 })
+
+describe('plugins beneath the band', () => {
+  const beneath = (on: On) =>
+    on('ui.render', { component: 'AbovePrompt' }, () => ({ type: 'Box', props: { key: 'beneath-note' }, children: [{ type: 'Text', children: ['beneath'] }] }) as never)
+
+  for (const layout of ['minimal', 'default'] as const) {
+    test(`a ${layout} band still draws what a plugin beneath it draws`, { options: { layout } } as never, async ($, on) => {
+      engine(on)
+      mock.clock(on)
+      beneath(on)
+      const ui = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
+      await ui.redraw()
+      expect(await ui.find({ key: 'beneath-note' })).toBeDefined()
+      await ui.unmount()
+    })
+  }
+})

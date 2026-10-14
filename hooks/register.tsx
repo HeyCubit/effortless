@@ -4535,6 +4535,13 @@ Saved to ${out}.md and .json` }
   // Draws the bands and the settings panel. Counted and guarded so /effortless debug can say whether the app asks
   // for it at all and whether drawing failed: an error here otherwise only leaves the slot empty.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    // Another mod's band (You should know) draws beneath this one; answering without next(e) would hide it.
+    let handedOn = false
+    const pass = (x: typeof e) => {
+      handedOn = true
+      return next(x)
+    }
+    const own = await (async () => {
     // Setup changes a reload cut off are saved from here: the reloaded plugin draws before anything else runs.
     void drainSetupSave($).catch(() => undefined)
     void afterLoad($).catch(() => undefined)
@@ -4552,7 +4559,7 @@ Saved to ${out}.md and .json` }
     try {
     if (e.props.hasSurvey) {
       lastRenderBranch = 'stepped aside: the app has a survey in this spot'
-      return next(e)
+      return pass(e)
     }
     const asked = await $.store.get('openSettingsAt')
     const askedHere =
@@ -5429,11 +5436,11 @@ Saved to ${out}.md and .json` }
     // The minimal look draws no dashboard: mark the rest here, so the next band plays its entrance.
     introKind = 'rest'
     const { question, rows } = await effortRows($, e)
-    if (e.surface !== 'terminal') return question ?? next(e)
+    if (e.surface !== 'terminal') return question ?? pass(e)
     return rows
     } catch (error) {
       lastRenderError = (error instanceof Error ? error.message : String(error)).slice(0, 300)
-      return next(e)
+      return pass(e)
     } finally {
       if (glowReadAt !== null) {
         drawLead = drawLead * 0.7 + Math.min(150, Date.now() - glowReadAt + 16) * 0.3
@@ -5445,5 +5452,17 @@ Saved to ${out}.md and .json` }
         renderLog.push(`${new Date().toISOString()} ${loadedSession} draw took ${Date.now() - lastRenderAt} ms`)
       }
     }
+    })()
+    if (handedOn) return own
+    if (!own) return next(e)
+    const below = await next(e).catch(() => null)
+    if (!below) return own
+    const { Box } = $.ui.resolve(e)
+    return (
+      <Box key="effortless-stack" flexDirection="column">
+        {own}
+        {below}
+      </Box>
+    )
   })
 }
