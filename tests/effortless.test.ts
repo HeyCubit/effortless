@@ -1142,6 +1142,7 @@ describe('judge choice (plugin settings)', () => {
       judge: 'auto',
       typesafeKey: '',
       handoffSkill: '',
+      resumeSkill: '',
       handoffAfter: 'continue',
       bias: 0,
       floor: 'low',
@@ -1851,6 +1852,90 @@ describe('handoff', () => {
     await $.turn.complete({ turnId: 't2', answer: "I've saved the handoff.", durationMs: 1, isAborted: false, reason: 'answer' } as never)
     await mocked.advance(2500)
     expect(submitted.at(-1)).toContain('First read the handoff /session-handoff saved')
+    await footer.unmount()
+  })
+
+  test('a resume skill is run first in the fresh chat after Full, and Quick has nothing for it to load', () => {
+    const full = handoffMessage('Saved to work/x.md', 'confirm', 'om-session-capture', 'om-resume')
+    expect(full).toContain('First run /om-resume on the handoff /om-session-capture saved')
+    expect(full).not.toContain('HANDOFF.md')
+    expect(full).toContain('then wait for me')
+    expect(handoffMessage('Goal: quick.', 'confirm', undefined, 'om-resume')).not.toContain('om-resume')
+  })
+
+  test('a handoff waits while a subagent is at work, and goes once it is done', async ($, on) => {
+    const { forked, ran } = handoffEngine(on)
+    let status = 'running'
+    on('agent.list', () => ({ value: [{ id: 'a1', description: 'find files', type: 'Explore', status }] }) as never)
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const footer = await $.ui.mount(FOOTER)
+    await handOff($, footer, ['handoff-quick'])
+    await mocked.advance(5000)
+    expect(forked).toEqual([])
+    expect(ran).not.toContain('clear')
+    status = 'completed'
+    await mocked.advance(2500)
+    expect(forked).toEqual([HANDOFF_PROMPT])
+    expect(ran).toContain('clear')
+    await footer.unmount()
+  })
+
+  test('pressing Handoff again while it waits calls it off', async ($, on) => {
+    const { forked, ran } = handoffEngine(on)
+    let status = 'waiting'
+    on('agent.list', () => ({ value: [{ id: 'a1', description: 'plan', type: 'Plan', status }] }) as never)
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const footer = await $.ui.mount(FOOTER)
+    await handOff($, footer, ['handoff-quick'])
+    await mocked.advance(2500)
+    await footer.press({ key: 'handoff' })
+    status = 'completed'
+    await mocked.advance(2500)
+    expect(forked).toEqual([])
+    expect(ran).not.toContain('clear')
+    await footer.unmount()
+  })
+
+  test('pressing Handoff again calls off a written handoff still waiting to clear', { options: { handoffSkill: 'session-handoff' } } as never, async ($, on) => {
+    const { ran } = handoffEngine(on)
+    let status = 'completed'
+    on('agent.list', () => ({ value: [{ id: 'a1', description: 'plan', type: 'Plan', status }] }) as never)
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const footer = await $.ui.mount(FOOTER)
+    await handOff($, footer, ['handoff-full'])
+    await mocked.advance(1500)
+    expect(ran).toContain('session-handoff')
+    status = 'running'
+    await $.turn.complete({ turnId: 't1', answer: "I've saved the handoff.", durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    await mocked.advance(1500)
+    await footer.press({ key: 'handoff' })
+    status = 'completed'
+    await mocked.advance(2500)
+    expect(ran).not.toContain('clear')
+    await footer.unmount()
+  })
+
+  test("Full pressed mid-turn waits for the turn, and that turn's answer is not taken as the handoff", { options: { handoffSkill: 'session-handoff' } } as never, async ($, on) => {
+    const { ran, submitted } = handoffEngine(on)
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    await $.prompt.submit({ text: 'keep building' } as never)
+    const footer = await $.ui.mount(FOOTER)
+    await handOff($, footer, ['handoff-full'])
+    await mocked.advance(2500)
+    expect(ran).not.toContain('session-handoff')
+    await $.turn.complete({ turnId: 't1', answer: 'ordinary reply', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    await mocked.advance(1500)
+    expect(ran).toContain('session-handoff')
+    expect(ran).not.toContain('clear')
+    await $.turn.complete({ turnId: 't2', answer: "I've saved the handoff.", durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    await mocked.advance(2500)
+    expect(ran).toContain('clear')
+    expect(submitted.at(-1)).toContain("I've saved the handoff.")
+    expect(submitted.at(-1)).not.toContain('ordinary reply')
     await footer.unmount()
   })
 
