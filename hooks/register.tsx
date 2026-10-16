@@ -632,7 +632,7 @@ export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
 /** The parts of effortless a person can switch off: the footer's (setup) and the progress bar's (setup, settings).
  * The context (swamp), running-low (hot) and cold-cache alerts can be switched off for good in Customize; the judge-down
  * alert always shows. Each alert also has its own ✕. */
-export const HIDEABLE = ['handoff', 'timer', 'reason', 'progress', 'sounds', 'swamp', 'hot', 'cold'] as const
+export const HIDEABLE = ['handoff', 'timer', 'reason', 'progress', 'sounds', 'swamp', 'hot', 'cold', 'effort'] as const
 export type Hideable = (typeof HIDEABLE)[number]
 // What the app passed to register, so settings kept in the store can be laid over it at session start.
 let pluginOptions: Record<string, unknown> = {}
@@ -5436,7 +5436,7 @@ Saved to ${out}.md and .json` }
     // The minimal look draws no dashboard: mark the rest here, so the next band plays its entrance.
     introKind = 'rest'
     const { question, rows } = await effortRows($, e)
-    if (e.surface !== 'terminal') return question ?? pass(e)
+    if (e.surface !== 'terminal' || config.hide.includes('effort')) return question ?? pass(e)
     return rows
     } catch (error) {
       lastRenderError = (error instanceof Error ? error.message : String(error)).slice(0, 300)

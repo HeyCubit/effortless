@@ -2176,6 +2176,22 @@ describe('swamp band and setup entry', () => {
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
   }
 
+  test('with the effort row hidden, a swamped context still shows Compact and Handoff in the terminal', { options: { layout: 'minimal', hide: 'timer,reason,effort' } } as never, async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 250_000, percent: 80 } } }) as never)
+    await start($, on)
+    const TERM_BAND = { plugin: 'effortless', surface: 'terminal', ...BAND } as never
+    const guide = await $.ui.mount(TERM_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await mocked.advance(16_000)
+    const band = await $.ui.mount(TERM_BAND)
+    expect(await band.find({ key: 'swamp-compact' })).toBeDefined()
+    expect(await band.find({ key: 'swamp-handoff' })).toBeDefined()
+    await band.unmount()
+  })
+
   test('the swamp band waits for the threshold set: 21% of a 1M window is not swamped at the default 70%', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
@@ -4085,4 +4101,15 @@ describe('plugins beneath the band', () => {
       await ui.unmount()
     })
   }
+
+  test('a minimal band with the effort row hidden draws only what is beneath it', { options: { layout: 'minimal', hide: 'effort' } } as never, async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    beneath(on)
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
+    await ui.redraw()
+    expect(await ui.find({ key: 'beneath-note' })).toBeDefined()
+    expect(await ui.find({ key: 'auto' })).toBeUndefined()
+    await ui.unmount()
+  })
 })
