@@ -304,8 +304,23 @@ function markTitle(els: { Box: unknown; Text: unknown; Svg?: unknown }, key: str
   )
 }
 
-function introLayer(els: { Box: unknown; Svg?: unknown }, key: string, show: boolean, wash = '#8b6cff', light = '#b9a7ff') {
-  if (!els.Svg || !show) return null
+/**
+ * Whether a surface paints a position="absolute" box over the flow. VS Code's webview lays it out in the flow instead:
+ * a band's art took its whole height, an empty marker box took a gap, and a blank button laid over a drawing showed as
+ * a solid bar. There the bands keep to the flow: no art, glow or entrance, controls after the words, and real buttons
+ * with their own labels where desktop lays a blank one over a drawing.
+ */
+export function layersOver(surface: string) {
+  return surface !== 'vscode'
+}
+
+/** The controls of a band: their own layer on the right where layers stack, else after the words. */
+function actionsAt(layered: boolean) {
+  return layered ? ({ position: 'absolute', top: 0, right: 1, bottom: 0 } as const) : ({ flexShrink: 0 } as const)
+}
+
+function introLayer(els: { Box: unknown; Svg?: unknown }, surface: string, key: string, show: boolean, wash = '#8b6cff', light = '#b9a7ff') {
+  if (!els.Svg || !show || !layersOver(surface)) return null
   const { Box: B, Svg: S } = els as unknown as { Box: (p: Record<string, unknown>) => unknown; Svg: (p: Record<string, unknown>) => unknown }
   return (
     <B key={`${key}-intro`} position="absolute" top={-1} left={0} right={0} bottom={-1}>
@@ -1635,9 +1650,9 @@ const GO_W = Math.round(GO_CELLS * 7.9)
 function goPillSvg(): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${GO_W}" height="20" viewBox="0 0 ${GO_W} 20"><rect width="${GO_W}" height="20" rx="5" fill="#ffffff"/></svg>`
 }
-/** Compact pressed: on desktop a bar asks for an optional note first; the terminal compacts at once. */
+/** Compact pressed: on desktop a bar asks for an optional note first; the terminal and VS Code compact at once. */
 async function openCompact($: EngineInterface, e: { surface: string }) {
-  if (e.surface === 'terminal') return compactCold($)
+  if (e.surface === 'terminal' || !layersOver(e.surface)) return compactCold($)
   compactNote = ''
   compactOpenedAt = await $.clock.now()
   await update($, compactAsk, () => true)
@@ -1849,7 +1864,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
 const SAVED_CARD_MS = 2500
 /** The card after Save: the bar's own colours, one line, nothing moving. */
 function savedCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
-  const { Box, Text } = themedEls($.ui.resolve(e))
+  const { Box, Text } = themedEls($.ui.resolve(e), e.surface)
   return (
     <Box key="saved" flexDirection="row" alignItems="center" gap={1} paddingX={1} backgroundColor={DASH_BG} borderStyle="round" borderColor={DASH_EDGE}>
       <Text color={ACCENT}>✓</Text>
@@ -2335,7 +2350,7 @@ let artFrameCount = 0
 
 /** A band's art on the terminal: a Raster on the right, moving for alert kinds; null where it has no room. */
 function bandArt($: EngineInterface, e: RenderInput<'AbovePrompt'>, kind: ArtKind) {
-  const els = themedEls($.ui.resolve(e))
+  const els = themedEls($.ui.resolve(e), e.surface)
   const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 0
   if (e.surface !== 'terminal' || !('Raster' in els) || columns < ART_MIN_WIDTH) return null
   // The still sparkles (the resting dashboard, the guide) are 16 by 4 pixels: in a terminal they read as noise, not
@@ -2373,7 +2388,7 @@ function bandArt($: EngineInterface, e: RenderInput<'AbovePrompt'>, kind: ArtKin
 /** A bar on the terminal (setup, handoff): the title and words on the left with the brand's still art beside them,
  * the controls on a row of their own that wraps, so nothing is cut at 80 columns. */
 function terminalPanel($: EngineInterface, e: RenderInput<'AbovePrompt'>, key: string, title: string, words: unknown, controls: unknown[]) {
-  const { Box, Text } = themedEls($.ui.resolve(e))
+  const { Box, Text } = themedEls($.ui.resolve(e), e.surface)
   return (
     <Box key={key} flexDirection="column" paddingX={1} backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
       <Box flexDirection="row" gap={1} alignItems="center">
@@ -2395,7 +2410,7 @@ type TerminalBand = { key: string; kind: ArtKind; color: string; bg: string; edg
 /** An alert band on the terminal: title and buttons, the detail on a line of its own, art on the right, and the effort
  * row under it, so effort stays in sight while a band shows. */
 async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b: TerminalBand) {
-  const { Box, Text } = themedEls($.ui.resolve(e))
+  const { Box, Text } = themedEls($.ui.resolve(e), e.surface)
   const { rows } = await effortRows($, e, { auto: !b.autoInBar })
   return (
     <Box key={`${b.key}-col`} flexDirection="column">
@@ -2513,7 +2528,7 @@ const REPO_URL = 'https://github.com/HeyCubit/effortless'
 // GitHub's own dark ground, and the width of the panel that carries the star link on the Updated card.
 const GITHUB_BLACK = '#000000'
 const STAR_PANEL = 32
-function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui']['resolve']>) {
+function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui']['resolve']>, layered: boolean) {
   const { Box, Text, Button, Svg } = els
   const armed = Date.now() - uninstallArmedAt < UNINSTALL_ARM_MS
   const press = async () => {
@@ -2539,7 +2554,7 @@ function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui
     if (!reloaded) await typeCommand($, `/reload-plugins ${RELOAD_ARGS}`)
   }
   const label = uninstalling ? 'Uninstalling…' : armed ? 'Press again to uninstall' : 'Uninstall'
-  if (!Svg) return <Button key="settings-uninstall" plain dimColor={!armed} label={label} onPress={press} />
+  if (!Svg || !layered) return <Button key="settings-uninstall" plain dimColor={!armed} label={label} onPress={press} />
   // A bin and the word, grey; red under the pointer, and red while armed (the red bin is laid over the grey one, since
   // a hover can only reveal). A blank button over both takes the press.
   const red = armed || uninstalling
@@ -2564,7 +2579,8 @@ function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui
 /** The handoff or compact card: words, the moving art while it runs, green with a check once it has landed. `above` is
  * what sits over it (the reply it hangs under), or nothing for the band above the prompt. */
 function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> | RenderInput<'AbovePrompt'>, fresh: HandoffCard, above: unknown, onDismiss?: () => unknown) {
-  const { Box, Text, Svg, Button } = themedEls($.ui.resolve(e))
+  const { Box, Text, Svg, Button } = themedEls($.ui.resolve(e), e.surface)
+  const layered = layersOver(e.surface)
   const by = fresh.full ? 'Full' : 'Quick'
   const words = {
     writing: ['✦ Handing off…', `${by} handoff being written. ${fresh.full ? 'Your skill takes a little while.' : 'A few seconds.'}`],
@@ -2578,6 +2594,7 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
   const card = (
     <Box key="reply-handoff" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
       backgroundColor={cardLanded(fresh.kind) ? DONE_BG : BRAND_BG} borderStyle="round" borderColor={cardLanded(fresh.kind) ? DONE_EDGE : BRAND_EDGE}>
+      {layered ? (
       <Box key="reply-handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
         {quiet ? (
           <Svg source={DASH_SVG} alt="compacting" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
@@ -2587,16 +2604,17 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
           <Svg source={cardLanded(fresh.kind) ? DONE_SVG : BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         )}
       </Box>
+      ) : null}
       <Box key="reply-handoff-words" position="relative" flexDirection={quiet ? 'row' : 'column'} gap={quiet ? 1 : 0} flexShrink={1} minWidth={0}>
         {markTitle({ Box, Text, Svg }, 'reply-handoff-title', cardLanded(fresh.kind) ? DONE_ACCENT : ACCENT, words[0], cardLanded(fresh.kind) ? DONE_MARK_SVG : MARK_SVG)}
         <Text wrap="truncate">{words[1]}</Text>
       </Box>
       {onDismiss ? (
         <Box key="reply-handoff-close" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end">
-          <Box position="absolute" top={0} left={0} />
+          {layered ? <Box position="absolute" top={0} left={0} /> : null}
           {/* A box just the ✕'s size: in the wide one its hover lit up anywhere on the card's right half. */}
           <Box key="card-close-box" position="relative" flexShrink={0}>
-            <Box position="absolute" top={0} left={0} />
+            {layered ? <Box position="absolute" top={0} left={0} /> : null}
             <Button key="card-close" plain role="dismiss" label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={onDismiss} />
           </Box>
         </Box>
@@ -2898,7 +2916,8 @@ export const RELOAD_ARGS = '--force'
 const UPDATE_LOAD_WAIT_MS = 15_000
 /** The update card above the prompt: the offer, the moving art while it updates, green once done. */
 function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card: UpdateCard) {
-  const { Box, Text, Svg, Button, Link } = themedEls($.ui.resolve(e))
+  const { Box, Text, Svg, Button, Link } = themedEls($.ui.resolve(e), e.surface)
+  const layered = layersOver(e.surface)
   const landed = card.stage === 'done'
   const words = {
     offer: [`✦ effortless ${card.version} is out`, card.note || 'A new version is ready.'],
@@ -2922,7 +2941,7 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
   // Each control in a box of its own: under one shared box, hovering one lit the other too.
   const own = (key: string, el: unknown) => (
     <Box key={key} position="relative" flexShrink={0}>
-      <Box position="absolute" top={0} left={0} />
+      {layered ? <Box position="absolute" top={0} left={0} /> : null}
       {el as never}
     </Box>
   )
@@ -2952,7 +2971,12 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
               // White and bold: the app's blue link was hard to see on the green and the check.
               own('update-link-box', <Text color="#ffffff" bold><Link href={WHATS_NEW_URL} label="What's new →" /></Text>),
               divider('update-div-1'),
-              own('update-share-box', (
+              own('update-share-box', !layered ? (
+                <Box key="update-share" flexDirection="row" alignItems="center" gap={1} flexShrink={0}>
+                  <Svg source={SHARE_MARK_SVG} alt="Share" width={14} height={14} />
+                  <Button key="update-share-go" plain label="Share" onPress={share} />
+                </Box>
+              ) : (
                 // The icon and the word, with a blank button laid over both: its hover veil covers the icon too.
                 <Box key="update-share" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1} flexShrink={0}>
                   <Svg source={SHARE_MARK_SVG} alt="Share" width={14} height={14} />
@@ -2975,7 +2999,7 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
   return (
     <Box key="update-card" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
       backgroundColor={landed ? UPDATED_BG : BRAND_BG} borderStyle="round" borderColor={landed ? UPDATED_EDGE : BRAND_EDGE}>
-      {landed ? (
+      {!layered ? null : landed ? (
         <Box key="update-glow" position="absolute" top={-1} left={0} bottom={-1}>
           <Svg source={UPDATED_GLOW_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         </Box>
@@ -2990,7 +3014,7 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
       </Box>
       <Box key="update-controls" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end" alignItems="center" gap={1}>
         {/* Positioned by an empty absolute child, so it paints over the art and takes the clicks. */}
-        <Box position="absolute" top={0} left={0} />
+        {layered ? <Box position="absolute" top={0} left={0} /> : null}
         {controls}
       </Box>
     </Box>
@@ -3241,7 +3265,7 @@ let helpersFlipAt = 0
 
 /** The dashboard: what effortless is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
 async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
-  const els = themedEls($.ui.resolve(e))
+  const els = themedEls($.ui.resolve(e), e.surface)
   const { Box, Text, Button } = els
   const v = await snap($)
   adviceNow = (await read($, handoffAdvice)) ?? null
@@ -3266,6 +3290,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
       : 'You pick the effort'
   // Desktop draws the cache after the context ring, grey, with a hover that explains both; the terminal says it inline.
   const drawn = e.surface !== 'terminal' && 'Svg' in els
+  // Where layers do not stack (layersOver), the images stay in the flow and the buttons are plain ones.
+  const layered = drawn && layersOver(e.surface)
   // A cold cache is the cold band's to say; the resting bar shows the countdown only while there is one.
   const cacheShown = config.hide.includes('timer') || (v.cacheNow !== null && v.cacheNow <= 0) ? null : v.cacheNow
   const { head, what, rest, detail } = dashboardLines({
@@ -3298,7 +3324,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     ),
     // Once the slot is Handoff (advised, or the setting says always), Compact stays beside it as quiet text, so both are
     // a press away. Desktop only, where there is room for it; the terminal compacts in one press from its own rows.
-    ...(e.surface !== 'terminal' && 'Svg' in els && !config.hide.includes('handoff') && handoffSlot() && (typeof e.props.bodyColumns !== 'number' || e.props.bodyColumns >= COMPACT_BUTTON_MIN_COLUMNS)
+    ...(drawn && !config.hide.includes('handoff') && handoffSlot() && (typeof e.props.bodyColumns !== 'number' || e.props.bodyColumns >= COMPACT_BUTTON_MIN_COLUMNS)
       ? [<Button key="dash-compact" plain dimColor label="Compact" onPress={() => openCompact($, e)} />]
       : []),
     ...(config.hide.includes('handoff')
@@ -3309,7 +3335,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           // step a percent of context to a white box at HANDOFF_FULL_AT (handoffLook), the label as Text over the box and
           // a blank button over both to take the click. The terminal keeps the plain buttons: grey, white from
           // HANDOFF_LOUD_AT.
-          'Svg' in els && e.surface !== 'terminal' ? (
+          layered ? (
             <Box key="dash-handoff-wrap" flexShrink={0} flexDirection="row">
               {/* No glow while a reply runs: the band redraws then, and each redraw restarted the glow, so it flickered. */}
               {HANDOFF_GLOW && handoffLoud() && !e.props.isWorking ? (
@@ -3353,7 +3379,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
         ]),
     // The terminal says it in a word; the desktop draws an icon, with this button laid blank over it to take the click.
     // No-break spaces, not braille blanks: some fonts draw U+2800 as a dot.
-    <Button key="dash-settings" plain label={'Svg' in els && e.surface !== 'terminal' ? '   ' : 'Settings'} onPress={toggleSettings} />,
+    <Button key="dash-settings" plain label={layered ? '   ' : 'Settings'} onPress={toggleSettings} />,
   ].filter(Boolean)
   // The terminal flashes the effort word as the desktop does: violet on a change, fading back to white.
   if (e.surface === 'terminal')
@@ -3368,7 +3394,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   return (
     <Box key="dash" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
       backgroundColor={DASH_BG} borderStyle="round" borderColor={DASH_EDGE}>
-      {Svg ? (
+      {layered && Svg ? (
         // Auto off: the art goes, so the bar reads as resting, not working.
         v.auto ? (
           <Box key="dash-art" position="absolute" top={-1} right={0} bottom={-1}>
@@ -3376,13 +3402,13 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           </Box>
         ) : null
       ) : null}
-      {Svg && v.auto && nowMs - autoOnAt < AUTO_GLOW_MS && renderLog.push(`glow ${v.auto ? 'on' : 'off'} at ${nowMs - autoOnAt} ms`) ? (
+      {layered && Svg && v.auto && nowMs - autoOnAt < AUTO_GLOW_MS && renderLog.push(`glow ${v.auto ? 'on' : 'off'} at ${nowMs - autoOnAt} ms`) ? (
         <Box key="dash-auto-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
           <Svg source={inPhase(autoGlowSvg(v.auto), nowMs - autoOnAt)} alt="auto glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
       {/* The judge decides: the violet rim lights up, holds, and fades from full once the verdict is in. */}
-      {Svg && glowSource ? (
+      {layered && Svg && glowSource ? (
         <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
           <Svg source={glowSource} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
@@ -3446,10 +3472,10 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
               // reveal, so the tip is a layer on the band's colour that covers the reason.
               <Box key="dash-detail" position="relative" width={0} flexGrow={1} flexShrink={1} minWidth={10} marginLeft={cacheShown !== null ? 2 : 0}>
                 <Text dimColor wrap="truncate">{detail}</Text>
-                <Box key="dash-cache-tip" position="absolute" top={0} left={0} right={0} bottom={0} backgroundColor={DASH_BG}
+                {layered ? <Box key="dash-cache-tip" position="absolute" top={0} left={0} right={0} bottom={0} backgroundColor={DASH_BG}
                   display="none" hover={{ scope: 'dash-cache', display: 'flex' }}>
                   <Text dimColor wrap="truncate">{hoverTips(v).cache.replace(/^Prompt cache/, 'Cache')}</Text>
-                </Box>
+                </Box> : null}
               </Box>
             ) : null}
           </Box>
@@ -3463,8 +3489,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           makes the box positioned, which paints it over the art (a plain flow box sits under it and loses clicks). */}
       <Box minWidth={1} />
       <Box key="dash-actions" flexShrink={0} flexDirection="row" gap={1} alignItems="center" marginLeft={1}>
-        <Box position="absolute" top={0} left={0} />
-        {Svg ? (
+        {layered ? <Box position="absolute" top={0} left={0} /> : null}
+        {layered && Svg ? (
           // Auto as a switch, drawn, with a blank button laid over it to take the click (the cog's pattern).
           <Box key="dash-auto-switch" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}>
             <Svg source={autoSwitchSvg(v.auto, nowMs - autoFlipAt)} alt={v.auto ? 'Auto on' : 'Auto off'} width={26} height={15} />
@@ -3474,8 +3500,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
             </Box>
           </Box>
         ) : null}
-        {Svg ? buttons.slice(1, -1) : buttons}
-        {Svg ? (
+        {layered ? buttons.slice(1, -1) : buttons}
+        {layered && Svg ? (
           // The cog sits in the flow and the button in an absolute layer after it: an absolute layer paints over plain
           // ones, and the desktop ignores position="relative" on a Box without absolute children. A Button is at most as
           // wide as its box, so the box keeps a cell of padding each side of the cog for the hover box.
@@ -3494,7 +3520,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
 /** The terminal's rows above the prompt (Effort steps, Auto, the model row when switched on) and, on any surface, the
  * judge's question when it suggests another model. The rows also sit under an alert band, so effort never goes away. */
 async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opts: { auto?: boolean } = {}) {
-  const { Box, Text, Button } = themedEls($.ui.resolve(e))
+  const { Box, Text, Button } = themedEls($.ui.resolve(e), e.surface)
   const v = await snap($)
   const { auto, autoModel, current, judging, wanted, shownByApp } = v
   const inUse = v.modelNow ?? (await sessionModel($))
@@ -4284,7 +4310,7 @@ Saved to ${out}.md and .json` }
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     // The dashboard look keeps all of this in the band above the prompt; the app's own footer shows.
     if (e.surface !== 'desktop' || config.layout === 'default') return next(e)
-    const { Box, Text, Button } = themedEls($.ui.resolve(e))
+    const { Box, Text, Button } = themedEls($.ui.resolve(e), e.surface)
     const v = await snap($)
     const handoffNow = (await read($, handoffStage)) !== null
     const needsSetup = await read($, setupPending)
@@ -4441,7 +4467,7 @@ Saved to ${out}.md and .json` }
   })
 
   on('ui.render', { component: 'Pane', requestId: 'effortless-agents' }, async ($, e) => {
-    const els = themedEls($.ui.resolve(e))
+    const els = themedEls($.ui.resolve(e), e.surface)
     const agents = await read($, agentsState)
     const open = await read($, agentsOpen)
     const rows = Math.max(12, e.props.scroll.bodyRows)
@@ -4466,7 +4492,7 @@ Saved to ${out}.md and .json` }
 
   on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
     if (config.hide.includes('line')) return next(e)
-    const { Box, Text } = themedEls($.ui.resolve(e))
+    const { Box, Text } = themedEls($.ui.resolve(e), e.surface)
     const v = await snap($)
     const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
     const took = Math.max(1, Math.round(e.props.durationMs / 1000))
@@ -4500,6 +4526,8 @@ Saved to ${out}.md and .json` }
       renderLog.push(`${new Date().toISOString()} ${loadedSession} first draw asked ${lastRenderAt - loadedAt} ms after load`)
       void writeRenderLog($).catch(() => undefined)
     }
+    // Whether this surface stacks absolute layers (layersOver): the bands below keep to the flow where it does not.
+    const layered = layersOver(e.surface)
     try {
     if (e.props.hasSurvey) {
       lastRenderBranch = 'stepped aside: the app has a survey in this spot'
@@ -4515,13 +4543,13 @@ Saved to ${out}.md and .json` }
       if (Date.now() - askedHere < 60_000 && !(await read($, settingsOpen))) await update($, settingsOpen, () => true)
     }
     lastRenderBranch = (await read($, settingsOpen)) ? 'drew the settings panel' : 'drew a band or nothing'
-    const { Box, Text, Button, Svg, Link } = themedEls($.ui.resolve(e))
+    const { Box, Text, Button, Svg, Link } = themedEls($.ui.resolve(e), e.surface)
     // The settings panel: a branded header bar, then one compact row per setting, a dim hint at the end of each row.
     if (await read($, settingsOpen)) {
       // The app gives this slot maxRows rows and drops a taller tree whole, without a word. With gaps the panel is 12
       // rows (2 border, 2 header, 4 settings, 4 gaps); without, 7.
       const roomy = (typeof e.props.maxRows === 'number' ? e.props.maxRows : 12) >= 12
-      const { Input, Select } = themedEls($.ui.resolve(e))
+      const { Input, Select } = themedEls($.ui.resolve(e), e.surface)
       const opts = (values: readonly string[]) => values.map(value => ({ value, label: value }))
       // The skills and commands installed here, to pick the handoff writer from: no typing, no file paths. A plugin
       // cannot open a file dialog, and a skill is run by its name anyway.
@@ -4605,6 +4633,8 @@ Saved to ${out}.md and .json` }
       }
       // The terminal has no art and few rows: no gaps, one row under the title.
       const term = e.surface === 'terminal'
+      // Where layers do not stack, the panel takes the terminal's in-flow structure and keeps its images.
+      const flat = term || !layered
       const iconKind = { [ICON_EFFORT]: 'effort', [ICON_JUDGE]: 'judge', [ICON_HANDOFF]: 'handoff', [ICON_SHOW]: 'show' } as const
       const row = (key: string, label: string, icon: string, children: unknown[]) => (
         <Box key={key} flexDirection="row" gap={1} alignItems="center">
@@ -4657,7 +4687,7 @@ Saved to ${out}.md and .json` }
       const frameOnly = probeLevel === 2
       const bare = probeLevel === 3
       // Desktop keeps title and buttons as absolute layers straight under the panel; the terminal gets a wrapping row.
-      const headRow = (kids: unknown[]) => term
+      const headRow = (kids: unknown[]) => flat
         ? <Box key="settings-head" flexDirection="row" flexWrap="wrap" justifyContent="space-between" columnGap={2}>{kids}</Box>
         : kids
       const bugUrl = ownVersion ? `${REPORT_BUG_URL}?effortless=${encodeURIComponent(ownVersion)}` : REPORT_BUG_URL
@@ -4667,9 +4697,9 @@ Saved to ${out}.md and .json` }
         // sweep plays once, behind everything, as the panel opens.
         <Box key="settings" position="relative" flexDirection="column" gap={roomy && !term ? 1 : 0} paddingX={term ? 1 : 2} overflow="hidden"
           backgroundColor={DASH_BG} borderStyle="round" borderColor={DASH_EDGE}>
-          {term ? null : introLayer({ Box, Svg }, 'settings', await introShows($, 'settings'))}
+          {flat ? null : introLayer({ Box, Svg }, e.surface, 'settings', await introShows($, 'settings'))}
           {/* The top bar: barely a shade lighter than the band, holding the title, Save and the cross. */}
-          {!term ? (
+          {!flat ? (
             <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={3.5} overflow="hidden" backgroundColor={DASH_HEAD}>
               {/* The mark, big, tilted and cut off by the bar's edges, behind the title and the buttons. */}
               <Box key="settings-bar-mark" position="absolute" top={-2} right={20} marginTop={1}>
@@ -4685,7 +4715,7 @@ Saved to ${out}.md and .json` }
               space above them equals the space below. The terminal has no bar: both sit in the flow on one row that
               wraps, since two absolute layers drew over each other in a narrow window ("SettCheck for updates"). */}
           {headRow([
-          <Box key="settings-title" {...(term ? { flexShrink: 0 } : { position: 'absolute', top: 0, left: 2, height: 2.5 })} flexDirection="row" alignItems="center" gap={1}>
+          <Box key="settings-title" {...(flat ? { flexShrink: 0 } : { position: 'absolute', top: 0, left: 2, height: 2.5 })} flexDirection="row" alignItems="center" gap={1}>
             {term ? <Text color={ACCENT} bold>✦</Text> : null}
             {Svg && !term ? <Svg source={SETTINGS_TITLE} alt="effortless" width={92} height={28} /> : <Text color={DASH_TEXT} bold>effortless</Text>}
             {ownVersion ? <Text color="#6b6b73">v{ownVersion}</Text> : null}
@@ -4701,7 +4731,7 @@ Saved to ${out}.md and .json` }
             )}
             {dirty ? <Text dimColor> · unsaved changes</Text> : null}
           </Box>,
-          <Box key="settings-actions" {...(term ? { flexShrink: 1, flexWrap: 'wrap', columnGap: 2 } : { position: 'absolute', top: 0, right: 2, height: 2.5, gap: 2 })} flexDirection="row" alignItems="center">
+          <Box key="settings-actions" {...(flat ? { flexShrink: 1, flexWrap: 'wrap', columnGap: 2 } : { position: 'absolute', top: 0, right: 2, height: 2.5, gap: 2 })} flexDirection="row" alignItems="center">
             {checking === 'checking' ? (
               <Text dimColor>Checking…</Text>
             ) : checking === 'newest' ? (
@@ -4734,29 +4764,34 @@ Saved to ${out}.md and .json` }
             <Button key="settings-close" plain label="✕" onPress={close} />
           </Box>,
           ])}
-          {term ? null : <Box key="settings-spacer" height={roomy ? 2 : 1} />}
+          {flat ? null : <Box key="settings-spacer" height={roomy ? 2 : 1} />}
           {frameOnly ? null : card === null ? (
             // The overview: a card per part, what it is set to in a few words. A card opens that part alone.
             <Box key="settings-cards" flexDirection="row" flexWrap="wrap" columnGap={1} rowGap={term ? 0 : 1}>
-              <Box position="absolute" top={0} left={0} />
+              {flat ? null : <Box position="absolute" top={0} left={0} />}
               {CARDS.map(c => (
                 <Box key={`card-${c.id}`} position="relative" flexDirection="column" flexGrow={1} width={0} minWidth={18}
                   paddingX={1} borderStyle="round" borderColor={DASH_EDGE} hover={{ backgroundColor: CARD_HOVER, borderColor: CARD_HOVER_EDGE }}>
-                  <Box flexDirection="row" gap={1} alignItems="center">
+                  {/* One line: VS Code wraps a row by default, which dropped a long title's › to a second line. */}
+                  <Box flexDirection="row" flexWrap="nowrap" gap={1} alignItems="center">
                     {Svg && !term ? <Svg source={rowIconSvg(c.id, DASH_TEXT)} alt={c.title} width={14} height={14} /> : null}
                     {/* The terminal draws the blank buttons below as real spaces over the card's text, so there the
                         title itself is the button. (Full-width padded buttons per row looked worse: a big lit block.) */}
                     {term ? (
                       <Button key={`settings-card-${c.id}`} plain label={`${c.title} ›`} onPress={openCard(c.id)} />
                     ) : (
-                      <Text color={DASH_TEXT} bold hover={{ color: '#ffffff' }}>{c.title}</Text>
+                      <Text color={DASH_TEXT} bold wrap="truncate" hover={{ color: '#ffffff' }}>{c.title}</Text>
                     )}
+                    {/* Where layers do not stack (VS Code) there is no cover over the card, and a Button there is one line
+                        of plain text, so the card keeps its look and a small › at the end of the title row opens it. */}
+                    {flat && !term ? <Box flexGrow={1} /> : null}
+                    {flat && !term ? <Button key={`settings-card-${c.id}`} plain label="›" onPress={openCard(c.id)} /> : null}
                   </Box>
                   <Text dimColor wrap="truncate" hover={{ dimColor: false, color: DASH_TEXT }}>{summaries[c.id]}</Text>
                   {/* The click takes the whole card: a button is one line high and centred in its box, whatever the box,
                       so three blank ones are spread from the top edge to the bottom one and overlap. The card lights as a
                       whole (its own hover); two, spaced around, left its edges and a stripe between the lines dead. */}
-                  {term ? null : <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="column" justifyContent="space-between">
+                  {flat ? null : <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="column" justifyContent="space-between">
                     {/* Each button sits in a clipping box and does not shrink: in a narrow card a shrunk button cut its
                         blank label to "\u2026", three stacked dots on the card. 800 no-break spaces (about 2,000 px: one is ~2.6 px, measured with
                         tools/render-band --hit) cover a card alone on its row edge to edge; the box clips the rest. */}
@@ -4777,7 +4812,7 @@ Saved to ${out}.md and .json` }
               {/* An empty absolute child makes the box positioned, so its rows paint, and take clicks, over the
                   entrance sweep and the art (absolute layers cover every plain box, and the sweep stays until the next
                   redraw). */}
-              <Box position="absolute" top={0} left={0} />
+              {flat ? null : <Box position="absolute" top={0} left={0} />}
               {/* What the part does; Back and its name are in the top bar's trail. */}
               <Text dimColor wrap="truncate">{CARDS.find(c => c.id === card)?.about}</Text>
               <Box flexDirection="row" flexWrap="wrap" gap={1} alignItems="center">
@@ -4796,7 +4831,7 @@ Saved to ${out}.md and .json` }
                   // Effort for helpers on a row of its own: the dashboard's Auto switch exactly (switch, word, slide,
                   // one blank button laid over both), then what it does now.
                   <Box key="settings-helpers-row" width="100%" flexDirection="row" alignItems="center" gap={1}>
-                    {Svg && !term ? (
+                    {Svg && !flat ? (
                       <Box key="settings-helpers" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}>
                         <Svg source={autoSwitchSvg(shown.helpers === 'on', helpersNow - helpersFlipAt)} alt={shown.helpers === 'on' ? 'Helpers on' : 'Helpers off'} width={26} height={15} />
                         <Text color={shown.helpers === 'on' ? DASH_TEXT : DASH_DIM}>Helpers</Text>
@@ -4861,7 +4896,7 @@ Saved to ${out}.md and .json` }
                   pick({ key: "settings-theme", label: "Theme", value: shown.theme, options: [{ value: 'violet', label: 'Violet' }, { value: 'orange', label: 'Claude orange' }, { value: 'rose', label: 'Cherry blossom' }], onSelect: set('theme') }),
                 ]),
             ...toggles,
-            ...(bare ? [] : [uninstallButton($, themedEls($.ui.resolve(e)))]),
+            ...(bare ? [] : [uninstallButton($, themedEls($.ui.resolve(e), e.surface), !flat)]),
 ]}
               </Box>
             </Box>
@@ -4873,7 +4908,7 @@ Saved to ${out}.md and .json` }
     // band's Handoff; Go keeps the choice for next time. Enter presses Go once the bar holds the keyboard.
     // The compact bar: an optional note for the summary, then Compact (or Enter).
     if (e.surface !== 'terminal' && (await read($, compactAsk))) {
-      const { Input } = themedEls($.ui.resolve(e))
+      const { Input } = themedEls($.ui.resolve(e), e.surface)
       const go = () => compactCold($, compactNote)
       const nowCompact = await $.clock.now()
       // One redraw once the fade is over, to drop its layer.
@@ -4890,7 +4925,7 @@ Saved to ${out}.md and .json` }
               <Svg source={compactFadeSvg(nowCompact - compactOpenedAt)} alt="" width={1600} height={240} />
             </Box>
           ) : null}
-          {introLayer({ Box, Svg }, 'compact', await introShows($, 'compact'))}
+          {introLayer({ Box, Svg }, e.surface, 'compact', await introShows($, 'compact'))}
           {/* One line, as tall as the bands: the name, then the field and the buttons on the right. */}
           <Box key="compact-words" position="relative" flexShrink={0}>
             {markTitle({ Box, Text, Svg }, 'compact-title', ACCENT, '✦ Compact')}
@@ -4946,7 +4981,7 @@ Saved to ${out}.md and .json` }
         await update($, handoffPick, () => ({ ...choice, ...change }))
         // The write alone redraws the bar; a full invalidate redraws the art too, which flickers.
       }
-      const { Select } = themedEls($.ui.resolve(e))
+      const { Select } = themedEls($.ui.resolve(e), e.surface)
       const what = handoffWhat(choice, config.handoffSkill)
       // Go is the one lit button: the picked kind is a quiet box, the other plain text. The app draws a hotkey's
       // letter faint on a grey button, so only the terminal gets letters there.
@@ -4954,7 +4989,7 @@ Saved to ${out}.md and .json` }
       const kindNow = await $.clock.now()
       const controls = [
         // Desktop: one switch with both words, the knob under the picked one (like Auto), each half a blank button.
-        !term && Svg ? (
+        !term && Svg && layered ? (
           <Box key="handoff-kind" position="relative" flexShrink={0} flexDirection="row" alignItems="center">
             <Box width={KIND_CELLS * 2} height={1} flexShrink={0} />
             <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
@@ -4977,12 +5012,12 @@ Saved to ${out}.md and .json` }
             </Box>
           </Box>
         ) : null,
-        term || !Svg ? (choice.kind === 'quick' ? (
+        term || !Svg || !layered ? (choice.kind === 'quick' ? (
           <Button key="handoff-quick" hotkey={term ? 'q' : undefined} variant="secondary" label="Quick" onPress={setBar({ kind: 'quick' })} />
         ) : (
           <Button key="handoff-quick" hotkey={term ? 'q' : undefined} plain dimColor label="Quick" onPress={setBar({ kind: 'quick' })} />
         )) : null,
-        term || !Svg ? (choice.kind === 'full' ? (
+        term || !Svg || !layered ? (choice.kind === 'full' ? (
           <Button key="handoff-full" hotkey={term ? 'f' : undefined} variant="secondary" label="Full" onPress={setBar({ kind: 'full' })} />
         ) : (
           <Button key="handoff-full" hotkey={term ? 'f' : undefined} plain dimColor label="Full" onPress={setBar({ kind: 'full' })} />
@@ -5008,11 +5043,13 @@ Saved to ${out}.md and .json` }
         // no clicks.
         <Box key="handoff-bar" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
+          {layered ? (
           <Box key="handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
             <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
           </Box>
+          ) : null}
           {/* The entrance as the bar opens, only then: a choice redraws the bar. */}
-          {introLayer({ Box, Svg }, 'handoff', await introShows($, 'handoff'))}
+          {introLayer({ Box, Svg }, e.surface, 'handoff', await introShows($, 'handoff'))}
           {/* One line: the name, then what the picked kind does, dim. */}
           <Box key="handoff-words" position="relative" flexDirection="row" gap={1} flexShrink={1} minWidth={0}>
             <Text color={ACCENT} bold wrap="truncate">
@@ -5022,8 +5059,8 @@ Saved to ${out}.md and .json` }
               {line}
             </Text>
           </Box>
-          <Box flexGrow={1} minWidth={48} />
-          <Box key="handoff-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
+          <Box flexGrow={1} minWidth={layered ? 48 : 0} />
+          <Box key="handoff-actions" {...actionsAt(layered)} flexDirection="row" gap={1} alignItems="center">
             {!term ? <Button key="handoff-to-compact" plain dimColor label="Compact instead" onPress={async () => { await closeHandoffBar($); await openCompact($, e) }} /> : null}
             {controls}
           </Box>
@@ -5034,7 +5071,7 @@ Saved to ${out}.md and .json` }
     // footer, then a word on what else is there. The choices are saved together at Done or ✕ (see setupDraft).
     const step = await read($, setupStep)
     if (step) {
-      const { Input, Select } = themedEls($.ui.resolve(e))
+      const { Input, Select } = themedEls($.ui.resolve(e), e.surface)
       const draft = await read($, setupDraft)
       const shown = setupShown(draft, config)
       const pick = (field: keyof SettingsDraft, value: string) => update($, setupDraft, d => ({ ...d, [field]: value }))
@@ -5057,17 +5094,19 @@ Saved to ${out}.md and .json` }
       ) : (
         <Box key="setup" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
+          {layered ? (
           <Box key="setup-art" position="absolute" top={-1} right={0} bottom={-1}>
             <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
           </Box>
+          ) : null}
           <Box key="setup-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
             <Text color={ACCENT} bold wrap="truncate">
               {counter ? `✦ effortless setup  ${counter}` : '✦ effortless setup'}
             </Text>
             {typeof words === 'string' ? <Text key="setup-what" wrap="truncate">{words}</Text> : words}
           </Box>
-          <Box flexGrow={1} minWidth={room} />
-          <Box key="setup-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
+          <Box flexGrow={1} minWidth={layered ? room : 0} />
+          <Box key="setup-actions" {...actionsAt(layered)} flexDirection="row" gap={1} alignItems="center">
             {controls}
           </Box>
         </Box>
@@ -5177,18 +5216,20 @@ Saved to ${out}.md and .json` }
       return (
         <Box key="down" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={SLATE_BG} borderStyle="round" borderColor={SLATE_EDGE}>
+          {layered ? (
           <Box key="down-art" position="absolute" top={-1} right={0} bottom={-1}>
             <Svg source={DOWN_SVG} alt="judge down" width={FROST_WIDTH} height={FROST_HEIGHT} />
           </Box>
-          {introLayer({ Box, Svg }, 'down', await introShows($, 'down'), '#7d8aa8', '#e6ecf8')}
+          ) : null}
+          {introLayer({ Box, Svg }, e.surface, 'down', await introShows($, 'down'), '#7d8aa8', '#e6ecf8')}
           <Box flexShrink={0}>
             <Text color={SLATE} bold wrap="truncate">
               ✦ Judge down
             </Text>
           </Box>
           <Text wrap="truncate">{`${downReason}. Haiku stands in.`}</Text>
-          <Box flexGrow={1} minWidth={30} />
-          <Box key="down-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
+          <Box flexGrow={1} minWidth={layered ? 30 : 0} />
+          <Box key="down-actions" {...actionsAt(layered)} flexDirection="row" gap={1} alignItems="center">
             <Button key="down-settings" variant="primary" label="Open settings" onPress={() => openPluginSettings($)} />
             <Button key="down-close" plain role="dismiss" label="✕" onPress={() => update($, judgeDownHidden, () => downReason)} />
           </Box>
@@ -5214,18 +5255,20 @@ Saved to ${out}.md and .json` }
       return (
         <Box key="hot" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={EMBER_BG} borderStyle="round" borderColor={EMBER_EDGE}>
+          {layered ? (
           <Box key="ember" position="absolute" top={-1} right={0} bottom={-1}>
             <Svg source={EMBER_SVG} alt="embers" width={FROST_WIDTH} height={FROST_HEIGHT} />
           </Box>
-          {introLayer({ Box, Svg }, 'hot', await introShows($, 'hot'), EMBER, '#ffd2a8')}
+          ) : null}
+          {introLayer({ Box, Svg }, e.surface, 'hot', await introShows($, 'hot'), EMBER, '#ffd2a8')}
           <Box flexShrink={0}>
             <Text color={EMBER} bold wrap="truncate">
               ✦ Running hot
             </Text>
           </Box>
           <Text wrap="truncate">{`${Math.round(heat.percent)}% of your ${window} limit used${resets ? ` · resets ${resets}` : ''}`}</Text>
-          <Box flexGrow={1} minWidth={30} />
-          <Box key="hot-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
+          <Box flexGrow={1} minWidth={layered ? 30 : 0} />
+          <Box key="hot-actions" {...actionsAt(layered)} flexDirection="row" gap={1} alignItems="center">
             <Button
               key="hot-save"
               variant="primary"
@@ -5286,13 +5329,17 @@ Saved to ${out}.md and .json` }
           borderColor={ICE_EDGE}
         >
           {/* Taller than the band and clipped by it, so the frost reaches every edge on the right. */}
+          {layered ? (
           <Box key="frost" position="absolute" top={-1} right={0} bottom={-1}>
             <Svg source={FROST_SVG} alt="frost" width={FROST_WIDTH} height={FROST_HEIGHT} />
           </Box>
+          ) : null}
+          {layered ? (
           <Box key="cold-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
             <Svg source={inPhase(coldGlowSvg(), (await $.clock.now()) % COLD_GLOW_MS)} alt="cold glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
           </Box>
-          {introLayer({ Box, Svg }, 'cold', await introShows($, 'cold'), ICE, '#cfeeff')}
+          ) : null}
+          {introLayer({ Box, Svg }, e.surface, 'cold', await introShows($, 'cold'), ICE, '#cfeeff')}
           <Box flexShrink={0}>
             <Text color={ICE} bold wrap="truncate">
               ✦ Chat went cold
@@ -5300,8 +5347,8 @@ Saved to ${out}.md and .json` }
           </Box>
           <Text wrap="truncate">{line}</Text>
           {/* Room for the buttons, which sit in their own layer after the frost so they are drawn on top of it. */}
-          <Box flexGrow={1} minWidth={34} />
-          <Box key="cold-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
+          <Box flexGrow={1} minWidth={layered ? 34 : 0} />
+          <Box key="cold-actions" {...actionsAt(layered)} flexDirection="row" gap={1} alignItems="center">
             <Button key="cold-hide" plain label="Not now" onPress={() => update($, isColdHidden, () => true)} />
             <Button key="cold-compact" variant="secondary" label="Compact" onPress={() => openCompact($, e)} />
             <Button key="cold-handoff" variant="primary" label="Handoff" onPress={() => openHandoffBar($)} />
@@ -5337,10 +5384,12 @@ Saved to ${out}.md and .json` }
           borderStyle="round"
           borderColor={BOG_EDGE}
         >
+          {layered ? (
           <Box key="bog" position="absolute" top={-1} right={0} bottom={-1}>
             <Svg source={SWAMP_SVG} alt="swamp" width={FROST_WIDTH} height={FROST_HEIGHT} />
           </Box>
-          {introLayer({ Box, Svg }, 'swamp', await introShows($, 'swamp'), '#6f9a4f', '#d6ecc2')}
+          ) : null}
+          {introLayer({ Box, Svg }, e.surface, 'swamp', await introShows($, 'swamp'), '#6f9a4f', '#d6ecc2')}
           <Box flexShrink={0}>
             <Text color={BOG} bold wrap="truncate">
               ✦ Chat is getting swamped
@@ -5356,8 +5405,8 @@ Saved to ${out}.md and .json` }
           <Text wrap="truncate">
             {`${Math.round(swampTokens / 1000)}k tokens re-read every message.`}
           </Text>
-          <Box flexGrow={1} minWidth={34} />
-          <Box key="swamp-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
+          <Box flexGrow={1} minWidth={layered ? 34 : 0} />
+          <Box key="swamp-actions" {...actionsAt(layered)} flexDirection="row" gap={1} alignItems="center">
             <Button key="swamp-compact" variant="primary" label="Compact" onPress={() => openCompact($, e)} />
             <Button key="swamp-handoff" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />
             <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />
