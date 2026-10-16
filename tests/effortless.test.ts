@@ -2698,7 +2698,7 @@ describe('terminal bands', () => {
 
 describe('dashboard', () => {
   const DASH = { options: { layout: 'default' } } as never
-  const start = async ($: Engine, on: On, surface: 'desktop' | 'terminal' = 'desktop') => {
+  const start = async ($: Engine, on: On, surface: 'desktop' | 'terminal' | 'vscode' = 'desktop') => {
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
     on('command.register', () => ({ value: undefined }) as never)
     await $.session.start({ cwd: '.', surface, isInteractive: true } as never)
@@ -3070,6 +3070,36 @@ describe('dashboard', () => {
     expect(await drawn(band)).toContain('⇥ Handoff')
     await band.unmount()
     await expect($.ui.mount(FOOTER)).rejects.toThrow()
+  })
+
+  test('VS Code: the band and the settings keep to the flow, with real buttons where desktop lays blank ones over drawings', DASH, async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    on('session.usage', () => ({ value: { context: { tokens: 180_000, window: 1_000_000, percent: 18 } } }) as never)
+    const CODE_BAND = { plugin: 'effortless', surface: 'vscode', ...BAND } as never
+    await start($, on, 'vscode')
+    await closeSetup($, CODE_BAND)
+    await mocked.advance(16_000)
+    // VS Code lays an absolute box out in the flow, so nothing is drawn as one there: no art, no blank covers.
+    const band = await $.ui.mount(CODE_BAND)
+    expect(await drawn(band)).not.toContain('"position":"absolute"')
+    expect(await drawn(band)).toContain('"children":["18%"]')
+    expect((await band.find({ key: 'dash-auto' }))?.text).toContain('Auto on')
+    expect((await band.find({ key: 'dash-settings' }))?.text).toContain('Settings')
+    await band.press({ key: 'dash-auto' })
+    expect(await drawn(band)).toContain('Auto off')
+    await band.press({ key: 'dash-settings' })
+    await band.unmount()
+    // The settings: each card's title is its button, and the helpers switch is a labelled one.
+    const panel = await $.ui.mount(CODE_BAND)
+    expect(await drawn(panel)).not.toContain('"position":"absolute"')
+    expect((await panel.find({ key: 'settings-card-effort' }))?.text).toContain('Effort ›')
+    await panel.press({ key: 'settings-card-effort' })
+    expect(await drawn(panel)).not.toContain('"position":"absolute"')
+    expect((await panel.find({ key: 'settings-helpers-switch' }))?.text).toContain('○ Helpers')
+    await panel.press({ key: 'settings-helpers-switch' })
+    expect((await panel.find({ key: 'settings-helpers-switch' }))?.text).toContain('◉ Helpers')
+    await panel.unmount()
   })
 
   test('Handoff button set to always: Handoff from the start, calm, no glow, with Compact beside it', { options: { layout: 'default', handoffButton: 'always' } } as never, async ($, on) => {
