@@ -3090,10 +3090,14 @@ describe('dashboard', () => {
     expect(await drawn(band)).toContain('Auto off')
     await band.press({ key: 'dash-settings' })
     await band.unmount()
-    // The settings: each card's title is its button, and the helpers switch is a labelled one.
+    // The settings: each card keeps its look and opens from a small › (VS Code has no cover over it); plain buttons
+    // are drawn dim there, since VS Code drops plain and variant and draws the editor's filled button.
     const panel = await $.ui.mount(CODE_BAND)
     expect(await drawn(panel)).not.toContain('"position":"absolute"')
-    expect((await panel.find({ key: 'settings-card-effort' }))?.text).toContain('Effort ›')
+    expect(await drawn(panel)).toContain('"children":["Effort"]')
+    expect((await panel.find({ key: 'settings-card-effort' }))?.text).toBe('›')
+    expect(await drawn(panel)).toMatch(/"key":"settings-card-effort"[^}]*"dimColor":true/)
+    expect(await drawn(panel)).toMatch(/"key":"settings-close"[^}]*"dimColor":true/)
     await panel.press({ key: 'settings-card-effort' })
     expect(await drawn(panel)).not.toContain('"position":"absolute"')
     expect((await panel.find({ key: 'settings-helpers-switch' }))?.text).toContain('○ Helpers')

@@ -1864,7 +1864,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
 const SAVED_CARD_MS = 2500
 /** The card after Save: the bar's own colours, one line, nothing moving. */
 function savedCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
-  const { Box, Text } = themedEls($.ui.resolve(e))
+  const { Box, Text } = themedEls($.ui.resolve(e), e.surface)
   return (
     <Box key="saved" flexDirection="row" alignItems="center" gap={1} paddingX={1} backgroundColor={DASH_BG} borderStyle="round" borderColor={DASH_EDGE}>
       <Text color={ACCENT}>✓</Text>
@@ -2350,7 +2350,7 @@ let artFrameCount = 0
 
 /** A band's art on the terminal: a Raster on the right, moving for alert kinds; null where it has no room. */
 function bandArt($: EngineInterface, e: RenderInput<'AbovePrompt'>, kind: ArtKind) {
-  const els = themedEls($.ui.resolve(e))
+  const els = themedEls($.ui.resolve(e), e.surface)
   const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 0
   if (e.surface !== 'terminal' || !('Raster' in els) || columns < ART_MIN_WIDTH) return null
   // The still sparkles (the resting dashboard, the guide) are 16 by 4 pixels: in a terminal they read as noise, not
@@ -2388,7 +2388,7 @@ function bandArt($: EngineInterface, e: RenderInput<'AbovePrompt'>, kind: ArtKin
 /** A bar on the terminal (setup, handoff): the title and words on the left with the brand's still art beside them,
  * the controls on a row of their own that wraps, so nothing is cut at 80 columns. */
 function terminalPanel($: EngineInterface, e: RenderInput<'AbovePrompt'>, key: string, title: string, words: unknown, controls: unknown[]) {
-  const { Box, Text } = themedEls($.ui.resolve(e))
+  const { Box, Text } = themedEls($.ui.resolve(e), e.surface)
   return (
     <Box key={key} flexDirection="column" paddingX={1} backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
       <Box flexDirection="row" gap={1} alignItems="center">
@@ -2410,7 +2410,7 @@ type TerminalBand = { key: string; kind: ArtKind; color: string; bg: string; edg
 /** An alert band on the terminal: title and buttons, the detail on a line of its own, art on the right, and the effort
  * row under it, so effort stays in sight while a band shows. */
 async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b: TerminalBand) {
-  const { Box, Text } = themedEls($.ui.resolve(e))
+  const { Box, Text } = themedEls($.ui.resolve(e), e.surface)
   const { rows } = await effortRows($, e, { auto: !b.autoInBar })
   return (
     <Box key={`${b.key}-col`} flexDirection="column">
@@ -2579,7 +2579,7 @@ function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui
 /** The handoff or compact card: words, the moving art while it runs, green with a check once it has landed. `above` is
  * what sits over it (the reply it hangs under), or nothing for the band above the prompt. */
 function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> | RenderInput<'AbovePrompt'>, fresh: HandoffCard, above: unknown, onDismiss?: () => unknown) {
-  const { Box, Text, Svg, Button } = themedEls($.ui.resolve(e))
+  const { Box, Text, Svg, Button } = themedEls($.ui.resolve(e), e.surface)
   const layered = layersOver(e.surface)
   const by = fresh.full ? 'Full' : 'Quick'
   const words = {
@@ -2916,7 +2916,7 @@ export const RELOAD_ARGS = '--force'
 const UPDATE_LOAD_WAIT_MS = 15_000
 /** The update card above the prompt: the offer, the moving art while it updates, green once done. */
 function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card: UpdateCard) {
-  const { Box, Text, Svg, Button, Link } = themedEls($.ui.resolve(e))
+  const { Box, Text, Svg, Button, Link } = themedEls($.ui.resolve(e), e.surface)
   const layered = layersOver(e.surface)
   const landed = card.stage === 'done'
   const words = {
@@ -3265,7 +3265,7 @@ let helpersFlipAt = 0
 
 /** The dashboard: what effortless is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
 async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
-  const els = themedEls($.ui.resolve(e))
+  const els = themedEls($.ui.resolve(e), e.surface)
   const { Box, Text, Button } = els
   const v = await snap($)
   adviceNow = (await read($, handoffAdvice)) ?? null
@@ -3520,7 +3520,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
 /** The terminal's rows above the prompt (Effort steps, Auto, the model row when switched on) and, on any surface, the
  * judge's question when it suggests another model. The rows also sit under an alert band, so effort never goes away. */
 async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opts: { auto?: boolean } = {}) {
-  const { Box, Text, Button } = themedEls($.ui.resolve(e))
+  const { Box, Text, Button } = themedEls($.ui.resolve(e), e.surface)
   const v = await snap($)
   const { auto, autoModel, current, judging, wanted, shownByApp } = v
   const inUse = v.modelNow ?? (await sessionModel($))
@@ -4310,7 +4310,7 @@ Saved to ${out}.md and .json` }
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     // The dashboard look keeps all of this in the band above the prompt; the app's own footer shows.
     if (e.surface !== 'desktop' || config.layout === 'default') return next(e)
-    const { Box, Text, Button } = themedEls($.ui.resolve(e))
+    const { Box, Text, Button } = themedEls($.ui.resolve(e), e.surface)
     const v = await snap($)
     const handoffNow = (await read($, handoffStage)) !== null
     const needsSetup = await read($, setupPending)
@@ -4467,7 +4467,7 @@ Saved to ${out}.md and .json` }
   })
 
   on('ui.render', { component: 'Pane', requestId: 'effortless-agents' }, async ($, e) => {
-    const els = themedEls($.ui.resolve(e))
+    const els = themedEls($.ui.resolve(e), e.surface)
     const agents = await read($, agentsState)
     const open = await read($, agentsOpen)
     const rows = Math.max(12, e.props.scroll.bodyRows)
@@ -4492,7 +4492,7 @@ Saved to ${out}.md and .json` }
 
   on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
     if (config.hide.includes('line')) return next(e)
-    const { Box, Text } = themedEls($.ui.resolve(e))
+    const { Box, Text } = themedEls($.ui.resolve(e), e.surface)
     const v = await snap($)
     const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
     const took = Math.max(1, Math.round(e.props.durationMs / 1000))
@@ -4543,13 +4543,13 @@ Saved to ${out}.md and .json` }
       if (Date.now() - askedHere < 60_000 && !(await read($, settingsOpen))) await update($, settingsOpen, () => true)
     }
     lastRenderBranch = (await read($, settingsOpen)) ? 'drew the settings panel' : 'drew a band or nothing'
-    const { Box, Text, Button, Svg, Link } = themedEls($.ui.resolve(e))
+    const { Box, Text, Button, Svg, Link } = themedEls($.ui.resolve(e), e.surface)
     // The settings panel: a branded header bar, then one compact row per setting, a dim hint at the end of each row.
     if (await read($, settingsOpen)) {
       // The app gives this slot maxRows rows and drops a taller tree whole, without a word. With gaps the panel is 12
       // rows (2 border, 2 header, 4 settings, 4 gaps); without, 7.
       const roomy = (typeof e.props.maxRows === 'number' ? e.props.maxRows : 12) >= 12
-      const { Input, Select } = themedEls($.ui.resolve(e))
+      const { Input, Select } = themedEls($.ui.resolve(e), e.surface)
       const opts = (values: readonly string[]) => values.map(value => ({ value, label: value }))
       // The skills and commands installed here, to pick the handoff writer from: no typing, no file paths. A plugin
       // cannot open a file dialog, and a skill is run by its name anyway.
@@ -4772,15 +4772,20 @@ Saved to ${out}.md and .json` }
               {CARDS.map(c => (
                 <Box key={`card-${c.id}`} position="relative" flexDirection="column" flexGrow={1} width={0} minWidth={18}
                   paddingX={1} borderStyle="round" borderColor={DASH_EDGE} hover={{ backgroundColor: CARD_HOVER, borderColor: CARD_HOVER_EDGE }}>
-                  <Box flexDirection="row" gap={1} alignItems="center">
+                  {/* One line: VS Code wraps a row by default, which dropped a long title's › to a second line. */}
+                  <Box flexDirection="row" flexWrap="nowrap" gap={1} alignItems="center">
                     {Svg && !term ? <Svg source={rowIconSvg(c.id, DASH_TEXT)} alt={c.title} width={14} height={14} /> : null}
                     {/* The terminal draws the blank buttons below as real spaces over the card's text, so there the
                         title itself is the button. (Full-width padded buttons per row looked worse: a big lit block.) */}
-                    {flat ? (
+                    {term ? (
                       <Button key={`settings-card-${c.id}`} plain label={`${c.title} ›`} onPress={openCard(c.id)} />
                     ) : (
-                      <Text color={DASH_TEXT} bold hover={{ color: '#ffffff' }}>{c.title}</Text>
+                      <Text color={DASH_TEXT} bold wrap="truncate" hover={{ color: '#ffffff' }}>{c.title}</Text>
                     )}
+                    {/* Where layers do not stack (VS Code) there is no cover over the card, and a Button there is one line
+                        of plain text, so the card keeps its look and a small › at the end of the title row opens it. */}
+                    {flat && !term ? <Box flexGrow={1} /> : null}
+                    {flat && !term ? <Button key={`settings-card-${c.id}`} plain label="›" onPress={openCard(c.id)} /> : null}
                   </Box>
                   <Text dimColor wrap="truncate" hover={{ dimColor: false, color: DASH_TEXT }}>{summaries[c.id]}</Text>
                   {/* The click takes the whole card: a button is one line high and centred in its box, whatever the box,
@@ -4891,7 +4896,7 @@ Saved to ${out}.md and .json` }
                   pick({ key: "settings-theme", label: "Theme", value: shown.theme, options: [{ value: 'violet', label: 'Violet' }, { value: 'orange', label: 'Claude orange' }, { value: 'rose', label: 'Cherry blossom' }], onSelect: set('theme') }),
                 ]),
             ...toggles,
-            ...(bare ? [] : [uninstallButton($, themedEls($.ui.resolve(e)), !flat)]),
+            ...(bare ? [] : [uninstallButton($, themedEls($.ui.resolve(e), e.surface), !flat)]),
 ]}
               </Box>
             </Box>
@@ -4903,7 +4908,7 @@ Saved to ${out}.md and .json` }
     // band's Handoff; Go keeps the choice for next time. Enter presses Go once the bar holds the keyboard.
     // The compact bar: an optional note for the summary, then Compact (or Enter).
     if (e.surface !== 'terminal' && (await read($, compactAsk))) {
-      const { Input } = themedEls($.ui.resolve(e))
+      const { Input } = themedEls($.ui.resolve(e), e.surface)
       const go = () => compactCold($, compactNote)
       const nowCompact = await $.clock.now()
       // One redraw once the fade is over, to drop its layer.
@@ -4976,7 +4981,7 @@ Saved to ${out}.md and .json` }
         await update($, handoffPick, () => ({ ...choice, ...change }))
         // The write alone redraws the bar; a full invalidate redraws the art too, which flickers.
       }
-      const { Select } = themedEls($.ui.resolve(e))
+      const { Select } = themedEls($.ui.resolve(e), e.surface)
       const what = handoffWhat(choice, config.handoffSkill)
       // Go is the one lit button: the picked kind is a quiet box, the other plain text. The app draws a hotkey's
       // letter faint on a grey button, so only the terminal gets letters there.
@@ -5066,7 +5071,7 @@ Saved to ${out}.md and .json` }
     // footer, then a word on what else is there. The choices are saved together at Done or ✕ (see setupDraft).
     const step = await read($, setupStep)
     if (step) {
-      const { Input, Select } = themedEls($.ui.resolve(e))
+      const { Input, Select } = themedEls($.ui.resolve(e), e.surface)
       const draft = await read($, setupDraft)
       const shown = setupShown(draft, config)
       const pick = (field: keyof SettingsDraft, value: string) => update($, setupDraft, d => ({ ...d, [field]: value }))
