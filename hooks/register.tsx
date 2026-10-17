@@ -103,6 +103,8 @@ const YELLOW = '#e0a33a'
 const RED = '#e5534b'
 const isAutoModel = atom({ plugin: 'effortless', key: 'isAutoModel' } as const, false)
 const pick = atom({ plugin: 'effortless', key: 'pick' } as const, null)
+// Pick once per chat, before the first prompt is sent: reading the draft, asking about a move up, or done.
+const modelScan = atom({ plugin: 'effortless', key: 'modelScan' } as const, null)
 const isJudging = atom({ plugin: 'effortless', key: 'isJudging' } as const, false)
 const suggestion = atom({ plugin: 'effortless', key: 'suggestion' } as const, null)
 const appEffort = atom({ plugin: 'effortless', key: 'appEffort' } as const, null)
@@ -192,8 +194,9 @@ const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'show', title: 'Customize', about: 'How effortless looks and which parts it shows. Uninstall removes it.' },
   { id: 'judge', title: 'Judge', about: 'Haiku judges prompts and handoffs. Add Jev for quicker effort calls. Test checks it answers.' },
 ]
-// The Model card: the two ways to run. Effort follows the judge in both.
+// The Model card: the three ways to run. Effort follows the judge in all.
 const MODEL_CHOICES = [
+  { value: 'once', label: 'Pick once per chat', tag: '', about: "The first prompt picks the chat's model and switches to it before it is sent. It never changes mid-chat, so the cache stays warm." },
   { value: 'on', label: 'Cheaper when it can', tag: 'experimental', about: "A simple prompt may run on Haiku or Sonnet. Rarely pays: the other model has to reread the whole chat." },
   { value: 'off', label: "Always the chat's", tag: '', about: "Every prompt keeps the model you picked. Only effort changes." },
 ] as const
@@ -615,7 +618,7 @@ export type JudgeConfig = {
   /** advised: the footer slot is Compact until Haiku advises a handoff. always: it is always the Handoff button. */
   handoffButton: 'advised' | 'always'
   /** A prompt the judge calls simple runs on a cheaper model than the chat's (never a dearer one). */
-  modelAuto: 'on' | 'off'
+  modelAuto: 'on' | 'once' | 'off'
   /** on: every subagent the chat sends off gets an effort picked by the judge before it starts. */
   helpers: 'on' | 'off'
   /** The accent colour of everything effortless draws: the brand violet, Claude orange or cherry-blossom rose. */
@@ -672,7 +675,7 @@ export function readConfig(options: unknown): JudgeConfig {
     handoffButton: str(o.handoffButton) === 'always' ? 'always' : 'advised',
     // Off unless switched on: one prompt on another model rewrites the whole chat into that model's cache, which costs
     // more than it saves in a chat that is in use (measured 2026-10-10).
-    modelAuto: str(o.modelAuto) === 'on' ? 'on' : 'off',
+    modelAuto: str(o.modelAuto) === 'on' ? 'on' : str(o.modelAuto) === 'once' ? 'once' : 'off',
     helpers: str(o.helpers) === 'on' ? 'on' : 'off',
     theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
     appearance: (['dark', 'light'] as const).find(a => a === str(o.appearance)) ?? 'auto',
@@ -1102,15 +1105,19 @@ async function typeCommand($: EngineInterface, text: string): Promise<boolean> {
 }
 
 /** A model change reloads the context, so it only happens when the person says yes. */
-async function switchModel($: EngineInterface, model: ModelKey) {
+async function switchModel($: EngineInterface, model: ModelKey, quiet = false): Promise<boolean> {
   try {
     await $.command.run({ command: 'model', args: model })
     declined = null
     await update($, suggestion, () => null)
     const current = await read($, pick)
     if (current) await choose($, { ...current, model })
-  } catch {
-    $.ui.toast('Could not switch the model right now')
+    return true
+  } catch (err) {
+    const why = err instanceof Error ? err.message : String(err)
+    void proof($, `switch to ${model} failed: ${why}`)
+    if (!quiet) $.ui.toast(`Could not switch the model right now (${why.slice(0, 120)})`)
+    return false
   }
 }
 
@@ -2292,7 +2299,214 @@ const HANDOFF_POLL_MS = 1000
 let routed: ModelKey | null = null
 // Prompts left that stay on the chat's model, after a cheaper answer was redone.
 let stayUp = 0
+// Pick once per chat: whether this chat's model is settled. It settles on the chat's first judged prompt, or on its
+// first response when no judge ran before it; from then `routed` holds the chat's model for good (null: the chat's own).
+// Kept per chat in the store, so a resumed chat goes on where it was and its cache stays the one it warmed.
+let chatModelLocked = false
+// The model the chat was picked onto (null: its own), kept per chat so a chat opened again goes back to it.
+let chatPick: ModelKey | null = null
+/** Locks the chat's model: `to` is the pick kept for the chat, `route` where its requests go meanwhile (null: the chat's own). */
+async function lockChatModel($: EngineInterface, to: ModelKey | null, route: ModelKey | null = to) {
+  chatModelLocked = true
+  chatPick = to
+  routed = route
+  // The id asked now, not the one at load: /clear starts a new chat in the same load.
+  const sid = await $.session.id().catch(() => null)
+  if (sid) await $.store.set(`chatModel:${sid}`, to ?? 'own').catch(() => undefined)
+}
 const MODEL_RANK: ModelKey[] = ['haiku', 'sonnet', 'opus', 'fable']
+// How long the prompt waits for a yes to a move up before it counts as a no.
+const MOVE_UP_WAIT_MS = 120_000
+let answerMoveUp: ((yes: boolean) => void) | null = null
+/** Holds the prompt and asks the person to move the chat up to a stronger model. No answer in time is a no. */
+async function askMoveUp($: EngineInterface, from: ModelKey, to: ModelKey): Promise<boolean> {
+  await update($, modelScan, () => ({ stage: 'ask' as const, from, to }))
+  $.ui.toast(`effortless: the judge wants ${to} for this chat (now ${from}). It costs more. Answer above the prompt.`)
+  $.ui.invalidate('ui.render')
+  try {
+    return await new Promise<boolean>(resolve => {
+      answerMoveUp = resolve
+      $.clock.after(MOVE_UP_WAIT_MS, () => resolve(false))
+    })
+  } finally {
+    answerMoveUp = null
+    await update($, modelScan, () => null)
+    $.ui.invalidate('ui.render')
+  }
+}
+
+/**
+ * Settles the chat's model from a verdict: any model, switched for real. A move up asks first; on no (or no answer) the
+ * chat stays on its model and the effort goes up one level instead. Returns the verdict to use for the prompt.
+ */
+/** The effort one level up, for a chat that stays on its model after a move up was declined. */
+function raisedEffort(effort: Effort): Effort {
+  return EFFORTS[Math.min(EFFORTS.indexOf(effort) + 1, EFFORTS.length - 1)] ?? effort
+}
+
+async function settleChatModel<V extends { model: ModelKey; effort: Effort }>($: EngineInterface, verdict: V, inUse: ModelKey): Promise<V | null> {
+  let to: ModelKey | null = verdict.model !== inUse ? verdict.model : null
+  let out = verdict
+  if (to && MODEL_RANK.indexOf(to) > MODEL_RANK.indexOf(inUse)) {
+    const yes = await askMoveUp($, inUse, to)
+    // Enter came during the question: the prompt's own hook asks again and settles the chat.
+    if (submitTakeover) return null
+    if (!yes) {
+      void proof($, `move up to ${to} declined: stays on ${inUse}, effort raised`)
+      to = null
+      out = { ...verdict, model: inUse, effort: raisedEffort(verdict.effort) }
+    }
+  }
+  await lockChatModel($, null)
+  if (to) {
+    // A switch is a command, and the app refuses commands inside a hook the prompt waits on: this runs from the draft watch.
+    // The app refused it: the chat stays on its model, and the toast says why.
+    settling = true
+    try {
+      if (await switchModel($, to)) {
+        // Switched for real: the chat's own model is the pick now, and no request needs routing.
+        await lockChatModel($, to, null)
+        await update($, saved, old => ({ ...asSpent(old), moved: asSpent(old).moved + 1 }))
+      } else to = null
+    } finally {
+      settling = false
+    }
+  }
+  void proof($, to ? `this chat runs on ${to} (picked once, switched from ${inUse})` : `this chat stays on ${inUse} (picked once)`)
+  await update($, modelScan, () => ({ stage: 'done' as const, model: to ?? inUse, moved: to !== null }))
+  $.ui.invalidate('ui.render')
+  return out
+}
+
+// The draft watch: in a new chat with Pick once per chat, the prompt is read once typing has stopped, and the model is
+// settled before the person sends it.
+const DRAFT_QUIET_MS = 3000
+let draftSeen = ''
+let draftSince = 0
+let draftTried = ''
+let scanning: Promise<void> | null = null
+// settled: the draft watch switched the chat already; false: Enter came first, and the prompt's own hook settles it.
+let scanned: { text: string; verdict: Pick; ms: number; tokens: number; settled: boolean } | null = null
+// Enter came while the draft watch was still reading or asking: the watch stops short of settling, and the prompt's
+// own hook settles the chat from the watch's verdict.
+let submitTakeover = false
+// The draft watch is running its switch (a command): a prompt sent in these few ms must not wait on it.
+let settling = false
+// How long a prompt's hook waits for a scan still reading the draft (through $ calls, which its budget does not count).
+const SCAN_WAIT_MS = 8000
+// Pick once per chat, decided at Enter. A fresh desktop chat starts its engine on the first Enter, with the prompt
+// already queued, so nothing can run while it is typed. The prompt's own hook judges it; a cheaper pick (or a move up
+// the person said yes to) routes the first turn to the picked model, and the chat is switched for real once that turn
+// ends, where the app allows a command. The cache the first turn wrote is on the picked model, so nothing is thrown away.
+let pendingSwitch: ModelKey | null = null
+let watchTicks = 0
+let watchNote = 'not run yet'
+async function draftWatch($: EngineInterface) {
+  watchTicks++
+  if (config.modelAuto !== 'once' || chatModelLocked || scanning) {
+    watchNote = `idle: modelAuto=${config.modelAuto}, locked=${chatModelLocked}, scanning=${!!scanning}`
+    return
+  }
+  const read = await $.prompt.read().then(r => r, err => err)
+  if (read instanceof Error || read === undefined || read === null) {
+    watchNote = `prompt.read failed: ${read instanceof Error ? read.message : String(read)}`
+    return
+  }
+  const text = (read as { text?: string }).text ?? ''
+  watchNote = `watching: draft ${text.length} chars, quiet for ${Math.round((Date.now() - draftSince) / 1000)} s`
+  const now = await $.clock.now().catch(() => Date.now())
+  if (text !== draftSeen) {
+    draftSeen = text
+    draftSince = now
+    return
+  }
+  const typed = text.trim()
+  if (!typed || typed.startsWith('/') || text === draftTried || now - draftSince < DRAFT_QUIET_MS) return
+  draftTried = text
+  scanning = scanDraft($, text).finally(() => {
+    scanning = null
+  })
+}
+async function scanDraft($: EngineInterface, text: string) {
+  submitTakeover = false
+  await update($, modelScan, () => ({ stage: 'scanning' as const }))
+  $.ui.invalidate('ui.render')
+  try {
+    const inUse = await sessionModel($)
+    const startedAt = Date.now()
+    const { verdict, tokens } = await judge($, text, { model: inUse, effort: (await read($, pick))?.effort ?? 'medium', why: '', by: 'manual' })
+    if (!verdict || chatModelLocked) {
+      await update($, modelScan, () => null)
+      $.ui.invalidate('ui.render')
+      return
+    }
+    const ms = Date.now() - startedAt
+    // Enter came while the judge read the draft, or during the question: the verdict is kept for the prompt's own
+    // hook, which settles the chat from it (a switch run from here now would stall the turn).
+    const settled = submitTakeover ? null : await settleChatModel($, verdict, inUse)
+    if (!settled) {
+      scanned = { text, verdict, ms, tokens, settled: false }
+      await update($, modelScan, () => null)
+      $.ui.invalidate('ui.render')
+      return
+    }
+    scanned = { text, verdict: settled, ms, tokens, settled: true }
+    const done = await read($, modelScan)
+    const picked = done?.stage === 'done' ? done.model : inUse
+    const name = MODELS.find(m => m.key === picked)?.label ?? picked
+    $.ui.toast(`effortless: this chat ${done?.stage === 'done' && done.moved ? 'runs on' : 'stays on'} ${name}. Submit your prompt.`)
+  } catch {
+    await update($, modelScan, () => null)
+    $.ui.invalidate('ui.render')
+  }
+}
+
+/**
+ * Pick once per chat, at Enter: the prompt's own verdict settles the chat. A move up asks first, in the app's own
+ * question (a $ call, so the hook's budget does not run while it waits); no, or the question dismissed, keeps the chat
+ * on its model at one effort level up. A pick routes the first turn to the picked model and books the real switch for
+ * the turn's end. Returns the verdict to use for this prompt.
+ */
+async function pickAtSubmit<V extends { model: ModelKey; effort: Effort }>($: EngineInterface, verdict: V, inUse: ModelKey): Promise<V> {
+  let to: ModelKey | null = verdict.model !== inUse ? verdict.model : null
+  let out = verdict
+  if (to && MODEL_RANK.indexOf(to) > MODEL_RANK.indexOf(inUse)) {
+    if (!(await askMoveUpAtSubmit($, inUse, to))) {
+      void proof($, `move up to ${to} declined at Enter: stays on ${inUse}, effort raised`)
+      to = null
+      out = { ...verdict, model: inUse, effort: raisedEffort(verdict.effort) }
+    }
+  }
+  await lockChatModel($, to, to)
+  pendingSwitch = to
+  const name = (k: ModelKey) => MODELS.find(m => m.key === k)?.label ?? k
+  if (to) {
+    void proof($, `this chat runs on ${to} from its first prompt (picked once at Enter); the switch lands when the turn ends`)
+    $.ui.toast(`effortless: this chat runs on ${name(to)} (picked from your first prompt)`)
+  } else {
+    void proof($, `this chat stays on ${inUse} (picked once at Enter)`)
+    // The pick is the chat's own model: said too, so a pick that changes nothing is still seen to have happened.
+    $.ui.toast(
+      out === verdict
+        ? `effortless: this chat stays on ${name(inUse)} (picked from your first prompt)`
+        : `effortless: this chat stays on ${name(inUse)} at ${EFFORT_LABELS[out.effort] ?? out.effort} effort (you kept it)`,
+    )
+  }
+  return out
+}
+
+/** The move-up question at Enter, in the app's own dialog; dismissed, or nobody to ask, counts as no. */
+async function askMoveUpAtSubmit($: EngineInterface, from: ModelKey, to: ModelKey): Promise<boolean> {
+  const name = (k: ModelKey) => MODELS.find(m => m.key === k)!.label
+  const up = `Move up to ${name(to)}`
+  const stay = `Stay on ${name(from)}, raise effort`
+  try {
+    const answer = await $.ui.ask(`This prompt looks like work for ${name(to)}, and the chat is on ${name(from)}. It costs more. Move the chat up?`, { options: [up, stay], header: 'Model' })
+    return answer === up
+  } catch {
+    return false
+  }
+}
 /** The model a verdict sends this prompt to: a cheaper one than the chat's, or null for the chat's own. Never Fable. */
 export function routeTo(verdict: ModelKey, inUse: ModelKey): ModelKey | null {
   if (verdict === 'fable') return null
@@ -2713,6 +2927,7 @@ function startTimers($: EngineInterface, from: 'start' | 'draw') {
   handoffTimer?.cancel()
   handoffTimer = $.clock.every(HANDOFF_POLL_MS, () => {
     void agentWaits($).catch(() => undefined)
+    void draftWatch($).catch(() => undefined)
     if (redrawsOwed > 0) {
       // Drawn since the ask: the band is up to date, so a redraw would only restart its animations.
       if (lastRenderAt > redrawAskedAt + REDRAW_SETTLE_MS) redrawsOwed = 0
@@ -3818,6 +4033,23 @@ export const register: Register = (on, options) => {
     ])
     // Which chat this load serves, and when it started: each chat has its own render log.
     loadedSession = String(sid).slice(0, 8)
+    // Pick once per chat: a chat seen before keeps the model it picked; a new one picks on its first prompt.
+    const kept1 = await $.store.get(`chatModel:${sid}`).catch(() => null)
+    if (typeof kept1 === 'string') {
+      chatModelLocked = true
+      chatPick = kept1 !== 'own' && MODELS.some(m => m.key === kept1) ? (kept1 as ModelKey) : null
+      routed = chatPick
+      // A chat opened again may come up on another model (the desktop app relaunches it on its own picker's): it goes
+      // back to its pick from a timer, where the app allows a command. Until then, and if the app refuses, its requests
+      // are routed there.
+      if (chatPick) {
+        const back = chatPick
+        $.clock.after(0, async () => {
+          const inUse = await sessionModel($).catch(() => null)
+          if (inUse === back || (await switchModel($, back, true))) routed = null
+        })
+      }
+    }
     // Settings the app had no /config row for (see saveSetting), over the ones it passed in.
     if (kept && typeof kept === 'object' && Object.keys(kept).length) {
       config = readConfig({ ...pluginOptions, ...kept })
@@ -3854,6 +4086,22 @@ export const register: Register = (on, options) => {
     const result = await next(e)
     const r = e as { source?: string; seconds_since_last_response?: number; prompt_cache_likely_expired?: boolean }
     classicStart = { at: Date.now(), said: `${r.source ?? '?'}, ${r.seconds_since_last_response ?? '?'}s since reply, expired ${r.prompt_cache_likely_expired ?? '?'}` }
+    // Pick once per chat: /clear starts an empty chat, which picks again. A resumed or forked chat with no pick kept
+    // (it ran before this mode was on) already has a cache on its own model: it stays there.
+    if (r.source === 'clear') {
+      chatModelLocked = false
+      chatPick = null
+      pendingSwitch = null
+      submitTakeover = false
+      scanned = null
+      draftTried = ''
+      draftSeen = ''
+      await update($, modelScan, () => null)
+      routed = null
+      stayUp = 0
+    } else if ((r.source === 'resume' || r.source === 'fork') && !chatModelLocked) {
+      chatModelLocked = true
+    }
     if ((r.source === 'resume' || r.source === 'fork') && typeof r.seconds_since_last_response === 'number' && cacheExpires === 0) {
       const now = await $.clock.now()
       lastResponseAt = now - r.seconds_since_last_response * 1000
@@ -3875,6 +4123,17 @@ export const register: Register = (on, options) => {
     const result = await next(e)
     if (e.agentId) await agentEnded($, e.agentId, e.reason)
     if (!e.agentId) await setTurnBusy($, false)
+    // Pick once per chat, decided at Enter: the first turn ran on the picked model by routing; the chat is switched for
+    // real here, where the app allows a command. Refused, its requests keep going there.
+    if (!e.agentId && pendingSwitch) {
+      const to = pendingSwitch
+      pendingSwitch = null
+      if (await switchModel($, to, true)) {
+        routed = null
+        await update($, saved, old => ({ ...asSpent(old), moved: asSpent(old).moved + 1 }))
+        void proof($, `this chat is on ${to} for real now (switched after its first turn)`)
+      } else void proof($, `switch to ${to} refused after the first turn: its requests keep going there`)
+    }
     // A lower verdict for a message typed during the turn takes over now, if Auto is still on.
     if (!e.agentId && heldPick) {
       const held = heldPick
@@ -3995,7 +4254,8 @@ export const register: Register = (on, options) => {
           `handoff: ${await read($, handoffStage)}`,
           `last fork: ${lastFork ? `${lastFork.outcome}, ${ago(lastFork.at)}` : 'none'}`,
           `hidden: ${config.hide.join(',') || 'nothing'}`,
-          `model: ${config.modelAuto === 'on' ? `cheaper when it can, now ${routed ?? 'the chat\'s'}` : 'always the chat\'s'}`,
+          `draft watch: ${watchNote} (${watchTicks} ticks)`,
+          `model: ${config.modelAuto === 'on' ? `cheaper when it can, now ${routed ?? 'the chat\'s'}` : config.modelAuto === 'once' ? `once per chat, ${chatModelLocked ? `picked ${chatPick ?? 'the chat\'s'}${pendingSwitch ? ' (the switch lands when the turn ends)' : routed ? ' (routed)' : ''}` : 'not picked yet'}` : 'always the chat\'s'}`,
           lastRequest
             ? `last request: app asked ${lastRequest.appModel} at ${lastRequest.appEffort ?? 'none'}, sent ${lastRequest.model} at ${lastRequest.effort ?? 'none'}${lastRequest.model === lastRequest.appModel && lastRequest.effort === lastRequest.appEffort ? ' (unchanged)' : ' (changed by effortless)'}, ${ago(lastRequest.at)}`
             : 'last request: none yet',
@@ -4048,9 +4308,21 @@ Saved to ${out}.md and .json` }
   on('prompt.submit', async ($, e, next) => {
     await setTurnBusy($, true)
     turnCost = 0
+    // A scan in flight stops short: its verdict is reused below, and this hook settles the chat (a question about a move
+    // up is asked again here). Waited on through $ calls, which the hook's budget does not count; never while the scan
+    // runs its switch, a command that would wait on this very prompt.
+    if (scanning && !settling) {
+      submitTakeover = true
+      answerMoveUp?.(false)
+      const until = Date.now() + SCAN_WAIT_MS
+      // Read through a call: the awaited scan clears `scanning` itself, which a narrowed local would not see.
+      const scanRuns = () => scanning !== null && !settling
+      while (scanRuns() && Date.now() < until) await $.clock.now().catch(() => undefined)
+    }
     // A landed handoff's card goes once the next message is sent.
     const card = await read($, handoffCard)
     if (card && (card.kind === 'done' || card.kind === 'copied')) await update($, handoffCard, () => null)
+    await update($, modelScan, () => null)
     const byPerson = e.origin.kind === 'composer' || e.origin.kind === 'bridge' || e.origin.kind === 'sdk'
     // The handoff check runs for every message the person types, whatever the effort judge is doing (or whether Auto is on).
     if (byPerson && !e.text.trim().startsWith('/') && !isFollowUp(e.text)) void checkHandoff($, e.text).catch(() => undefined)
@@ -4090,7 +4362,7 @@ Saved to ${out}.md and .json` }
         heldPick = null
         await choose($, applied)
       }
-      if (!midTurn && routed) routed = null
+      if (!midTurn && routed && config.modelAuto !== 'once') routed = null
       await countPrompt($, inUse !== 'haiku' ? named : undefined, 'named', 0, 0)
       void proof($, `named level ${named} in "${e.text.slice(0, 50)}": no judge`)
       $.ui.invalidate('ui.render')
@@ -4107,14 +4379,15 @@ Saved to ${out}.md and .json` }
     try {
       const inUse = await sessionModel($)
       const startedAt = Date.now()
-      const { verdict, tokens: judgeTokens } = await judge($, shown, {
-        model: inUse,
-        effort: (await read($, pick))?.effort ?? 'medium',
-        why: '',
-        by: 'manual',
-      })
+      // The draft was read while it was typed: its verdict, and the model it settled, stand for this prompt.
+      const pre = scanned && scanned.text === e.text ? scanned : null
+      const judged: Judged = pre
+        ? { verdict: pre.verdict, tokens: pre.tokens }
+        : await judge($, shown, { model: inUse, effort: (await read($, pick))?.effort ?? 'medium', why: '', by: 'manual' })
+      let verdict = judged.verdict
+      const judgeTokens = judged.tokens
       await endJudgeGlow($, 'verdict')
-      const ms = Date.now() - startedAt
+      const ms = pre ? pre.ms : Date.now() - startedAt
       await countPrompt($, wantsEffort && inUse !== 'haiku' ? verdict?.effort : undefined, verdict?.by, ms, judgeTokens)
       void proof(
         $,
@@ -4123,6 +4396,12 @@ Saved to ${out}.md and .json` }
           : `no verdict after ${ms} ms for "${e.text.slice(0, 50)}"`,
       )
       $.ui.invalidate('ui.render')
+      // Pick once per chat: settled while the prompt was typed (the draft watch), else here, at Enter, from this verdict.
+      // No verdict: the chat keeps its own model.
+      if (config.modelAuto === 'once' && !chatModelLocked && !midTurn) {
+        if (verdict) verdict = await pickAtSubmit($, verdict, inUse)
+        else await lockChatModel($, null)
+      }
       if (verdict) {
         // Effort follows the verdict at once, when Auto is on for effort. The model stays: switching it
         // reloads the context, so with Auto on for model it is only suggested.
@@ -4144,7 +4423,8 @@ Saved to ${out}.md and .json` }
           }
         }
         // A prompt the judge calls simple runs on a cheaper model; a message typed mid-turn leaves the running choice.
-        if (!midTurn) {
+        // (Pick once per chat settled the model above, for the whole chat.)
+        if (config.modelAuto !== 'once' && !midTurn) {
           let to = wantsEffort && config.modelAuto === 'on' ? routeTo(verdict.model, inUse) : null
           // The last prompt ran on a cheaper model and this one says it was wrong: that is a miss. The retry runs on the
           // chat's own model, and so do the next few prompts.
@@ -4171,7 +4451,7 @@ Saved to ${out}.md and .json` }
             $.ui.invalidate('ui.render')
           }
         }
-        if (wantsModel && verdict.model !== inUse && verdict.model !== declined) {
+        if (wantsModel && config.modelAuto !== 'once' && verdict.model !== inUse && verdict.model !== declined) {
           await update($, suggestion, () => verdict.model)
           $.ui.toast(`Suggestion: switch to ${verdict.model}? /effortless switch or /effortless keep`)
         } else if (verdict.model === inUse) {
@@ -4203,6 +4483,9 @@ Saved to ${out}.md and .json` }
       // A prompt run on a cheaper model leaves the chat's own cache as it was: only the chat's model restarts the countdown.
       if (e.agentId === undefined && answer?.usage && request.model === e.model) await cacheTouched($, answer.usage).catch(() => undefined)
       if (e.agentId === undefined && answer?.usage) turnCost += weighted(answer.usage)
+      // Pick once per chat: a response that came before any pick (the judge was skipped or failed) warmed the chat's own
+      // model, so the chat stays there.
+      if (e.agentId === undefined && answer?.usage && config.modelAuto === 'once' && !chatModelLocked) await lockChatModel($, null).catch(() => undefined)
       if (e.agentId !== undefined && answer?.usage) await agentCost($, e.agentId, weighted(answer.usage)).catch(() => undefined)
       return answer
     }
@@ -4229,9 +4512,11 @@ Saved to ${out}.md and .json` }
       }
     }
     // The judge put this prompt on a cheaper model: each of its requests goes there, at the picked effort.
-    if (e.agentId === undefined && routed && (await read($, isAuto))) {
+    // The chat's own pick (once per chat) holds with Auto off too: it is the chat's model, not an Auto choice.
+    const autoOn = await read($, isAuto)
+    if (e.agentId === undefined && routed && (autoOn || config.modelAuto === 'once')) {
       const to = MODELS.find(m => m.key === routed)!.id
-      const picked = await read($, pick)
+      const picked = autoOn ? await read($, pick) : null
       const effort = picked?.effort ?? e.effort
       void proof($, `request ${e.index}: ${e.model} -> ${to} at ${effort}`)
       const result = yield* send({ ...e, model: to, effort })
@@ -4505,6 +4790,31 @@ Saved to ${out}.md and .json` }
       lastRenderBranch = 'stepped aside: the app has a survey in this spot'
       return next(e)
     }
+    // Pick once per chat: the draft is read, then the model is set, before the prompt is sent.
+    const scan = await read($, modelScan)
+    if (scan) {
+      const { Button } = themedEls($.ui.resolve(e))
+      const name = (k: ModelKey) => MODELS.find(m => m.key === k)!.label
+      if (scan.stage === 'scanning')
+        return terminalBand($, e, {
+          key: 'modelscan', kind: 'brand', color: ICE, bg: BRAND_BG, edge: BRAND_EDGE, title: 'Choosing a model…',
+          detail: 'Reading your prompt to pick this chat\'s model.', buttons: [],
+        })
+      if (scan.stage === 'ask')
+        return terminalBand($, e, {
+          key: 'moveup', kind: 'hot', color: EMBER, bg: EMBER_BG, edge: EMBER_EDGE, title: `Move up to ${name(scan.to)}?`,
+          detail: `This prompt looks like work for ${name(scan.to)}, and the chat is on ${name(scan.from)}. It costs more.`,
+          buttons: [
+            <Button key="moveup-no" plain hotkey="n" label={`Stay on ${name(scan.from)}, raise effort`} onPress={() => answerMoveUp?.(false)} />,
+            <Button key="moveup-yes" variant="primary" hotkey="y" autoFocus label={`Move up to ${name(scan.to)}`} onPress={() => answerMoveUp?.(true)} />,
+          ],
+        })
+      return terminalBand($, e, {
+        key: 'modeldone', kind: 'done', color: DONE_ACCENT, bg: DONE_BG, edge: DONE_EDGE, title: `Model: ${name(scan.model)}`,
+        detail: scan.moved ? 'Switched for this chat. Submit your prompt.' : 'Staying on this model for the chat. Submit your prompt.',
+        buttons: [],
+      })
+    }
     const asked = await $.store.get('openSettingsAt')
     const askedHere =
       asked && typeof asked === 'object' && (asked as { session?: string }).session === (await $.session.id().catch(() => ''))
@@ -4579,7 +4889,7 @@ Saved to ${out}.md and .json` }
       const judgeName = shown.judge === 'haiku' ? 'Haiku' : hasKey || shown.judge === 'jev' ? 'Haiku + Jev' : 'Haiku'
       const summaries: Record<SettingsCard, string> = {
         effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.helpers === 'on' ? ' · helpers' : ''}`,
-        model: shown.modelAuto === 'on' ? 'Cheaper when it can' : "Always the chat's",
+        model: shown.modelAuto === 'on' ? 'Cheaper when it can' : shown.modelAuto === 'once' ? 'Pick once per chat' : "Always the chat's",
         judge: tested && tested.ok !== null ? `${judgeName} · ${tested.ok ? 'working' : 'failing'}` : judgeName,
         handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · compact alert at ${shown.swampAt}%`,
         show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${2 - ['timer', 'reason'].filter(h => hidden.includes(h)).length} of 2 on`,

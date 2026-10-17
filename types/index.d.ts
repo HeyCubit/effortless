@@ -59,7 +59,7 @@ export type SettingsDraft = {
   compactWith?: string
   /** advised (the slot is Compact until Haiku advises a handoff) or always (the slot is the Handoff button). */
   handoffButton?: string
-  /** on: a prompt the judge calls simple runs on a cheaper model than the chat's; off: always the chat's model. */
+  /** once: the chat's first prompt picks its model for the whole chat; on: a prompt the judge calls simple runs on a cheaper model than the chat's; off: always the chat's model. */
   modelAuto?: string
   /** on: each subagent gets an effort picked by the judge before it starts; off: it runs at the chat's effort. */
   helpers?: string
@@ -198,6 +198,10 @@ declare module 'claude-code' {
       pick: Pick | null
       isJudging: boolean
       suggestion: ModelKey | null
+      /** Pick once per chat, before the prompt is sent: reading the draft, asking about a move up, or done. */
+      modelScan: { stage: 'scanning' } | { stage: 'ask'; from: ModelKey; to: ModelKey } | { stage: 'done'; model: ModelKey; moved: boolean } | null
+      /** The update check, for the Customize card: idle, checking, newest, or found <version>. */
+      updateCheck: string
       /** The effort the person last set outside the mod (the app's control, their /effort): what the app shows. */
       appEffort: string | null
       /** The model the session runs now, as the engine last reported it (start, a switch, a request). */

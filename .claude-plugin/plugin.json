@@ -87,9 +87,10 @@
     "modelAuto": {
       "type": "string",
       "title": "Cheaper model when it can (experimental)",
-      "description": "on: a prompt the judge calls simple may run on a cheaper model (Haiku 5.5 or Sonnet), never above the chat's own, when the switch pays. It rarely does in a chat that is in use: the other model rereads the whole chat. off (default): every prompt runs on the chat's model.",
+      "description": "once: the judge reads the chat's first prompt and picks its model (any model, no cap). While you type, the chat is switched before you send; where nothing can run until your first Enter (a new desktop chat starts its engine then), it decides at that Enter: a cheaper pick runs the first turn there and the chat is switched when the turn ends, a stronger one asks you first. The whole chat stays on it, so the cache is never thrown away. on: a prompt the judge calls simple may run on a cheaper model, never above the chat's own, when the switch pays. It rarely does in a chat that is in use: the other model rereads the whole chat. off (default): every prompt runs on the chat's model.",
       "default": "off",
       "options": [
+        "once",
         "on",
         "off"
       ]
