@@ -12,12 +12,14 @@
   (other chats' changes sit in the tree). Reaches no user.
 - `tools/publish.sh "<what's new>" "<detail>"`: minor bump, writes releases.json and public.json, moves `stable`, then
   runs `tools/site.sh`. Every user gets an update card. Only on Isac's word.
-- Public: 1.64.0 (2026-10-08). Dev: 1.63.1.
+- Public: 1.71.0 (2026-10-12). Dev: same.
 
 ## Website
 - https://heycubit.github.io/effortless/ is `gh-pages`, rebuilt from `main`. Source `site/src/` (`template.html`,
   `report.html`, `whats-new.html`, `build.mjs`); built pages are committed. Publish with `tools/site.sh "<what changed>"`
-  (builds, pushes main, fast-forwards gh-pages). Live: gh-pages `18872be`. Pages caches 10 minutes: hard refresh.
+  (builds, pushes main, fast-forwards gh-pages). Live: gh-pages `5b191cf` (2026-10-16: textless at /textless/, Cubit edge peek). Pages caches 10 minutes.
+- textless lives in `textless/`; its site is built into `site/textless/` by `tools/textless-site.sh` (run before
+  `tools/site.sh` when textless changed). Both sites share an origin, so Cubit's edge peek stays home on both once clicked.
 - Footer: "Also building [Cubit logo]" links to heycubit.com, next to a "Join the waitlist" pill
   (heycubit.com/waitlist/). Logo is `site/assets/cubit-logo-white.svg`, copied from the Cubit repo's `brand/`.
 - Report a bug / Request a feature posts to a Cloudflare Worker, `report-worker/` (deployed as `effortless-report`,
@@ -32,6 +34,9 @@
   14 days, API is owner-only). Add as a baked number at publish when it is larger.
 
 ## Half done
+- textless preview cleanup waits on a plugin release: `textless/plugin/hooks/register.tsx` MARKET_SITE and the settings
+  page still point at textless-preview.isac-ehrstedt.workers.dev (tests too). Ship a version with
+  heycubit.github.io/effortless/textless/, then drop the preview from ALLOWED_ORIGINS and Turnstile and delete the Worker.
 - Updated card redesign (1.48.4, public in 1.49.0): seen only in the render rig. The card is drawn by the code already
   running in that chat, so it first appears on the update after 1.49.0, in a chat running 1.49.0+.
 - Haiku handoff recommendation, Compact beside Handoff (hidden under 80 cells), alert default 80%: public, unseen in the
@@ -45,6 +50,7 @@
 1. In a fresh (non-remote) chat on the public version: check the band, Compact, Handoff advice, Settings.
 2. Watch the first real report that arrives through the form; check the title, body and labels look right.
 3. Optional: ruleset blocking force pushes on `stable` (offered, no answer).
+4. Terminal: the update card shows no animation while updating (desktop has one); add a moving state there.
 
 ## Only Isac
 - Publishing to users, anything that force-pushes, anything with a login or a secret.

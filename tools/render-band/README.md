@@ -25,8 +25,10 @@ Prints the paths of the page, the PNG and a JSON of measured boxes (CSS px), all
    `Preferences`). The script reads it (2.5 here, so a factor of 1.5774) and passes it to headless Chrome as the device
    scale factor. The PNG is in device pixels, like a screenshot of the app.
 
-The script finds the renderer, the token module and the helper imports by content, not by file name. After an app
-update it either keeps working or exits and says which of these it could not find.
+The script finds the renderer, the token module and the helper imports by content, not by file name, and the renderer's
+own functions (tree shaper, shadow-root setup, marks collector, element renderer, colour resolver, ink, hover-rule
+writer, surface CSS) by what they do, not by their minified names, which change with every app build (`rendererNames`
+in `render.mjs`). After an app update it either keeps working or exits and says which of these it could not find.
 
 ## Options
 
@@ -38,12 +40,14 @@ update it either keeps working or exits and says which of these it could not fin
 | `--at S` | live | freezes the CSS animations inside Svg leaves at S seconds, for repeatable shots (0 = start of the glow's pulse, the low point) |
 | `--wait S` | 0 | let S seconds of real time pass before the shot: use it for animations that run once (an entrance), which `--at` cannot hold past their end |
 | `--trace MS` | | simulates clicks: presses the `--press` buttons on the drawn band, records every redraw for MS ms of the mod's clock, then replays each one at its time with the app's renderer (a redraw swaps the whole band, as in the app) and shoots frames into `out/<name>-frames/` (named by ms). Prints the redraws per step. Use it for flicker, animations across redraws and clicks that get lost |
+| `--command C`, `--press k1,k2` | | run an `/effortless` subcommand first (`--command settings` opens the settings panel), then press band buttons by key, in order (`--press settings-card-effort`) |
+| `--hit k1,k2` | | click-target check: for each key (a Button key, or a Box key such as `settings-helpers` or `card-judge`, found around its buttons, texts and images), takes the visible box, sends points at left+2, 25%, center, 75%, right-2 on its top+2, middle and bottom-2 lines through the shadow root's `elementFromPoint` and prints which button key each one hits (a dead zone shows as `(no button: ...)`), with the full and visible boxes of the key's own buttons. Also written to the JSON as `hit` |
 | `--cache M` / `--cache off` | 59 | minutes left on a 1 h cache |
 | `--effort E`, `--reason "..."`, `--model M` | medium, opus | the judge's verdict (Haiku judge); `--model haiku` puts the prompt on a cheaper model |
 | `--handoff "..."` | | the Haiku judge's reason that a fresh chat would suit now; Handoff lights up with it |
 | `--auto off`, `--fresh`, `--judging`, `--working` | | other states |
 | `--columns N` | 100 | cells across the band body (props.bodyColumns); under 80 the Compact button is hidden |
-| `--density compact|comfortable` |\|comfortable` | compact | the Code tab's CDS density (the reference screenshots match compact) |
+| `--density compact\|comfortable` | compact | the Code tab's CDS density (the reference screenshots match compact) |
 | `--mode dark\|light` | dark | |
 | `--zoom Z` | app | override the zoom factor (`1` = no zoom) |
 | `--tree file.json` | | redraw a tree saved earlier (`out/*.tree.json`) without running the mod |

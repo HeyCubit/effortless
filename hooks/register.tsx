@@ -187,15 +187,15 @@ const settingsCard = atom({ plugin: 'effortless', key: 'settingsCard' } as const
 /** The settings panel's parts: a card each on the overview, and what the part is for, said once it is open. */
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits.' },
-  { id: 'model', title: 'Model', about: "Whether a simple prompt may run on a cheaper model. Effort is judged either way." },
-  { id: 'handoff', title: 'Handoff', about: 'The skill that writes a full handoff, and at what share of context to suggest compacting or handing off.' },
+  { id: 'model', title: 'Model', about: "Whether a simple prompt may run on a cheaper model, and which model writes a compaction." },
+  { id: 'handoff', title: 'Handoff & alerts', about: 'The full handoff skill, when to suggest compacting, and which alerts show.' },
   { id: 'show', title: 'Customize', about: 'How effortless looks and which parts it shows. Uninstall removes it.' },
   { id: 'judge', title: 'Judge', about: 'Haiku judges prompts and handoffs. Add Jev for quicker effort calls. Test checks it answers.' },
 ]
 // The Model card: the two ways to run. Effort follows the judge in both.
 const MODEL_CHOICES = [
-  { value: 'on', label: 'Cheaper when it can (experimental)', about: "A simple prompt may run on Haiku or Sonnet. Rarely pays: the other model has to reread the whole chat." },
-  { value: 'off', label: "Always the chat's", about: "Every prompt keeps the model you picked. Only effort changes." },
+  { value: 'on', label: 'Cheaper when it can', tag: 'experimental', about: "A simple prompt may run on Haiku or Sonnet. Rarely pays: the other model has to reread the whole chat." },
+  { value: 'off', label: "Always the chat's", tag: '', about: "Every prompt keeps the model you picked. Only effort changes." },
 ] as const
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
 // The settings panel's judge test: running, or what it found. Null before a test and once the panel closes.
@@ -205,7 +205,8 @@ const judgeDownHidden = atom({ plugin: 'effortless', key: 'judgeDownHidden' } as
 // A usage limit is close: which window, how much is used, when it resets. Null below the line.
 const hot = atom({ plugin: 'effortless', key: 'hot' } as const, null)
 // The running-hot band was closed at this many percent; it returns ten points later or in a new window.
-const hotHidden = atom({ plugin: 'effortless', key: 'hotHidden' } as const, null)
+// The running-hot band closed with its cross: in which window and how full. Kept in the store too, so a new chat keeps it closed.
+const hotHidden = atom({ plugin: 'effortless', key: 'hotHidden' } as const, null as HotClosed | null)
 // The agent panel: this chat's subagents, and the card opened in it (hooks/agents.tsx).
 const agentsState = atom({ plugin: 'effortless', key: 'agents' } as const, [])
 const agentsOpen = atom({ plugin: 'effortless', key: 'agentsOpen' } as const, null)
@@ -451,6 +452,24 @@ async function typedSkill($: EngineInterface, text: string): Promise<{ name: str
   return { name, description: found.description ?? '' }
 }
 
+const LEVEL_WORD = '(low|medium|high|xhigh|x-high|extra[- ]high|max|maximum)'
+const NAMED_LEVEL = new RegExp(`\\b${LEVEL_WORD}\\s+effort\\b|\\beffort(?:\\s+level)?\\s*(?:[:=]|to|at|of|on)?\\s*${LEVEL_WORD}\\b|\\bxhigh\\b`, 'gi')
+const LEVEL_OF: Record<string, Effort> = { low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', 'x-high': 'xhigh', 'extra high': 'xhigh', 'extra-high': 'xhigh', max: 'max', maximum: 'max' }
+
+/**
+ * The level a prompt asks for by name ("max effort", "effort: high", "xhigh"), or nothing. The word effort must sit
+ * beside the level, so "a medium sized image" names nothing, and "don't use max effort" is a no. A named level runs
+ * without the judge: effort-auto found Haiku also calls prompts that only describe hard work "named".
+ */
+export function namedEffort(text: string): Effort | undefined {
+  for (const m of text.matchAll(NAMED_LEVEL)) {
+    const before = text.slice(Math.max(0, m.index - 20), m.index).toLowerCase()
+    if (/\b(not|no|don'?t|never|without|instead of)\b/.test(before)) continue
+    return LEVEL_OF[(m[1] ?? m[2] ?? 'xhigh').toLowerCase().replace(/\s+/, ' ')]
+  }
+  return undefined
+}
+
 /** A short follow-up such as "go", "ok", "yes", "continue": two words and a dozen characters at most. */
 export function isFollowUp(text: string): boolean {
   const t = text.trim()
@@ -597,6 +616,8 @@ export type JudgeConfig = {
   handoffButton: 'advised' | 'always'
   /** A prompt the judge calls simple runs on a cheaper model than the chat's (never a dearer one). */
   modelAuto: 'on' | 'off'
+  /** on: every subagent the chat sends off gets an effort picked by the judge before it starts. */
+  helpers: 'on' | 'off'
   /** The accent colour of everything effortless draws: the brand violet, Claude orange or cherry-blossom rose. */
   theme: ThemeName
   /** auto: light when Claude Code's own theme is light. dark and light fix it. */
@@ -609,9 +630,9 @@ export type JudgeConfig = {
 export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
 
 /** The parts of effortless a person can switch off: the footer's (setup) and the progress bar's (setup, settings).
- * The alerts (cold, swamp, running hot, judge down) and the line under replies always show; each alert has its own ✕.
- * An older hide list naming them is read without them. */
-export const HIDEABLE = ['handoff', 'timer', 'reason', 'progress', 'sounds'] as const
+ * The context (swamp), running-low (hot) and cold-cache alerts can be switched off for good in Customize; the judge-down
+ * alert always shows. Each alert also has its own ✕. */
+export const HIDEABLE = ['handoff', 'timer', 'reason', 'progress', 'sounds', 'swamp', 'hot', 'cold'] as const
 export type Hideable = (typeof HIDEABLE)[number]
 // What the app passed to register, so settings kept in the store can be laid over it at session start.
 let pluginOptions: Record<string, unknown> = {}
@@ -624,11 +645,12 @@ let config: JudgeConfig = {
   floor: 'low',
   ceiling: 'max',
   hide: ['reason'],
-  swampAt: 80,
+  swampAt: 70,
   layout: 'default',
   compactWith: 'haiku',
   handoffButton: 'advised',
   modelAuto: 'off',
+  helpers: 'off',
   theme: 'violet',
   appearance: 'auto',
   clock: '24h',
@@ -647,13 +669,14 @@ export function readConfig(options: unknown): JudgeConfig {
     bias: Math.max(-2, Math.min(2, Math.round(Number(str(o.effortBias)) || 0))),
     floor: EFFORTS.includes(str(o.effortFloor) as Effort) ? (str(o.effortFloor) as Effort) : 'low',
     ceiling: EFFORTS.includes(str(o.effortCeiling) as Effort) ? (str(o.effortCeiling) as Effort) : 'max',
-    swampAt: SWAMP_STEPS.includes(Number(str(o.swampAt)) as (typeof SWAMP_STEPS)[number]) ? Number(str(o.swampAt)) : 80,
+    swampAt: SWAMP_STEPS.includes(Number(str(o.swampAt)) as (typeof SWAMP_STEPS)[number]) ? Number(str(o.swampAt)) : 70,
     layout: str(o.layout) === 'minimal' ? 'minimal' : 'default',
     compactWith: str(o.compactWith) === 'session' ? 'session' : 'haiku',
     handoffButton: str(o.handoffButton) === 'always' ? 'always' : 'advised',
     // Off unless switched on: one prompt on another model rewrites the whole chat into that model's cache, which costs
     // more than it saves in a chat that is in use (measured 2026-10-10).
     modelAuto: str(o.modelAuto) === 'on' ? 'on' : 'off',
+    helpers: str(o.helpers) === 'on' ? 'on' : 'off',
     theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
     appearance: (['dark', 'light'] as const).find(a => a === str(o.appearance)) ?? 'auto',
     clock: str(o.clock) === '12h' ? '12h' : '24h',
@@ -1114,6 +1137,11 @@ export function asSpent(t: unknown): Spent {
     judge: { jev: num(judged.jev), haiku: num(judged.haiku), ms: num(judged.ms), tokens: num(judged.tokens) },
     moved: num(v.moved),
     redone: num(v.redone),
+    helpers: {
+      runs: v.helpers?.runs && typeof v.helpers.runs === 'object' ? v.helpers.runs : {},
+      requests: num(v.helpers?.requests),
+      cost: num(v.helpers?.cost),
+    },
   }
 }
 
@@ -1206,30 +1234,6 @@ async function coldWorth($: EngineInterface): Promise<number | null> {
   return tokens !== undefined && tokens >= COLD_MIN_TOKENS ? tokens : null
 }
 
-type TurnWarning = { kind: 'cold' | 'hot'; title: string; line: string; color: string; bg: string; edge: string; art: string }
-
-/** What the cold and hot bands would warn about now, as the card under the newest reply says it: the same order and the same
- *  hiding (a part switched off, a band closed with ✕), with a command in place of the band's buttons. */
-async function turnWarning($: EngineInterface): Promise<TurnWarning | null> {
-  const coldTokens = await coldWorth($)
-  if (coldTokens !== null) {
-    return { kind: 'cold', title: 'Chat went cold', line: `Next message rereads ${kTokens(coldTokens)} tokens at full price. Hand off or /compact first.`, color: ICE, bg: ICE_BG, edge: ICE_EDGE, art: FROST_SVG }
-  }
-  const heat = await read($, hot)
-  const heatHidden = await read($, hotHidden)
-  if (heat && !config.hide.includes('hot') && (heatHidden === null || heat.percent >= heatHidden + HOT_REGROW)) {
-    const window = heat.kind === 'five_hour' ? '5h' : 'weekly'
-    return {
-      kind: 'hot',
-      title: `Running hot · ${Math.round(heat.percent)}% of your ${window} limit`,
-      line: 'Save mode keeps Auto at medium or below: /effortless save.',
-      color: EMBER, bg: EMBER_BG, edge: EMBER_EDGE, art: EMBER_SVG,
-    }
-  }
-  // Swamped is said by the band above the prompt only: a card under every reply was noise in a long chat.
-  return null
-}
-
 /** The countdown's colour for whole minutes left (rounded up, as cacheMinutes gives): none (grey), yellow or red. */
 export function cacheColor(minutesLeft: number): string | undefined {
   const shown = minutesLeft - 1
@@ -1299,8 +1303,37 @@ const SWAMP_REGROW = 50_000
 /** Whether the context is swamped, from the status line's figures. Cheap: no counting, no model call. */
 // A usage window this full shows the running-hot band.
 const HOT_PERCENT = 80
-// Closed, the running-hot band returns this many points later.
-const HOT_REGROW = 10
+// Closed, the running-hot band stays away for the rest of its window, and comes back once at this many percent.
+export const HOT_FINAL = 95
+
+/** The running-hot band closed with its cross: the window (kind and reset time) and how full it was then. */
+export type HotClosed = { window: string; percent: number }
+const hotWindow = (heat: { kind: string; resetsAt: string | null }) =>
+  // To the quarter hour: the reset time the app reports can shift by seconds between checks.
+  `${heat.kind} ${heat.resetsAt ? Math.round(new Date(heat.resetsAt).getTime() / 900_000) : ''}`
+
+/** Whether the running-hot band shows: always until closed; closed, not again in that window unless it passes HOT_FINAL. */
+export function hotVisible(heat: { kind: string; percent: number; resetsAt: string | null }, closed: HotClosed | null): boolean {
+  if (!closed || closed.window !== hotWindow(heat)) return true
+  return heat.percent >= HOT_FINAL && closed.percent < HOT_FINAL
+}
+
+let hotClosedLoaded = false
+/** The closed band as the store keeps it, read once per session (a new chat starts with the atom empty). */
+async function hotClosedNow($: EngineInterface): Promise<HotClosed | null> {
+  if (!hotClosedLoaded) {
+    hotClosedLoaded = true
+    const kept = (await $.store.get('hotClosed').catch(() => null)) as HotClosed | null
+    if (kept && typeof kept.window === 'string') await update($, hotHidden, () => kept)
+  }
+  return read($, hotHidden)
+}
+
+async function closeHot($: EngineInterface, heat: { kind: string; percent: number; resetsAt: string | null }) {
+  const closed: HotClosed = { window: hotWindow(heat), percent: heat.percent }
+  await update($, hotHidden, () => closed)
+  await $.store.set('hotClosed', closed).catch(() => undefined)
+}
 
 /** The fullest of the 5-hour and weekly windows, once one passes HOT_PERCENT. Save mode ends with its window. */
 async function checkHot($: EngineInterface, limits: readonly { kind: string; percentUsed: number; resetsAt?: string }[]) {
@@ -1667,6 +1700,18 @@ async function writeHandoff($: EngineInterface) {
       else await $.prompt.submit({ text: HANDOFF_FULL_PROMPT })
       return
     }
+    // A cold cache: a fork would reread the whole chat at full price and write it to the cache again (one handoff took
+    // 8% of a person's 5-hour limit). Haiku writes it from the transcript instead, at a fraction of the price.
+    const now = await $.clock.now().catch(() => Date.now())
+    if ((await read($, cacheLeft)) === 0 || (cacheExpires > 0 && now >= cacheExpires)) {
+      const messages = await $.session.messages().catch(() => [])
+      const got = messages.length ? await haikuHandoff($, messages).catch(() => null) : null
+      await $.store.set('lastFork', { at: Date.now(), outcome: got ? 'cold cache: written by Haiku' : 'cold cache: Haiku failed, forked' }).catch(() => undefined)
+      if (got) {
+        handoffText = got
+        return
+      }
+    }
     // The built-in handoff is written by a fork: the same model over this chat as it stands, its start read from the
     // prompt cache, no tools and no turn in the chat. Much quicker than a turn that may go exploring first.
     const startedAt = Date.now()
@@ -1766,6 +1811,7 @@ const SETTING_FIELDS = {
   compactWith: 'compactWith',
   handoffButton: 'handoffButton',
   modelAuto: 'modelAuto',
+  helpers: 'helpers',
   theme: 'theme',
   appearance: 'appearance',
   clock: 'clock',
@@ -1797,6 +1843,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     compactWith: config.compactWith,
     handoffButton: config.handoffButton,
     modelAuto: config.modelAuto,
+    helpers: config.helpers,
     theme: config.theme,
     appearance: config.appearance,
     clock: config.clock,
@@ -2039,7 +2086,8 @@ const share = (part: number, whole: number) => `${Math.round((part / whole) * 10
 export function savedText(raw: Spent): string {
   const t = asSpent(raw)
   const judged = t.judge.jev + t.judge.haiku
-  if (t.prompts === 0 && judged === 0 && t.moved === 0) return 'nothing measured yet'
+  const helperRuns = EFFORTS.reduce((n, e) => n + (t.helpers.runs[e] ?? 0), 0)
+  if (t.prompts === 0 && judged === 0 && t.moved === 0 && helperRuns === 0) return 'nothing measured yet'
   const input = t.input * WEIGHT.input
   const write = t.write * WEIGHT.write
   const cached = t.read * WEIGHT.read
@@ -2056,6 +2104,10 @@ export function savedText(raw: Spent): string {
   if (per.length) lines.push(`Per prompt: ${per.join('; ')}`)
   if (t.moved) {
     lines.push(`Cheaper model: ${t.moved} prompt${t.moved === 1 ? '' : 's'} moved down, ${t.redone} redone (${share(t.redone, t.moved)})`)
+  }
+  if (helperRuns) {
+    const per = EFFORTS.filter(e => t.helpers.runs[e]).map(e => `${EFFORT_LABELS[e]} ${t.helpers.runs[e]}`)
+    lines.push(`Helpers: ${helperRuns} subagent${helperRuns === 1 ? '' : 's'} (${per.join(', ')}), ${t.helpers.requests} requests, cost about ${tokens(Math.round(t.helpers.cost))} tokens`)
   }
   if (judged) {
     lines.push(`Judge: Jev ${t.judge.jev}, Haiku ${t.judge.haiku}, average ${Math.round(t.judge.ms / judged)} ms, ${tokens(t.judge.tokens)} tokens in all`)
@@ -2295,6 +2347,9 @@ function bandArt($: EngineInterface, e: RenderInput<'AbovePrompt'>, kind: ArtKin
   const els = themedEls($.ui.resolve(e))
   const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 0
   if (e.surface !== 'terminal' || !('Raster' in els) || columns < ART_MIN_WIDTH) return null
+  // The still sparkles (the resting dashboard, the guide) are 16 by 4 pixels: in a terminal they read as noise, not
+  // art. Only the art that says something stays: the alerts, compacting and the done tick.
+  if (kind === 'calm' || kind === 'brand') return null
   const { Box, Raster } = els
   artShown = { requestId: e.requestId, kind }
   if (MOVING.has(kind) && !artTimer) {
@@ -2337,27 +2392,35 @@ function terminalPanel($: EngineInterface, e: RenderInput<'AbovePrompt'>, key: s
         </Box>
         {bandArt($, e, 'brand')}
       </Box>
-      <Box key={`${key}-actions`} flexDirection="row" flexWrap="wrap" gap={1} alignItems="center">
+      <Box key={`${key}-actions`} flexDirection="row" flexWrap="wrap" justifyContent="flex-end" columnGap={1} alignItems="center">
         {controls}
       </Box>
     </Box>
   )
 }
 
-type TerminalBand = { key: string; kind: ArtKind; color: string; bg: string; edge: string; title: string; detail: string; buttons: unknown[] }
+type TerminalBand = { key: string; kind: ArtKind; color: string; bg: string; edge: string; title: string; detail: string; buttons: unknown[]; autoInBar?: boolean; word?: { text: string; color: string; rest: string } }
 
 /** An alert band on the terminal: title and buttons, the detail on a line of its own, art on the right, and the effort
  * row under it, so effort stays in sight while a band shows. */
 async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b: TerminalBand) {
   const { Box, Text } = themedEls($.ui.resolve(e))
-  const { rows } = await effortRows($, e)
+  const { rows } = await effortRows($, e, { auto: !b.autoInBar })
   return (
     <Box key={`${b.key}-col`} flexDirection="column">
       <Box key={b.key} flexDirection="row" gap={1} alignItems="center" paddingX={1} backgroundColor={b.bg} borderStyle="round" borderColor={b.edge}>
         <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
           <Box flexDirection="row" gap={1} alignItems="center">
             <Box flexShrink={0}>
-              <Text color={b.color} bold>{`✦ ${b.title}`}</Text>
+              {b.word ? (
+                <Box flexDirection="row">
+                  <Text color={b.color} bold>{'✦ '}</Text>
+                  <Text key={`${b.key}-word`} color={b.word.color} bold>{b.word.text}</Text>
+                  <Text color={b.color} bold>{b.word.rest}</Text>
+                </Box>
+              ) : (
+                <Text color={b.color} bold>{`✦ ${b.title}`}</Text>
+              )}
             </Box>
             <Box flexGrow={1} />
             {b.buttons}
@@ -2472,10 +2535,11 @@ function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui
     }
     uninstalling = true
     $.ui.invalidate('ui.render')
-    const r = await $.process.run(['claude', 'plugin', 'uninstall', pluginId($)], { timeoutMs: 120_000 }).catch(error => ({ exitCode: 1, stdout: '', stderr: String(error) }))
+    const r = await runClaude($, ['plugin', 'uninstall', pluginId($)], { timeoutMs: 120_000 }).catch(error => ({ exitCode: 1, stdout: '', stderr: String(error) }))
     uninstalling = false
     if (r.exitCode !== 0) {
-      $.ui.toast(`effortless: uninstall failed: ${(r.stderr || r.stdout).trim().split('\n').pop()}`)
+      const why = (r.stderr || r.stdout).trim().split('\n').pop() ?? ''
+      $.ui.toast(`effortless: uninstall failed: ${noClaudeHint(why, await homeDir($)) ?? why}`)
       $.ui.invalidate('ui.render')
       return
     }
@@ -2636,7 +2700,7 @@ async function latestAvailable($: EngineInterface): Promise<{ latest?: { version
     return latestRelease(typeof text === 'string' ? text : '')
   }
   // Always refreshed: the host's web fetch can answer from its own cache, git does not.
-  await $.process.run(['claude', 'plugin', 'marketplace', 'update', 'effortless'], { timeoutMs: 120_000, env: GITHUB_OVER_HTTPS }).catch(() => null)
+  await runClaude($, ['plugin', 'marketplace', 'update', 'effortless'], { timeoutMs: 120_000, env: GITHUB_OVER_HTTPS }).catch(() => null)
   const local = await readLocal()
   const best = fromWeb && (!local || !isNewer(local.version, fromWeb.version)) ? fromWeb : local
   return { latest: best, how: `git failed; ${web}; marketplace ${local?.version ?? 'unreadable'}` }
@@ -2748,20 +2812,55 @@ export function updateFailure(output: string): string {
   const why = line.replace(/^(fatal|error):\s*/i, '').replace(/^✘\s*/, '')
   return why.length > 160 ? `${why.slice(0, 159)}…` : why
 }
+/**
+ * Where `claude` may be: on PATH, then where the official installers put it. The desktop app starts with the PATH it
+ * had at login, so a CLI installed since is not on it until the next sign-in.
+ */
+export function claudeCandidates(home: string | undefined): string[] {
+  if (!home) return ['claude']
+  const win = /^[A-Za-z]:/.test(home)
+  const sep = home.includes('\\') ? '\\' : '/'
+  return ['claude', [home.replace(/[\\/]+$/, ''), '.local', 'bin', win ? 'claude.exe' : 'claude'].join(sep)]
+}
+// What the engine says when a command cannot be started at all, as opposed to one that ran and failed.
+const NOT_STARTED = /ENOENT|not found or is in an unsafe location|failed to start/i
+/** For a `claude` that would not start: what to install, in the person's own shell; undefined for any other error. */
+export function noClaudeHint(error: string, home: string | undefined): string | undefined {
+  if (!NOT_STARTED.test(error)) return undefined
+  const install = home && /^[A-Za-z]:/.test(home) ? 'irm https://claude.ai/install.ps1 | iex' : 'curl -fsSL https://claude.ai/install.sh | bash'
+  return `This needs the Claude Code CLI. Install it with ${install}, then reopen the app.`
+}
+const homeDir = async ($: EngineInterface) => ((await envUserProfile($)) ?? (await envHome($))) || undefined
+/** `claude <args>`, from the next place it may be when one will not start. */
+async function runClaude($: EngineInterface, args: string[], opts: Parameters<EngineInterface['process']['run']>[1]) {
+  let last: unknown
+  for (const bin of claudeCandidates(await homeDir($))) {
+    try {
+      return await $.process.run([bin, ...args], opts)
+    } catch (error) {
+      last = error
+      if (!NOT_STARTED.test(String(error))) throw error
+    }
+  }
+  throw last
+}
 /** Update pressed: the marketplace and the plugin are updated as `claude plugin` does, then the plugins reloaded so
  * the new version runs in this chat. The new module shows "Updated" (see session.start). */
 async function runUpdate($: EngineInterface, card: UpdateCard) {
   await update($, updateCard, () => ({ ...card, stage: 'updating' }))
-  const step = async (argv: string[]) => {
-    const r = await $.process.run(argv, { timeoutMs: 180_000, env: GITHUB_OVER_HTTPS })
-    if (r.exitCode !== 0) throw new Error(updateFailure(r.stderr || r.stdout) || `${argv.join(' ')} failed`)
+  const step = async (args: string[]) => {
+    const r = await runClaude($, args, { timeoutMs: 180_000, env: GITHUB_OVER_HTTPS })
+    if (r.exitCode !== 0) throw new Error(updateFailure(r.stderr || r.stdout) || `claude ${args.join(' ')} failed`)
   }
   try {
     // This install's own marketplace: effortless for users, effortless-dev on the dev channel.
-    await step(['claude', 'plugin', 'marketplace', 'update', pluginId($).split('@')[1]])
-    await step(['claude', 'plugin', 'update', pluginId($)])
+    await step(['plugin', 'marketplace', 'update', pluginId($).split('@')[1]])
+    await step(['plugin', 'update', pluginId($)])
   } catch (error) {
-    await update($, updateCard, () => ({ ...card, stage: 'failed', detail: String(error instanceof Error ? error.message : error) }))
+    const message = String(error instanceof Error ? error.message : error)
+    // No CLI anywhere (a desktop-only install): say what to install, not the engine's ENOENT.
+    const home = await homeDir($)
+    await update($, updateCard, () => ({ ...card, stage: 'failed', detail: noClaudeHint(message, home) ?? message }))
     return
   }
   // The desktop app keeps this chat on the folder it started with, and a reload reads that folder again: so the new
@@ -2836,6 +2935,7 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
       {el as never}
     </Box>
   )
+  const installLine = card.stage === 'failed' ? card.detail?.match(/(irm \S+ \| iex|curl -fsSL \S+ \| bash)/)?.[1] : undefined
   // The offer is Update or Later (Later puts this version away for a day); "Updated" has the link and a ✕; a failed
   // update has Try again and ✕. Nothing while it runs.
   const controls =
@@ -2846,6 +2946,13 @@ function updateCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>, card:
         ]
       : card.stage === 'failed'
         ? [
+            // No CLI: the install line can be cut off on a narrow card, so it is a press away whole.
+            ...(installLine
+              ? [own('update-copy-box', <Button key="update-copy" variant="secondary" label="Copy install command" onPress={async () => {
+                  const r = await $.ui.copy({ text: installLine, surface: e.surface }).catch(() => ({ isCopied: false as const }))
+                  $.ui.toast(r.isCopied ? 'Install command copied. Paste it in PowerShell or Terminal, then reopen the app.' : `effortless: run ${installLine}`)
+                }} />)]
+              : []),
             own('update-go-box', <Button key="update-go" variant="primary" label="Try again" onPress={() => runUpdate($, card)} />),
             own('update-close-box', <Button key="update-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={hide} />),
           ]
@@ -3138,6 +3245,8 @@ export function autoGlowSvg(on: boolean): string {
 let autoSeen: boolean | undefined
 let autoOnAt = -Infinity
 let autoFlipAt = 0
+let helpersSeen: string | undefined
+let helpersFlipAt = 0
 
 /** The dashboard: what effortless is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
 async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
@@ -3160,7 +3269,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   const effortNow = effortOf(v, v.modelNow ?? (await sessionModel($)))
   const by = v.current?.by
   const reason = v.current
-    ? `${by === 'manual' ? 'You' : by === 'jev' ? 'Jev' : 'Haiku'}: ${v.current.why}`
+    ? `${by === 'manual' || by === 'named' ? 'You' : by === 'jev' ? 'Jev' : 'Haiku'}: ${v.current.why}`
     : v.auto
       ? 'Auto picks the effort at the next prompt'
       : 'You pick the effort'
@@ -3188,10 +3297,12 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
       $.ui.invalidate('ui.render')
     } else await openPluginSettings($)
   }
-  // The terminal's effort row under the band has its own Auto switch.
   const buttons = [
-    // Desktop only (the terminal's effort row has its own); no hotkey letter, which the app draws faint on grey.
-    e.surface === 'terminal' ? null : (
+    // Auto sits in the bar on both: in the terminal the effort row under the band drops its own (autoInBar), since
+    // there it was cut off at the window's foot. The hotkey only in the terminal; the app draws it faint on grey.
+    e.surface === 'terminal' ? (
+      <Button key="dash-auto" hotkey="a" variant={v.auto ? 'primary' : undefined} label={v.auto ? 'Auto on' : 'Auto off'} onPress={() => toggleAutoEffort($)} />
+    ) : (
       <Button key="dash-auto" variant="secondary" dimColor={!v.auto} label={v.auto ? 'Auto on' : 'Auto off'} onPress={() => toggleAutoEffort($)} />
     ),
     // Once the slot is Handoff (advised, or the setting says always), Compact stays beside it as quiet text, so both are
@@ -3253,8 +3364,10 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     // No-break spaces, not braille blanks: some fonts draw U+2800 as a dot.
     <Button key="dash-settings" plain label={'Svg' in els && e.surface !== 'terminal' ? '   ' : 'Settings'} onPress={toggleSettings} />,
   ].filter(Boolean)
+  // The terminal flashes the effort word as the desktop does: violet on a change, fading back to white.
   if (e.surface === 'terminal')
-    return terminalBand($, e, { key: 'dash', kind: 'calm', color: DASH_TEXT, bg: DASH_BG, edge: DASH_EDGE, title: head.replace(/^✦ /, ''), detail, buttons })
+    return terminalBand($, e, { key: 'dash', kind: 'calm', color: DASH_TEXT, bg: DASH_BG, edge: DASH_EDGE, title: head.replace(/^✦ /, ''), detail, buttons, autoInBar: true,
+      word: { text: what, color: await effortFlash($, what, Boolean(v.judging), entering), rest } })
   const Svg = 'Svg' in els ? els.Svg : undefined
   const wordColor = await effortFlash($, what, Boolean(v.judging), entering)
   glowReadAt = Date.now()
@@ -3389,7 +3502,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
 
 /** The terminal's rows above the prompt (Effort steps, Auto, the model row when switched on) and, on any surface, the
  * judge's question when it suggests another model. The rows also sit under an alert band, so effort never goes away. */
-async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
+async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opts: { auto?: boolean } = {}) {
   const { Box, Text, Button } = themedEls($.ui.resolve(e))
   const v = await snap($)
   const { auto, autoModel, current, judging, wanted, shownByApp } = v
@@ -3479,13 +3592,15 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
           ),
         )}
         <Box flexGrow={1} />
-        <Button
-          key="auto"
-          hotkey="a"
-          variant={auto ? 'primary' : undefined}
-          label={auto ? 'Auto on' : 'Auto off'}
-          onPress={() => toggleAutoEffort($)}
-        />
+        {opts.auto === false ? null : (
+          <Button
+            key="auto"
+            hotkey="a"
+            variant={auto ? 'primary' : undefined}
+            label={auto ? 'Auto on' : 'Auto off'}
+            onPress={() => toggleAutoEffort($)}
+          />
+        )}
         <Box flexShrink={1} minWidth={0}>
           <Text dimColor wrap="truncate-end">
             {note}
@@ -3513,6 +3628,57 @@ async function agentEnded($: EngineInterface, id: string, reason: string) {
 /** Adds a request's weighted tokens to its agent. */
 async function agentCost($: EngineInterface, id: string, cost: number) {
   await agentSet($, id, a => ({ ...a, cost: (a.cost ?? 0) + cost }))
+}
+
+// Effort for helpers: the effort the judge picked for each subagent, by its id. A subagent's first request can come
+// before its spawn resolves with the id (seen 2026-10-10), so a pick waits under the spawn's description and type
+// until a request from an unknown subagent claims it through $.agent.list().
+const helperPicks = new Map<string, Effort>()
+let helperWaiting: { description: string; type: string; parentId?: string; effort: Effort }[] = []
+
+/** What the judge reads for a subagent: its task, said to be one, so it judges the subagent's work. */
+export function helperQuestion(prompt: string, type: string): string {
+  return `${prompt.slice(0, 4000)}
+
+[This is the task Claude gave a ${type} subagent, not a message from the person. Judge the effort that subagent needs to do it well.]`
+}
+
+/** The lowest effort a helper gets: medium, or the person's Min when higher, never above their Max. A helper's answer
+ * goes back to the chat unchecked, and at low it miscounted where medium did not (bench/results/helpers-2026-10-10.md). */
+export function helperFloor(floor: Effort, ceiling: Effort): Effort {
+  const i = Math.min(Math.max(EFFORTS.indexOf(floor), EFFORTS.indexOf('medium')), EFFORTS.indexOf(ceiling))
+  return EFFORTS[i]
+}
+
+/** The judge's effort for a subagent's task, within the person's slider, Min and Max and save mode; null without a verdict. */
+async function helperEffort($: EngineInterface, prompt: string, type: string): Promise<Pick | null> {
+  const { verdict } = await judge($, helperQuestion(prompt, type), null)
+  if (!verdict || verdict.why === UNSURE) return null
+  const saving = (await read($, saveUntil)) !== null
+  const leaned = tipped(verdict.effort, verdict.sure, config.bias)
+  const effort = capped(bounded(leaned, helperFloor(config.floor, config.ceiling), config.ceiling), saving)
+  return { ...verdict, effort, why: effort !== leaned && EFFORTS.indexOf(leaned) < EFFORTS.indexOf(effort) ? `${verdict.why} (helpers start at medium)` : verdict.why }
+}
+
+/** The effort picked for this subagent, claiming a waiting pick the first time its id is seen. */
+async function helperEffortOf($: EngineInterface, id: string): Promise<Effort | undefined> {
+  const known = helperPicks.get(id)
+  if (known || helperWaiting.length === 0) return known
+  const info = (await $.agent.list().catch(() => [])).find(a => a.id === id)
+  if (!info) return undefined
+  const match = helperWaiting.find(w => w.description === info.description && w.type === info.type && w.parentId === info.parentId)
+  if (!match) return undefined
+  helperWaiting = helperWaiting.filter(w => w !== match)
+  helperPicks.set(id, match.effort)
+  return match.effort
+}
+
+/** Counts one request of a helper the judge steered, for /effortless stats. */
+async function helperTally($: EngineInterface, usage: Parameters<typeof weighted>[0]) {
+  await update($, saved, old => {
+    const t = asSpent(old)
+    return { ...t, helpers: { ...t.helpers, requests: t.helpers.requests + 1, cost: t.helpers.cost + weighted(usage) } }
+  })
 }
 
 /** A file read or changed by the main chat or an agent: added to the map, its imports read the first time. */
@@ -3598,6 +3764,22 @@ async function haikuCompaction($: EngineInterface, messages: Parameters<typeof c
   })
   if (!r.isAnswered) return { fail: 'reason' in r ? String(r.reason) : 'no answer' }
   return r.text.trim().length > 200 ? { text: r.text.trim() } : { fail: 'the summary came back empty' }
+}
+
+/** The quick handoff written by Haiku from the transcript, for a chat whose cache went cold; null when it fails. */
+async function haikuHandoff($: EngineInterface, messages: Parameters<typeof compactTranscript>[0]): Promise<string | null> {
+  let transcript = compactTranscript(messages)
+  if (transcript.length > COMPACT_MAX_CHARS) transcript = compactTranscript(messages, 300, 4000)
+  if (transcript.length > COMPACT_MAX_CHARS) return null
+  const r = await $.model.complete({
+    model: COMPACT_MODEL,
+    system: 'You read a conversation between a user and Claude Code, an AI coding agent, and write the handoff the user asks for.',
+    prompt: `${transcript}\n\n---\n${HANDOFF_PROMPT}`,
+    maxTokens: 4000,
+    effort: 'medium',
+    timeoutMs: 120_000,
+  })
+  return r.isAnswered && r.text.trim().length > 100 ? r.text.trim() : null
 }
 
 export const register: Register = (on, options) => {
@@ -3773,6 +3955,7 @@ export const register: Register = (on, options) => {
     if (arg === 'hot') {
       // Shows the running-hot band now, to try it: the next check puts back the real figures.
       await update($, hotHidden, () => null)
+      await $.store.set('hotClosed', null).catch(() => undefined)
       await update($, hot, () => ({ kind: 'five_hour', percent: 82, resetsAt: new Date(Date.now() + 2 * 3600_000).toISOString() }))
       $.ui.invalidate('ui.render')
       return { text: 'The running-hot band is showing now (a test). It goes away at the next check unless a limit really is close.' }
@@ -3903,6 +4086,23 @@ Saved to ${out}.md and .json` }
     if (wantsEffort && before && before.by !== 'manual' && !e.attachments?.length && !slash && isFollowUp(e.text) && keepsEffort(e.text, await recentContext($).catch(() => ''))) {
       await countPrompt($, before.effort, undefined, 0, 0)
       void proof($, `follow-up "${e.text.trim()}": keeping ${before.effort}`)
+      return next(e)
+    }
+    // "max effort", "effort: low": the person said the level, so it runs, past Min, Max and save mode, and no judge is asked.
+    const named = wantsEffort && !slash ? namedEffort(e.text) : undefined
+    if (named) {
+      const inUse = await sessionModel($)
+      const applied: Pick = { model: inUse, effort: named, why: 'you asked for it', by: 'named' }
+      const running = await read($, pick)
+      if (midTurn && running && EFFORTS.indexOf(named) < EFFORTS.indexOf(running.effort)) heldPick = applied
+      else {
+        heldPick = null
+        await choose($, applied)
+      }
+      if (!midTurn && routed) routed = null
+      await countPrompt($, inUse !== 'haiku' ? named : undefined, 'named', 0, 0)
+      void proof($, `named level ${named} in "${e.text.slice(0, 50)}": no judge`)
+      $.ui.invalidate('ui.render')
       return next(e)
     }
 
@@ -4047,12 +4247,32 @@ Saved to ${out}.md and .json` }
       if (picked && picked.by !== 'manual' && result.usage) await tally($, picked.effort, result.usage)
       return result
     }
-    const p = e.agentId === undefined ? await read($, pick) : null
+    // A helper the judge picked an effort for at its spawn runs every request at it. Haiku takes no effort.
+    if (e.agentId !== undefined && config.helpers === 'on' && typeof e.effort === 'string' && keyOf(e.model) !== 'haiku') {
+      const effort = await helperEffortOf($, e.agentId)
+      if (effort) {
+        if (e.index === 0) void proof($, `helper ${e.agentId} request 0 (${e.model}): effort ${e.effort} -> ${effort}`)
+        const result = yield* send({ ...e, effort })
+        if (result.usage) await helperTally($, result.usage).catch(() => undefined)
+        return result
+      }
+    }
+    const p = await read($, pick)
     // Haiku takes no effort: decided by the model this request names, never by a stored pick.
     if (!p || keyOf(e.model) === 'haiku' || !cacheSafe(e.model)) return yield* send(e)
     // Auto off: the app's own effort goes out. A pick the judge made while Auto was on is not the person's choice, and
     // with the app already on the effort they want, the mod would never see a change to give way to.
     if (p.by !== 'manual' && !(await read($, isAuto))) return yield* send(e)
+    // A subagent of a turn Auto picked for (Helpers off, or no verdict for it) runs at that turn's effort, no extra
+    // judge call, but never below medium: a helper's answer goes back unchecked (see helperFloor). A subagent whose
+    // definition sets its own effort cannot be told apart from one that inherits it, so it follows the turn too.
+    if (e.agentId !== undefined) {
+      if (p.by === 'manual') return yield* send(e)
+      const floor = helperFloor(config.floor, config.ceiling)
+      const effort = EFFORTS.indexOf(p.effort) < EFFORTS.indexOf(floor) ? floor : p.effort
+      if (e.index === 0) void proof($, `subagent ${e.agentId} (${e.model}): effort ${e.effort ?? 'none'} -> ${effort}, the turn's`)
+      return yield* send({ ...e, effort })
+    }
     if (e.agentId === undefined) void proof($, `request ${e.index} (${e.model}): effort ${e.effort ?? 'none'} -> ${p.effort}`)
     const result = yield* send({ ...e, effort: p.effort })
     // Only requests Auto steered count.
@@ -4164,15 +4384,37 @@ Saved to ${out}.md and .json` }
   })
 
   // The terminal's line under each reply ("Baked 3s") in the brand's colours, with the effort and the cache. The
-  // desktop draws no such line; there the warning card hangs under the reply instead (AssistantMessage, below).
+  // desktop draws no such line; the bands above the prompt warn there (a card under the reply repeated them, removed).
   // The agent panel. Each subagent the chat sends off gets a record: spawned, what it does now, its own steps, how it
   // ended. Teammates and workflow agents are left out for now.
   on('agent.spawn', async ($, e, next) => {
+    // Effort for helpers: the judge reads the subagent's task before it starts (a fork shares the chat's context and
+    // keeps its effort). Without a verdict it runs at the chat's effort, as with the setting off.
+    const helper = config.helpers === 'on' && !e.fork && !e.isTeammate && !e.workflow
+      ? await helperEffort($, e.prompt, e.subagentType).catch(() => null)
+      : null
+    const waiting = helper ? { description: e.description, type: e.subagentType, parentId: e.parentAgentId, effort: helper.effort } : null
+    if (waiting) helperWaiting = [...helperWaiting, waiting].slice(-20)
     const result = await next(e)
+    if (waiting) {
+      helperWaiting = helperWaiting.filter(w => w !== waiting)
+      if ('agentId' in result && result.agentId && !helperPicks.has(result.agentId)) helperPicks.set(result.agentId, waiting.effort)
+      if ('agentId' in result && result.agentId) {
+        await update($, saved, old => {
+          const t = asSpent(old)
+          return { ...t, helpers: { ...t.helpers, runs: { ...t.helpers.runs, [waiting.effort]: (t.helpers.runs[waiting.effort] ?? 0) + 1 } } }
+        }).catch(() => undefined)
+        void proof($, `helper ${e.subagentType} "${e.description}": ${waiting.effort} (${helper?.why})`)
+      }
+    }
     if (e.isTeammate || e.workflow || !('agentId' in result) || !result.agentId) return result
     const id = result.agentId
     const now = await $.clock.now()
     const rec: AgentRec = { id, type: e.fork ? 'fork' : e.subagentType, task: e.description, state: 'running', startedAt: now, model: result.model }
+    if (helper) {
+      rec.effort = EFFORT_LABELS[helper.effort]
+      rec.why = helper.why
+    }
     if (e.parentAgentId) rec.parentId = e.parentAgentId
     await update($, agentsState, list => [...list.filter(a => a.id !== id), rec].slice(-40))
     return result
@@ -4244,37 +4486,6 @@ Saved to ${out}.md and .json` }
         {v.cacheNow === null ? null : (
           <Text dimColor={cacheColor(v.cacheNow) === undefined} color={cacheColor(v.cacheNow)}>{`· ${v.cacheNow <= 0 ? 'cache cold' : `cache ${cacheLabel(v.cacheNow)}`}`}</Text>
         )}
-      </Box>
-    )
-  })
-
-  // Under the newest reply's last block, when a band would warn: a small card in the band's colours and art, naming
-  // the command that does what the band's button would. Split view's right pane draws no bands but draws replies.
-  // Older replies stop matching the newest answer, so their card goes when a new one lands.
-  on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) => {
-    if (config.hide.includes('line')) return next(e)
-    const answer = await read($, lastAnswer)
-    const text = e.props.text.trim()
-    if (!answer || !text || !answer.endsWith(text)) return next(e)
-    // The handoff's and compact's cards are above the prompt (see compactCard), not under the reply.
-    const warn = await turnWarning($)
-    if (!warn || turnBusy()) return next(e)
-    const { Box, Text, Svg } = themedEls($.ui.resolve(e))
-    const drawn = await next(e)
-    return (
-      <Box key="reply" flexDirection="column" gap={1}>
-        {drawn}
-        <Box key="reply-warn" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
-          backgroundColor={warn.bg} borderStyle="round" borderColor={warn.edge}>
-          {/* A still image: an animated one sits in a frame the app rebuilds on every redraw. */}
-          <Box key="reply-warn-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={warn.art} alt={warn.title} width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
-          </Box>
-          <Box key="reply-warn-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
-            <Text color={warn.color} bold wrap="truncate">{`✦ ${warn.title}`}</Text>
-            <Text wrap="truncate">{warn.line}</Text>
-          </Box>
-        </Box>
       </Box>
     )
   })
@@ -4358,10 +4569,15 @@ Saved to ${out}.md and .json` }
         compactWith: draft.compactWith ?? config.compactWith,
         handoffButton: draft.handoffButton ?? config.handoffButton,
         modelAuto: draft.modelAuto ?? config.modelAuto,
+        helpers: draft.helpers ?? config.helpers,
         theme: draft.theme ?? config.theme,
         appearance: draft.appearance ?? config.appearance,
         clock: draft.clock ?? config.clock,
       }
+      // The Helpers switch slides like Auto's: the time it flipped, seen by the draw after the click.
+      const helpersNow = await $.clock.now()
+      if (helpersSeen !== undefined && helpersSeen !== shown.helpers) helpersFlipAt = helpersNow
+      helpersSeen = shown.helpers
       // Dirty only while the draft differs from what is saved: a control set back to its saved value is no change.
       const sameSet = (a: string, b: string) => a.split(',').filter(Boolean).sort().join() === b.split(',').filter(Boolean).sort().join()
       const dirty = Object.entries(draft).some(([field, value]) =>
@@ -4372,31 +4588,29 @@ Saved to ${out}.md and .json` }
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
       const judgeName = shown.judge === 'haiku' ? 'Haiku' : hasKey || shown.judge === 'jev' ? 'Haiku + Jev' : 'Haiku'
       const summaries: Record<SettingsCard, string> = {
-        effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}`,
+        effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.helpers === 'on' ? ' · helpers' : ''}`,
         model: shown.modelAuto === 'on' ? 'Cheaper when it can' : "Always the chat's",
         judge: tested && tested.ok !== null ? `${judgeName} · ${tested.ok ? 'working' : 'failing'}` : judgeName,
         handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · compact alert at ${shown.swampAt}%`,
         show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${2 - ['timer', 'reason'].filter(h => hidden.includes(h)).length} of 2 on`,
       }
-      // The cache timer and the judge's line (who picked and how sure) can be switched
-      // off here: the alerts each have their own ✕, and the rest is the mod itself. A ticked box in plain text, dim when off: lighter than a row of white buttons.
-      const toggles = (
-        [
-          ['timer', 'Cache timer'],
-          ['reason', 'Judge line'],
-        ] as const
-      ).map(([part, label]) => {
+      // The cache timer, the judge's line (who picked and how sure) and the three alerts can be switched off here (an
+      // alert's ✕ only closes it for now); the rest is the mod itself. A ticked box in plain text, dim when off: lighter than a row of white buttons.
+      const box = ([part, label]: readonly [Hideable, string]) => {
         const off = hidden.includes(part)
         const after = off ? hidden.filter(h => h !== part) : [...hidden, part]
         return (
           <Button key={`show-box-${part}`} plain dimColor={off} label={`${off ? '☐' : '☑'}︎ ${label}`}
             onPress={() => set('hide')(after.join(','))} />
         )
-      })
+      }
+      const toggles = ([['timer', 'Cache timer'], ['reason', 'Judge line']] as const).map(box)
+      // The alerts sit in the Handoff card, next to the share of context the context alert waits for.
+      const alertToggles = ([['swamp', 'Context alert'], ['hot', 'Running low alert'], ['cold', 'Cold cache alert']] as const).map(box)
       // The slider: five stops, the marker on the one in force. No animation, a click moves it.
       const track: unknown[] = []
       for (const n of [-2, -1, 0, 1, 2]) {
-        if (n > -2) track.push(<Text key={`t${n}`} dimColor>──</Text>)
+        if (n > -2) track.push(<Text key={`t${n}`} dimColor>─</Text>)
         track.push(<Button key={`bias${n + 2}`} plain label={n === shown.bias ? '◉' : '○'} onPress={() => set('bias')(String(n))} />)
       }
       // The terminal has no art and few rows: no gaps, one row under the title.
@@ -4419,6 +4633,21 @@ Saved to ${out}.md and .json` }
           </Box>
         </Box>
       )
+      // The terminal's dropdown opens its list inside the wrapping row, which jumps the layout and is hard to click.
+      // There a short list is a row of buttons, the picked one boxed; a long one (the skills) stays a dropdown.
+      type Pick = { key: string; label?: string; value: string; options: { value: string; label: string }[]; onSelect: (v: string) => unknown }
+      const pick = (p: Pick) => term && p.options.length <= 5 ? (
+        <Box key={p.key} width="100%" flexDirection="row" flexWrap="wrap" columnGap={1} alignItems="center">
+          {p.label ? <Text key={`${p.key}-label`} dimColor>{p.label}</Text> : null}
+          {p.options.map(o => o.value === p.value ? (
+            <Button key={`${p.key}-${o.value}`} variant="secondary" label={o.label} onPress={() => p.onSelect(o.value)} />
+          ) : (
+            <Button key={`${p.key}-${o.value}`} plain dimColor label={o.label} onPress={() => p.onSelect(o.value)} />
+          ))}
+        </Box>
+      ) : (
+        <Select key={p.key} label={p.label} value={p.value} options={p.options} onSelect={p.onSelect} />
+      )
       const field = (key: string, input: unknown, width: number) => (
         <Box key={key} width={width} flexShrink={1}>
           {input}
@@ -4437,6 +4666,11 @@ Saved to ${out}.md and .json` }
       // Probe 2 keeps only the frame and header; probe 3 keeps the rows of buttons and text, no pickers or fields.
       const frameOnly = probeLevel === 2
       const bare = probeLevel === 3
+      // Desktop keeps title and buttons as absolute layers straight under the panel; the terminal gets a wrapping row.
+      const headRow = (kids: unknown[]) => term
+        ? <Box key="settings-head" flexDirection="row" flexWrap="wrap" justifyContent="space-between" columnGap={2}>{kids}</Box>
+        : kids
+      const bugUrl = ownVersion ? `${REPORT_BUG_URL}?effortless=${encodeURIComponent(ownVersion)}` : REPORT_BUG_URL
       return (
         // The dashboard's look: the neutral band and its quiet edge, purple only on the star, no art behind the rows (it
         // made them busy). The entrance
@@ -4458,8 +4692,10 @@ Saved to ${out}.md and .json` }
             </Box>
           ) : null}
           {/* Title and buttons are centred in the whole bar (it reaches from the border to the line under it), so the
-              space above them equals the space below. */}
-          <Box key="settings-title" position="absolute" top={0} left={2} height={term ? 2 : 2.5} flexDirection="row" alignItems="center" gap={1}>
+              space above them equals the space below. The terminal has no bar: both sit in the flow on one row that
+              wraps, since two absolute layers drew over each other in a narrow window ("SettCheck for updates"). */}
+          {headRow([
+          <Box key="settings-title" {...(term ? { flexShrink: 0 } : { position: 'absolute', top: 0, left: 2, height: 2.5 })} flexDirection="row" alignItems="center" gap={1}>
             {term ? <Text color={ACCENT} bold>✦</Text> : null}
             {Svg && !term ? <Svg source={SETTINGS_TITLE} alt="effortless" width={92} height={28} /> : <Text color={DASH_TEXT} bold>effortless</Text>}
             {ownVersion ? <Text color="#6b6b73">v{ownVersion}</Text> : null}
@@ -4474,8 +4710,8 @@ Saved to ${out}.md and .json` }
               </Box>
             )}
             {dirty ? <Text dimColor> · unsaved changes</Text> : null}
-          </Box>
-          <Box key="settings-actions" position="absolute" top={0} right={2} height={term ? 2 : 2.5} flexDirection="row" gap={2} alignItems="center">
+          </Box>,
+          <Box key="settings-actions" {...(term ? { flexShrink: 1, flexWrap: 'wrap', columnGap: 2 } : { position: 'absolute', top: 0, right: 2, height: 2.5, gap: 2 })} flexDirection="row" alignItems="center">
             {checking === 'checking' ? (
               <Text dimColor>Checking…</Text>
             ) : checking === 'newest' ? (
@@ -4490,7 +4726,15 @@ Saved to ${out}.md and .json` }
             ) : (
               <Button key="settings-check-update" plain dimColor label="Check for updates" onPress={() => void checkUpdateNow($)} />
             )}
-            <Text color="#9a9aa3"><Link href={ownVersion ? `${REPORT_BUG_URL}?effortless=${encodeURIComponent(ownVersion)}` : REPORT_BUG_URL} label="Report a bug" /></Text>
+            {/* A terminal without link support prints the whole address after the label, so there it copies instead. */}
+            {term ? (
+              <Button key="settings-bug" plain dimColor label="Report a bug" onPress={async () => {
+                const r = await $.ui.copy({ text: bugUrl, surface: e.surface }).catch(() => ({ isCopied: false as const }))
+                $.ui.toast(r.isCopied ? `Bug report link copied: ${bugUrl}` : `effortless: report a bug at ${bugUrl}`)
+              }} />
+            ) : (
+              <Text color="#9a9aa3"><Link href={bugUrl} label="Report a bug" /></Text>
+            )}
             {/* Grey and inert until something changed: there is nothing to save. */}
             {dirty ? (
               <Button key="settings-save" variant="primary" hotkey="s" label="Save" onPress={() => saveDraft($)} />
@@ -4498,34 +4742,42 @@ Saved to ${out}.md and .json` }
               <Button key="settings-save" variant="secondary" dimColor label="Save" onPress={() => {}} />
             )}
             <Button key="settings-close" plain label="✕" onPress={close} />
-          </Box>
-          <Box key="settings-spacer" height={roomy && !term ? 2 : 1} />
+          </Box>,
+          ])}
+          {term ? null : <Box key="settings-spacer" height={roomy ? 2 : 1} />}
           {frameOnly ? null : card === null ? (
             // The overview: a card per part, what it is set to in a few words. A card opens that part alone.
-            <Box key="settings-cards" flexDirection="row" flexWrap="wrap" gap={1}>
+            <Box key="settings-cards" flexDirection="row" flexWrap="wrap" columnGap={1} rowGap={term ? 0 : 1}>
               <Box position="absolute" top={0} left={0} />
               {CARDS.map(c => (
                 <Box key={`card-${c.id}`} position="relative" flexDirection="column" flexGrow={1} width={0} minWidth={18}
                   paddingX={1} borderStyle="round" borderColor={DASH_EDGE} hover={{ backgroundColor: CARD_HOVER, borderColor: CARD_HOVER_EDGE }}>
                   <Box flexDirection="row" gap={1} alignItems="center">
                     {Svg && !term ? <Svg source={rowIconSvg(c.id, DASH_TEXT)} alt={c.title} width={14} height={14} /> : null}
-                    <Text color={DASH_TEXT} bold hover={{ color: '#ffffff' }}>{c.title}</Text>
+                    {/* The terminal draws the blank buttons below as real spaces over the card's text, so there the
+                        title itself is the button. (Full-width padded buttons per row looked worse: a big lit block.) */}
+                    {term ? (
+                      <Button key={`settings-card-${c.id}`} plain label={`${c.title} ›`} onPress={openCard(c.id)} />
+                    ) : (
+                      <Text color={DASH_TEXT} bold hover={{ color: '#ffffff' }}>{c.title}</Text>
+                    )}
                   </Box>
                   <Text dimColor wrap="truncate" hover={{ dimColor: false, color: DASH_TEXT }}>{summaries[c.id]}</Text>
                   {/* The click takes the whole card: a button is one line high and centred in its box, whatever the box,
                       so three blank ones are spread from the top edge to the bottom one and overlap. The card lights as a
                       whole (its own hover); two, spaced around, left its edges and a stripe between the lines dead. */}
-                  <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="column" justifyContent="space-between">
+                  {term ? null : <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="column" justifyContent="space-between">
                     {/* Each button sits in a clipping box and does not shrink: in a narrow card a shrunk button cut its
-                        blank label to "\u2026", three stacked dots on the card. */}
+                        blank label to "\u2026", three stacked dots on the card. 800 no-break spaces (about 2,000 px: one is ~2.6 px, measured with
+                        tools/render-band --hit) cover a card alone on its row edge to edge; the box clips the rest. */}
                     {['', '-2', '-3'].map(n => (
                       <Box key={`settings-card-box-${c.id}${n}`} flexDirection="row" justifyContent="center" overflow="hidden">
                         <Box flexShrink={0}>
-                          <Button key={`settings-card-${c.id}${n}`} plain hover={{ backgroundColor: '#00000000' }} label={'\u00a0'.repeat(60)} onPress={openCard(c.id)} />
+                          <Button key={`settings-card-${c.id}${n}`} plain hover={{ backgroundColor: '#00000000' }} label={'\u00a0'.repeat(800)} onPress={openCard(c.id)} />
                         </Box>
                       </Box>
                     ))}
-                  </Box>
+                  </Box>}
                 </Box>
               ))}
             </Box>
@@ -4549,12 +4801,31 @@ Saved to ${out}.md and .json` }
               ? []
               : [
                   <Box key="gap" width={2} />,
-                  <Select key="settings-floor" label="Min" value={shown.floor} options={opts(EFFORTS)} onSelect={set('floor')} />,
-                  <Select key="settings-ceiling" label="Max" value={shown.ceiling} options={opts(EFFORTS)} onSelect={set('ceiling')} />,
+                  pick({ key: "settings-floor", label: "Min", value: shown.floor, options: opts(EFFORTS), onSelect: set('floor') }),
+                  pick({ key: "settings-ceiling", label: "Max", value: shown.ceiling, options: opts(EFFORTS), onSelect: set('ceiling') }),
+                  // Effort for helpers on a row of its own: the dashboard's Auto switch exactly (switch, word, slide,
+                  // one blank button laid over both), then what it does now.
+                  <Box key="settings-helpers-row" width="100%" flexDirection="row" alignItems="center" gap={1}>
+                    {Svg && !term ? (
+                      <Box key="settings-helpers" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}>
+                        <Svg source={autoSwitchSvg(shown.helpers === 'on', helpersNow - helpersFlipAt)} alt={shown.helpers === 'on' ? 'Helpers on' : 'Helpers off'} width={26} height={15} />
+                        <Text color={shown.helpers === 'on' ? DASH_TEXT : DASH_DIM}>Helpers</Text>
+                        {/* The cards' cover: no-break spaces (plain ones collapse to a dot), wider than the switch and its
+                            word, clipped to them, so the click reaches both edges. */}
+                        <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center" justifyContent="center" overflow="hidden">
+                          <Box flexShrink={0}>
+                            <Button key="settings-helpers-switch" plain hover={{ backgroundColor: '#00000000' }} label={'\u00a0'.repeat(40)} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
+                          </Box>
+                        </Box>
+                      </Box>
+                    ) : (
+                      <Button key="settings-helpers-switch" plain label={`${shown.helpers === 'on' ? '◉' : '○'} Helpers`} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
+                    )}
+                    <Text dimColor wrap="truncate">{shown.helpers === 'on' ? "The judge picks each subagent's effort, medium or more" : "Subagents run at the chat's effort"}</Text>
+                  </Box>,
                 ]),
 ] : card === 'judge' ? (bare ? [] : [
-            <Select key="settings-judge-pick" value={shown.judge} options={[{ value: 'auto', label: hasKey ? 'Haiku + Jev' : 'Haiku (Jev if added)' }, { value: 'haiku', label: 'Haiku only' }]}
-              onSelect={v => set('judge')(v === 'haiku' ? 'haiku' : 'auto')} />,
+            pick({ key: "settings-judge-pick", value: shown.judge, options: [{ value: 'auto', label: hasKey ? 'Haiku + Jev' : 'Haiku (Jev if added)' }, { value: 'haiku', label: 'Haiku only' }], onSelect: v => set('judge')(v === 'haiku' ? 'haiku' : 'auto') }),
             ...(shown.judge !== 'haiku'
               ? [field('key-field', <Input key="settings-key" placeholder={hasKey ? 'Key saved. Paste to replace' : 'Paste TypeSafe key'}
                   value={draft.key ?? ''} submitLabel="ok" onInput={set('key')} onSubmit={set('key')} />, 30)]
@@ -4573,40 +4844,32 @@ Saved to ${out}.md and .json` }
               : []),
 ]) : card === 'model' ? (bare ? [] : MODEL_CHOICES.map(c => (
             <Box key={`model-${c.value}`} flexDirection="column" flexGrow={1} flexShrink={1} minWidth={26}>
-              <Button key={`settings-model-${c.value}`} plain label={`${shown.modelAuto === c.value ? '◉' : '○'} ${c.label}`} onPress={() => set('modelAuto')(c.value)} />
+              <Box flexDirection="row" gap={1} alignItems="center">
+                <Button key={`settings-model-${c.value}`} plain label={`${shown.modelAuto === c.value ? '◉' : '○'} ${c.label}`} onPress={() => set('modelAuto')(c.value)} />
+                {/* A warning in the cache countdown's yellow: this choice rarely pays. */}
+                {c.tag ? <Text key={`model-tag-${c.value}`} color={YELLOW} bold>{`⚠ ${c.tag}`}</Text> : null}
+              </Box>
               <Text dimColor wrap="wrap">{c.about}</Text>
             </Box>
-          ))) : card === 'handoff' ? (bare ? [] : [
-            <Select key="settings-skill" label="Handoff skill" value={shown.handoffSkill || '-'}
-              options={[
+          )).concat([
+            // Which model writes a compaction's summary: a model choice, so it sits with the others.
+            pick({ key: "settings-compact-with", label: "Compact with", value: shown.compactWith, options: [{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }], onSelect: set('compactWith') }),
+          ])) : card === 'handoff' ? (bare ? [] : [
+            pick({ key: "settings-skill", label: "Handoff skill", value: shown.handoffSkill || '-', options: [
                 { value: '-', label: 'effortless (built in)' },
                 ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
-              ]}
-              onSelect={v => set('handoffSkill')(v === '-' ? '' : v)} />,
-            <Select key="settings-swamp" label="Compact alert at" value={shown.swampAt}
-              options={SWAMP_STEPS.map(n => ({ value: String(n), label: `${n}%` }))} onSelect={set('swampAt')} />,
-            <Select key="settings-handoff-button" label="Handoff button" value={shown.handoffButton}
-              options={[{ value: 'advised', label: 'When advised' }, { value: 'always', label: 'Always' }]}
-              onSelect={set('handoffButton')} />,
-            <Select key="settings-compact-with" label="Compact with" value={shown.compactWith}
-              options={[{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }]}
-              onSelect={set('compactWith')} />,
+              ], onSelect: v => set('handoffSkill')(v === '-' ? '' : v) }),
+            pick({ key: "settings-swamp", label: "Compact alert at", value: shown.swampAt, options: SWAMP_STEPS.map(n => ({ value: String(n), label: `${n}%` })), onSelect: set('swampAt') }),
+            pick({ key: "settings-handoff-button", label: "Handoff button", value: shown.handoffButton, options: [{ value: 'advised', label: 'When advised' }, { value: 'always', label: 'Always' }], onSelect: set('handoffButton') }),
+            ...alertToggles,
 ]) : [
             ...(bare
               ? []
               : [
-                  <Select key="settings-layout" label="Look" value={shown.layout}
-                    options={[{ value: 'default', label: 'Dashboard' }, { value: 'minimal', label: 'Minimal' }]}
-                    onSelect={set('layout')} />,
-                  <Select key="settings-appearance" label="Appearance" value={shown.appearance}
-                    options={[{ value: 'auto', label: 'Match Claude Code' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }]}
-                    onSelect={set('appearance')} />,
-                  <Select key="settings-theme" label="Theme" value={shown.theme}
-                    options={[{ value: 'violet', label: 'Violet' }, { value: 'orange', label: 'Claude orange' }, { value: 'rose', label: 'Cherry blossom' }]}
-                    onSelect={set('theme')} />,
-                  <Select key="settings-clock" label="Clock" value={shown.clock}
-                    options={[{ value: '24h', label: '24-hour' }, { value: '12h', label: '12-hour' }]}
-                    onSelect={set('clock')} />,
+                  pick({ key: "settings-layout", label: "Look", value: shown.layout, options: [{ value: 'default', label: 'Dashboard' }, { value: 'minimal', label: 'Minimal' }], onSelect: set('layout') }),
+                  pick({ key: "settings-appearance", label: "Appearance", value: shown.appearance, options: [{ value: 'auto', label: 'Match Claude Code' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }], onSelect: set('appearance') }),
+                  pick({ key: "settings-theme", label: "Theme", value: shown.theme, options: [{ value: 'violet', label: 'Violet' }, { value: 'orange', label: 'Claude orange' }, { value: 'rose', label: 'Cherry blossom' }], onSelect: set('theme') }),
+                  pick({ key: "settings-clock", label: "Clock", value: shown.clock, options: [{ value: '24h', label: '24-hour' }, { value: '12h', label: '12-hour' }], onSelect: set('clock') }),
                 ]),
             ...toggles,
             ...(bare ? [] : [uninstallButton($, themedEls($.ui.resolve(e)))]),
@@ -4945,8 +5208,7 @@ Saved to ${out}.md and .json` }
     }
     // A usage limit is close: Save mode keeps Auto at medium or below until it resets.
     const heat = await read($, hot)
-    const heatHidden = await read($, hotHidden)
-    if (heat && !config.hide.includes('hot') && (heatHidden === null || heat.percent >= heatHidden + HOT_REGROW)) {
+    if (heat && !config.hide.includes('hot') && hotVisible(heat, await hotClosedNow($))) {
       const saving = (await read($, saveUntil)) !== null
       const window = heat.kind === 'five_hour' ? '5h' : 'weekly'
       const resets = resetLabel(heat.resetsAt, await $.clock.now(), config.clock)
@@ -4957,7 +5219,7 @@ Saved to ${out}.md and .json` }
           buttons: [
             <Button key="hot-save" variant="primary" hotkey="s" label={saving ? 'Save mode on' : 'Save mode'}
               onPress={async () => { $.ui.toast(`effortless: ${await toggleSave($)}`) }} />,
-            <Button key="hot-close" plain role="dismiss" label="✕" onPress={() => update($, hotHidden, () => heat.percent)} />,
+            <Button key="hot-close" plain role="dismiss" label="✕" onPress={() => closeHot($, heat)} />,
           ],
         })
       return (
@@ -4983,7 +5245,7 @@ Saved to ${out}.md and .json` }
                 $.ui.toast(`effortless: ${await toggleSave($)}`)
               }}
             />
-            <Button key="hot-close" plain role="dismiss" label="✕" onPress={() => update($, hotHidden, () => heat.percent)} />
+            <Button key="hot-close" plain role="dismiss" label="✕" onPress={() => closeHot($, heat)} />
           </Box>
         </Box>
       )

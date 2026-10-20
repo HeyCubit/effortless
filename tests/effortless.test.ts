@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { helperFloor, namedEffort, hotVisible, looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, syncPlan, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, isNewer, latestRelease, updateSnoozed, updateFailure, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { importsOf, moduleLinks, moduleOf, relPath, withTouch } from '../hooks/agents'
@@ -705,6 +705,37 @@ describe('follow-ups', () => {
   })
 })
 
+describe('named level', () => {
+  test('namedEffort: a level said with the word effort, or xhigh, counts; other senses and negations do not', () => {
+    expect(namedEffort('do this with max effort please')).toBe('max')
+    expect(namedEffort('Effort: high, then refactor the relay')).toBe('high')
+    expect(namedEffort('run it at effort low')).toBe('low')
+    expect(namedEffort('use extra high effort for this one')).toBe('xhigh')
+    expect(namedEffort('xhigh, review the whole repo')).toBe('xhigh')
+    expect(namedEffort('maximum effort on this bug')).toBe('max')
+    expect(namedEffort('make a medium sized image')).toBeUndefined()
+    expect(namedEffort('this needs a lot of effort, the bug is high up in the stack')).toBeUndefined()
+    expect(namedEffort("don't use max effort for this")).toBeUndefined()
+    expect(namedEffort('no need for high effort here')).toBeUndefined()
+    expect(namedEffort('a high effort job: migrate everything')).toBe('high')
+  })
+
+  test('a prompt that names a level runs at it without asking the judge, past Max', { options: { effortCeiling: 'high' } } as never, async ($, on) => {
+    engine(on)
+    const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"small"}')
+    const sent = recordSteps(on)
+    await $.prompt.submit({ text: 'max effort: find why the relay drops messages', wait: false, origin: { kind: 'composer' } })
+    await step($, 'medium')
+    expect(asked.length).toBe(0)
+    expect(sent[0].effort).toBe('max')
+    // The next prompt without a level goes back to the judge, within Max.
+    await $.prompt.submit({ text: 'now rename the helper in utils', wait: false, origin: { kind: 'composer' } })
+    await step($, 'medium')
+    expect(asked.length).toBe(1)
+    expect(sent[1].effort).toBe('low')
+  })
+})
+
 describe('state from an older version', () => {
   test('the pre-0.2.0 tally { requests, actual, baseline } reads as an empty tally, never throws', () => {
     const old = { requests: 3, actual: 900, baseline: 1500 } as never
@@ -1116,16 +1147,18 @@ describe('judge choice (plugin settings)', () => {
       floor: 'low',
       ceiling: 'max',
       hide: ['reason'],
-      swampAt: 80,
+      swampAt: 70,
       layout: 'default',
       compactWith: 'haiku',
       handoffButton: 'advised',
       modelAuto: 'off',
+      helpers: 'off',
       theme: 'violet',
       appearance: 'auto',
+      clock: '24h',
     })
     expect(readConfig({ swampAt: '20' })).toMatchObject({ swampAt: 20 })
-    expect(readConfig({ swampAt: '33' }).swampAt).toBe(80)
+    expect(readConfig({ swampAt: '33' }).swampAt).toBe(70)
     expect(readConfig({ handoffSkill: '/session-handoff', handoffAfter: 'confirm' })).toMatchObject({
       handoffSkill: 'session-handoff',
       handoffAfter: 'confirm',
@@ -1722,11 +1755,11 @@ describe('handoff', () => {
     await bar.unmount()
   }
 
-  function handoffEngine(on: On) {
+  function handoffEngine(on: On, said: { role: string; text: string }[] = []) {
     mock.store(on)
     mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
     on('ui.status', () => ({ value: undefined }))
-    on('session.messages', () => ({ value: [] }) as never)
+    on('session.messages', () => ({ value: said }) as never)
     on('session.model', () => ({ value: 'claude-opus-5-5' }))
     on('command.list', () => ({ value: [{ name: 'model' }, { name: 'effort' }] as never }))
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
@@ -1770,6 +1803,35 @@ describe('handoff', () => {
     expect(await after.find({ key: 'handoff-go' })).toBeUndefined()
     await after.unmount()
     await footer.unmount()
+  })
+
+  test('on a cold cache, Quick is written by Haiku from the transcript, not a fork that rereads the chat', async ($, on) => {
+    const { forked, submitted } = handoffEngine(on, [{ role: 'user', text: 'build the thing' }, { role: 'assistant', text: 'built it' }])
+    const asked: string[] = []
+    on('model.complete', (_$, e) => {
+      asked.push(String(e.model))
+      return { value: { isAnswered: true as const, text: `Goal: from Haiku. ${'x'.repeat(120)}`, usage: USAGE } }
+    })
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    await $.command.run({ command: 'effortless', args: 'cold' })
+    const footer = await $.ui.mount(FOOTER)
+    await handOff($, footer, ['handoff-quick'])
+    await mocked.advance(2500)
+    expect(forked).toEqual([])
+    expect(asked.some(m => m.includes('haiku'))).toBe(true)
+    expect(submitted.some(t => t.includes('Goal: from Haiku'))).toBe(true)
+    await footer.unmount()
+  })
+
+  test('hotVisible: closed, the band stays away for its window and comes back once at 95%', () => {
+    const heat = { kind: 'five_hour', percent: 82, resetsAt: '2026-10-10T20:00:00Z' }
+    expect(hotVisible(heat, null)).toBe(true)
+    const closed = { window: 'five_hour ' + Math.round(new Date(heat.resetsAt).getTime() / 900_000), percent: 82 }
+    expect(hotVisible({ ...heat, percent: 91 }, closed)).toBe(false)
+    expect(hotVisible({ ...heat, percent: 96 }, closed)).toBe(true)
+    expect(hotVisible({ ...heat, percent: 96 }, { ...closed, percent: 96 })).toBe(false)
+    expect(hotVisible({ ...heat, resetsAt: '2026-10-11T01:00:00Z' }, closed)).toBe(true)
   })
 
   test('with a skill set, Quick forks and Full runs the skill', { options: { handoffSkill: 'session-handoff' } } as never, async ($, on) => {
@@ -2030,7 +2092,7 @@ describe('swamp band and setup entry', () => {
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
   }
 
-  test('the swamp band waits for the threshold set: 21% of a 1M window is not swamped at the default 50%', async ($, on) => {
+  test('the swamp band waits for the threshold set: 21% of a 1M window is not swamped at the default 70%', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
     on('session.usage', () => ({ value: { context: { tokens: 208_000, window: 1_000_000, percent: 21 } } }) as never)
@@ -2063,7 +2125,7 @@ describe('swamp band and setup entry', () => {
     engine(on)
     const mocked = mock.clock(on)
     let tokens = 180_000
-    on('session.usage', () => ({ value: { context: { tokens, window: 300_000, percent: Math.round(tokens / 3_000) } } }) as never)
+    on('session.usage', () => ({ value: { context: { tokens, window: 250_000, percent: Math.round(tokens / 2_500) } } }) as never)
     await start($, on)
     const guide = await $.ui.mount(DESK_BAND)
     await guide.press({ key: 'setup-close' })
@@ -2088,7 +2150,7 @@ describe('swamp band and setup entry', () => {
     engine(on)
     const mocked = mock.clock(on)
     on('turn.complete', () => ({ text: '' }) as never)
-    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 300_000, percent: 67 } } }) as never)
+    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 250_000, percent: 80 } } }) as never)
     await start($, on)
     const guide = await $.ui.mount(DESK_BAND)
     await guide.press({ key: 'setup-close' })
@@ -2114,7 +2176,7 @@ describe('swamp band and setup entry', () => {
         release = () => resolve({ text: 'ok' })
       }) as never
     })
-    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 300_000, percent: 67 } } }) as never)
+    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 250_000, percent: 80 } } }) as never)
     await start($, on)
     const guide = await $.ui.mount(DESK_BAND)
     await guide.press({ key: 'setup-close' })
@@ -2143,7 +2205,7 @@ describe('swamp band and setup entry', () => {
         release = () => resolve({ text: 'ok' })
       }) as never
     })
-    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 300_000, percent: 67 } } }) as never)
+    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 250_000, percent: 80 } } }) as never)
     on('turn.complete', (_$, e) => ({ text: e.answer }))
     on('ui.render', { component: 'AssistantMessage' }, (h, e) => {
       const { Text } = h.ui.resolve(e)
@@ -2179,7 +2241,7 @@ describe('swamp band and setup entry', () => {
   test('a swamped chat draws no card under the reply: the band above the prompt says it', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
-    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 300_000, percent: 67 } } }) as never)
+    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 250_000, percent: 80 } } }) as never)
     on('turn.complete', (_$, e) => ({ text: e.answer }))
     // The app's own drawing of a reply block, beneath the plugin.
     on('ui.render', { component: 'AssistantMessage' }, (h, e) => {
@@ -2408,27 +2470,36 @@ describe('settings panel', () => {
     await panel.press({ key: 'settings-card-effort' })
     await panel.press({ key: 'bias3' })
     await panel.select({ key: 'settings-floor', value: 'medium' })
+    // Helpers: the Auto switch again, off by default.
+    expect(await drawn(panel)).toContain('Helpers off')
+    await panel.press({ key: 'settings-helpers-switch' })
+    expect(await drawn(panel)).toContain('Helpers on')
     await panel.press({ key: 'settings-back' })
     await panel.press({ key: 'settings-card-judge' })
     await panel.input({ key: 'settings-key', text: ' tk-new ' })
     await panel.press({ key: 'settings-back' })
     await panel.press({ key: 'settings-card-handoff' })
     await panel.select({ key: 'settings-skill', value: 'session-handoff' })
+    expect(await panel.find({ key: 'show-box-swamp' })).toBeDefined()
+    expect(await panel.find({ key: 'show-box-cold' })).toBeDefined()
     await panel.press({ key: 'settings-back' })
     // Model has its own card: two choices, and the card says which is on. Off by default.
     expect(await drawn(panel)).toContain("Always the chat's")
     await panel.press({ key: 'settings-card-model' })
     await panel.press({ key: 'settings-model-on' })
+    // Compact with is a model choice: it lives here, not in the Handoff card.
+    expect(await panel.find({ key: 'settings-compact-with' })).toBeDefined()
     await panel.press({ key: 'settings-back' })
     expect(await drawn(panel)).toContain('Cheaper when it can')
     // The cards say what is set, unsaved changes included.
-    expect(await drawn(panel)).toContain('Smarter · medium to max')
+    expect(await drawn(panel)).toContain('Smarter · medium to max · helpers')
     expect(await drawn(panel)).toContain('/session-handoff · compact alert at')
     await panel.press({ key: 'settings-card-show' })
     await panel.press({ key: 'show-box-timer' })
     await panel.press({ key: 'show-box-reason' })
     expect(await panel.find({ key: 'show-box-sounds' })).toBeUndefined()
     // The judge line starts off, so its box switches it on; the cache timer goes off. No progress, sounds or alert.
+    // The alerts are in the Handoff card, beside when the context alert shows.
     expect(await panel.find({ key: 'show-box-swamp' })).toBeUndefined()
     expect(set).toEqual([])
     await panel.press({ key: 'settings-save' })
@@ -2438,6 +2509,7 @@ describe('settings panel', () => {
     expect(set).toContainEqual({ key: 'effortless.effortFloor', value: 'medium' })
     expect(set).toContainEqual({ key: 'effortless.judge', value: 'jev' })
     expect(set).toContainEqual({ key: 'effortless.modelAuto', value: 'on' })
+    expect(set).toContainEqual({ key: 'effortless.helpers', value: 'on' })
     expect(said.join(' | ')).toContain('key saved')
     expect(files['C:/Users/x/.config/jev/.env']).toBe('OTHER=1\nTYPESAFE_API_KEY=tk-new\n')
     await panel.unmount()
@@ -2451,11 +2523,11 @@ describe('settings panel', () => {
 })
 
 describe('switching parts off', () => {
-  test('readConfig keeps only parts that can be switched off; the alerts are not among them', () => {
-    expect(readConfig({ hide: 'swamp, handoff,bogus,down,progress' }).hide).toEqual(['handoff', 'progress'])
+  test('readConfig keeps only parts that can be switched off; the judge-down alert is not among them', () => {
+    expect(readConfig({ hide: 'swamp, handoff,bogus,down,progress' }).hide).toEqual(['swamp', 'handoff', 'progress'])
   })
 
-  test('a hidden handoff button is not in the footer; an old hide list cannot hide the swamp band', { options: { hide: 'handoff,swamp' } } as never, async ($, on) => {
+  test('a hidden handoff button is not in the footer; a switched-off context alert does not show', { options: { hide: 'handoff,swamp' } } as never, async ($, on) => {
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
     on('command.register', () => ({ value: undefined }) as never)
     engine(on)
@@ -2466,9 +2538,8 @@ describe('switching parts off', () => {
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
     await mocked.advance(16_000)
-    const band = await $.ui.mount(DESK_BAND)
-    expect(await drawn(band)).toContain('Chat is getting swamped')
-    await band.unmount()
+    // Nothing above the prompt: the swamp band was the only thing to draw.
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
     const footer = await $.ui.mount(FOOTER)
     expect(await footer.find({ key: 'handoff' })).toBeUndefined()
     await footer.unmount()
@@ -2593,6 +2664,42 @@ describe('terminal bands', () => {
       await narrow.unmount()
     })
   }
+
+  test('Settings in a narrow terminal: cards keep their text, the header wraps, the bug link copies', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    const copied: string[] = []
+    on('ui.copy', (_$, e) => {
+      copied.push(e.text)
+      return { value: { isCopied: true } } as never
+    })
+    await start($, on)
+    const guide = await $.ui.mount(at(36))
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await $.command.run({ command: 'effortless', args: 'settings' } as never)
+    const panel = await $.ui.mount(at(36))
+    const text = await drawn(panel)
+    // No blank buttons laid over the cards: a terminal paints their spaces over the title and summary.
+    expect(text).not.toContain(' '.repeat(800))
+    expect(text).toContain('Effort ›')
+    // Title and buttons are in the flow, so a narrow window wraps them instead of drawing one over the other.
+    expect(text).not.toMatch(/"key":"settings-(title|actions)"[^}]*"position":"absolute"/)
+    expect(text).not.toContain('"href"')
+    await panel.press({ key: 'settings-bug' })
+    expect(copied[0]).toContain('heycubit.github.io/effortless/report/')
+    await panel.press({ key: 'settings-card-effort' })
+    expect(await drawn(panel)).toContain('Helpers')
+    expect(await drawn(panel)).not.toContain(' '.repeat(40))
+    // Short choices are buttons, not a dropdown that opens inside the row: one press picks.
+    await panel.press({ key: 'settings-back' })
+    await panel.press({ key: 'settings-card-show' })
+    expect(await panel.find({ key: 'settings-theme' })).toBeDefined()
+    await panel.press({ key: 'settings-theme-rose' })
+    expect(await drawn(panel)).toContain('unsaved changes')
+    expect(JSON.stringify(await panel.find({ key: 'settings-theme-rose' }))).toContain('"variant":"secondary"')
+    await panel.unmount()
+  })
 })
 
 describe('dashboard', () => {
@@ -3097,11 +3204,16 @@ describe('dashboard', () => {
     await closeSetup($, at)
     const band = await $.ui.mount(at)
     const text = await drawn(band)
-    // Auto is switched in the effort row under the band, not twice.
-    expect(await band.find({ key: 'dash-auto' })).toBeUndefined()
+    // Auto is switched in the bar, not twice: the effort row under it drops its own.
+    const before = (await band.find({ key: 'dash-auto' }))?.text
+    expect(before).toContain('Auto')
+    expect(await band.find({ key: 'auto' })).toBeUndefined()
+    await band.press({ key: 'dash-auto' })
+    expect((await band.find({ key: 'dash-auto' }))?.text).not.toBe(before)
     expect(await band.find({ key: 'dash-handoff' })).toBeDefined()
     expect(text).toContain('"children":["Effort"]')
-    expect(text).toContain('"type":"Raster"')
+    // No still sparkles at rest: 16 by 4 pixels of them read as noise in a terminal.
+    expect(text).not.toContain('"type":"Raster"')
     await band.unmount()
   })
 
@@ -3250,8 +3362,8 @@ describe('a message typed while a turn runs', () => {
 describe('updates', () => {
   const DESK = { options: { layout: 'default' } } as never
   /** A session with `installed` on disk and `latest` on main; records what the mod runs. */
-  function world(on: On, v: { installed: string; latest: string; fails?: string; git?: string; installPath?: string }) {
-    engine(on)
+  function world(on: On, v: { installed: string; latest: string; fails?: string; git?: string; installPath?: string; noCli?: (bin: string) => boolean; env?: Record<string, string> }) {
+    engine(on, v.env)
     const clock = mock.clock(on)
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
     on('fs.read', (_$, e) => {
@@ -3268,6 +3380,8 @@ describe('updates', () => {
     const ran: string[] = []
     const envs: (Record<string, string> | undefined)[] = []
     on('process.run', (_$, e) => {
+      // No claude where the app looks: the engine refuses to start it, as it does for a desktop-only user.
+      if (v.noCli?.(e.argv[0])) return { deny: `$.process.run(${e.argv[0]}) failed to start: ENOENT: Command '${e.argv[0]}' not found or is in an unsafe location (current directory)` } as never
       ran.push(e.argv.join(' '))
       envs.push(e.init?.env)
       // git show answers with public.json as it is on stable, when the test gives one.
@@ -3553,6 +3667,47 @@ describe('updates', () => {
     expect(updateFailure('')).toBe('')
   })
 
+  test('claude is looked for on PATH, then where the Windows and Mac installers put it', () => {
+    expect(claudeCandidates('C:/Users/friend')).toEqual(['claude', 'C:/Users/friend/.local/bin/claude.exe'])
+    expect(claudeCandidates('/Users/friend')).toEqual(['claude', '/Users/friend/.local/bin/claude'])
+    expect(claudeCandidates(undefined)).toEqual(['claude'])
+    expect(noClaudeHint("$.process.run(claude) failed to start: ENOENT: Command 'claude' not found or is in an unsafe location (current directory)", 'C:/Users/friend')).toContain('install.ps1')
+    expect(noClaudeHint('spawn claude ENOENT', '/Users/friend')).toContain('install.sh')
+    expect(noClaudeHint('network down', '/Users/friend')).toBeUndefined()
+  })
+
+  test('with no claude on PATH, the update runs the installed one in .local/bin', DESK, async ($, on) => {
+    const w = world(on, { installed: '1.0.0', latest: '1.0.1', noCli: bin => bin === 'claude', env: { USERPROFILE: 'C:/Users/friend' } })
+    await start($)
+    await settle()
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await pastSetup(ui)
+    await ui.press({ key: 'update-go' })
+    await settle()
+    expect(w.ran.filter(r => r.includes('plugin update effortless@'))).toEqual(['C:/Users/friend/.local/bin/claude.exe plugin update effortless@effortless'])
+    expect(await drawn(ui)).toContain('Updated to 1.0.1')
+    await ui.unmount()
+  })
+
+  test('with no claude anywhere, a failed update says the CLI is needed and how to get it', DESK, async ($, on) => {
+    const { copied } = world(on, { installed: '1.0.0', latest: '1.0.1', noCli: () => true, env: { USERPROFILE: 'C:/Users/friend' } })
+    on('ui.toast', () => ({ value: undefined }) as never)
+    await start($)
+    await settle()
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'desktop', ...BAND })
+    await pastSetup(ui)
+    await ui.press({ key: 'update-go' })
+    await settle()
+    const text = await drawn(ui)
+    expect(text).toContain('Update failed')
+    expect(text).toContain('install.ps1')
+    expect(text).not.toContain('ENOENT')
+    // The line can be cut off on a narrow card: Copy install command hands it over whole.
+    await ui.press({ key: 'update-copy' })
+    expect(copied).toEqual(['irm https://claude.ai/install.ps1 | iex'])
+    await ui.unmount()
+  })
+
   test('the update reaches GitHub over HTTPS, so users without an SSH key there can update', DESK, async ($, on) => {
     const w = world(on, { installed: '1.0.0', latest: '1.0.1' })
     await start($)
@@ -3623,6 +3778,94 @@ describe('agent panel', () => {
     expect(text).toContain('All done')
     expect(text).toContain('✓ 1 done')
     await pane.unmount()
+  })
+
+  test('with Helpers on, the judge picks a subagent\'s effort at its spawn and every request of it runs at that', { options: { helpers: 'on' } } as never, async ($, on) => {
+    const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"quick search"}')
+    on('agent.spawn', () => ({ agentId: 'h1', model: 'claude-opus-5-5' }) as never)
+    on('turn.complete', () => ({ text: '' }))
+    const sent = recordSteps(on)
+    await start($, on)
+    await $.agent.spawn({ prompt: 'list the files under hooks', description: 'find files', subagentType: 'Explore' } as never)
+    expect(asked.some(p => p.includes('Explore subagent'))).toBe(true)
+    for (const index of [0, 1]) {
+      for await (const _ of $.turn.step({ turnId: 't1', index, model: 'claude-opus-5-5', effort: 'high', messageCount: 1, agentId: 'h1' } as never)) {
+        // drain
+      }
+    }
+    // Helpers start at medium: a low verdict comes up to it.
+    expect(sent.map(s => s.effort)).toEqual(['medium', 'medium'])
+    await $.command.run({ command: 'effortless', args: 'agents' })
+    const pane = await $.ui.mount(PANE)
+    await pane.press({ key: 'agent-h1-press' }).catch(() => undefined)
+    expect(await drawn(pane)).toContain('Medium')
+    expect(await drawn(pane)).toContain('helpers start at medium')
+    await pane.unmount()
+  })
+
+  test('a subagent\'s first request before its spawn resolves still gets the picked effort', { options: { helpers: 'on' } } as never, async ($, on) => {
+    judgeSays(on, '{"model":"opus","effort":"low","why":"quick search"}')
+    const sent = recordSteps(on)
+    on('agent.list', () => ({ value: [{ id: 'h2', description: 'find files', type: 'Explore', status: 'running' }] }) as never)
+    // The engine's own spawn: the subagent's first request goes out before the spawn answers with its id.
+    let early: Promise<void> | null = null
+    on('agent.spawn', async () => {
+      early = (async () => {
+        for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', effort: 'high', messageCount: 1, agentId: 'h2' } as never)) {
+          // drain
+        }
+      })()
+      await early
+      return { agentId: 'h2', model: 'claude-opus-5-5' } as never
+    })
+    await start($, on)
+    await $.agent.spawn({ prompt: 'list the files under hooks', description: 'find files', subagentType: 'Explore' } as never)
+    expect(sent.map(s => s.effort)).toEqual(['medium'])
+  })
+
+  test("helperFloor: medium, the person's Min when higher, never above their Max", () => {
+    expect(helperFloor('low', 'max')).toBe('medium')
+    expect(helperFloor('high', 'max')).toBe('high')
+    expect(helperFloor('low', 'low')).toBe('low')
+  })
+
+  test('with Helpers off, a subagent runs at the chat\'s effort and the judge is not asked', async ($, on) => {
+    const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"quick search"}')
+    on('agent.spawn', () => ({ agentId: 'h3', model: 'claude-opus-5-5' }) as never)
+    const sent = recordSteps(on)
+    await start($, on)
+    await $.agent.spawn({ prompt: 'list the files', description: 'find files', subagentType: 'Explore' } as never)
+    for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', effort: 'high', messageCount: 1, agentId: 'h3' } as never)) {
+      // drain
+    }
+    expect(asked.some(p => p.includes('subagent'))).toBe(false)
+    expect(sent.map(s => s.effort)).toEqual(['high'])
+  })
+
+  test('with Helpers off, a subagent of a judged turn runs at the turn\'s effort, never below medium', async ($, on) => {
+    engine(on)
+    let verdict = '{"model":"opus","effort":"xhigh","why":"hard"}'
+    const asked: string[] = []
+    on('model.complete', (_$, e) => {
+      asked.push(e.prompt)
+      return { value: { isAnswered: true as const, text: verdict, usage: USAGE } }
+    })
+    on('agent.spawn', () => ({ agentId: 'h4', model: 'claude-opus-5-5' }) as never)
+    const sent = recordSteps(on)
+    const sub = async () => {
+      for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', effort: 'medium', messageCount: 1, agentId: 'h4' } as never)) {
+        // drain
+      }
+    }
+    await $.prompt.submit({ text: 'find why the relay drops messages', wait: false, origin: { kind: 'composer' } })
+    await $.agent.spawn({ prompt: 'read relay/worker.js', description: 'read relay', subagentType: 'Explore' } as never)
+    await sub()
+    verdict = '{"model":"opus","effort":"low","why":"small"}'
+    await $.prompt.submit({ text: 'list the files in hooks', wait: false, origin: { kind: 'composer' } })
+    await sub()
+    // No judge call for the subagent itself; it follows the turn, raised to medium at least.
+    expect(asked.some(p => p.includes('subagent'))).toBe(false)
+    expect(sent.map(s => s.effort)).toEqual(['xhigh', 'medium'])
   })
 
   test('the demo map shows the parts touched; a part opens to its files', async ($, on) => {

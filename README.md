@@ -1,9 +1,23 @@
-<p align="center">
-  <img src="docs/readme/banner.png" alt="effortless, a Claude Code mod: one bar above the prompt that picks the reasoning effort for every prompt" width="100%">
-</p>
+<h3 align="center">Two mods for Claude Code, by HeyCubit</h3>
+
+<table>
+<tr>
+<td width="50%" align="center" valign="top">
+<a href="#effortless"><img src="docs/readme/banner.png" alt="effortless" width="100%"></a>
+<p><b>effortless</b><br>Picks the reasoning effort for every prompt. On real coding tasks, 21% cheaper than Opus on medium, with the same answers.</p>
+<p><a href="https://heycubit.github.io/effortless/">Website</a> · <a href="#install">Install</a></p>
+</td>
+<td width="50%" align="center" valign="top">
+<a href="#textless"><img src="textless/brand/readme-banner.png" alt="textless" width="100%"></a>
+<p><b>textless</b><br>While Claude works, one pixel-art picture stands in for the wall of steps. Pick a set, use your own art, or find one in the Marketplace.</p>
+<p><a href="https://heycubit.github.io/effortless/textless/">Website</a> · <a href="#textless">Install</a></p>
+</td>
+</tr>
+</table>
+
+## effortless
 
 <p align="center">
-  <a href="https://heycubit.github.io/effortless/"><b>Website</b></a> ·
   <a href="#install"><b>Install</b></a> ·
   <a href="#what-the-bar-shows"><b>What it shows</b></a> ·
   <a href="#pick-your-judge"><b>Judges</b></a>
@@ -218,6 +232,20 @@ Tested on Claude Code 2.1.285 (stable), 2.1.286 and 2.1.288 at 80 and 120 column
 | `/effortless bench` | scores each judge you have on the labelled prompts in [`bench/judge-cases.json`](bench/judge-cases.json) |
 | `/effortless debug` | what the mod sees, and on its last line the model and effort the last request ran on |
 | `/effortless update` | checks for a new version now |
+
+## textless
+
+While Claude works, Claude Code shows every step it takes. textless puts one picture there instead, and when Claude is
+done you get the answer, with a pixel word that says whether it is done, needs you or stopped.
+
+- **Pick what shows:** a set (Clawd, Scenery, Paintings, Abstract, Working), one favourite scene, or your own art in
+  `~/.claude/textless/scenes`.
+- **The Marketplace:** scenes other people made, checked before they go live. One command puts one on:
+  `/textless get <id>`.
+- **One switch per chat:** the ⏻ next to the model name, or `/textless`.
+
+Website, scenes and Marketplace: [heycubit.github.io/effortless/textless](https://heycubit.github.io/effortless/textless/).
+The code is in [`textless/`](textless/).
 
 ## Open source
 
