@@ -178,10 +178,31 @@ const lit = (Part: unknown): unknown => {
   return wrap
 }
 
-/** The parts `$.ui.resolve` hands over, with the Svg in the theme and, in a light app, the Box, Text and Button turned light. Absent stays absent. */
-export function themedEls<T extends object>(els: T): T {
+/**
+ * VS Code's webview reads only a Button's key, label and dimColor: plain and variant are dropped, so every Button is the
+ * editor's filled one. There a plain or secondary Button is drawn dim (an outline and a ghost hover), the nearest to how
+ * the desktop draws them; a primary one stays filled.
+ */
+const quietWrapped = new WeakMap<object, Component>()
+const quiet = (Part: unknown): unknown => {
+  if (typeof Part !== 'function') return Part
+  let wrap = quietWrapped.get(Part as object)
+  if (!wrap) {
+    const inner = Part as unknown as Component
+    wrap = props => inner(props && typeof props === 'object' && props.variant !== 'primary' && (props.plain === true || props.variant === 'secondary') ? { ...props, dimColor: true } : props)
+    quietWrapped.set(Part as object, wrap)
+  }
+  return wrap
+}
+
+/**
+ * The parts `$.ui.resolve` hands over, with the Svg in the theme and, in a light app, the Box, Text and Button turned
+ * light; on VS Code the plain Buttons drawn quiet. Absent stays absent.
+ */
+export function themedEls<T extends object>(els: T, surface?: string): T {
   const out: Record<string, unknown> = { ...els }
   if ('Svg' in els) out.Svg = themedSvg((els as { Svg: unknown }).Svg)
   if (light) for (const part of ['Box', 'Text', 'Button']) if (part in els) out[part] = lit((els as Record<string, unknown>)[part])
+  if (surface === 'vscode' && 'Button' in out) out.Button = quiet(out.Button)
   return out as T
 }
