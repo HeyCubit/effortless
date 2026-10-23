@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, ModelForkResult, Register, RenderInput } from 'claude-code'
+import type { EngineInterface, ModelForkResult, Register, RenderElement, RenderInput } from 'claude-code'
 
 import type { AgentRec, Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
 import { agentsPane, demoAgents, demoFiles, demoSteps, importsOf, relPath, toolLine, touchOf, withTouch, withWaits } from './agents'
@@ -4485,7 +4485,7 @@ Saved to ${out}.md and .json` }
   // On desktop nothing is drawn here, except the question when the judge suggests another model.
   // Draws the bands and the settings panel. Counted and guarded so /effortless debug can say whether the app asks
   // for it at all and whether drawing failed: an error here otherwise only leaves the slot empty.
-  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => stackBelow($, e, next, async nextIn => {
     // Setup changes a reload cut off are saved from here: the reloaded plugin draws before anything else runs.
     void drainSetupSave($).catch(() => undefined)
     void afterLoad($).catch(() => undefined)
@@ -4503,7 +4503,7 @@ Saved to ${out}.md and .json` }
     try {
     if (e.props.hasSurvey) {
       lastRenderBranch = 'stepped aside: the app has a survey in this spot'
-      return next(e)
+      return nextIn(e)
     }
     const asked = await $.store.get('openSettingsAt')
     const askedHere =
@@ -5383,11 +5383,11 @@ Saved to ${out}.md and .json` }
     // The minimal look draws no dashboard: mark the rest here, so the next band plays its entrance.
     introKind = 'rest'
     const { question, rows } = await effortRows($, e)
-    if (e.surface !== 'terminal') return question ?? next(e)
+    if (e.surface !== 'terminal') return question ?? nextIn(e)
     return rows
     } catch (error) {
       lastRenderError = (error instanceof Error ? error.message : String(error)).slice(0, 300)
-      return next(e)
+      return nextIn(e)
     } finally {
       if (glowReadAt !== null) {
         drawLead = drawLead * 0.7 + Math.min(150, Date.now() - glowReadAt + 16) * 0.3
@@ -5399,5 +5399,24 @@ Saved to ${out}.md and .json` }
         renderLog.push(`${new Date().toISOString()} ${loadedSession} draw took ${Date.now() - lastRenderAt} ms`)
       }
     }
-  })
+  }))
+}
+
+// Every effortless band draws above what other mods put in this band. A branch that
+// already called next(e) passes through as it is.
+type BandNext = (e: RenderInput<'AbovePrompt'>) => Promise<RenderElement>
+
+async function stackBelow($: EngineInterface, e: RenderInput<'AbovePrompt'>, next: BandNext, hook: (next: BandNext) => Promise<RenderElement | null | undefined>): Promise<RenderElement> {
+  let passed: RenderElement | undefined
+  const own = await hook(async x => (passed = await next(x)))
+  if (passed !== undefined) return own ?? passed
+  const below = await next(e)
+  if (own == null) return below
+  const { Box } = $.ui.resolve(e)
+  return (
+    <Box key="effortless-stack" flexDirection="column">
+      {own}
+      {below}
+    </Box>
+  )
 }

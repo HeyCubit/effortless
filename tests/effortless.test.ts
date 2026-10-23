@@ -53,6 +53,8 @@ function engine(on: On, env: Record<string, string> = {}, sessionModel = 'claude
   mock.store(on)
   mock.env(on, { EFFORTLESS_MODEL_UI: '1', ...env })
   on('prompt.submit', (_$, e) => ({ text: e.text }))
+  // The app draws nothing of its own above the prompt in a test.
+  on('ui.render', { component: 'AbovePrompt' }, () => ({ type: 'Box', children: [] }) as never)
   on('ui.status', () => ({ value: undefined }))
   on('session.messages', () => ({ value: said }) as never)
   on('session.model', () => ({ value: sessionModel }))
@@ -100,6 +102,13 @@ async function noBand($: Engine, at: never) {
   const text = await drawn(ui)
   expect(text).toContain('hover-cards')
   expect(text).not.toMatch(/"key":"(settings|setup|down|hot|cold|swamp)"/)
+  await ui.unmount()
+}
+
+/** Effortless adds nothing above the prompt: the band is only what the app drew beneath it. */
+async function drawsNothing($: Engine, at: never) {
+  const ui = await $.ui.mount(at)
+  expect(await drawn(ui)).toBe(JSON.stringify({ type: 'Box', children: [] }))
   await ui.unmount()
 }
 
@@ -634,7 +643,7 @@ describe('footer text', () => {
 
   test('nothing is drawn above the prompt on desktop', async ($, on) => {
     engine(on)
-    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    await drawsNothing($, DESK_BAND)
   })
 
   test('a model suggestion still asks above the prompt on desktop', async ($, on) => {
@@ -873,7 +882,7 @@ describe('cache countdown', () => {
     await guide.press({ key: 'setup-haiku' })
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
-    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    await drawsNothing($, DESK_BAND)
     await mocked.advance(2 * 60_000)
     const band = await $.ui.mount(DESK_BAND)
     expect(await band.find({ key: 'cold-compact' })).toBeDefined()
@@ -1402,11 +1411,11 @@ describe('setup guide', () => {
       { key: 'effortless.appearance', value: 'light' },
     ])
     await band.unmount()
-    await expect($.ui.mount(DESK)).rejects.toThrow()
+    await drawsNothing($, DESK)
 
     // A new session: the guide stays closed; /effortless setup opens it again.
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
-    await expect($.ui.mount(DESK)).rejects.toThrow()
+    await drawsNothing($, DESK)
     await $.command.run({ command: 'effortless', args: 'setup' })
     const again = await $.ui.mount(DESK)
     expect(await again.find({ key: 'setup-jev' })).toBeDefined()
@@ -1464,7 +1473,7 @@ describe('setup guide', () => {
     expect(await drawn(band)).toContain('2/4')
     await band.press({ key: 'setup-close' })
     await band.unmount()
-    await expect($.ui.mount(DESK)).rejects.toThrow()
+    await drawsNothing($, DESK)
   })
 })
 
@@ -1719,7 +1728,7 @@ describe('cold band', () => {
     expect(await drawn(band)).toContain('class=\\"f\\"')
     await band.press({ key: 'cold-hide' })
     await band.unmount()
-    await expect($.ui.mount(DESK)).rejects.toThrow()
+    await drawsNothing($, DESK)
   })
 })
 
@@ -1757,6 +1766,8 @@ describe('handoff', () => {
   function handoffEngine(on: On, said: { role: string; text: string }[] = []) {
     mock.store(on)
     mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
+    // The app draws nothing of its own above the prompt in a test.
+    on('ui.render', { component: 'AbovePrompt' }, () => ({ type: 'Box', children: [] }) as never)
     on('ui.status', () => ({ value: undefined }))
     on('session.messages', () => ({ value: said }) as never)
     on('session.model', () => ({ value: 'claude-opus-5-5' }))
@@ -1971,6 +1982,7 @@ describe('handoff', () => {
   test('the handoff is written by a fork: no turn in the chat, then cleared and sent', async ($, on) => {
     mock.store(on)
     mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
+    on('ui.render', { component: 'AbovePrompt' }, () => ({ type: 'Box', children: [] }) as never)
     on('ui.status', () => ({ value: undefined }))
     on('session.messages', () => ({ value: [] }) as never)
     on('session.model', () => ({ value: 'claude-opus-5-5' }))
@@ -2009,6 +2021,7 @@ describe('handoff', () => {
     // engine() without its prompt.submit, so this test can see what the mod sends.
     mock.store(on)
     mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
+    on('ui.render', { component: 'AbovePrompt' }, () => ({ type: 'Box', children: [] }) as never)
     on('ui.status', () => ({ value: undefined }))
     on('session.messages', () => ({ value: [] }) as never)
     on('session.model', () => ({ value: 'claude-opus-5-5' }))
@@ -2043,6 +2056,7 @@ describe('handoff', () => {
   test('a fork that writes nothing says why: in a toast and in /effortless debug, and the turn takes over', async ($, on) => {
     mock.store(on)
     mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
+    on('ui.render', { component: 'AbovePrompt' }, () => ({ type: 'Box', children: [] }) as never)
     on('ui.status', () => ({ value: undefined }))
     on('session.messages', () => ({ value: [] }) as never)
     on('session.model', () => ({ value: 'claude-opus-5-5' }))
@@ -2137,7 +2151,7 @@ describe('swamp band and setup entry', () => {
     expect(await band.find({ key: 'swamp-handoff' })).toBeDefined()
     await band.press({ key: 'swamp-close' })
     await band.unmount()
-    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    await drawsNothing($, DESK_BAND)
     tokens = 240_000
     await mocked.advance(16_000)
     const again = await $.ui.mount(DESK_BAND)
@@ -2293,7 +2307,7 @@ describe('swamp band and setup entry', () => {
     const guide = await $.ui.mount(DESK_BAND)
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
-    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    await drawsNothing($, DESK_BAND)
     const footer = await $.ui.mount(FOOTER)
     expect(await footer.find({ key: 'setup' })).toBeDefined()
     await footer.press({ key: 'setup' })
@@ -2373,7 +2387,7 @@ describe('running hot and judge down', () => {
     await band.unmount()
     status = 200
     await $.prompt.submit({ text: 'now write tests for the queue module', wait: false, origin: { kind: 'composer' } })
-    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    await drawsNothing($, DESK_BAND)
   })
 })
 
@@ -2512,7 +2526,7 @@ describe('settings panel', () => {
     expect(await drawn(saved)).toContain('Settings saved')
     await saved.unmount()
     await mocked.advance(3000)
-    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    await drawsNothing($, DESK_BAND)
   })
 })
 
@@ -2533,7 +2547,7 @@ describe('switching parts off', () => {
     await guide.unmount()
     await mocked.advance(16_000)
     // Nothing above the prompt: the swamp band was the only thing to draw.
-    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    await drawsNothing($, DESK_BAND)
     const footer = await $.ui.mount(FOOTER)
     expect(await footer.find({ key: 'handoff' })).toBeUndefined()
     await footer.unmount()
@@ -3216,7 +3230,7 @@ describe('dashboard', () => {
     mock.clock(on)
     await start($, on)
     await closeSetup($, DESK_BAND)
-    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    await drawsNothing($, DESK_BAND)
     const footer = await $.ui.mount(FOOTER)
     expect(await footer.find({ key: 'auto' })).toBeDefined()
     await footer.unmount()
@@ -3255,7 +3269,7 @@ describe('a chat opened again', () => {
     await start($, on)
     await closeSetup($)
     await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: 7200, prompt_cache_likely_expired: true } as never)
-    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    await drawsNothing($, DESK_BAND)
   })
 
   test('ten minutes after: the countdown goes on from where it was, no cold band', async ($, on) => {
@@ -3264,7 +3278,7 @@ describe('a chat opened again', () => {
     await start($, on)
     await closeSetup($)
     await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: 600, prompt_cache_likely_expired: false } as never)
-    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    await drawsNothing($, DESK_BAND)
     const footer = await $.ui.mount(FOOTER)
     expect(await drawn(footer)).toMatch(/"(49|50)m"/)
     await footer.unmount()
