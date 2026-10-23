@@ -454,10 +454,10 @@ describe('footer text', () => {
     const text = await drawn(footer)
     expect(text).toContain(`"color":"${PURPLE}"`)
     expect(text).toContain('"children":[" Auto "]')
-    // The only button is the small switch for Auto: no label other than the power glyph, not the lit look.
+    // The only button is the small switch for Auto: no label other than its circle, not the lit look.
     // The Auto switch, the setup (or settings gear) and the handoff symbol.
     expect(text.match(/"type":"Button"/g)?.length).toBe(3)
-    expect(text).toContain('"label":" ⏻ "')
+    expect(text).toContain('"label":" ● "')
     // No frame of its own (it drew wide and cut off): plain, with the same grey box as the level on hover.
     expect(text).toContain('"plain":true')
     expect(text).toContain('"hover":{"scope":"power","backgroundColor":"#2b2b2f"}')
@@ -492,11 +492,15 @@ describe('footer text', () => {
     const off = await drawn(footer)
     expect(off).toContain('"children":[" Off "]')
     expect(off).not.toContain(`"color":"${PURPLE}"`)
+    // The switch shows an empty circle while Auto is off.
+    expect(off).toContain('"label":" ○ "')
     await $.prompt.submit({ text: 'en till', wait: false, origin: { kind: 'composer' } })
     expect(asked.length).toBe(1)
 
     await footer.press({ key: 'auto' })
-    expect(await drawn(footer)).toContain(`"color":"${PURPLE}"`)
+    const on2 = await drawn(footer)
+    expect(on2).toContain(`"color":"${PURPLE}"`)
+    expect(on2).toContain('"label":" ● "')
 
     // The command does the same.
     expect(await auto($)).toContain('Auto off')
