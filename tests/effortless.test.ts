@@ -1956,7 +1956,7 @@ describe('handoff', () => {
     const filled: string[] = []
     on('prompt.fill', (_$, e) => {
       filled.push(e.text)
-      return { value: { isFilled: true, text: e.text } } as never
+      return { isFilled: true } as never
     })
     const mocked = mock.clock(on)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
