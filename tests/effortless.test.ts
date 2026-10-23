@@ -855,7 +855,7 @@ describe('cache countdown', () => {
 
   test('Compact appears only once the cache is cold, and a click compacts', async ($, on) => {
     engine(on)
-    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 1_000_000, percent: 20 } } }) as never)
+    on('session.usage', () => ({ value: { context: { tokens: 500_000, window: 1_000_000, percent: 50 } } }) as never)
     const mocked = mock.clock(on)
     answer(on, { ephemeral_1h_input_tokens: 500, ephemeral_5m_input_tokens: 0 })
     let compacted = 0
@@ -906,7 +906,7 @@ describe('cache countdown', () => {
 
   test('a compact that fails says why in a toast, nothing breaks', async ($, on) => {
     engine(on)
-    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 1_000_000, percent: 20 } } }) as never)
+    on('session.usage', () => ({ value: { context: { tokens: 500_000, window: 1_000_000, percent: 50 } } }) as never)
     const mocked = mock.clock(on)
     answer(on, { ephemeral_5m_input_tokens: 500 })
     on('command.run', (_$, e) => {
@@ -3238,7 +3238,7 @@ describe('a chat opened again', () => {
 
   test('two hours after its last response: the cache shows cold at once', async ($, on) => {
     engine(on)
-    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 1_000_000, percent: 20 } } }) as never)
+    on('session.usage', () => ({ value: { context: { tokens: 500_000, window: 1_000_000, percent: 50 } } }) as never)
     mock.clock(on)
     await start($, on)
     await closeSetup($)
