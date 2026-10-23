@@ -1,5 +1,16 @@
 [
   {
+    "version": "1.72.0",
+    "date": "2026-10-23",
+    "note": "The cold-chat band fits the app's new frame, and waits for 400k tokens",
+    "detail": [
+      "The glow now spans the whole band in the app's new, wider slot.",
+      "On a narrow band the cold-cache line is shorter, so it no longer ends in dots in front of the buttons.",
+      "The cold-cache band shows from 400k tokens, not 150k: rereading a smaller chat costs too little to warn about."
+    ],
+    "public": true
+  },
+  {
     "version": "1.71.0",
     "date": "2026-10-11",
     "note": "Works properly in the terminal, and updates without the CLI on PATH",
