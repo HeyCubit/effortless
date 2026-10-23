@@ -622,6 +622,8 @@ export type JudgeConfig = {
   theme: ThemeName
   /** auto: light when Claude Code's own theme is light. dark and light fix it. */
   appearance: 'auto' | 'dark' | 'light'
+  /** How times of day read: 24h ("14:20") or 12h ("2:20 PM"). */
+  clock: '24h' | '12h'
 }
 
 /** The swamp thresholds the settings offer, in percent of the context window. */
@@ -651,6 +653,7 @@ let config: JudgeConfig = {
   helpers: 'off',
   theme: 'violet',
   appearance: 'auto',
+  clock: '24h',
 }
 
 /** The settings as the engine hands them over (defaults filled in), cleaned to the shape the judge reads. */
@@ -676,6 +679,7 @@ export function readConfig(options: unknown): JudgeConfig {
     helpers: str(o.helpers) === 'on' ? 'on' : 'off',
     theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
     appearance: (['dark', 'light'] as const).find(a => a === str(o.appearance)) ?? 'auto',
+    clock: str(o.clock) === '12h' ? '12h' : '24h',
     // The judge's line is off until switched on; an empty string saved from the panel means everything shows.
     hide: (o.hide === undefined ? 'reason' : str(o.hide))
       .split(',')
@@ -1345,11 +1349,14 @@ async function checkHot($: EngineInterface, limits: readonly { kind: string; per
   if (until !== null && (await $.clock.now()) >= until) await update($, saveUntil, () => null)
 }
 
-/** "14:20" for a reset time today, "Mon 14:20" further out. */
-export function resetLabel(iso: string | null, now: number): string {
+/** "14:20" for a reset time today, "Mon 14:20" further out; "2:20 PM" and "Mon 2:20 PM" on a 12h clock. */
+export function resetLabel(iso: string | null, now: number, clock: JudgeConfig['clock'] = '24h'): string {
   if (!iso) return ''
   const at = new Date(iso)
-  const hm = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
+  const mm = String(at.getMinutes()).padStart(2, '0')
+  const hm = clock === '12h'
+    ? `${at.getHours() % 12 || 12}:${mm} ${at.getHours() < 12 ? 'AM' : 'PM'}`
+    : `${String(at.getHours()).padStart(2, '0')}:${mm}`
   return at.getTime() - now < 20 * 3600_000 ? hm : `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][at.getDay()]} ${hm}`
 }
 
@@ -1807,6 +1814,7 @@ const SETTING_FIELDS = {
   helpers: 'helpers',
   theme: 'theme',
   appearance: 'appearance',
+  clock: 'clock',
 } as const
 
 async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELDS, value: string) {
@@ -1838,6 +1846,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     helpers: config.helpers,
     theme: config.theme,
     appearance: config.appearance,
+    clock: config.clock,
     [SETTING_FIELDS[field]]: value,
   }
   config = { ...readConfig(raw), typesafeKey: config.typesafeKey }
@@ -4563,6 +4572,7 @@ Saved to ${out}.md and .json` }
         helpers: draft.helpers ?? config.helpers,
         theme: draft.theme ?? config.theme,
         appearance: draft.appearance ?? config.appearance,
+        clock: draft.clock ?? config.clock,
       }
       // The Helpers switch slides like Auto's: the time it flipped, seen by the draw after the click.
       const helpersNow = await $.clock.now()
@@ -4859,6 +4869,7 @@ Saved to ${out}.md and .json` }
                   pick({ key: "settings-layout", label: "Look", value: shown.layout, options: [{ value: 'default', label: 'Dashboard' }, { value: 'minimal', label: 'Minimal' }], onSelect: set('layout') }),
                   pick({ key: "settings-appearance", label: "Appearance", value: shown.appearance, options: [{ value: 'auto', label: 'Match Claude Code' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }], onSelect: set('appearance') }),
                   pick({ key: "settings-theme", label: "Theme", value: shown.theme, options: [{ value: 'violet', label: 'Violet' }, { value: 'orange', label: 'Claude orange' }, { value: 'rose', label: 'Cherry blossom' }], onSelect: set('theme') }),
+                  pick({ key: "settings-clock", label: "Clock", value: shown.clock, options: [{ value: '24h', label: '24-hour' }, { value: '12h', label: '12-hour' }], onSelect: set('clock') }),
                 ]),
             ...toggles,
             ...(bare ? [] : [uninstallButton($, themedEls($.ui.resolve(e)))]),
@@ -5200,7 +5211,7 @@ Saved to ${out}.md and .json` }
     if (heat && !config.hide.includes('hot') && hotVisible(heat, await hotClosedNow($))) {
       const saving = (await read($, saveUntil)) !== null
       const window = heat.kind === 'five_hour' ? '5h' : 'weekly'
-      const resets = resetLabel(heat.resetsAt, await $.clock.now())
+      const resets = resetLabel(heat.resetsAt, await $.clock.now(), config.clock)
       if (e.surface === 'terminal')
         return terminalBand($, e, {
           key: 'hot', kind: 'hot', color: EMBER, bg: EMBER_BG, edge: EMBER_EDGE, title: 'Running hot',

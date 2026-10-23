@@ -1155,6 +1155,7 @@ describe('judge choice (plugin settings)', () => {
       helpers: 'off',
       theme: 'violet',
       appearance: 'auto',
+      clock: '24h',
     })
     expect(readConfig({ swampAt: '20' })).toMatchObject({ swampAt: 20 })
     expect(readConfig({ swampAt: '33' }).swampAt).toBe(70)
@@ -2326,6 +2327,11 @@ describe('running hot and judge down', () => {
     const now = new Date('2026-10-06T10:00:00').getTime()
     expect(resetLabel('2026-10-06T14:20:00', now)).toBe('14:20')
     expect(resetLabel(null, now)).toBe('')
+    expect(resetLabel('2026-10-06T14:20:00', now, '12h')).toBe('2:20 PM')
+    expect(resetLabel('2026-10-06T00:05:00', now, '12h')).toBe('12:05 AM')
+    expect(resetLabel('2026-10-08T12:00:00', now, '12h')).toBe('Thu 12:00 PM')
+    expect(readConfig({ clock: '12h' }).clock).toBe('12h')
+    expect(readConfig({ clock: 'nope' }).clock).toBe('24h')
   })
 
   test('a limit past 80% shows the running-hot band; save mode can be switched on', async ($, on) => {
