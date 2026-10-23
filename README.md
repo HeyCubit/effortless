@@ -44,6 +44,7 @@ it is built for. effortless uses it in three places:
 |---|---|
 | **The judge** | reads each prompt and picks the effort, in about a second, on your own Claude login |
 | **Cheaper model when it can** | experimental, off by default. When on, a prompt the judge calls simple may run on Haiku 5.5 (or Sonnet), never above your chat's model, but only when the switch pays: each model keeps its own prompt cache, so in a chat that is in use the switch usually costs more than it saves ([why](#why-model-switching-is-off)) |
+| **Pick once per chat** | experimental, in Settings → Model → *once*. The judge reads the chat's first prompt and picks the chat's model, any model, no cap. While you type, the chat is switched before you send. In a new desktop chat the engine starts at your first Enter, so it decides at that Enter: a cheaper pick runs the first turn there and the chat is switched when the turn ends; a stronger pick asks you first (move up, or stay one effort level up). A toast says what was picked, even when it is the model the chat was already on. The chat then stays on that model, so its cache is never thrown away |
 | **Compaction** | every compaction, `/compact` and the automatic one included, is summarized by Haiku 5.5. If Haiku fails, Claude Code compacts as usual |
 
 The cheaper model is switched on in Settings → Model; compaction is switched in Settings → Handoff → Compact with.
