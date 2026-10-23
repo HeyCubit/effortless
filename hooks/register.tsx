@@ -3129,7 +3129,7 @@ const KIND_SLIDE_DELAY_MS = 70
 let kindFlipAt = 0
 /** How long the bar's edges glow after Auto is switched on. */
 const AUTO_GLOW_MS = 2600
-const AUTO_GLOW_W = 760
+const AUTO_GLOW_W = 1100
 const AUTO_GLOW_H = 37
 /** The image starts inside the band's side borders but over its top and bottom ones (the layer's top and bottom are the
  * band's outer edge, its sides the inner), so the line is inset 0.75 px at the sides and 1.75 px at top and bottom: 1 px
@@ -5260,7 +5260,10 @@ Saved to ${out}.md and .json` }
     const compacting = await read($, isCompacting)
     const coldTokens = compacting ? null : await coldWorth($)
     if (coldTokens !== null) {
-      const line = `Next message rereads ${kTokens(coldTokens)} tokens at full price.`
+      // The slot the app gives the band is narrower than it was (it has a frame of its own now): the long line ended in
+      // an ellipsis in front of the buttons, so a narrow band says the same in fewer words.
+      const narrow = typeof e.props.bodyColumns === 'number' && e.props.bodyColumns < 115
+      const line = narrow ? `Rereads ${kTokens(coldTokens)} tokens at full price.` : `Next message rereads ${kTokens(coldTokens)} tokens at full price.`
       if (e.surface === 'terminal')
         return terminalBand($, e, {
           key: 'cold', kind: 'cold', color: ICE, bg: ICE_BG, edge: ICE_EDGE, title: 'Chat went cold',
