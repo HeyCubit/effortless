@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, ModelForkResult, Register, RenderInput } from 'claude-code'
+import type { AgentStatus, EngineInterface, ModelForkResult, Register, RenderInput } from 'claude-code'
 
 import type { AgentRec, Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
 import { agentsPane, demoAgents, demoFiles, demoSteps, importsOf, relPath, toolLine, touchOf, withTouch, withWaits } from './agents'
@@ -595,6 +595,8 @@ export type JudgeConfig = {
   typesafeKey: string
   /** A skill or slash command that writes the handoff instead of the built-in prompt, e.g. "session-handoff". */
   handoffSkill: string
+  /** A skill the fresh chat runs first to load the handoff, e.g. "om-resume". Empty: it reads the handoff itself. */
+  resumeSkill: string
   /** What follows the handoff: clear and carry on, clear and wait, or keep the chat and copy the handoff. The handoff
    *  bar opens on the choice made last; this is the first one. */
   handoffAfter: HandoffAfter
@@ -630,7 +632,7 @@ export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
 /** The parts of effortless a person can switch off: the footer's (setup) and the progress bar's (setup, settings).
  * The context (swamp), running-low (hot) and cold-cache alerts can be switched off for good in Customize; the judge-down
  * alert always shows. Each alert also has its own ✕. */
-export const HIDEABLE = ['handoff', 'timer', 'reason', 'progress', 'sounds', 'swamp', 'hot', 'cold'] as const
+export const HIDEABLE = ['handoff', 'timer', 'reason', 'progress', 'sounds', 'swamp', 'hot', 'cold', 'effort'] as const
 export type Hideable = (typeof HIDEABLE)[number]
 // What the app passed to register, so settings kept in the store can be laid over it at session start.
 let pluginOptions: Record<string, unknown> = {}
@@ -638,6 +640,7 @@ let config: JudgeConfig = {
   judge: 'auto',
   typesafeKey: '',
   handoffSkill: '',
+  resumeSkill: '',
   handoffAfter: 'continue',
   bias: 0,
   floor: 'low',
@@ -662,6 +665,7 @@ export function readConfig(options: unknown): JudgeConfig {
     judge: picked === 'haiku' || picked === 'jev' ? picked : 'auto',
     typesafeKey: str(o.typesafeKey),
     handoffSkill: str(o.handoffSkill).replace(/^\//, ''),
+    resumeSkill: str(o.resumeSkill).replace(/^\//, ''),
     handoffAfter: (['confirm', 'copy'] as const).find(a => a === str(o.handoffAfter)) ?? 'continue',
     bias: Math.max(-2, Math.min(2, Math.round(Number(str(o.effortBias)) || 0))),
     floor: EFFORTS.includes(str(o.effortFloor) as Effort) ? (str(o.effortFloor) as Effort) : 'low',
@@ -861,6 +865,8 @@ async function checkHandoff($: EngineInterface, next: string) {
     }
     return
   }
+  // Subagents at work: not a moment to suggest stopping, whatever the chat looks like.
+  if (agentsLive > 0) return
   promptsSinceHandoffCheck++
   if (promptsSinceHandoffCheck < HANDOFF_CHECK_EVERY) return
   promptsSinceHandoffCheck = 0
@@ -1224,7 +1230,7 @@ const COLD_MIN_TOKENS = 400_000
 /** The context's tokens when the cold band is worth showing: the cache is cold, the band not closed, and the chat big
  * enough that rereading it matters. Null otherwise, and while the size is not known yet. */
 async function coldWorth($: EngineInterface): Promise<number | null> {
-  if ((await read($, cacheLeft)) !== 0 || config.hide.includes('cold') || (await read($, isColdHidden))) return null
+  if ((await read($, cacheLeft)) !== 0 || config.hide.includes('cold') || agentsLive > 0 || (await read($, isColdHidden))) return null
   const tokens = lastContext?.tokens
   if (coldForced) return tokens ?? 0
   return tokens !== undefined && tokens >= COLD_MIN_TOKENS ? tokens : null
@@ -1399,6 +1405,23 @@ async function setTurnBusy($: EngineInterface, busy: boolean) {
   if (was !== busy) $.ui.invalidate('ui.render')
 }
 
+// Subagents and teammates still at work, from $.agent.list() each second. A background subagent outlives the turn
+// that sent it, and clearing the chat then loses its answer, so the alerts and a handoff wait for these too. A
+// workflow's agents and background shells are not in the list and are not waited for.
+let agentsLive = 0
+const LIVE_STATUSES: readonly AgentStatus[] = ['pending', 'running', 'waiting']
+async function checkAgentsLive($: EngineInterface) {
+  const live = (await $.agent.list()).filter(a => LIVE_STATUSES.includes(a.status)).length
+  if (live !== agentsLive) {
+    agentsLive = live
+    $.ui.invalidate('ui.render')
+  }
+}
+/** A good moment to stop the chat: no turn running and no subagent at work. */
+function chatBusy(): boolean {
+  return turnBusy() || agentsLive > 0
+}
+
 /** A context share to draw the bars with instead of the real one, from ~/.claude/effortless-preview.json
  * ({"contextPercent": 45}), so how a level looks can be checked on screen without filling a chat. No file, no change. */
 async function previewPercent($: EngineInterface): Promise<number | undefined> {
@@ -1570,24 +1593,27 @@ export const HANDOFF_FULL_PROMPT = [
 ].join('\n')
 
 /** The first message of the fresh chat: the handoff, then what to do with it. */
-export function handoffMessage(handoff: string, after: HandoffAfter, skill?: string): string {
+export function handoffMessage(handoff: string, after: HandoffAfter, skill?: string, resume?: string): string {
   const ask =
     after === 'confirm'
       ? 'Read this, say in two lines where things stand and what is next, then wait for me.'
       : 'Continue with the next step. If it is marked "needs user", say what you need and wait.'
   // A full handoff is the person's own skill: it saves the handoff (a file, memories), and its last words in the chat
-  // are often only a note that it did. The new chat is told to read what the skill saved before anything else.
-  if (skill)
-    return (
-      `Handoff from the previous chat: it ran /${skill}, which saved the handoff. Its last words there:\n\n${handoff.trim()}\n\n` +
-      `First read the handoff /${skill} saved: the files named above, or HANDOFF.md in the project if none is named. ${ask}`
-    )
+  // are often only a note that it did. The new chat is told to read what the skill saved before anything else, or to
+  // run the person's resume skill, which knows where it is. A quick handoff saved nothing for that skill to find.
+  if (skill) {
+    const first = resume
+      ? `First run /${resume} on the handoff /${skill} saved (the note named above, if one is named).`
+      : `First read the handoff /${skill} saved: the files named above, or HANDOFF.md in the project if none is named.`
+    return `Handoff from the previous chat: it ran /${skill}, which saved the handoff. Its last words there:\n\n${handoff.trim()}\n\n${first} ${ask}`
+  }
   return `Handoff from the previous chat:\n\n${handoff.trim()}\n\n${ask}`
 }
 
 // The handoff's text once its turn has ended, waiting for the chat to go idle so it can be cleared and resent.
 let handoffText: string | undefined
 let handoffDriving = false
+let handoffWaitSaid = false
 
 /** Starts a handoff: asks for it (built-in prompt or the person's own skill); the rest follows when it is written. */
 // A handoff asked for and not begun: begun from the session's timer, where a prompt may be sent (a command or a press
@@ -1617,6 +1643,17 @@ async function lastHandoffChoice($: EngineInterface): Promise<HandoffChoice> {
 
 /** Opens the handoff bar above the prompt: the footer's ⇥ and the swamp band's Handoff. */
 async function openHandoffBar($: EngineInterface) {
+  // Pressed again while the handoff still waits for the chat to settle: called off, so an agent that never finishes
+  // cannot hold it for good.
+  if ((handoffQueued || handoffText !== undefined) && !handoffDriving) {
+    handoffQueued = false
+    handoffText = undefined
+    handoffWaitSaid = false
+    await update($, handoffStage, () => null)
+    await update($, handoffCard, () => null)
+    $.ui.toast('effortless: handoff called off')
+    return
+  }
   if ((await read($, handoffStage)) !== null) return
   const choice = await lastHandoffChoice($)
   await update($, handoffPick, () => choice)
@@ -1728,6 +1765,16 @@ async function writeHandoff($: EngineInterface) {
 
 /** Clears the chat and sends the written handoff into it. Runs from the session's timer, when nothing waits on it. */
 export async function finishHandoff($: EngineInterface) {
+  // Written and cleared only at a good moment: the turn has ended and no subagent is still at work.
+  if (handoffQueued || handoffText !== undefined) await checkAgentsLive($).catch(() => undefined)
+  if ((handoffQueued || handoffText !== undefined) && chatBusy()) {
+    if (agentsLive > 0 && !handoffWaitSaid) {
+      handoffWaitSaid = true
+      $.ui.toast(`effortless: the handoff waits for ${agentsLive} agent${agentsLive === 1 ? '' : 's'} to finish. Press Handoff again to call it off`)
+    }
+    return
+  }
+  handoffWaitSaid = false
   await writeHandoff($)
   if (handoffText === undefined || handoffDriving) return
   handoffDriving = true
@@ -1737,7 +1784,7 @@ export async function finishHandoff($: EngineInterface) {
     if (handoffThen === 'copy') {
       // The chat stays: the handoff goes to the clipboard, ready to paste into another chat. Should the clipboard
       // refuse, it goes in the prompt box instead, to cut from there.
-      const message = handoffMessage(text, 'continue', handoffFull ? config.handoffSkill : undefined)
+      const message = handoffMessage(text, 'continue', handoffFull ? config.handoffSkill : undefined, config.resumeSkill)
       const copied = await $.ui.copy({ text: message }).catch(() => ({ isCopied: false as const }))
       // Under the reply already there, so the next reply takes it away.
       await setHandoffCard($, 'copied', handoffFull, true)
@@ -1752,7 +1799,7 @@ export async function finishHandoff($: EngineInterface) {
     await $.command.run({ command: 'clear', args: '' })
     // Under the first reply of the cleared chat, gone with the one after it.
     await setHandoffCard($, 'done', handoffFull)
-    await $.prompt.submit({ text: handoffMessage(text, handoffThen, handoffFull ? config.handoffSkill : undefined) })
+    await $.prompt.submit({ text: handoffMessage(text, handoffThen, handoffFull ? config.handoffSkill : undefined, config.resumeSkill) })
   } catch (error) {
     await update($, handoffCard, () => null)
     $.ui.toast(`effortless: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`)
@@ -2713,6 +2760,7 @@ function startTimers($: EngineInterface, from: 'start' | 'draw') {
   handoffTimer?.cancel()
   handoffTimer = $.clock.every(HANDOFF_POLL_MS, () => {
     void agentWaits($).catch(() => undefined)
+    void checkAgentsLive($).catch(() => undefined)
     if (redrawsOwed > 0) {
       // Drawn since the ask: the band is up to date, so a redraw would only restart its animations.
       if (lastRenderAt > redrawAskedAt + REDRAW_SETTLE_MS) redrawsOwed = 0
@@ -3244,7 +3292,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   const els = themedEls($.ui.resolve(e))
   const { Box, Text, Button } = els
   const v = await snap($)
-  adviceNow = (await read($, handoffAdvice)) ?? null
+  adviceNow = agentsLive > 0 ? null : ((await read($, handoffAdvice)) ?? null)
   await introShows($, 'dash')
   // The first draw since another band stood here.
   const entering = introFresh
@@ -3888,7 +3936,8 @@ export const register: Register = (on, options) => {
     if (!e.agentId) {
       await update($, handoffCard, card => (!card || cardRunning(card.kind) ? card : card.seen ? null : { ...card, seen: true }))
     }
-    if (!e.agentId && (await read($, handoffStage)) === 'writing') {
+    // Only the turn that writes the handoff counts: one that was running when Handoff was pressed ends while it waits.
+    if (!e.agentId && !handoffQueued && (await read($, handoffStage)) === 'writing') {
       if (e.reason === 'answer' && e.answer.trim()) handoffText = e.answer
       else {
         await update($, handoffStage, () => null)
@@ -4486,6 +4535,13 @@ Saved to ${out}.md and .json` }
   // Draws the bands and the settings panel. Counted and guarded so /effortless debug can say whether the app asks
   // for it at all and whether drawing failed: an error here otherwise only leaves the slot empty.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    // Another mod's band (You should know) draws beneath this one; answering without next(e) would hide it.
+    let handedOn = false
+    const pass = (x: typeof e) => {
+      handedOn = true
+      return next(x)
+    }
+    const own = await (async () => {
     // Setup changes a reload cut off are saved from here: the reloaded plugin draws before anything else runs.
     void drainSetupSave($).catch(() => undefined)
     void afterLoad($).catch(() => undefined)
@@ -4503,7 +4559,7 @@ Saved to ${out}.md and .json` }
     try {
     if (e.props.hasSurvey) {
       lastRenderBranch = 'stepped aside: the app has a survey in this spot'
-      return next(e)
+      return pass(e)
     }
     const asked = await $.store.get('openSettingsAt')
     const askedHere =
@@ -5315,7 +5371,7 @@ Saved to ${out}.md and .json` }
     // The context is swamped: every message re-reads all of it. Compact or hand off, right here.
     const swampTokens = await read($, swamped)
     const hiddenAt = await read($, swampHiddenAt)
-    if (swampTokens !== null && !config.hide.includes('swamp') && !turnBusy() && !compacting && (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW)) {
+    if (swampTokens !== null && !config.hide.includes('swamp') && !chatBusy() && !compacting && (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW)) {
       const handing = (await read($, handoffStage)) !== null
       if (e.surface === 'terminal')
         return terminalBand($, e, {
@@ -5383,11 +5439,11 @@ Saved to ${out}.md and .json` }
     // The minimal look draws no dashboard: mark the rest here, so the next band plays its entrance.
     introKind = 'rest'
     const { question, rows } = await effortRows($, e)
-    if (e.surface !== 'terminal') return question ?? next(e)
+    if (e.surface !== 'terminal' || config.hide.includes('effort')) return question ?? pass(e)
     return rows
     } catch (error) {
       lastRenderError = (error instanceof Error ? error.message : String(error)).slice(0, 300)
-      return next(e)
+      return pass(e)
     } finally {
       if (glowReadAt !== null) {
         drawLead = drawLead * 0.7 + Math.min(150, Date.now() - glowReadAt + 16) * 0.3
@@ -5399,5 +5455,17 @@ Saved to ${out}.md and .json` }
         renderLog.push(`${new Date().toISOString()} ${loadedSession} draw took ${Date.now() - lastRenderAt} ms`)
       }
     }
+    })()
+    if (handedOn) return own
+    if (!own) return next(e)
+    const below = await next(e).catch(() => null)
+    if (!below) return own
+    const { Box } = $.ui.resolve(e)
+    return (
+      <Box key="effortless-stack" flexDirection="column">
+        {own}
+        {below}
+      </Box>
+    )
   })
 }

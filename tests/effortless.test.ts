@@ -1142,6 +1142,7 @@ describe('judge choice (plugin settings)', () => {
       judge: 'auto',
       typesafeKey: '',
       handoffSkill: '',
+      resumeSkill: '',
       handoffAfter: 'continue',
       bias: 0,
       floor: 'low',
@@ -1854,6 +1855,90 @@ describe('handoff', () => {
     await footer.unmount()
   })
 
+  test('a resume skill is run first in the fresh chat after Full, and Quick has nothing for it to load', () => {
+    const full = handoffMessage('Saved to work/x.md', 'confirm', 'om-session-capture', 'om-resume')
+    expect(full).toContain('First run /om-resume on the handoff /om-session-capture saved')
+    expect(full).not.toContain('HANDOFF.md')
+    expect(full).toContain('then wait for me')
+    expect(handoffMessage('Goal: quick.', 'confirm', undefined, 'om-resume')).not.toContain('om-resume')
+  })
+
+  test('a handoff waits while a subagent is at work, and goes once it is done', async ($, on) => {
+    const { forked, ran } = handoffEngine(on)
+    let status = 'running'
+    on('agent.list', () => ({ value: [{ id: 'a1', description: 'find files', type: 'Explore', status }] }) as never)
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const footer = await $.ui.mount(FOOTER)
+    await handOff($, footer, ['handoff-quick'])
+    await mocked.advance(5000)
+    expect(forked).toEqual([])
+    expect(ran).not.toContain('clear')
+    status = 'completed'
+    await mocked.advance(2500)
+    expect(forked).toEqual([HANDOFF_PROMPT])
+    expect(ran).toContain('clear')
+    await footer.unmount()
+  })
+
+  test('pressing Handoff again while it waits calls it off', async ($, on) => {
+    const { forked, ran } = handoffEngine(on)
+    let status = 'waiting'
+    on('agent.list', () => ({ value: [{ id: 'a1', description: 'plan', type: 'Plan', status }] }) as never)
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const footer = await $.ui.mount(FOOTER)
+    await handOff($, footer, ['handoff-quick'])
+    await mocked.advance(2500)
+    await footer.press({ key: 'handoff' })
+    status = 'completed'
+    await mocked.advance(2500)
+    expect(forked).toEqual([])
+    expect(ran).not.toContain('clear')
+    await footer.unmount()
+  })
+
+  test('pressing Handoff again calls off a written handoff still waiting to clear', { options: { handoffSkill: 'session-handoff' } } as never, async ($, on) => {
+    const { ran } = handoffEngine(on)
+    let status = 'completed'
+    on('agent.list', () => ({ value: [{ id: 'a1', description: 'plan', type: 'Plan', status }] }) as never)
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const footer = await $.ui.mount(FOOTER)
+    await handOff($, footer, ['handoff-full'])
+    await mocked.advance(1500)
+    expect(ran).toContain('session-handoff')
+    status = 'running'
+    await $.turn.complete({ turnId: 't1', answer: "I've saved the handoff.", durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    await mocked.advance(1500)
+    await footer.press({ key: 'handoff' })
+    status = 'completed'
+    await mocked.advance(2500)
+    expect(ran).not.toContain('clear')
+    await footer.unmount()
+  })
+
+  test("Full pressed mid-turn waits for the turn, and that turn's answer is not taken as the handoff", { options: { handoffSkill: 'session-handoff' } } as never, async ($, on) => {
+    const { ran, submitted } = handoffEngine(on)
+    const mocked = mock.clock(on)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    await $.prompt.submit({ text: 'keep building' } as never)
+    const footer = await $.ui.mount(FOOTER)
+    await handOff($, footer, ['handoff-full'])
+    await mocked.advance(2500)
+    expect(ran).not.toContain('session-handoff')
+    await $.turn.complete({ turnId: 't1', answer: 'ordinary reply', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    await mocked.advance(1500)
+    expect(ran).toContain('session-handoff')
+    expect(ran).not.toContain('clear')
+    await $.turn.complete({ turnId: 't2', answer: "I've saved the handoff.", durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    await mocked.advance(2500)
+    expect(ran).toContain('clear')
+    expect(submitted.at(-1)).toContain("I've saved the handoff.")
+    expect(submitted.at(-1)).not.toContain('ordinary reply')
+    await footer.unmount()
+  })
+
   test('the bar opens on the choice made last', { options: { handoffSkill: 'session-handoff' } } as never, async ($, on) => {
     handoffEngine(on)
     const mocked = mock.clock(on)
@@ -2090,6 +2175,22 @@ describe('swamp band and setup entry', () => {
     on('command.register', () => ({ value: undefined }) as never)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
   }
+
+  test('with the effort row hidden, a swamped context still shows Compact and Handoff in the terminal', { options: { layout: 'minimal', hide: 'timer,reason,effort' } } as never, async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    on('session.usage', () => ({ value: { context: { tokens: 200_000, window: 250_000, percent: 80 } } }) as never)
+    await start($, on)
+    const TERM_BAND = { plugin: 'effortless', surface: 'terminal', ...BAND } as never
+    const guide = await $.ui.mount(TERM_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await mocked.advance(16_000)
+    const band = await $.ui.mount(TERM_BAND)
+    expect(await band.find({ key: 'swamp-compact' })).toBeDefined()
+    expect(await band.find({ key: 'swamp-handoff' })).toBeDefined()
+    await band.unmount()
+  })
 
   test('the swamp band waits for the threshold set: 21% of a 1M window is not swamped at the default 70%', async ($, on) => {
     engine(on)
@@ -3982,5 +4083,33 @@ describe('theme', () => {
     } finally {
       setTheme('violet')
     }
+  })
+})
+
+describe('plugins beneath the band', () => {
+  const beneath = (on: On) =>
+    on('ui.render', { component: 'AbovePrompt' }, () => ({ type: 'Box', props: { key: 'beneath-note' }, children: [{ type: 'Text', children: ['beneath'] }] }) as never)
+
+  for (const layout of ['minimal', 'default'] as const) {
+    test(`a ${layout} band still draws what a plugin beneath it draws`, { options: { layout } } as never, async ($, on) => {
+      engine(on)
+      mock.clock(on)
+      beneath(on)
+      const ui = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
+      await ui.redraw()
+      expect(await ui.find({ key: 'beneath-note' })).toBeDefined()
+      await ui.unmount()
+    })
+  }
+
+  test('a minimal band with the effort row hidden draws only what is beneath it', { options: { layout: 'minimal', hide: 'effort' } } as never, async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    beneath(on)
+    const ui = await $.ui.mount({ plugin: 'effortless', surface: 'terminal', ...BAND })
+    await ui.redraw()
+    expect(await ui.find({ key: 'beneath-note' })).toBeDefined()
+    expect(await ui.find({ key: 'auto' })).toBeUndefined()
+    await ui.unmount()
   })
 })
