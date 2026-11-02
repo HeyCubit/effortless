@@ -55,13 +55,13 @@ Two ways. Both take a minute and need no terminal.
 **1. Ask Claude** (easiest). Paste this into Claude Code and press Enter:
 
 ```text
-Install the effortless plugin for me: run `claude plugin marketplace add HeyCubit/effortless` and then `claude plugin install effortless@effortless`. When both succeed, tell me to run /reload-plugins.
+Install the effortless plugin for me: run `claude plugin marketplace add danielducharme/effortless` and then `claude plugin install effortless@effortless`. When both succeed, tell me to run /reload-plugins.
 ```
 
 **2. Commands.** Type these two lines in Claude Code's chat box:
 
 ```text
-/plugin marketplace add HeyCubit/effortless
+/plugin marketplace add danielducharme/effortless
 ```
 
 ```text
@@ -71,7 +71,7 @@ Install the effortless plugin for me: run `claude plugin marketplace add HeyCubi
 Or in a terminal, in one line:
 
 ```bash
-claude plugin marketplace add HeyCubit/effortless; claude plugin install effortless@effortless
+claude plugin marketplace add danielducharme/effortless; claude plugin install effortless@effortless
 ```
 
 Then run `/reload-plugins` (or restart Claude Code). A short setup opens above the prompt: keep **Haiku** alone (one click,
