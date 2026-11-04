@@ -2830,7 +2830,8 @@ describe('dashboard', () => {
     await rows.press({ key: 'e-low' })
     await rows.unmount()
     const band = await $.ui.mount(DESK_BAND)
-    expect(await drawn(band)).toContain('"color":"#d4d4d8","bold":true},"children":["Off"]')
+    // Props after bold are the app's own (newer builds add "weight":"semibold" for bold), so they may come and go.
+    expect(await drawn(band)).toMatch(/"color":"#d4d4d8","bold":true[^{}]*\},"children":\["Off"\]/)
     await band.unmount()
   })
 
