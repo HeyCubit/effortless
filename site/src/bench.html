@@ -166,7 +166,7 @@ a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-of
         <div class="item"><b>Opus costs less at every setting.</b><span><em>21%</em> less than medium, <em>29%</em> less than high, <em>42%</em> less than xhigh, and every answer still right.</span></div>
         <div class="item"><b>Fewer steps, not just less thinking.</b><span><em>5.8</em> requests per task against <em>7.3</em> on medium. Every request rereads the whole chat, so fewer requests is where the saving comes from.</span></div>
         <div class="item"><b>Faster too.</b><span><em>20 s</em> per task against <em>24 s</em> on medium and <em>44 s</em> on xhigh.</span></div>
-        <div class="item"><b>The judge is usually right.</b><span>On 73 hand-labelled prompts, Haiku picks an acceptable effort <em>93%</em> of the time, Jev <em>99%</em>. A fixed effort manages 44 to 51%.</span></div>
+        <div class="item"><b>The judge is usually right.</b><span>On 73 hand-labelled prompts, Haiku picks an acceptable effort <em>93%</em> of the time. A fixed effort manages 44 to 51%.</span></div>
       </div>
       <div class="no">
         <h3><i></i>What does not</h3>
@@ -210,10 +210,10 @@ a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-of
     <h2 id="j-h">Is the judge right?</h2>
     <p>73 prompts, each labelled by hand with the efforts a careful person would accept. 20 were held out and never used to tune the judge.</p>
     <div class="tbl"><table>
-      <thead><tr><th scope="col">Prompts with an acceptable effort</th><th scope="col">Always medium<small>no judge</small></th><th scope="col">Always high<small>no judge</small></th><th scope="col" class="hl">Haiku<small>the default judge</small></th><th scope="col">Jev<small>with a TypeSafe key</small></th></tr></thead>
+      <thead><tr><th scope="col">Prompts with an acceptable effort</th><th scope="col">Always medium<small>no judge</small></th><th scope="col">Always high<small>no judge</small></th><th scope="col" class="hl">Haiku<small>the judge</small></th></tr></thead>
       <tbody>
-        <tr><th scope="row">All 73 prompts</th><td>44%</td><td>51%</td><td class="hl">93%</td><td>99%</td></tr>
-        <tr><th scope="row">20 held-out prompts</th><td>40%</td><td>50%</td><td class="hl">95%</td><td>100%</td></tr>
+        <tr><th scope="row">All 73 prompts</th><td>44%</td><td>51%</td><td class="hl">93%</td></tr>
+        <tr><th scope="row">20 held-out prompts</th><td>40%</td><td>50%</td><td class="hl">95%</td></tr>
       </tbody>
     </table></div>
     <p class="note">Prompts and labels: <code>bench/judge-cases.json</code>. Judge version 1.5.1.</p>

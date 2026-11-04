@@ -40,7 +40,6 @@
   --art-frost:url("__ART_FROST__");
   --art-swamp:url("__ART_SWAMP__");
   --art-ember:url("__ART_EMBER__");
-  --art-down:url("__ART_DOWN__");
   --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --sans:Inter,"Segoe UI",system-ui,-apple-system,sans-serif;
   --display:Outfit,Inter,"Segoe UI",system-ui,sans-serif;
@@ -166,7 +165,6 @@ h1 .spark{width:1.2em;height:1.2em;margin:-.1em -.06em -.1em -.12em;flex-shrink:
 .ice{--c:var(--ice);--bg:var(--ice-bg);--edge:var(--ice-edge);--art:var(--art-frost)}
 .bog{--c:var(--bog);--bg:var(--bog-bg);--edge:var(--bog-edge);--art:var(--art-swamp)}
 .ember{--c:var(--ember);--bg:var(--ember-bg);--edge:var(--ember-edge);--art:var(--art-ember)}
-.slate{--c:var(--slate);--bg:var(--slate-bg);--edge:var(--slate-edge);--art:var(--art-down)}
 .brand{--c:var(--accent);--bg:var(--brand-bg);--edge:var(--brand-edge);--art:var(--art-brand)}
 .btn{display:inline-flex;align-items:center;gap:6px;font:500 13px/1 var(--sans);padding:6px 11px;border-radius:7px;border:0;color:var(--text);background:none;white-space:nowrap}
 .btn.primary{background:#f1f0f4;color:#141218;font-weight:600}
@@ -415,8 +413,6 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
 .power{padding:140px var(--frame) 0}
 .power h2{display:flex;align-items:center;flex-wrap:wrap;gap:.3em;margin:0;font:500 clamp(40px,6.4vw,110px)/1.02 var(--display);letter-spacing:-.03em;color:#f4f2ff}
 .power h2 .cm{width:.86em;height:.86em}
-.power h2 .jm{height:.86em;width:auto}
-.power h2 .or{color:var(--muted)}
 .power p{margin:22px 0 0;max-width:30em;color:var(--muted);font-size:18px;line-height:1.55}
 .uses{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:40px;max-width:1080px;margin:52px 0 0;padding:0;list-style:none}
 .uses b{display:block;font:500 22px/1.25 var(--display);color:#f4f2ff}
@@ -743,8 +739,8 @@ button.btn:focus-visible,.sel select:focus-visible{outline:2px solid var(--accen
   </section>
 
   <section class="power" aria-label="Powered by Haiku 5.5">
-    <h2>Powered by Haiku&nbsp;5.5<img class="cm" src="__CLAUDE_ORANGE__" alt="Claude" width="96" height="96"><span class="or">or Jev</span><img class="jm" src="__TYPESAFE_VIOLET__" alt="Jev" width="64" height="96"></h2>
-    <p>Haiku 5.5 is about 75% cheaper than Haiku 4.5 and does two jobs. Jev, with a TypeSafe key, judges about 4x faster.</p>
+    <h2>Powered by Haiku&nbsp;5.5<img class="cm" src="__CLAUDE_ORANGE__" alt="Claude" width="96" height="96"></h2>
+    <p>Haiku 5.5 is about 75% cheaper than Haiku 4.5 and does two jobs, on your own Claude login.</p>
     <ul class="uses">
       <li><b>Judges every prompt</b><span>Picks the effort, and lights up Handoff when a fresh chat would pay off. On your own Claude login.</span></li>
       <li><b>Writes your compactions</b><span>Every compact, by hand or automatic, is summarized by Haiku 5.5.</span></li>

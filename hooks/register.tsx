@@ -74,9 +74,7 @@ const EFFORT_LABELS: Record<Effort, string> = { low: 'Low', medium: 'Medium', hi
 // Auto is two switches. `isAuto` is effort (the name stays: it is what the store and state hold);
 // `isAutoModel` lets the judge suggest another model and starts off.
 const isAuto = atom({ plugin: 'effortless', key: 'isAuto' } as const, true)
-const JEV_TIMEOUT_MS = 3000
-const JEV_URL = 'https://api.typesafe.ai/v1/systemone'
-const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, read: 0, out: 0, byEffort: {}, judge: { jev: 0, haiku: 0, ms: 0, tokens: 0 }, moved: 0, redone: 0 }
+const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, read: 0, out: 0, byEffort: {}, judge: { haiku: 0, ms: 0, tokens: 0 }, moved: 0, redone: 0 }
 const SWITCHED_MS = 2500
 // The prompt cache lives this long after the last request read or wrote it. A response may say which lifetime its
 // cache writes got (usage.cache_creation: ephemeral_1h / ephemeral_5m); until one does, 1 hour is assumed: 99% of
@@ -96,9 +94,6 @@ const BOG_EDGE = '#3e5a33'
 const EMBER = '#f08a3c'
 const EMBER_BG = '#1a110c'
 const EMBER_EDGE = '#6a3418'
-const SLATE = '#b4b8c4'
-const SLATE_BG = '#12141b'
-const SLATE_EDGE = '#39415a'
 const YELLOW = '#e0a33a'
 const RED = '#e5534b'
 const isAutoModel = atom({ plugin: 'effortless', key: 'isAutoModel' } as const, false)
@@ -173,14 +168,12 @@ let turnCost = 0
 const swampHiddenAt = atom({ plugin: 'effortless', key: 'swampHiddenAt' } as const, null)
 // The first-run setup is not done: the footer offers "Setup".
 const setupPending = atom({ plugin: 'effortless', key: 'setupPending' } as const, false)
-// Why the judge the person picked is failing (Haiku stands in), or null when it works.
 // The effortless settings panel is open above the prompt.
 const settingsOpen = atom({ plugin: 'effortless', key: 'settingsOpen' } as const, false)
 // What was changed in the panel and not saved yet, by field; Save applies it all, the cross drops it.
 // The user and plugin skills, read when the settings panel opens.
 const installedSkills = atom({ plugin: 'effortless', key: 'installedSkills' } as const, [])
 const settingsDraft = atom({ plugin: 'effortless', key: 'settingsDraft' } as const, {})
-const judgeDown = atom({ plugin: 'effortless', key: 'judgeDown' } as const, null)
 // Which part of the settings panel is open: null for the cards.
 type SettingsCard = 'effort' | 'model' | 'judge' | 'handoff' | 'show'
 const settingsCard = atom({ plugin: 'effortless', key: 'settingsCard' } as const, null)
@@ -190,7 +183,7 @@ const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'model', title: 'Model', about: "Whether a simple prompt may run on a cheaper model, and which model writes a compaction." },
   { id: 'handoff', title: 'Handoff & alerts', about: 'The full handoff skill, when to suggest compacting, and which alerts show.' },
   { id: 'show', title: 'Customize', about: 'How effortless looks and which parts it shows. Uninstall removes it.' },
-  { id: 'judge', title: 'Judge', about: 'Haiku judges prompts and handoffs. Add Jev for quicker effort calls. Test checks it answers.' },
+  { id: 'judge', title: 'Judge', about: 'Haiku judges prompts and handoffs, through your own Claude login. Test checks it answers.' },
 ]
 // The Model card: the two ways to run. Effort follows the judge in both.
 const MODEL_CHOICES = [
@@ -200,8 +193,6 @@ const MODEL_CHOICES = [
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
 // The settings panel's judge test: running, or what it found. Null before a test and once the panel closes.
 const judgeTest = atom({ plugin: 'effortless', key: 'judgeTest' } as const, null)
-// The judge-down band was closed for this reason; a new reason shows it again.
-const judgeDownHidden = atom({ plugin: 'effortless', key: 'judgeDownHidden' } as const, null)
 // A usage limit is close: which window, how much is used, when it resets. Null below the line.
 const hot = atom({ plugin: 'effortless', key: 'hot' } as const, null)
 // The running-hot band was closed at this many percent; it returns ten points later or in a new window.
@@ -228,16 +219,10 @@ const FROST_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="6
 // The frost is drawn larger than the band and cut by it: wide enough for the right side, tall enough for any band.
 const FROST_WIDTH = 440
 const FROST_HEIGHT = 64
-// TypeSafe's mark (from typesafe.ai), drawn beside the Jev button: a Button holds text only.
-const TYPESAFE_MARK = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="18" viewBox="0 0 16.487 24"><style>svg{background:transparent;display:block}</style><path d="M 12.756 2.928 L 12.756 7.067 L 16.486 9.487 L 16.487 18.652 L 8.244 24 L 3.732 21.073 L 3.732 16.82 L 0 14.399 L 0 5.35 L 0.355 5.118 L 8.244 0 Z M 5.94 20.65 L 8.242 22.144 L 14.275 18.227 L 11.975 16.735 Z M 9.022 10.332 L 9.022 14.4 L 5.29 16.822 L 5.29 19.216 L 11.197 15.383 L 11.197 8.921 Z M 12.756 15.384 L 14.928 16.794 L 14.928 10.332 L 12.756 8.922 Z M 2.21 13.976 L 4.511 15.47 L 6.812 13.976 L 4.512 12.485 Z M 1.559 6.193 L 1.559 12.544 L 3.731 11.134 L 3.731 7.066 L 7.464 4.643 L 7.464 2.36 L 1.56 6.193 Z M 5.291 11.132 L 7.463 12.542 L 7.463 10.332 L 5.292 8.921 L 5.292 11.132 Z M 5.94 7.487 L 8.244 8.981 L 10.544 7.488 L 8.244 5.994 Z M 9.024 4.643 L 11.196 6.054 L 11.196 3.774 L 9.024 2.359 Z" fill="#ffffff"/></svg>`
-// Claude's mark (from claude.ai) in white, drawn beside the Haiku button.
-const CLAUDE_MARK = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 248 248"><style>svg{background:transparent;display:block}</style><path d="M52.4285 162.873L98.7844 136.879L99.5485 134.602L98.7844 133.334H96.4921L88.7237 132.862L62.2346 132.153L39.3113 131.207L17.0249 130.026L11.4214 128.844L6.2 121.873L6.7094 118.447L11.4214 115.257L18.171 115.847L33.0711 116.911L55.485 118.447L71.6586 119.392L95.728 121.873H99.5485L100.058 120.337L98.7844 119.392L97.7656 118.447L74.5877 102.732L49.4995 86.1905L36.3823 76.62L29.3779 71.7757L25.8121 67.2858L24.2839 57.3608L30.6515 50.2716L39.3113 50.8623L41.4763 51.4531L50.2636 58.1879L68.9842 72.7209L93.4357 90.6804L97.0015 93.6343L98.4374 92.6652L98.6571 91.9801L97.0015 89.2625L83.757 65.2772L69.621 40.8192L63.2534 30.6579L61.5978 24.632C60.9565 22.1032 60.579 20.0111 60.579 17.4246L67.8381 7.49965L71.9133 6.19995L81.7193 7.49965L85.7946 11.0443L91.9074 24.9865L101.714 46.8451L116.996 76.62L121.453 85.4816L123.873 93.6343L124.764 96.1155H126.292V94.6976L127.566 77.9197L129.858 57.3608L132.15 30.8942L132.915 23.4505L136.608 14.4708L143.994 9.62643L149.725 12.344L154.437 19.0788L153.8 23.4505L150.998 41.6463L145.522 70.1215L141.957 89.2625H143.994L146.414 86.7813L156.093 74.0206L172.266 53.698L179.398 45.6635L187.803 36.802L193.152 32.5484H203.34L210.726 43.6549L207.415 55.1159L196.972 68.3492L188.312 79.5739L175.896 96.2095L168.191 109.585L168.882 110.689L170.738 110.53L198.755 104.504L213.91 101.787L231.994 98.7149L240.144 102.496L241.036 106.395L237.852 114.311L218.495 119.037L195.826 123.645L162.07 131.592L161.696 131.893L162.137 132.547L177.36 133.925L183.855 134.279H199.774L229.447 136.524L237.215 141.605L241.8 147.867L241.036 152.711L229.065 158.737L213.019 154.956L175.45 145.977L162.587 142.787H160.805V143.85L171.502 154.366L191.242 172.089L215.82 195.011L217.094 200.682L213.91 205.172L210.599 204.699L188.949 188.394L180.544 181.069L161.696 165.118H160.422V166.772L164.752 173.152L187.803 207.771L188.949 218.405L187.294 221.832L181.308 223.959L174.813 222.777L161.187 203.754L147.305 182.486L136.098 163.345L134.745 164.2L128.075 235.42L125.019 239.082L117.887 241.8L111.902 237.31L108.718 229.984L111.902 215.452L115.722 196.547L118.779 181.541L121.58 162.873L123.291 156.636L123.14 156.219L121.773 156.449L107.699 175.752L86.304 204.699L69.3663 222.777L65.291 224.431L58.2867 220.768L58.9235 214.27L62.8713 208.48L86.304 178.705L100.44 160.155L109.551 149.507L109.462 147.967L108.959 147.924L46.6977 188.512L35.6182 189.93L30.7788 185.44L31.4156 178.115L33.7079 175.752L52.4285 162.873Z" fill="#ffffff"/></svg>`
 // The band when the context is swamped: murky green, bubbles rising, slow ripples.
 const SWAMP_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.b{fill:none;stroke:#cfe8b8;stroke-width:.5;opacity:0;animation-name:rise;animation-timing-function:ease-in;animation-iteration-count:infinite}@keyframes rise{0%{opacity:0;transform:translate(0,0)}15%{opacity:.7}80%{opacity:.5}100%{opacity:0;transform:translate(3px,-30px)}}.rp{fill:none;stroke:#a7c98f;stroke-width:.4;stroke-linecap:round;opacity:.25;animation:drift 7s ease-in-out infinite}@keyframes drift{0%,100%{transform:translate(0,0);opacity:.15}50%{transform:translate(4px,0);opacity:.4}}.mk{animation:mk 8s ease-in-out infinite}@keyframes mk{0%,100%{opacity:.85}50%{opacity:1}}</style><defs><linearGradient id="bog" x1="0" x2="1"><stop offset=".43" stop-color="#4f7a3a" stop-opacity="0"/><stop offset=".62" stop-color="#4f7a3a" stop-opacity=".16"/><stop offset=".85" stop-color="#6f9a4f" stop-opacity=".32"/><stop offset="1" stop-color="#9cc27a" stop-opacity=".42"/></linearGradient><linearGradient id="silt" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset=".6" stop-color="#2b3a1f" stop-opacity=".18"/><stop offset="1" stop-color="#1c2614" stop-opacity=".45"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".06"/></pattern></defs><g mask="url(#m)"><rect class="mk" width="360" height="30" fill="url(#bog)"/><rect width="360" height="30" fill="url(#silt)"/><rect width="360" height="30" fill="url(#grain)"/><path class="rp" style="animation-delay:-0s" d="M190 22 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-2.5s" d="M226 9 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-5s" d="M250 18 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-1.5s" d="M300 24 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-3.8s" d="M322 7 q6 -2 12 0 t12 0"/><circle class="b" cx="168" cy="32" r="1.6" style="animation-duration:6.5s;animation-delay:-0s"/><circle class="b" cx="182" cy="32" r="1.1" style="animation-duration:8s;animation-delay:-2.1s"/><circle class="b" cx="197" cy="32" r="2.0" style="animation-duration:7s;animation-delay:-4.2s"/><circle class="b" cx="210" cy="32" r="1.3" style="animation-duration:9s;animation-delay:-1.0s"/><circle class="b" cx="224" cy="32" r="1.7" style="animation-duration:7.5s;animation-delay:-3.3s"/><circle class="b" cx="238" cy="32" r="1.0" style="animation-duration:8.5s;animation-delay:-5.1s"/><circle class="b" cx="252" cy="32" r="1.4" style="animation-duration:6.8s;animation-delay:-2.6s"/><circle class="b" cx="176" cy="32" r="0.9" style="animation-duration:9.5s;animation-delay:-6.0s"/><circle class="b" cx="232" cy="32" r="0.8" style="animation-duration:10s;animation-delay:-0.5s"/></g></svg>`
 // The band when a usage limit is close: embers, sparks rising.
 const EMBER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.s{fill:#ffb06a;opacity:0;animation-name:up;animation-timing-function:ease-out;animation-iteration-count:infinite}@keyframes up{0%{opacity:0;transform:translate(0,0)}12%{opacity:.95}70%{opacity:.6}100%{opacity:0;transform:translate(4px,-30px)}}.br{animation:br 3.4s ease-in-out infinite}@keyframes br{0%,100%{opacity:.8}50%{opacity:1}}.br2{animation:br2 2.2s ease-in-out infinite}@keyframes br2{0%,100%{opacity:.7}40%{opacity:1}70%{opacity:.8}}</style><defs><linearGradient id="heat" x1="0" x2="1"><stop offset=".43" stop-color="#b8461b" stop-opacity="0"/><stop offset=".62" stop-color="#b8461b" stop-opacity=".16"/><stop offset=".85" stop-color="#d9622a" stop-opacity=".32"/><stop offset="1" stop-color="#f08a3c" stop-opacity=".42"/></linearGradient><linearGradient id="glow" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset=".55" stop-color="#e2581f" stop-opacity=".08"/><stop offset="1" stop-color="#ff7a2e" stop-opacity=".32"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".06"/></pattern></defs><g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#heat)"/><rect class="br2" width="360" height="30" fill="url(#glow)"/><circle class="s" cx="166" cy="31" r="0.7" style="animation-duration:3.2s;animation-delay:-0s"/><circle class="s" cx="178" cy="31" r="0.5" style="animation-duration:4.1s;animation-delay:-1.2s"/><circle class="s" cx="191" cy="31" r="0.8" style="animation-duration:3.6s;animation-delay:-2.4s"/><circle class="s" cx="203" cy="31" r="0.5" style="animation-duration:4.6s;animation-delay:-0.7s"/><circle class="s" cx="216" cy="31" r="0.7" style="animation-duration:3.9s;animation-delay:-3.0s"/><circle class="s" cx="228" cy="31" r="0.6" style="animation-duration:4.3s;animation-delay:-1.8s"/><circle class="s" cx="241" cy="31" r="0.8" style="animation-duration:3.4s;animation-delay:-0.4s"/><circle class="s" cx="254" cy="31" r="0.5" style="animation-duration:4.8s;animation-delay:-2.9s"/><circle class="s" cx="184" cy="31" r="0.4" style="animation-duration:5.0s;animation-delay:-3.6s"/><circle class="s" cx="236" cy="31" r="0.4" style="animation-duration:4.4s;animation-delay:-2.1s"/><rect width="360" height="30" fill="url(#grain)"/></g></svg>`
-// The band when the judge the person picked is failing: signal lost, a blip sweeping along a flat line.
-const DOWN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.tr{fill:none;stroke:#e6ecf8;stroke-width:.6;stroke-linecap:round;stroke-linejoin:round}.gw{fill:none;stroke:#9fb0d6;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;opacity:.35}.hd{animation:hd 4.8s linear infinite}@keyframes hd{0%{transform:translate(150px,0)}88%,100%{transform:translate(372px,0)}}.gl{animation:gl 4.8s ease-in-out infinite}@keyframes gl{0%,100%{opacity:.75}50%{opacity:1}}</style><defs><linearGradient id="steel" x1="0" x2="1"><stop offset=".43" stop-color="#5d6a86" stop-opacity="0"/><stop offset=".65" stop-color="#5d6a86" stop-opacity=".16"/><stop offset=".88" stop-color="#7d8aa8" stop-opacity=".32"/><stop offset="1" stop-color="#a3afca" stop-opacity=".42"/></linearGradient><radialGradient id="glow" cx="330" cy="15" r="80" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#c4cee6" stop-opacity=".22"/><stop offset="1" stop-color="#8d9ab8" stop-opacity="0"/></radialGradient><pattern id="grid" width="7.5" height="7.5" patternUnits="userSpaceOnUse"><path d="M7.5 0 L0 0 L0 7.5" fill="none" stroke="#fff" stroke-opacity=".06" stroke-width=".25"/></pattern><linearGradient id="trail" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".85" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="1"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><mask id="sweep"><g class="hd"><rect x="-110" y="0" width="110" height="30" fill="url(#trail)"/></g></mask></defs><g mask="url(#m)"><rect class="gl" width="360" height="30" fill="url(#steel)"/><rect width="360" height="30" fill="url(#glow)"/><rect width="360" height="30" fill="url(#grid)"/><g mask="url(#sweep)"><g transform="translate(0 3.5)"><path class="gw" d="M150 15 L196 15 L196.0 15.0 L199.0 13.8 L202.0 15.0 L204.0 15.0 L205.5 16.5 L208.0 5.0 L210.5 19.0 L212.0 15.0 L216.0 15.0 L220.0 13.0 L224.0 15.0 L238 15 L238.0 15.0 L241.0 14.2 L244.0 15.0 L246.0 15.0 L247.5 16.1 L250.0 8.0 L252.5 17.8 L254.0 15.0 L258.0 15.0 L262.0 13.6 L266.0 15.0 L278 15 L278.0 15.0 L281.0 14.5 L284.0 15.0 L286.0 15.0 L287.5 15.6 L290.0 11.2 L292.5 16.5 L294.0 15.0 L298.0 15.0 L302.0 14.2 L306.0 15.0 L316 15 L316.0 15.0 L319.0 14.9 L322.0 15.0 L324.0 15.0 L325.5 15.2 L328.0 13.8 L330.5 15.5 L332.0 15.0 L336.0 15.0 L340.0 14.8 L344.0 15.0 L360 15"/><path class="tr" d="M150 15 L196 15 L196.0 15.0 L199.0 13.8 L202.0 15.0 L204.0 15.0 L205.5 16.5 L208.0 5.0 L210.5 19.0 L212.0 15.0 L216.0 15.0 L220.0 13.0 L224.0 15.0 L238 15 L238.0 15.0 L241.0 14.2 L244.0 15.0 L246.0 15.0 L247.5 16.1 L250.0 8.0 L252.5 17.8 L254.0 15.0 L258.0 15.0 L262.0 13.6 L266.0 15.0 L278 15 L278.0 15.0 L281.0 14.5 L284.0 15.0 L286.0 15.0 L287.5 15.6 L290.0 11.2 L292.5 16.5 L294.0 15.0 L298.0 15.0 L302.0 14.2 L306.0 15.0 L316 15 L316.0 15.0 L319.0 14.9 L322.0 15.0 L324.0 15.0 L325.5 15.2 L328.0 13.8 L330.5 15.5 L332.0 15.0 L336.0 15.0 L340.0 14.8 L344.0 15.0 L360 15"/></g></g></g></svg>`
 // The right of the setup guide, pure decoration (the name is on the left): a purple gradient with a soft glow,
 // faint light streaks and grain, a still star, and small sparkles that twinkle in and out here and there. One constant source, so the app never rebuilds its frame (a changing source flickers); the
 // motion is CSS inside it.
@@ -416,33 +401,6 @@ function lastAssistantText(messages: readonly { role: string; text: string }[]):
 }
 
 
-// Jev answers typed questions with probabilities; these are the options it picks between.
-const JEV_EFFORTS: Record<Effort, string> = {
-  low: 'quick answer, no tools, no planning',
-  medium: 'normal work: a few tool calls or edits',
-  high: 'hard or large multi-step job: many tool calls, costly mistakes',
-  xhigh: 'very hard: a long investigation',
-  max: 'the hardest research-level work',
-}
-const JEV_MODELS: Record<ModelKey, string> = {
-  haiku: 'trivial questions, lookups, renames, chit-chat',
-  sonnet: 'normal coding, edits across a few files, explanations, writing',
-  opus: 'hard debugging, architecture, large refactors, careful reviews',
-  fable: 'the hardest long-horizon or research-level work',
-}
-const JEV_TASK =
-  'Choose the reasoning effort (and model) an agentic assistant should use for the next user message. It reads files, ' +
-  'runs tools and edits things, not only code. Pick the cheapest that still does the job well. Judge the scope and the ' +
-  'amount of work, not whether it is code: "go through my whole drive and clean it up" is a big tool-heavy job. ' +
-  'Effort is relative to current_model: a stronger model needs less for the same job. Opus at medium does about what ' +
-  'Sonnet does at high, so for one task pick one step lower on Opus than on Sonnet. ' +
-  'A short follow-up ("yes", "go", "ok", in any language) keeps the current effort. When the message answers a ' +
-  "question in the assistant's last reply (picks an option), judge only the work that answer starts, not its length and " +
-  'not the work before the question: yes/no to one small action, or picking a value for one setting (a log level, a colour), is low; picking which way to build something starts that build, so judge the build; ' +
-  'approving a whole plan takes the effort of that plan; a plain yes to "Then I will build X" means judge X. Pushing back on or adding to a plan under discussion continues that work: keep its effort, never low. Thanks or a closing remark with no new request is low. A ' +
-  'question about how to do something that needs no tools is low. "think hard", "ultrathink" or "be thorough" means ' +
-  'at least high; "quick question" means low.'
-
 /** The skill or custom command a typed "/name args" runs, or nothing for the app's own commands and effortless's. */
 async function typedSkill($: EngineInterface, text: string): Promise<{ name: string; description: string } | undefined> {
   const name = text.trim().slice(1).split(/\s+/)[0]
@@ -511,88 +469,10 @@ export function keepsEffort(message: string, context: string): boolean {
   return isFollowUp(message) && !endsOnQuestion(context)
 }
 
-/** The TypeSafe key in a ~/.config/jev/.env file's text, the same file the jev-* skills read. */
-export function parseJevKey(text: string): string | undefined {
-  const value = text.match(/^\s*TYPESAFE_API_KEY\s*=\s*(.*?)\s*$/m)?.[1].replace(/^['"]|['"]$/g, '')
-  return value || undefined
-}
-
-/**
- * Jev's answer as a verdict. Below even odds on the effort it is unsure, and an unsure call keeps the
- * current effort: that is what a "go" between two steps of work should do.
- */
-const UNSURE = 'unsure, keeping'
-export function parseJevAnswer(text: string, current: Pick | null): { model: ModelKey; effort: Effort; why: string; sure?: number } | undefined {
-  let json: Record<string, unknown>
-  try {
-    json = JSON.parse(text)
-  } catch {
-    return undefined
-  }
-  const answers = (json.answers ?? (json.result as Record<string, unknown> | undefined)?.answers) as
-    | Record<string, { choice?: string; confidence?: number; probabilities?: Record<string, number> }>
-    | undefined
-  const effort = answers?.effort?.choice as Effort | undefined
-  if (!effort || !EFFORTS.includes(effort)) return undefined
-  const model = MODELS.find(m => m.key === answers?.model?.choice)?.key ?? current?.model ?? 'sonnet'
-  const sure = answers?.effort?.confidence ?? answers?.effort?.probabilities?.[effort]
-  if (current && typeof sure === 'number' && sure < 0.5) return { model, effort: current.effort, why: UNSURE, sure }
-  if (typeof sure !== 'number') return { model, effort, why: '' }
-  return { model, effort, why: `${Math.round(sure * 100)}% sure`, sure }
-}
-
-let askJevFile: EnvAsk | undefined
-// A key was saved from the settings panel into ~/.config/jev/.env: that file wins over an older key in the settings.
-let keyFromFile = false
-/**
- * The TypeSafe key: from the settings, else TYPESAFE_API_KEY. Only when the person picked the jev judge outright is
- * ~/.config/jev/.env read as well: a mod should not open a file holding a secret it was not asked to use.
- */
-async function jevKey($: EngineInterface): Promise<string | undefined> {
-  if (config.typesafeKey && !keyFromFile) return config.typesafeKey
-  const fromEnv = await envJevKey($)
-  if (fromEnv) return fromEnv
-  if (config.judge !== 'jev' && !keyFromFile) return undefined
-  askJevFile =
-    askJevFile ??
-    (async () => {
-      const home = (await envUserProfile($)) ?? (await envHome($))
-      if (!home) return undefined
-      const text = await $.fs.read(`${home}/.config/jev/.env`).catch(() => '')
-      return parseJevKey(typeof text === 'string' ? text : '')
-    })()
-  return askJevFile
-}
-
 type Judged = { verdict?: Pick; tokens: number }
 
-/** Why a judge the person picked could not answer, in words: what a status code means for them. */
-export function judgeFailure(name: string, status: number | 'timeout'): string {
-  if (status === 'timeout') return `${name} did not answer in time`
-  if (status === 401 || status === 403) return `${name} rejected the key (${status})`
-  if (status === 402) return `${name} is out of credits (${status})`
-  if (status === 429) return `${name} is rate limited (${status})`
-  return `${name} failed (${status})`
-}
-const warned = new Set<string>()
-/** Tells the person once per session and reason that their judge failed and Haiku stands in. */
-function warnJudge($: EngineInterface, reason: string) {
-  // A test from the settings panel takes the reason for its own line, with no toast and no judge-down band.
-  if (judgeTesting) {
-    judgeTesting.reason = reason
-    return
-  }
-  void proof($, `judge fallback: ${reason}`)
-  void update($, judgeDown, () => reason).then(() => $.ui.invalidate('ui.render'))
-  if (warned.has(reason)) return
-  warned.add(reason)
-  $.ui.toast(`effortless: ${reason}. Haiku judges for now.`)
-}
-
-/** Which judge the person picked in the plugin's settings, and what it needs. */
+/** The plugin's settings, cleaned to the shape the judge reads. */
 export type JudgeConfig = {
-  judge: 'auto' | 'haiku' | 'jev'
-  typesafeKey: string
   /** A skill or slash command that writes the handoff instead of the built-in prompt, e.g. "session-handoff". */
   handoffSkill: string
   /** What follows the handoff: clear and carry on, clear and wait, or keep the chat and copy the handoff. The handoff
@@ -628,15 +508,13 @@ export type JudgeConfig = {
 export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
 
 /** The parts of effortless a person can switch off: the footer's (setup) and the progress bar's (setup, settings).
- * The context (swamp), running-low (hot) and cold-cache alerts can be switched off for good in Customize; the judge-down
- * alert always shows. Each alert also has its own ✕. */
+ * The context (swamp), running-low (hot) and cold-cache alerts can be switched off for good in Customize.
+ * Each alert also has its own ✕. */
 export const HIDEABLE = ['handoff', 'timer', 'reason', 'progress', 'sounds', 'swamp', 'hot', 'cold'] as const
 export type Hideable = (typeof HIDEABLE)[number]
 // What the app passed to register, so settings kept in the store can be laid over it at session start.
 let pluginOptions: Record<string, unknown> = {}
 let config: JudgeConfig = {
-  judge: 'auto',
-  typesafeKey: '',
   handoffSkill: '',
   handoffAfter: 'continue',
   bias: 0,
@@ -657,10 +535,7 @@ let config: JudgeConfig = {
 export function readConfig(options: unknown): JudgeConfig {
   const o = (options ?? {}) as Record<string, unknown>
   const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
-  const picked = str(o.judge)
   return {
-    judge: picked === 'haiku' || picked === 'jev' ? picked : 'auto',
-    typesafeKey: str(o.typesafeKey),
     handoffSkill: str(o.handoffSkill).replace(/^\//, ''),
     handoffAfter: (['confirm', 'copy'] as const).find(a => a === str(o.handoffAfter)) ?? 'continue',
     bias: Math.max(-2, Math.min(2, Math.round(Number(str(o.effortBias)) || 0))),
@@ -695,107 +570,28 @@ function judgeQuestion(prompt: string, current: Pick | null, context: string): s
     .join('\n\n')
 }
 
-/**
- * Haiku always judges; Jev is the optional quick one. Jev is asked first when a TypeSafe key is found (unless the
- * setting is haiku), and Haiku makes the call whenever Jev is unsure, down or slow. Any judge that fails or takes longer than JEV_TIMEOUT_MS falls back to
- * Haiku, which needs nothing but the session's own login. Never throws.
- */
+/** Haiku judges, through the session's own login: nothing goes to any other service. Never throws. */
 async function judge($: EngineInterface, prompt: string, current: Pick | null): Promise<Judged> {
   const context = await recentContext($).catch(() => '')
-  const key = config.judge !== 'haiku' ? await jevKey($).catch(() => undefined) : undefined
-  if (key) {
-    const jev = await askJev($, key, prompt, current, context)
-    if (jev) return jev.verdict?.why === UNSURE ? haikuAfter($, jev, prompt, current, context) : jev
-  }
   return askHaiku($, prompt, current, context)
 }
 
-/** Jev was unsure: Haiku makes the call, and both judges' tokens count. */
-async function haikuAfter($: EngineInterface, jev: Judged, prompt: string, current: Pick | null, context: string): Promise<Judged> {
-  const haiku = await askHaiku($, prompt, current, context)
-  return haiku.verdict ? { verdict: haiku.verdict, tokens: haiku.tokens + jev.tokens } : jev
-}
-
-/** Jev on TypeSafe: an answer, or nothing when it fails, is unsure of its own format or takes too long. */
-async function askJev($: EngineInterface, key: string, prompt: string, current: Pick | null, context: string): Promise<Judged | undefined> {
-  try {
-    // A stalled endpoint must not hold the prompt: after JEV_TIMEOUT_MS the judge falls through to Haiku.
-    const res = await Promise.race([
-      $.http.fetch((await envJevUrl($)) ?? JEV_URL, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-        body: JSON.stringify({
-          model: 'jev-latest',
-          state: {
-            task: JEV_TASK,
-            current_model: current?.model ?? null,
-            current_effort: current?.effort ?? null,
-            recent_conversation: context,
-            next_message: prompt.slice(0, 4000),
-          },
-          questions: {
-            effort: { type: 'choice', instructions: 'Which effort fits the next message?', criteria: JEV_EFFORTS },
-            model: { type: 'choice', instructions: 'Which model fits the next message?', criteria: JEV_MODELS },
-          },
-        }),
-      }),
-      $.clock.sleep(JEV_TIMEOUT_MS).then(() => {
-        throw new Error('jev timeout')
-      }),
-    ])
-    if (!res.ok) warnJudge($, judgeFailure('Jev', res.status))
-    const verdict = res.ok ? parseJevAnswer(res.text, current) : undefined
-    if (verdict) {
-      let used = 0
-      try {
-        const usage = (JSON.parse(res.text) as { usage?: { input_tokens?: number; output_tokens?: number } }).usage
-        used = (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0)
-      } catch {
-        // No usage in the reply: counted as 0.
-      }
-      if (await read($, judgeDown)) await update($, judgeDown, () => null)
-      return { verdict: { ...verdict, by: 'jev' }, tokens: used }
-    }
-  } catch (error) {
-    // Jev down or slow: fall through to Haiku, and say so.
-    warnJudge($, String(error).includes('timeout') ? judgeFailure('Jev', 'timeout') : 'Jev could not be reached')
-  }
-  return undefined
-}
-
-// Set while the settings panel tests a judge: warnJudge leaves its reason here instead of warning.
-let judgeTesting: { reason?: string } | null = null
-/** The prompt a judge test sends: small and plain, so any working judge answers it. */
+/** The prompt a judge test sends: small and plain, so Haiku answers it. */
 const JUDGE_TEST_PROMPT = 'rename one variable in a single file'
 
-/** Asks the judge picked in the panel (its unsaved key, URL and model included) one sample prompt, and says in a line
- * whether it answered, with what and how fast, or why not. Never falls back to Haiku: the point is the judge itself. */
-async function testJudge($: EngineInterface, judgeKind: string, draftKey: string): Promise<{ ok: boolean; text: string }> {
+/** Asks Haiku one sample prompt, and says in a line whether it answered, with what and how fast, or why not. */
+async function testJudge($: EngineInterface): Promise<{ ok: boolean; text: string }> {
   const start = await $.clock.now()
   const took = async () => `${(((await $.clock.now()) - start) / 1000).toFixed(1)} s`
-  const said = (name: string, j: Judged | undefined) =>
-    j?.verdict?.why === UNSURE ? `${name} answered, unsure on the sample` : `${name} answered: ${j?.verdict?.effort}`
-  judgeTesting = {}
   try {
-    if (judgeKind === 'jev' || judgeKind === 'auto') {
-      const key = parseJevKey(draftKey) ?? (draftKey.trim() || undefined) ?? (await jevKey($).catch(() => undefined)) ?? (await typesafeKeyAnywhere($).catch(() => undefined))
-      if (!key && judgeKind === 'jev') return { ok: false, text: 'No TypeSafe key found' }
-      if (key) {
-        const j = await askJev($, key, JUDGE_TEST_PROMPT, null, '')
-        if (j?.verdict) return { ok: true, text: `${said('Jev', j)} in ${await took()}` }
-        return { ok: false, text: judgeTesting.reason ?? 'Jev gave no usable answer' }
-      }
-    }
     const h = await askHaiku($, JUDGE_TEST_PROMPT, null, '')
-    return h.verdict ? { ok: true, text: `${said('Haiku', h)} in ${await took()}` } : { ok: false, text: 'Haiku gave no answer' }
+    return h.verdict ? { ok: true, text: `Haiku answered: ${h.verdict.effort} in ${await took()}` } : { ok: false, text: 'Haiku gave no answer' }
   } catch (error) {
     return { ok: false, text: String(error).slice(0, 80) }
-  } finally {
-    judgeTesting = null
   }
 }
 
-/** Haiku through the session's own login: the judge that needs no key, and the fallback for the others. */
+/** Haiku through the session's own login: the only judge. */
 async function askHaiku($: EngineInterface, prompt: string, current: Pick | null, context: string): Promise<Judged> {
   const used = lastContext && lastContext.window ? `Context used: ${Math.round(lastContext.percent)}% of the window` : ''
   const asked = [judgeQuestion(prompt, current, context), used].filter(Boolean).join('\n\n')
@@ -962,21 +758,11 @@ export function benchReport(cases: BenchCase[], answers: BenchAnswer[]): string 
   return [...lines, '', 'Misses:', ...(misses.length ? misses : ['- none'])].join('\n')
 }
 
-/** Runs every case through each available judge, a few at a time, and returns the answers. */
+/** Runs every case through Haiku, a few at a time, and returns the answers. */
 async function runBench($: EngineInterface, cases: BenchCase[]): Promise<BenchAnswer[]> {
-  const key = await typesafeKeyAnywhere($).catch(() => undefined)
   const judges: [string, (c: BenchCase) => Promise<Judged | undefined>][] = [
     ['haiku', c => askHaiku($, c.message, c.current, c.context ?? '')],
   ]
-  if (key)
-    judges.push([
-      'jev',
-      async c => {
-        const jev = await askJev($, key, c.message, c.current, c.context ?? '')
-        if (!jev) return askHaiku($, c.message, c.current, c.context ?? '')
-        return jev.verdict?.why === UNSURE ? haikuAfter($, jev, c.message, c.current, c.context ?? '') : jev
-      },
-    ])
   const answers: BenchAnswer[] = []
   // Baselines: what a fixed effort would score on the same labels.
   for (const fixed of ['medium', 'high'] as Effort[])
@@ -1036,16 +822,12 @@ let askLog: EnvAsk
 let askTemp: EnvAsk
 let askTmpdir: EnvAsk
 let askModelUi: EnvAsk
-let askJevUrl: EnvAsk
-let askJevKey: EnvAsk
 let askUserProfile: EnvAsk
 let askHome: EnvAsk
 const envLog = ($: EngineInterface) => (askLog = askLog ?? $.env.get('EFFORTLESS_LOG'))
 const envTemp = ($: EngineInterface) => (askTemp = askTemp ?? $.env.get('TEMP'))
 const envTmpdir = ($: EngineInterface) => (askTmpdir = askTmpdir ?? $.env.get('TMPDIR'))
 const envModelUi = ($: EngineInterface) => (askModelUi = askModelUi ?? $.env.get('EFFORTLESS_MODEL_UI'))
-const envJevUrl = ($: EngineInterface) => (askJevUrl = askJevUrl ?? $.env.get('JEV_URL'))
-const envJevKey = ($: EngineInterface) => (askJevKey = askJevKey ?? $.env.get('TYPESAFE_API_KEY'))
 const envUserProfile = ($: EngineInterface) => (askUserProfile = askUserProfile ?? $.env.get('USERPROFILE'))
 const envHome = ($: EngineInterface) => (askHome = askHome ?? $.env.get('HOME'))
 
@@ -1130,7 +912,7 @@ export function asSpent(t: unknown): Spent {
     read: num(v.read),
     out: num(v.out),
     byEffort: v.byEffort && typeof v.byEffort === 'object' ? v.byEffort : {},
-    judge: { jev: num(judged.jev), haiku: num(judged.haiku), ms: num(judged.ms), tokens: num(judged.tokens) },
+    judge: { haiku: num(judged.haiku), ms: num(judged.ms), tokens: num(judged.tokens) },
     moved: num(v.moved),
     redone: num(v.redone),
     helpers: {
@@ -1180,7 +962,6 @@ async function countPrompt($: EngineInterface, effort: Effort | undefined, by: P
   await update($, saved, old => {
     const t = asSpent(old)
     const judged = {
-      jev: t.judge.jev + (by === 'jev' ? 1 : 0),
       haiku: t.judge.haiku + (by === 'haiku' ? 1 : 0),
       ms: t.judge.ms + ms,
       tokens: t.judge.tokens + judgeTokens,
@@ -1792,7 +1573,6 @@ const ICON_JUDGE = '⚖︎'
 const ICON_HANDOFF = '⇥'
 const ICON_SHOW = '◉'
 const SETTING_FIELDS = {
-  judge: 'judge',
   bias: 'effortBias',
   floor: 'effortFloor',
   ceiling: 'effortCeiling',
@@ -1823,7 +1603,6 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     .catch(() => false)
   if (deny && !stored) $.ui.toast(`effortless: could not save ${field}: ${String(deny).slice(0, 120)}`)
   const raw: Record<string, unknown> = {
-    judge: config.judge,
     effortBias: String(config.bias),
     effortFloor: config.floor,
     effortCeiling: config.ceiling,
@@ -1840,7 +1619,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     appearance: config.appearance,
     [SETTING_FIELDS[field]]: value,
   }
-  config = { ...readConfig(raw), typesafeKey: config.typesafeKey }
+  config = readConfig(raw)
   applyTheme()
   $.ui.invalidate('ui.render')
 }
@@ -1861,15 +1640,12 @@ function savedCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
 /** Saves every change in the panel's draft, then closes the panel. Nothing changed applies before this. */
 async function saveDraft($: EngineInterface) {
   const draft = await read($, settingsDraft)
-  const { key, ...rest } = draft
-  // The key goes to its file first; the settings then go through the store queue, since each one reloads the plugin.
-  if (key?.trim()) await saveJevKey($, key, false)
+  // The settings go through the store queue, since each one reloads the plugin.
   const changes: Record<string, string> = {}
   for (const field of Object.keys(SETTING_FIELDS) as (keyof typeof SETTING_FIELDS)[]) {
-    const value = rest[field]
+    const value = draft[field]
     if (value !== undefined) changes[field] = value
   }
-  if (key?.trim() && (changes.judge ?? config.judge) !== 'jev') changes.judge = 'jev'
   await update($, settingsDraft, () => ({}))
   await update($, settingsOpen, () => false)
   // Said by a card above the prompt, not a toast. Kept in the store: each setting written reloads the plugin.
@@ -1879,59 +1655,7 @@ async function saveDraft($: EngineInterface) {
   await drainSetupSave($)
 }
 
-/** A TYPESAFE_API_KEY line set in an .env file's text: replaced where it is, added where it is not. */
-export function withJevKey(text: string, key: string): string {
-  const line = `TYPESAFE_API_KEY=${key}`
-  if (/^\s*TYPESAFE_API_KEY\s*=.*$/m.test(text)) return text.replace(/^\s*TYPESAFE_API_KEY\s*=.*$/m, line)
-  return `${text}${text && !text.endsWith('\n') ? '\n' : ''}${line}\n`
-}
-
-/**
- * A key pasted in the panel goes to ~/.config/jev/.env, the file the jev skills read: a plugin cannot write the
- * app's secret settings. From then on that file wins over an older key in the settings.
- */
-async function saveJevKey($: EngineInterface, key: string, setJudge = true) {
-  const clean = key.trim()
-  if (!clean) return
-  const home = (await envUserProfile($)) ?? (await envHome($))
-  if (!home) {
-    $.ui.toast('effortless: no home folder found to save the key in.')
-    return
-  }
-  const path = `${home}/.config/jev/.env`
-  const before = await $.fs.read(path).catch(() => '')
-  try {
-    await $.fs.write(path, withJevKey(typeof before === 'string' ? before : '', clean))
-  } catch (error) {
-    $.ui.toast(`effortless: could not save the key: ${(error instanceof Error ? error.message : String(error)).slice(0, 120)}`)
-    return
-  }
-  await $.store.set('keyFromFile', true)
-  keyFromFile = true
-  askJevFile = undefined
-  if (setJudge && config.judge !== 'jev') await saveSetting($, 'judge', 'jev')
-  await update($, judgeDown, () => null)
-  warned.clear()
-  $.ui.toast('effortless: key saved. Jev judges from the next message.')
-  $.ui.invalidate('ui.render')
-}
-
-/** A TypeSafe key the jev judge would use: the settings, TYPESAFE_API_KEY, or ~/.config/jev/.env (Jev was picked). */
-async function findTypesafeKey($: EngineInterface): Promise<boolean> {
-  return Boolean(await typesafeKeyAnywhere($))
-}
-
-/** The TypeSafe key from the settings, TYPESAFE_API_KEY or ~/.config/jev/.env, for a step the person asked for. */
-async function typesafeKeyAnywhere($: EngineInterface): Promise<string | undefined> {
-  const known = config.typesafeKey || (await envJevKey($))
-  if (known) return known
-  const home = (await envUserProfile($)) ?? (await envHome($))
-  if (!home) return undefined
-  const text = await $.fs.read(`${home}/.config/jev/.env`).catch(() => '')
-  return parseJevKey(typeof text === 'string' ? text : '')
-}
-
-export type SetupStep = 'pick' | 'jev' | 'lean' | 'handoff' | 'look' | 'done'
+export type SetupStep = 'lean' | 'handoff' | 'look' | 'done'
 
 /** The lean's five stops, cheaper to smarter: a name, and what it does to the judge's pick (see tipped). */
 export const LEAN_STOPS = [
@@ -1942,18 +1666,16 @@ export const LEAN_STOPS = [
   ['Smartest', 'more picks go higher'],
 ] as const
 
-/** The guide's step after this one: the judge (with its key or URL), the lean, the handoff, then done. */
+/** The guide's step after this one: the lean, the handoff, the look, then done. */
 export function setupNext(step: SetupStep): SetupStep | null {
-  if (step === 'pick' || step === 'jev') return 'lean'
   if (step === 'lean') return 'handoff'
   if (step === 'handoff') return 'look'
   if (step === 'look') return 'done'
   return null
 }
 
-/** The step Back goes to: the judge's key or URL goes back to the pick, as does the lean. */
+/** The step Back goes to; the lean is the first step and has none. */
 export function setupBack(step: SetupStep): SetupStep | null {
-  if (step === 'jev' || step === 'lean') return 'pick'
   if (step === 'handoff') return 'lean'
   if (step === 'look') return 'handoff'
   if (step === 'done') return 'look'
@@ -1962,8 +1684,8 @@ export function setupBack(step: SetupStep): SetupStep | null {
 
 /** "2/3" for the step shown; the closing step has no number. */
 export function setupCounter(step: SetupStep): string {
-  const n = { pick: 1, jev: 1, lean: 2, handoff: 3, look: 4, done: 0 }[step]
-  return n ? `${n}/4` : ''
+  const n = { lean: 1, handoff: 2, look: 3, done: 0 }[step]
+  return n ? `${n}/3` : ''
 }
 
 /** Shows a step of the guide; the handoff step needs the installed skills to pick from. */
@@ -1975,7 +1697,6 @@ async function goSetup($: EngineInterface, step: SetupStep | null) {
 /** The guide's choices over the saved settings: what each step shows. */
 export function setupShown(draft: SettingsDraft, saved: JudgeConfig) {
   return {
-    judge: (draft.judge ?? saved.judge) as JudgeConfig['judge'],
     bias: draft.bias !== undefined ? Number(draft.bias) : saved.bias,
     handoffSkill: draft.handoffSkill ?? saved.handoffSkill,
     hide: (draft.hide ?? saved.hide.join(',')).split(',').filter(Boolean) as Hideable[],
@@ -1988,14 +1709,13 @@ async function flushSetup($: EngineInterface) {
   const draft = await read($, setupDraft)
   await update($, setupDraft, () => ({}))
   const saved: Record<string, string> = {
-    judge: config.judge,
     bias: String(config.bias),
     handoffSkill: config.handoffSkill,
     hide: config.hide.join(','),
     appearance: config.appearance,
   }
   const changes: Record<string, string> = {}
-  for (const field of ['hide', 'judge', 'bias', 'handoffSkill', 'appearance'] as const) {
+  for (const field of ['hide', 'bias', 'handoffSkill', 'appearance'] as const) {
     const value = draft[field]
     if (value !== undefined && value.trim() !== saved[field]) changes[field] = value.trim()
   }
@@ -2026,7 +1746,7 @@ async function drainSetupSave($: EngineInterface) {
   }
 }
 
-/** The judge is settled (picked or skipped): the guide does not open by itself again, and the footer shows ⚙. */
+/** The guide got past its first step: it does not open by itself again, and the footer shows ⚙. */
 async function markSetupDone($: EngineInterface) {
   await Promise.all([update($, setupPending, () => false), $.store.set('setupDone', true)])
 }
@@ -2042,22 +1762,6 @@ async function finishSetup($: EngineInterface) {
 async function closeSetup($: EngineInterface) {
   await goSetup($, null)
   await flushSetup($)
-}
-
-/** The person picked a judge in the guide: then the judge's key or URL, or the next step. Saved at the end. */
-async function pickJudge($: EngineInterface, choice: 'haiku' | 'jev') {
-  // Haiku is saved as Auto: Jev whenever a TypeSafe key is there, Haiku otherwise and whenever Jev does not answer.
-  await update($, setupDraft, d => ({ ...d, judge: choice === 'haiku' ? 'auto' : choice }))
-  await markSetupDone($)
-  if (choice === 'haiku') {
-    $.ui.toast('effortless: Haiku 5.5 judges, no key needed. Add a Jev key later for faster answers.')
-    return goSetup($, 'lean')
-  }
-  if (choice === 'jev' && (await findTypesafeKey($))) {
-    $.ui.toast('effortless: Jev judges with the TypeSafe key it found.')
-    return goSetup($, 'lean')
-  }
-  await goSetup($, choice)
 }
 
 /** 1234 -> "1.2k", 87 -> "87". */
@@ -2076,7 +1780,7 @@ const share = (part: number, whole: number) => `${Math.round((part / whole) * 10
  */
 export function savedText(raw: Spent): string {
   const t = asSpent(raw)
-  const judged = t.judge.jev + t.judge.haiku
+  const judged = t.judge.haiku
   const helperRuns = EFFORTS.reduce((n, e) => n + (t.helpers.runs[e] ?? 0), 0)
   if (t.prompts === 0 && judged === 0 && t.moved === 0 && helperRuns === 0) return 'nothing measured yet'
   const input = t.input * WEIGHT.input
@@ -2101,7 +1805,7 @@ export function savedText(raw: Spent): string {
     lines.push(`Helpers: ${helperRuns} subagent${helperRuns === 1 ? '' : 's'} (${per.join(', ')}), ${t.helpers.requests} requests, cost about ${tokens(Math.round(t.helpers.cost))} tokens`)
   }
   if (judged) {
-    lines.push(`Judge: Jev ${t.judge.jev}, Haiku ${t.judge.haiku}, average ${Math.round(t.judge.ms / judged)} ms, ${tokens(t.judge.tokens)} tokens in all`)
+    lines.push(`Judge: Haiku ${t.judge.haiku}, average ${Math.round(t.judge.ms / judged)} ms, ${tokens(t.judge.tokens)} tokens in all`)
   }
   return lines.join('\n')
 }
@@ -3260,7 +2964,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   const effortNow = effortOf(v, v.modelNow ?? (await sessionModel($)))
   const by = v.current?.by
   const reason = v.current
-    ? `${by === 'manual' || by === 'named' ? 'You' : by === 'jev' ? 'Jev' : 'Haiku'}: ${v.current.why}`
+    ? `${by === 'manual' || by === 'named' ? 'You' : 'Haiku'}: ${v.current.why}`
     : v.auto
       ? 'Auto picks the effort at the next prompt'
       : 'You pick the effort'
@@ -3543,7 +3247,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
     : notAligned
       ? `/effort shows ${EFFORT_LABELS[shownByApp as Effort] ?? shownByApp}`
       : current
-        ? `${current.by === 'manual' ? 'You' : current.by === 'jev' ? 'Jev' : 'Haiku'}: ${current.why}`
+        ? `${current.by === 'manual' ? 'You' : 'Haiku'}: ${current.why}`
         : auto
           ? 'Picks the effort at the next prompt'
           : 'Pick an effort'
@@ -3644,7 +3348,7 @@ export function helperFloor(floor: Effort, ceiling: Effort): Effort {
 /** The judge's effort for a subagent's task, within the person's slider, Min and Max and save mode; null without a verdict. */
 async function helperEffort($: EngineInterface, prompt: string, type: string): Promise<Pick | null> {
   const { verdict } = await judge($, helperQuestion(prompt, type), null)
-  if (!verdict || verdict.why === UNSURE) return null
+  if (!verdict) return null
   const saving = (await read($, saveUntil)) !== null
   const leaned = tipped(verdict.effort, verdict.sure, config.bias)
   const effort = capped(bounded(leaned, helperFloor(config.floor, config.ceiling), config.ceiling), saving)
@@ -3807,10 +3511,9 @@ export const register: Register = (on, options) => {
     sessionStarted = Date.now()
     // Everything the first draw needs, asked for at once: one after the other they held the start (and with it the
     // band) for a second or more. What the draw does not need runs after, unawaited.
-    const [sid, kept, kff, storedAuto, storedAutoModel, storedPick, setupDone] = await Promise.all([
+    const [sid, kept, storedAuto, storedAutoModel, storedPick, setupDone] = await Promise.all([
       $.session.id().catch(() => '?'),
       $.store.get('savedSettings').catch(() => null),
-      $.store.get('keyFromFile').catch(() => null),
       $.store.get('isAuto').catch(() => null),
       $.store.get('isAutoModel').catch(() => null),
       $.store.get('pick').catch(() => null) as Promise<Pick | null>,
@@ -3823,14 +3526,13 @@ export const register: Register = (on, options) => {
       config = readConfig({ ...pluginOptions, ...kept })
       applyTheme()
     }
-    keyFromFile = kff === true
     await Promise.all([
       typeof storedAuto === 'boolean' ? update($, isAuto, () => storedAuto) : null,
       typeof storedAutoModel === 'boolean' ? update($, isAutoModel, () => storedAutoModel) : null,
       // Auto off means the effort you chose should still be the one in force.
       storedAuto === false && storedPick && EFFORTS.includes(storedPick.effort) ? update($, pick, () => storedPick).then(() => { pickCarried = true }) : null,
       // The first time the mod runs, the setup guide opens above the prompt.
-      setupDone !== true ? update($, setupStep, () => 'pick').then(() => update($, setupPending, () => true)) : null,
+      setupDone !== true ? update($, setupStep, () => 'lean').then(() => update($, setupPending, () => true)) : null,
     ])
     // The command file lists /effortless before the session starts; registering it here makes plain /effortless the
     // mod's own command afterwards, instead of the file run as a skill.
@@ -3951,12 +3653,6 @@ export const register: Register = (on, options) => {
       $.ui.invalidate('ui.render')
       return { text: 'The running-hot band is showing now (a test). It goes away at the next check unless a limit really is close.' }
     }
-    if (arg === 'down') {
-      await update($, judgeDownHidden, () => null)
-      await update($, judgeDown, () => 'Jev is out of credits (402)')
-      $.ui.invalidate('ui.render')
-      return { text: 'The judge-down band is showing now (a test). It goes away once the judge answers again.' }
-    }
     if (arg === 'swamp') {
       // Shows the swamp band now, to try it: the next check puts back the real figure.
       await update($, swampHiddenAt, () => null)
@@ -4011,7 +3707,7 @@ model used: ${lastRequest ? `${lastRequest.model} at ${lastRequest.effort ?? 'no
       return { text: 'The effortless settings are open above the prompt.' }
     }
     if (arg === 'setup') {
-      await update($, setupStep, () => 'pick')
+      await update($, setupStep, () => 'lean')
       $.ui.invalidate('ui.render')
       return { text: 'The effortless setup is open above the prompt.' }
     }
@@ -4319,7 +4015,7 @@ Saved to ${out}.md and .json` }
         )}
         {/* The one thing to click: it switches Auto off and on. Text cannot be clicked, so it is a small button. */}
         <Button key="auto" plain dimColor label=" ⏻ " hover={{ scope: 'power', backgroundColor: HOVER_BOX }} onPress={() => toggleAutoEffort($)} />
-        {/* Until a judge is picked the footer offers the setup; after that the same place opens the settings panel. */}
+        {/* Until the setup gets past its first step the footer offers it; after that the same place opens the settings panel. */}
         {needsSetup ? (
           <Button
             key="setup"
@@ -4327,7 +4023,7 @@ Saved to ${out}.md and .json` }
             label=" Setup "
             hover={{ scope: 'setup', backgroundColor: HOVER_BOX }}
             onPress={async () => {
-              await update($, setupStep, () => 'pick')
+              await update($, setupStep, () => 'lean')
               $.ui.invalidate('ui.render')
             }}
           />
@@ -4526,7 +4222,6 @@ Saved to ${out}.md and .json` }
       // The skills and commands installed here, to pick the handoff writer from: no typing, no file paths. A plugin
       // cannot open a file dialog, and a skill is run by its name anyway.
       const skillNames = await read($, installedSkills)
-      const hasKey = Boolean(await jevKey($).catch(() => undefined)) || Boolean(await typesafeKeyAnywhere($).catch(() => undefined))
       // A plain button with its own handler: a dismiss-role button may be taken by the app before onPress runs.
       const checking = await read($, updateCheck)
       const close = async () => {
@@ -4552,7 +4247,6 @@ Saved to ${out}.md and .json` }
         bias: draft.bias !== undefined ? Number(draft.bias) : config.bias,
         floor: (draft.floor ?? config.floor) as Effort,
         ceiling: (draft.ceiling ?? config.ceiling) as Effort,
-        judge: (draft.judge ?? config.judge) as JudgeConfig['judge'],
         handoffAfter: draft.handoffAfter ?? config.handoffAfter,
         handoffSkill: draft.handoffSkill ?? config.handoffSkill,
         swampAt: draft.swampAt ?? String(config.swampAt),
@@ -4572,11 +4266,10 @@ Saved to ${out}.md and .json` }
       const sameSet = (a: string, b: string) => a.split(',').filter(Boolean).sort().join() === b.split(',').filter(Boolean).sort().join()
       const dirty = Object.entries(draft).some(([field, value]) =>
         value === undefined ? false
-        : field === 'key' ? Boolean(value.trim())
         : field === 'hide' ? !sameSet(value, config.hide.join(','))
-        : value !== String(config[field as Exclude<keyof SettingsDraft, 'key' | 'hide'>] ?? ''))
+        : value !== String(config[field as Exclude<keyof SettingsDraft, 'hide'>] ?? ''))
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
-      const judgeName = shown.judge === 'haiku' ? 'Haiku' : hasKey || shown.judge === 'jev' ? 'Haiku + Jev' : 'Haiku'
+      const judgeName = 'Haiku'
       const summaries: Record<SettingsCard, string> = {
         effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.helpers === 'on' ? ' · helpers' : ''}`,
         model: shown.modelAuto === 'on' ? 'Cheaper when it can' : "Always the chat's",
@@ -4815,17 +4508,12 @@ Saved to ${out}.md and .json` }
                   </Box>,
                 ]),
 ] : card === 'judge' ? (bare ? [] : [
-            pick({ key: "settings-judge-pick", value: shown.judge, options: [{ value: 'auto', label: hasKey ? 'Haiku + Jev' : 'Haiku (Jev if added)' }, { value: 'haiku', label: 'Haiku only' }], onSelect: v => set('judge')(v === 'haiku' ? 'haiku' : 'auto') }),
-            ...(shown.judge !== 'haiku'
-              ? [field('key-field', <Input key="settings-key" placeholder={hasKey ? 'Key saved. Paste to replace' : 'Paste TypeSafe key'}
-                  value={draft.key ?? ''} submitLabel="ok" onInput={set('key')} onSubmit={set('key')} />, 30)]
-              : []),
             <Button key="settings-judge-test" variant="secondary" dimColor={tested?.ok === null} label={tested?.ok === null ? 'Testing…' : 'Test'}
               onPress={async () => {
                 if (tested?.ok === null) return
                 await update($, judgeTest, () => ({ ok: null, text: '' }))
                 $.ui.invalidate('ui.render')
-                const result = await testJudge($, shown.judge, draft.key ?? '')
+                const result = await testJudge($)
                 await update($, judgeTest, () => result)
                 $.ui.invalidate('ui.render')
               }} />,
@@ -5072,39 +4760,6 @@ Saved to ${out}.md and .json` }
           </Box>
         </Box>
       )
-      if (step === 'pick')
-        return band('Haiku judges. Add Jev too?', 62, [
-          // Haiku first and filled: it needs no key. Jev is the optional faster one; with a key, it is tried first and
-          // Haiku stands in whenever it does not answer. Each mark sits tight against its own button.
-          <Box key="pick-haiku" flexDirection="row" gap={1} alignItems="center">
-            <Svg source={CLAUDE_MARK} alt="Claude" width={16} height={16} />
-            <Button key="setup-haiku" variant="primary" label="Just Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />
-          </Box>,
-          <Box key="pick-jev" flexDirection="row" gap={1} alignItems="center">
-            <Svg source={TYPESAFE_MARK} alt="TypeSafe" width={12} height={18} />
-            <Button key="setup-jev" variant="secondary" label="Add Jev (needs a key)" onPress={() => pickJudge($, 'jev')} />
-          </Box>,
-          ...nav(
-            <Button key="setup-skip" plain dimColor label="Skip" onPress={async () => {
-              await markSetupDone($)
-              await goSetup($, 'lean')
-            }} />,
-          ),
-        ])
-      if (step === 'jev')
-        return band('Key from typesafe.ai:', 52, [
-          <Box key="key-field" width={30} flexShrink={1}>
-            <Input key="setup-key" placeholder="TypeSafe key" value={draft.key ?? ''} submitLabel="Save"
-              onInput={(v: string) => pick('key', v)}
-              onSubmit={async (v: string) => {
-                if (!v.trim()) return
-                await update($, setupDraft, d => ({ ...d, key: undefined }))
-                await saveJevKey($, v, false)
-                await goSetup($, 'lean')
-              }} />
-          </Box>,
-          ...nav(<Button key="setup-skip" plain label="Skip" onPress={go('lean')} />),
-        ])
       if (step === 'lean') {
         // Five stops, the marker on the one picked. The track is lit in purple from the middle out to the marker, so it
         // shows which way it leans, and the words name the stop and say what it does.
@@ -5132,7 +4787,10 @@ Saved to ${out}.md and .json` }
               {track}
             </Box>,
             side('Smarter', lean > 0),
-            ...nav(nextButton),
+            ...nav(<Button key="setup-next" variant="primary" label="Next" onPress={async () => {
+              await markSetupDone($)
+              await goSetup($, setupNext(step))
+            }} />),
           ],
         )
       }
@@ -5161,39 +4819,6 @@ Saved to ${out}.md and .json` }
       return band('⏻ Auto on or off. ⚙ all settings. Auto pauses on Fable.', 24, [
         ...nav(<Button key="setup-done" variant="primary" autoFocus label="Done" onPress={() => finishSetup($)} />),
       ])
-    }
-    // The judge the person picked is failing: Haiku stands in until it works again.
-    const downReason = await read($, judgeDown)
-    if (downReason && !config.hide.includes('down') && downReason !== (await read($, judgeDownHidden))) {
-      if (e.surface === 'terminal')
-        return terminalBand($, e, {
-          key: 'down', kind: 'down', color: SLATE, bg: SLATE_BG, edge: SLATE_EDGE, title: 'Judge down',
-          detail: `${downReason}. Haiku stands in.`,
-          buttons: [
-            <Button key="down-settings" variant="primary" hotkey="s" label="Settings" onPress={() => openPluginSettings($)} />,
-            <Button key="down-close" plain role="dismiss" label="✕" onPress={() => update($, judgeDownHidden, () => downReason)} />,
-          ],
-        })
-      return (
-        <Box key="down" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
-          backgroundColor={SLATE_BG} borderStyle="round" borderColor={SLATE_EDGE}>
-          <Box key="down-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={DOWN_SVG} alt="judge down" width={FROST_WIDTH} height={FROST_HEIGHT} />
-          </Box>
-          {introLayer({ Box, Svg }, 'down', await introShows($, 'down'), '#7d8aa8', '#e6ecf8')}
-          <Box flexShrink={0}>
-            <Text color={SLATE} bold wrap="truncate">
-              ✦ Judge down
-            </Text>
-          </Box>
-          <Text wrap="truncate">{`${downReason}. Haiku stands in.`}</Text>
-          <Box flexGrow={1} minWidth={30} />
-          <Box key="down-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
-            <Button key="down-settings" variant="primary" label="Open settings" onPress={() => openPluginSettings($)} />
-            <Button key="down-close" plain role="dismiss" label="✕" onPress={() => update($, judgeDownHidden, () => downReason)} />
-          </Box>
-        </Box>
-      )
     }
     // A usage limit is close: Save mode keeps Auto at medium or below until it resets.
     const heat = await read($, hot)
