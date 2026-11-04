@@ -61,9 +61,8 @@ Or in a terminal, in one line:
 claude plugin marketplace add danielducharme/effortless; claude plugin install effortless@effortless
 ```
 
-Then run `/reload-plugins` (or restart Claude Code). A short setup opens above the prompt: keep **Haiku** alone (one click,
-no key, runs on your own Claude login) or add **Jev** (a TypeSafe key, about 4x faster effort calls), lean cheaper or
-smarter, and pick how handoffs are written. Run `/effortless setup` to go through it again, or change any of it in ⚙.
+Then run `/reload-plugins` (or restart Claude Code). A short setup opens above the prompt: lean cheaper or smarter, pick how
+handoffs are written, and pick dark or light panels. **Haiku** judges, on your own Claude login, with no key. Run `/effortless setup` to go through it again, or change any of it in ⚙.
 
 Updates come to you: when a new version is out, a card above the prompt offers **Update** or **Later**. Update loads the
 new version in the chat you pressed it in, with nothing to type.
@@ -106,27 +105,17 @@ limit passes 80% (with a Save mode that caps effort at Medium), and when your ju
 
 <p align="center"><img src="docs/readme/settings.png" alt="The settings panel: Effort, Judge, Handoff, Customize" width="100%"></p>
 
-## Haiku, and Jev if you add it
+## Haiku, the judge
 
-Haiku 5.5 runs on your own Claude login and needs no key. It always makes the handoff call: from 30% of context, every second message, it reads what the chat was for, the trail of topics, the last reply and how full the context is, and says a fresh chat would suit only for a clear reason. Then the Compact button turns into a lit Handoff with the reason. Want Handoff on the bar all the time? Settings → Handoff → Handoff button → **Always**.
+Haiku 5.5 runs on your own Claude login and needs no key. It is the only judge: nothing effortless judges is sent anywhere but your own Claude session. It always makes the handoff call: from 30% of context, every second message, it reads what the chat was for, the trail of topics, the last reply and how full the context is, and says a fresh chat would suit only for a clear reason. Then the Compact button turns into a lit Handoff with the reason. Want Handoff on the bar all the time? Settings → Handoff → Handoff button → **Always**.
 
-Haiku also picks the effort, unless you add Jev, TypeSafe's faster judge (about 0.25 s against about 1 s). With a key, Jev answers the effort first and Haiku steps in whenever Jev is unsure. Run `/plugin configure effortless@effortless` in Claude Code, or use the setup guide or the Judge card in Settings.
-
-| Setting | What it does |
-|---|---|
-| `auto` (default) | Haiku, and Jev too when a [TypeSafe](https://typesafe.ai) key is set in the settings or `TYPESAFE_API_KEY` |
-| `haiku` | Haiku only, a key is never used |
-| `jev` | Haiku and Jev, and the key may also come from `~/.config/jev/.env` |
-
-A key set with `/plugin configure` is kept in Claude Code's secure storage. A key pasted in the setup guide or the Judge card is written in plain text to `~/.config/jev/.env` (the file the jev skills read), never to a file of this repo. If Jev fails or takes longer than 3 seconds, Haiku judges that prompt and effortless tells you why once per session (out of credits, key rejected, no answer).
+Haiku also picks the effort for every prompt. The Judge card in Settings has a Test button that asks it one sample prompt.
 
 Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and ask no judge.
 
 ## Keys and trust
 
-- The default judge needs **no key**: Haiku runs on your own Claude login.
-- A key is only needed to add Jev. Enter it with `/plugin configure`, never on the command line, so it stays out of your shell history: Claude Code then keeps it in its secure storage. A key pasted in the setup guide or the Judge card is saved in plain text to `~/.config/jev/.env` instead, so prefer `/plugin configure` on a shared machine.
-- A key is sent only to TypeSafe, and to nothing else. Use a key with a spending limit if your provider offers one.
+- effortless needs **no key**: Haiku runs on your own Claude login, and prompts are judged nowhere else.
 - Like any Claude Code plugin, this mod runs code on your machine. Its code is in [`hooks/`](hooks/): read it before you install if you do not know the author. The programs it starts are `claude` itself (to update or uninstall the mod when you press those buttons), `git` (to see if a new version is out) and, on Update, a plain file copy of the new version into the folder your open chat runs from.
 
 ## What it saves, measured
@@ -173,7 +162,6 @@ Two runs on version 1.5.1, 73 cases, Sonnet and Opus 5.5:
 | Always medium | 44% | 40% | 17 | 24 | - |
 | Always high | 51% | 50% | 0 | 36 | - |
 | Haiku | 92-93% | 95% | 1 | 4-5 | 0.75 s |
-| Jev | 99% | 100% | 0 | 1 | 0.24 s |
 
 What this does and does not show:
 
