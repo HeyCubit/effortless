@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "effortless",
-  "description": "Mods for Claude Code: automatic reasoning effort and a cache countdown (effortless), and one pixel-art card while Claude works (textless).",
+  "description": "A Claude Code mod: automatic reasoning effort and a prompt-cache countdown.",
   "owner": {
     "name": "HeyCubit",
     "url": "https://github.com/HeyCubit"
@@ -13,17 +13,6 @@
       "source": {
         "source": "url",
         "url": "https://github.com/HeyCubit/effortless.git",
-        "ref": "stable"
-      },
-      "category": "productivity"
-    },
-    {
-      "name": "textless",
-      "description": "While Claude works, the chat shows one tall pixel-art card instead of every step.",
-      "source": {
-        "source": "git-subdir",
-        "url": "https://github.com/HeyCubit/effortless.git",
-        "path": "textless/plugin",
         "ref": "stable"
       },
       "category": "productivity"
