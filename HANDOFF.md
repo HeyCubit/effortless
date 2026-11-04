@@ -17,9 +17,7 @@
 ## Website
 - https://heycubit.github.io/effortless/ is `gh-pages`, rebuilt from `main`. Source `site/src/` (`template.html`,
   `report.html`, `whats-new.html`, `build.mjs`); built pages are committed. Publish with `tools/site.sh "<what changed>"`
-  (builds, pushes main, fast-forwards gh-pages). Live: gh-pages `5b191cf` (2026-10-16: textless at /textless/, Cubit edge peek). Pages caches 10 minutes.
-- textless lives in `textless/`; its site is built into `site/textless/` by `tools/textless-site.sh` (run before
-  `tools/site.sh` when textless changed). Both sites share an origin, so Cubit's edge peek stays home on both once clicked.
+  (builds, pushes main, fast-forwards gh-pages). Live: gh-pages `5b191cf` (2026-10-16: Cubit edge peek). Pages caches 10 minutes.
 - Footer: "Also building [Cubit logo]" links to heycubit.com, next to a "Join the waitlist" pill
   (heycubit.com/waitlist/). Logo is `site/assets/cubit-logo-white.svg`, copied from the Cubit repo's `brand/`.
 - Report a bug / Request a feature posts to a Cloudflare Worker, `report-worker/` (deployed as `effortless-report`,
@@ -34,9 +32,6 @@
   14 days, API is owner-only). Add as a baked number at publish when it is larger.
 
 ## Half done
-- textless preview cleanup waits on a plugin release: `textless/plugin/hooks/register.tsx` MARKET_SITE and the settings
-  page still point at textless-preview.isac-ehrstedt.workers.dev (tests too). Ship a version with
-  heycubit.github.io/effortless/textless/, then drop the preview from ALLOWED_ORIGINS and Turnstile and delete the Worker.
 - Updated card redesign (1.48.4, public in 1.49.0): seen only in the render rig. The card is drawn by the code already
   running in that chat, so it first appears on the update after 1.49.0, in a chat running 1.49.0+.
 - Haiku handoff recommendation, Compact beside Handoff (hidden under 80 cells), alert default 80%: public, unseen in the
