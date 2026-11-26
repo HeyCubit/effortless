@@ -739,7 +739,7 @@ describe('named level', () => {
 describe('state from an older version', () => {
   test('the pre-0.2.0 tally { requests, actual, baseline } reads as an empty tally, never throws', () => {
     const old = { requests: 3, actual: 900, baseline: 1500 } as never
-    expect(asSpent(old).judge).toEqual({ jev: 0, haiku: 0, ms: 0, tokens: 0 })
+    expect(asSpent(old).judge).toEqual({ jev: 0, haiku: 0, custom: 0, ms: 0, tokens: 0 })
     expect(asSpent(old).byEffort).toEqual({})
     expect(() => savedText(old)).not.toThrow()
     expect(asSpent(undefined).prompts).toBe(0)
@@ -1131,6 +1131,82 @@ describe('review fixes', () => {
 describe('judge choice (plugin settings)', () => {
   const chat = (content: string) =>
     JSON.stringify({ choices: [{ message: { content } }], usage: { prompt_tokens: 300, completion_tokens: 20 } })
+
+  const customEnv = {
+    EFFORTLESS_JUDGE_BASE_URL: 'https://example.test/api/v1/',
+    EFFORTLESS_JUDGE_MODEL: 'provider/fast-model',
+    EFFORTLESS_JUDGE_API_KEY: 'custom-key',
+    TYPESAFE_API_KEY: 'typesafe-key',
+  }
+
+  test('a custom base URL takes the place of TypeSafe with its own model and key', async ($, on) => {
+    engine(on, customEnv)
+    mock.clock(on)
+    const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"fallback"}')
+    const calls: string[] = []
+    on('http.fetch', (_$, { url, init }) => {
+      calls.push(url)
+      expect(init?.method).toBe('POST')
+      expect((init?.headers as Record<string, string>).authorization).toBe('Bearer custom-key')
+      const body = JSON.parse(String(init?.body))
+      expect(body.model).toBe('provider/fast-model')
+      expect(body.messages[0].role).toBe('system')
+      expect(body.messages[1].content).toContain('redesign the relay')
+      return { value: { status: 200, ok: true, headers: {}, text: chat('{"model":"opus","effort":"max","why":"large redesign"}') } }
+    })
+    const sent = recordSteps(on)
+
+    await $.prompt.submit({ text: 'redesign the relay', wait: false, origin: { kind: 'composer' } })
+    await step($)
+
+    expect(calls).toEqual(['https://example.test/api/v1/chat/completions'])
+    expect(asked.length).toBe(0)
+    expect(sent[0]).toEqual({ model: 'claude-opus-5-5', effort: 'max' })
+  })
+
+  for (const [name, baseUrl, shouldFetch] of [
+    ['an unusable response from a local endpoint', 'http://127.0.0.1:11434/v1', true],
+    ['an insecure remote base URL', 'http://example.test/v1', false],
+  ] as const) {
+    test(`Haiku takes over after ${name}`, async ($, on) => {
+      engine(on, { ...customEnv, EFFORTLESS_JUDGE_BASE_URL: baseUrl, EFFORTLESS_JUDGE_API_KEY: '' })
+      mock.clock(on)
+      const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"fallback"}')
+      const calls: string[] = []
+      on('http.fetch', (_$, { url, init }) => {
+        calls.push(url)
+        expect((init?.headers as Record<string, string>).authorization).toBeUndefined()
+        return { value: { status: 200, ok: true, headers: {}, text: chat('no verdict') } }
+      })
+      const sent = recordSteps(on)
+
+      await $.prompt.submit({ text: 'rename the relay', wait: false, origin: { kind: 'composer' } })
+      await step($)
+
+      expect(calls).toEqual(shouldFetch ? [`${baseUrl}/chat/completions`] : [])
+      expect(asked.length).toBe(1)
+      expect(sent[0]).toEqual({ model: 'claude-opus-5-5', effort: 'low' })
+    })
+  }
+
+  test('Haiku only skips the custom endpoint even when it is configured', { options: { judge: 'haiku' } } as never, async ($, on) => {
+    engine(on, customEnv)
+    mock.clock(on)
+    const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"haiku only"}')
+    const calls: string[] = []
+    on('http.fetch', (_$, { url }) => {
+      calls.push(url)
+      return { value: { status: 200, ok: true, headers: {}, text: chat('{"model":"opus","effort":"max"}') } }
+    })
+    const sent = recordSteps(on)
+
+    await $.prompt.submit({ text: 'redesign the relay', wait: false, origin: { kind: 'composer' } })
+    await step($)
+
+    expect(calls).toEqual([])
+    expect(asked.length).toBe(1)
+    expect(sent[0]).toEqual({ model: 'claude-opus-5-5', effort: 'low' })
+  })
 
   test('readConfig: an unknown or empty judge is auto, values are trimmed', () => {
     expect(readConfig(undefined).judge).toBe('auto')

@@ -11,7 +11,7 @@ export type Spent = {
   out: number
   byEffort: Partial<Record<Effort, { prompts: number; cost: number }>>
   /** How often each judge decided, the time it took in all (ms), and its tokens. */
-  judge: { jev: number; haiku: number; ms: number; tokens: number }
+  judge: { jev: number; haiku: number; custom: number; ms: number; tokens: number }
   /** Prompts that ran on a cheaper model than the chat's, and how many of those the person then redid. */
   moved: number
   redone: number
@@ -26,7 +26,7 @@ export type Pick = {
   /** A few words on why, shown dim in the band. */
   why: string
   /** named: the person said the level in the prompt ("max effort"). */
-  by: 'jev' | 'haiku' | 'manual' | 'named'
+  by: 'jev' | 'haiku' | 'custom' | 'manual' | 'named'
   /** How sure the judge was of the effort, 0-1, when it said. */
   sure?: number
   /** Haiku only: why a handoff would suit now (a few words), when it said it would. */

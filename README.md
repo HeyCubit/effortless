@@ -135,11 +135,23 @@ A key set with `/plugin configure` is kept in Claude Code's secure storage. A ke
 
 Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and ask no judge.
 
+### Use an OpenAI-compatible effort judge
+
+Set these environment variables before starting Claude Code, and leave the judge on `auto` or `jev`.
+
+| Variable | Value |
+|---|---|
+| `EFFORTLESS_JUDGE_BASE_URL` | The API base URL, including its version path if needed, e.g. `https://routerai.ru/api/v1`. effortless appends `/chat/completions`. Use HTTPS or local HTTP. |
+| `EFFORTLESS_JUDGE_MODEL` | The provider's model ID, e.g. `openai/gpt-4.1-mini` on RouterAI. Choose a fast model that can return JSON within the three-second judge timeout. |
+| `EFFORTLESS_JUDGE_API_KEY` | The custom provider's API key. Leave it unset for a server that needs no key. |
+
+The custom provider replaces Jev for effort decisions. Haiku takes over if the custom judge fails or times out, and still handles handoff advice. Try the connection with **Test** in the Judge card. Remove `EFFORTLESS_JUDGE_BASE_URL` to go back to the TypeSafe/Haiku setup.
+
 ## Keys and trust
 
 - The default judge needs **no key**: Haiku runs on your own Claude login.
 - A key is only needed to add Jev. Enter it with `/plugin configure`, never on the command line, so it stays out of your shell history: Claude Code then keeps it in its secure storage. A key pasted in the setup guide or the Judge card is saved in plain text to `~/.config/jev/.env` instead, so prefer `/plugin configure` on a shared machine.
-- A key is sent only to TypeSafe, and to nothing else. Use a key with a spending limit if your provider offers one.
+- The TypeSafe key is used for Jev. The custom judge uses its own key and receives your next message and recent conversation context. Choose an endpoint you trust.
 - Like any Claude Code plugin, this mod runs code on your machine. Its code is in [`hooks/`](hooks/): read it before you install if you do not know the author. The programs it starts are `claude` itself (to update or uninstall the mod when you press those buttons), `git` (to see if a new version is out) and, on Update, a plain file copy of the new version into the folder your open chat runs from.
 
 ## What it saves, measured

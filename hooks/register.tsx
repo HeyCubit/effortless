@@ -76,7 +76,7 @@ const EFFORT_LABELS: Record<Effort, string> = { low: 'Low', medium: 'Medium', hi
 const isAuto = atom({ plugin: 'effortless', key: 'isAuto' } as const, true)
 const JEV_TIMEOUT_MS = 3000
 const JEV_URL = 'https://api.typesafe.ai/v1/systemone'
-const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, read: 0, out: 0, byEffort: {}, judge: { jev: 0, haiku: 0, ms: 0, tokens: 0 }, moved: 0, redone: 0 }
+const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, read: 0, out: 0, byEffort: {}, judge: { jev: 0, haiku: 0, custom: 0, ms: 0, tokens: 0 }, moved: 0, redone: 0 }
 const SWITCHED_MS = 2500
 // The prompt cache lives this long after the last request read or wrote it. A response may say which lifetime its
 // cache writes got (usage.cache_creation: ephemeral_1h / ephemeral_5m); until one does, 1 hour is assumed: 99% of
@@ -565,6 +565,7 @@ async function jevKey($: EngineInterface): Promise<string | undefined> {
 }
 
 type Judged = { verdict?: Pick; tokens: number }
+const JUDGE_LABELS = { jev: 'Jev', haiku: 'Haiku', custom: 'Custom', manual: 'You', named: 'Haiku' }
 
 /** Why a judge the person picked could not answer, in words: what a status code means for them. */
 export function judgeFailure(name: string, status: number | 'timeout'): string {
@@ -702,6 +703,8 @@ function judgeQuestion(prompt: string, current: Pick | null, context: string): s
  */
 async function judge($: EngineInterface, prompt: string, current: Pick | null): Promise<Judged> {
   const context = await recentContext($).catch(() => '')
+  const baseUrl = config.judge !== 'haiku' ? await envJudgeBaseUrl($) : undefined
+  if (baseUrl) return (await askCustomJudge($, baseUrl, prompt, current, context)) ?? askHaiku($, prompt, current, context)
   const key = config.judge !== 'haiku' ? await jevKey($).catch(() => undefined) : undefined
   if (key) {
     const jev = await askJev($, key, prompt, current, context)
@@ -763,12 +766,71 @@ async function askJev($: EngineInterface, key: string, prompt: string, current: 
   return undefined
 }
 
+/** An OpenAI-compatible effort judge, with its own model and credentials. */
+async function askCustomJudge($: EngineInterface, baseUrl: string, prompt: string, current: Pick | null, context: string): Promise<Judged | undefined> {
+  const url = URL.canParse(baseUrl) ? new URL(baseUrl) : undefined
+  const local = url && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+  if (!url || (url.protocol !== 'https:' && !(local && url.protocol === 'http:')) || url.username || url.password || url.search || url.hash) {
+    warnJudge($, 'Custom judge needs an HTTPS base URL or a local HTTP base URL')
+    return undefined
+  }
+  url.pathname = `${url.pathname.replace(/\/+$/, '')}/chat/completions`
+  try {
+    const model = (await $.env.get('EFFORTLESS_JUDGE_MODEL'))?.trim()
+    if (!model) {
+      warnJudge($, 'Custom judge needs EFFORTLESS_JUDGE_MODEL')
+      return undefined
+    }
+    const key = (await $.env.get('EFFORTLESS_JUDGE_API_KEY'))?.trim()
+    const res = await Promise.race([
+      $.http.fetch(url.href, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...(key ? { authorization: `Bearer ${key}` } : {}) },
+        body: JSON.stringify({
+          model,
+          max_tokens: 160,
+          messages: [
+            { role: 'system', content: JUDGE_SYSTEM },
+            { role: 'user', content: judgeQuestion(prompt, current, context) },
+          ],
+        }),
+      }),
+      $.clock.sleep(JEV_TIMEOUT_MS).then(() => {
+        throw new Error('custom judge timeout')
+      }),
+    ])
+    if (!res.ok) {
+      warnJudge($, judgeFailure('Custom judge', res.status))
+      return undefined
+    }
+    const reply = JSON.parse(res.text) as {
+      choices?: { message?: { content?: unknown } }[]
+      usage?: { total_tokens?: number; prompt_tokens?: number; completion_tokens?: number }
+    } | null
+    const content = reply?.choices?.[0]?.message?.content
+    const verdict = typeof content === 'string' ? parseVerdict(content) : undefined
+    if (verdict) {
+      if (await read($, judgeDown)) await update($, judgeDown, () => null)
+      const usage = reply?.usage
+      const tokens = usage?.total_tokens ?? ((usage?.prompt_tokens ?? 0) + (usage?.completion_tokens ?? 0))
+      return { verdict: { ...verdict, by: 'custom' }, tokens: Number.isFinite(tokens) && tokens >= 0 ? tokens : 0 }
+    }
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) {
+      warnJudge($, String(error).includes('timeout') ? judgeFailure('Custom judge', 'timeout') : 'Custom judge could not be reached')
+      return undefined
+    }
+  }
+  warnJudge($, 'Custom judge gave no usable answer')
+  return undefined
+}
+
 // Set while the settings panel tests a judge: warnJudge leaves its reason here instead of warning.
 let judgeTesting: { reason?: string } | null = null
 /** The prompt a judge test sends: small and plain, so any working judge answers it. */
 const JUDGE_TEST_PROMPT = 'rename one variable in a single file'
 
-/** Asks the judge picked in the panel (its unsaved key, URL and model included) one sample prompt, and says in a line
+/** Asks the judge picked in the panel (its unsaved TypeSafe key included) one sample prompt, and says in a line
  * whether it answered, with what and how fast, or why not. Never falls back to Haiku: the point is the judge itself. */
 async function testJudge($: EngineInterface, judgeKind: string, draftKey: string): Promise<{ ok: boolean; text: string }> {
   const start = await $.clock.now()
@@ -778,6 +840,12 @@ async function testJudge($: EngineInterface, judgeKind: string, draftKey: string
   judgeTesting = {}
   try {
     if (judgeKind === 'jev' || judgeKind === 'auto') {
+      const baseUrl = await envJudgeBaseUrl($)
+      if (baseUrl) {
+        const j = await askCustomJudge($, baseUrl, JUDGE_TEST_PROMPT, null, '')
+        if (j?.verdict) return { ok: true, text: `${said('Custom judge', j)} in ${await took()}` }
+        return { ok: false, text: judgeTesting.reason ?? 'Custom judge gave no usable answer' }
+      }
       const key = parseJevKey(draftKey) ?? (draftKey.trim() || undefined) ?? (await jevKey($).catch(() => undefined)) ?? (await typesafeKeyAnywhere($).catch(() => undefined))
       if (!key && judgeKind === 'jev') return { ok: false, text: 'No TypeSafe key found' }
       if (key) {
@@ -964,10 +1032,13 @@ export function benchReport(cases: BenchCase[], answers: BenchAnswer[]): string 
 
 /** Runs every case through each available judge, a few at a time, and returns the answers. */
 async function runBench($: EngineInterface, cases: BenchCase[]): Promise<BenchAnswer[]> {
-  const key = await typesafeKeyAnywhere($).catch(() => undefined)
+  const baseUrl = await envJudgeBaseUrl($)
+  const key = baseUrl ? undefined : await typesafeKeyAnywhere($).catch(() => undefined)
   const judges: [string, (c: BenchCase) => Promise<Judged | undefined>][] = [
     ['haiku', c => askHaiku($, c.message, c.current, c.context ?? '')],
   ]
+  if (baseUrl)
+    judges.push(['custom', async c => (await askCustomJudge($, baseUrl, c.message, c.current, c.context ?? '')) ?? askHaiku($, c.message, c.current, c.context ?? '')])
   if (key)
     judges.push([
       'jev',
@@ -1036,6 +1107,7 @@ let askLog: EnvAsk
 let askTemp: EnvAsk
 let askTmpdir: EnvAsk
 let askModelUi: EnvAsk
+let askJudgeBaseUrl: EnvAsk
 let askJevUrl: EnvAsk
 let askJevKey: EnvAsk
 let askUserProfile: EnvAsk
@@ -1044,6 +1116,7 @@ const envLog = ($: EngineInterface) => (askLog = askLog ?? $.env.get('EFFORTLESS
 const envTemp = ($: EngineInterface) => (askTemp = askTemp ?? $.env.get('TEMP'))
 const envTmpdir = ($: EngineInterface) => (askTmpdir = askTmpdir ?? $.env.get('TMPDIR'))
 const envModelUi = ($: EngineInterface) => (askModelUi = askModelUi ?? $.env.get('EFFORTLESS_MODEL_UI'))
+const envJudgeBaseUrl = ($: EngineInterface) => (askJudgeBaseUrl = askJudgeBaseUrl ?? $.env.get('EFFORTLESS_JUDGE_BASE_URL').then(value => value?.trim()).catch(() => undefined))
 const envJevUrl = ($: EngineInterface) => (askJevUrl = askJevUrl ?? $.env.get('JEV_URL'))
 const envJevKey = ($: EngineInterface) => (askJevKey = askJevKey ?? $.env.get('TYPESAFE_API_KEY'))
 const envUserProfile = ($: EngineInterface) => (askUserProfile = askUserProfile ?? $.env.get('USERPROFILE'))
@@ -1130,7 +1203,7 @@ export function asSpent(t: unknown): Spent {
     read: num(v.read),
     out: num(v.out),
     byEffort: v.byEffort && typeof v.byEffort === 'object' ? v.byEffort : {},
-    judge: { jev: num(judged.jev), haiku: num(judged.haiku), ms: num(judged.ms), tokens: num(judged.tokens) },
+    judge: { jev: num(judged.jev), haiku: num(judged.haiku), custom: num(judged.custom), ms: num(judged.ms), tokens: num(judged.tokens) },
     moved: num(v.moved),
     redone: num(v.redone),
     helpers: {
@@ -1182,6 +1255,7 @@ async function countPrompt($: EngineInterface, effort: Effort | undefined, by: P
     const judged = {
       jev: t.judge.jev + (by === 'jev' ? 1 : 0),
       haiku: t.judge.haiku + (by === 'haiku' ? 1 : 0),
+      custom: t.judge.custom + (by === 'custom' ? 1 : 0),
       ms: t.judge.ms + ms,
       tokens: t.judge.tokens + judgeTokens,
     }
@@ -2076,7 +2150,7 @@ const share = (part: number, whole: number) => `${Math.round((part / whole) * 10
  */
 export function savedText(raw: Spent): string {
   const t = asSpent(raw)
-  const judged = t.judge.jev + t.judge.haiku
+  const judged = t.judge.jev + t.judge.haiku + t.judge.custom
   const helperRuns = EFFORTS.reduce((n, e) => n + (t.helpers.runs[e] ?? 0), 0)
   if (t.prompts === 0 && judged === 0 && t.moved === 0 && helperRuns === 0) return 'nothing measured yet'
   const input = t.input * WEIGHT.input
@@ -2101,7 +2175,7 @@ export function savedText(raw: Spent): string {
     lines.push(`Helpers: ${helperRuns} subagent${helperRuns === 1 ? '' : 's'} (${per.join(', ')}), ${t.helpers.requests} requests, cost about ${tokens(Math.round(t.helpers.cost))} tokens`)
   }
   if (judged) {
-    lines.push(`Judge: Jev ${t.judge.jev}, Haiku ${t.judge.haiku}, average ${Math.round(t.judge.ms / judged)} ms, ${tokens(t.judge.tokens)} tokens in all`)
+    lines.push(`Judge: Jev ${t.judge.jev}, Haiku ${t.judge.haiku}${t.judge.custom ? `, Custom ${t.judge.custom}` : ''}, average ${Math.round(t.judge.ms / judged)} ms, ${tokens(t.judge.tokens)} tokens in all`)
   }
   return lines.join('\n')
 }
@@ -3258,9 +3332,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   }
   autoSeen = v.auto
   const effortNow = effortOf(v, v.modelNow ?? (await sessionModel($)))
-  const by = v.current?.by
   const reason = v.current
-    ? `${by === 'manual' || by === 'named' ? 'You' : by === 'jev' ? 'Jev' : 'Haiku'}: ${v.current.why}`
+    ? `${v.current.by === 'named' ? 'You' : JUDGE_LABELS[v.current.by]}: ${v.current.why}`
     : v.auto
       ? 'Auto picks the effort at the next prompt'
       : 'You pick the effort'
@@ -3543,7 +3616,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
     : notAligned
       ? `/effort shows ${EFFORT_LABELS[shownByApp as Effort] ?? shownByApp}`
       : current
-        ? `${current.by === 'manual' ? 'You' : current.by === 'jev' ? 'Jev' : 'Haiku'}: ${current.why}`
+        ? `${JUDGE_LABELS[current.by]}: ${current.why}`
         : auto
           ? 'Picks the effort at the next prompt'
           : 'Pick an effort'
@@ -4526,7 +4599,8 @@ Saved to ${out}.md and .json` }
       // The skills and commands installed here, to pick the handoff writer from: no typing, no file paths. A plugin
       // cannot open a file dialog, and a skill is run by its name anyway.
       const skillNames = await read($, installedSkills)
-      const hasKey = Boolean(await jevKey($).catch(() => undefined)) || Boolean(await typesafeKeyAnywhere($).catch(() => undefined))
+      const customJudge = Boolean(await envJudgeBaseUrl($))
+      const hasKey = !customJudge && (Boolean(await jevKey($).catch(() => undefined)) || Boolean(await typesafeKeyAnywhere($).catch(() => undefined)))
       // A plain button with its own handler: a dismiss-role button may be taken by the app before onPress runs.
       const checking = await read($, updateCheck)
       const close = async () => {
@@ -4576,7 +4650,8 @@ Saved to ${out}.md and .json` }
         : field === 'hide' ? !sameSet(value, config.hide.join(','))
         : value !== String(config[field as Exclude<keyof SettingsDraft, 'key' | 'hide'>] ?? ''))
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
-      const judgeName = shown.judge === 'haiku' ? 'Haiku' : hasKey || shown.judge === 'jev' ? 'Haiku + Jev' : 'Haiku'
+      const externalJudge = customJudge ? 'Haiku + Custom' : 'Haiku + Jev'
+      const judgeName = shown.judge !== 'haiku' && (customJudge || hasKey || shown.judge === 'jev') ? externalJudge : 'Haiku'
       const summaries: Record<SettingsCard, string> = {
         effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.helpers === 'on' ? ' · helpers' : ''}`,
         model: shown.modelAuto === 'on' ? 'Cheaper when it can' : "Always the chat's",
@@ -4815,8 +4890,8 @@ Saved to ${out}.md and .json` }
                   </Box>,
                 ]),
 ] : card === 'judge' ? (bare ? [] : [
-            pick({ key: "settings-judge-pick", value: shown.judge, options: [{ value: 'auto', label: hasKey ? 'Haiku + Jev' : 'Haiku (Jev if added)' }, { value: 'haiku', label: 'Haiku only' }], onSelect: v => set('judge')(v === 'haiku' ? 'haiku' : 'auto') }),
-            ...(shown.judge !== 'haiku'
+            pick({ key: "settings-judge-pick", value: shown.judge, options: [{ value: 'auto', label: customJudge || hasKey ? externalJudge : 'Haiku (Jev if added)' }, { value: 'haiku', label: 'Haiku only' }], onSelect: v => set('judge')(v === 'haiku' ? 'haiku' : 'auto') }),
+            ...(shown.judge !== 'haiku' && !customJudge
               ? [field('key-field', <Input key="settings-key" placeholder={hasKey ? 'Key saved. Paste to replace' : 'Paste TypeSafe key'}
                   value={draft.key ?? ''} submitLabel="ok" onInput={set('key')} onSubmit={set('key')} />, 30)]
               : []),
