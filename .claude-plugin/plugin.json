@@ -7,7 +7,7 @@
     "judge": {
       "type": "string",
       "title": "Judge",
-      "description": "Haiku (your own Claude login, no key) always judges handoffs and, unless Jev answers, the effort. auto: Jev as well when a TypeSafe key is set. haiku: Haiku only. jev: Jev as well, and its key may also come from ~/.config/jev/.env.",
+      "description": "Haiku (your own Claude login, no key) always judges handoffs and, unless Jev answers, the effort. auto: Jev as well when a key is set. haiku: Haiku only. jev: Jev as well, and its TypeSafe key may also come from ~/.config/jev/.env.",
       "default": "auto",
       "options": [
         "auto",
@@ -17,9 +17,15 @@
     },
     "typesafeKey": {
       "type": "string",
-      "title": "TypeSafe API key (optional, only for jev)",
-      "description": "For the jev judge. Stored as a secret by Claude Code. Left empty, TYPESAFE_API_KEY is used, and with judge set to jev also ~/.config/jev/.env.",
+      "title": "Jev API key (optional)",
+      "description": "The API key for the selected Jev provider, stored as a secret by Claude Code. With the default provider, Jev can also read TYPESAFE_API_KEY or, with judge set to jev, ~/.config/jev/.env.",
       "sensitive": true,
+      "default": ""
+    },
+    "jevBaseUrl": {
+      "type": "string",
+      "title": "Jev API base URL (optional)",
+      "description": "A System One API base URL, for example https://openrouter.ai/api. Set the Jev API key for that provider. Leave empty to use TypeSafe.",
       "default": ""
     },
     "handoffSkill": {

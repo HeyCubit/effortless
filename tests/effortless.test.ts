@@ -255,6 +255,57 @@ describe('auto', () => {
     expect(sent[0]).toEqual({ model: 'claude-opus-5-5', effort: 'max' })
   })
 
+  for (const baseUrl of ['https://openrouter.ai/api', 'https://openrouter.ai/api/v1/']) {
+    test(`Jev uses the configured provider at ${baseUrl}`, { options: { jevBaseUrl: baseUrl, typesafeKey: 'provider-key' } } as never, async ($, on) => {
+      engine(on, { TYPESAFE_API_KEY: 'direct-key', JEV_URL: 'https://old.example.test/v1/systemone' })
+      mock.clock(on)
+      const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"fallback"}')
+      const calls: string[] = []
+      on('http.fetch', (_$, { url, init }) => {
+        calls.push(url)
+        expect((init?.headers as Record<string, string>).authorization).toBe('Bearer provider-key')
+        const body = JSON.parse(String(init?.body))
+        expect(body.model).toBe('jev-latest')
+        expect(body.state.next_message).toBe('redesign the relay')
+        expect(body.questions.effort.type).toBe('choice')
+        return { value: { status: 200, ok: true, headers: {}, text: jevReply('max') } }
+      })
+      const sent = recordSteps(on)
+
+      await $.prompt.submit({ text: 'redesign the relay', wait: false, origin: { kind: 'composer' } })
+      await step($)
+
+      expect(calls).toEqual(['https://openrouter.ai/api/v1/systemone'])
+      expect(asked.length).toBe(0)
+      expect(sent[0]).toEqual({ model: 'claude-opus-5-5', effort: 'max' })
+    })
+  }
+
+  for (const [name, baseUrl, key, auth] of [
+    ['a custom provider without its own key', 'https://example.test/api', '', undefined],
+    ['an insecure provider URL', 'http://example.test/api', 'provider-key', undefined],
+    ['a custom provider that rejects its key', 'https://example.test/api', 'provider-key', 'Bearer provider-key'],
+  ] as const) {
+    test(`Haiku takes over for ${name}`, { options: { judge: 'jev', jevBaseUrl: baseUrl, typesafeKey: key } } as never, async ($, on) => {
+      engine(on, { TYPESAFE_API_KEY: 'direct-key', USERPROFILE: 'C:/Users/x' })
+      mock.clock(on)
+      const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"fallback"}')
+      const credentials: (string | undefined)[] = []
+      on('http.fetch', (_$, { init }) => {
+        credentials.push((init?.headers as Record<string, string> | undefined)?.authorization)
+        return { value: { status: 401, ok: false, headers: {}, text: '' } }
+      })
+      const sent = recordSteps(on)
+
+      await $.prompt.submit({ text: 'redesign the relay', wait: false, origin: { kind: 'composer' } })
+      await step($)
+
+      expect(credentials).toEqual(auth ? [auth] : [])
+      expect(asked.length).toBe(1)
+      expect(sent[0]).toEqual({ model: 'claude-opus-5-5', effort: 'low' })
+    })
+  }
+
   test('with the jev judge picked, the TypeSafe key is read from ~/.config/jev/.env when the environment has none', { options: { judge: 'jev' } } as never, async ($, on) => {
     engine(on, { USERPROFILE: 'C:/Users/x' })
     mock.clock(on)
@@ -1141,6 +1192,7 @@ describe('judge choice (plugin settings)', () => {
     expect(readConfig({})).toEqual({
       judge: 'auto',
       typesafeKey: '',
+      jevBaseUrl: '',
       handoffSkill: '',
       handoffAfter: 'continue',
       bias: 0,

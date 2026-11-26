@@ -545,10 +545,11 @@ let askJevFile: EnvAsk | undefined
 // A key was saved from the settings panel into ~/.config/jev/.env: that file wins over an older key in the settings.
 let keyFromFile = false
 /**
- * The TypeSafe key: from the settings, else TYPESAFE_API_KEY. Only when the person picked the jev judge outright is
+ * A custom provider uses the key from the plugin settings. For TypeSafe, fall back to TYPESAFE_API_KEY. Only when the person picked the jev judge outright is
  * ~/.config/jev/.env read as well: a mod should not open a file holding a secret it was not asked to use.
  */
 async function jevKey($: EngineInterface): Promise<string | undefined> {
+  if (config.jevBaseUrl) return config.typesafeKey || undefined
   if (config.typesafeKey && !keyFromFile) return config.typesafeKey
   const fromEnv = await envJevKey($)
   if (fromEnv) return fromEnv
@@ -593,6 +594,7 @@ function warnJudge($: EngineInterface, reason: string) {
 export type JudgeConfig = {
   judge: 'auto' | 'haiku' | 'jev'
   typesafeKey: string
+  jevBaseUrl: string
   /** A skill or slash command that writes the handoff instead of the built-in prompt, e.g. "session-handoff". */
   handoffSkill: string
   /** What follows the handoff: clear and carry on, clear and wait, or keep the chat and copy the handoff. The handoff
@@ -637,6 +639,7 @@ let pluginOptions: Record<string, unknown> = {}
 let config: JudgeConfig = {
   judge: 'auto',
   typesafeKey: '',
+  jevBaseUrl: '',
   handoffSkill: '',
   handoffAfter: 'continue',
   bias: 0,
@@ -661,6 +664,7 @@ export function readConfig(options: unknown): JudgeConfig {
   return {
     judge: picked === 'haiku' || picked === 'jev' ? picked : 'auto',
     typesafeKey: str(o.typesafeKey),
+    jevBaseUrl: str(o.jevBaseUrl),
     handoffSkill: str(o.handoffSkill).replace(/^\//, ''),
     handoffAfter: (['confirm', 'copy'] as const).find(a => a === str(o.handoffAfter)) ?? 'continue',
     bias: Math.max(-2, Math.min(2, Math.round(Number(str(o.effortBias)) || 0))),
@@ -716,12 +720,26 @@ async function haikuAfter($: EngineInterface, jev: Judged, prompt: string, curre
   return haiku.verdict ? { verdict: haiku.verdict, tokens: haiku.tokens + jev.tokens } : jev
 }
 
-/** Jev on TypeSafe: an answer, or nothing when it fails, is unsure of its own format or takes too long. */
+/** Jev on System One: an answer, or nothing when it fails, gives an unusable reply or takes too long. */
 async function askJev($: EngineInterface, key: string, prompt: string, current: Pick | null, context: string): Promise<Judged | undefined> {
   try {
+    let endpoint = JEV_URL
+    if (config.jevBaseUrl) {
+      const url = URL.canParse(config.jevBaseUrl) ? new URL(config.jevBaseUrl) : undefined
+      const localHttp = url?.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+      if (!url || (url.protocol !== 'https:' && !localHttp) || url.username || url.password || url.search || url.hash) {
+        warnJudge($, 'Jev needs an HTTPS base URL or a local HTTP base URL, without credentials, a query or a fragment')
+        return undefined
+      }
+      const basePath = url.pathname.replace(/\/+$/, '')
+      url.pathname = basePath.endsWith('/v1') ? `${basePath}/systemone` : `${basePath}/v1/systemone`
+      endpoint = url.href
+    } else {
+      endpoint = (await envJevUrl($)) ?? JEV_URL
+    }
     // A stalled endpoint must not hold the prompt: after JEV_TIMEOUT_MS the judge falls through to Haiku.
     const res = await Promise.race([
-      $.http.fetch((await envJevUrl($)) ?? JEV_URL, {
+      $.http.fetch(endpoint, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
         body: JSON.stringify({
@@ -778,7 +796,10 @@ async function testJudge($: EngineInterface, judgeKind: string, draftKey: string
   judgeTesting = {}
   try {
     if (judgeKind === 'jev' || judgeKind === 'auto') {
-      const key = parseJevKey(draftKey) ?? (draftKey.trim() || undefined) ?? (await jevKey($).catch(() => undefined)) ?? (await typesafeKeyAnywhere($).catch(() => undefined))
+      const key = config.jevBaseUrl
+        ? config.typesafeKey
+        : parseJevKey(draftKey) ?? (draftKey.trim() || undefined) ?? (await jevKey($).catch(() => undefined)) ?? (await typesafeKeyAnywhere($).catch(() => undefined))
+      if (!key && config.jevBaseUrl) return { ok: false, text: 'Set the Jev API key with /plugin configure' }
       if (!key && judgeKind === 'jev') return { ok: false, text: 'No TypeSafe key found' }
       if (key) {
         const j = await askJev($, key, JUDGE_TEST_PROMPT, null, '')
@@ -1921,8 +1942,9 @@ async function findTypesafeKey($: EngineInterface): Promise<boolean> {
   return Boolean(await typesafeKeyAnywhere($))
 }
 
-/** The TypeSafe key from the settings, TYPESAFE_API_KEY or ~/.config/jev/.env, for a step the person asked for. */
+/** The configured Jev key, with TypeSafe's env and file fallbacks for a step the person asked for. */
 async function typesafeKeyAnywhere($: EngineInterface): Promise<string | undefined> {
+  if (config.jevBaseUrl) return config.typesafeKey || undefined
   const known = config.typesafeKey || (await envJevKey($))
   if (known) return known
   const home = (await envUserProfile($)) ?? (await envHome($))
@@ -2054,7 +2076,11 @@ async function pickJudge($: EngineInterface, choice: 'haiku' | 'jev') {
     return goSetup($, 'lean')
   }
   if (choice === 'jev' && (await findTypesafeKey($))) {
-    $.ui.toast('effortless: Jev judges with the TypeSafe key it found.')
+    $.ui.toast(`effortless: Jev judges with the ${config.jevBaseUrl ? 'configured' : 'TypeSafe'} key it found.`)
+    return goSetup($, 'lean')
+  }
+  if (config.jevBaseUrl) {
+    $.ui.toast('effortless: set the Jev API key with /plugin configure.')
     return goSetup($, 'lean')
   }
   await goSetup($, choice)
@@ -4816,7 +4842,7 @@ Saved to ${out}.md and .json` }
                 ]),
 ] : card === 'judge' ? (bare ? [] : [
             pick({ key: "settings-judge-pick", value: shown.judge, options: [{ value: 'auto', label: hasKey ? 'Haiku + Jev' : 'Haiku (Jev if added)' }, { value: 'haiku', label: 'Haiku only' }], onSelect: v => set('judge')(v === 'haiku' ? 'haiku' : 'auto') }),
-            ...(shown.judge !== 'haiku'
+            ...(shown.judge !== 'haiku' && !shown.jevBaseUrl
               ? [field('key-field', <Input key="settings-key" placeholder={hasKey ? 'Key saved. Paste to replace' : 'Paste TypeSafe key'}
                   value={draft.key ?? ''} submitLabel="ok" onInput={set('key')} onSubmit={set('key')} />, 30)]
               : []),

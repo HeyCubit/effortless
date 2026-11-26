@@ -135,11 +135,15 @@ A key set with `/plugin configure` is kept in Claude Code's secure storage. A ke
 
 Short follow-ups such as "go", "ok" or "yes" keep the effort already picked and ask no judge.
 
+### Use Jev through another provider
+
+In `/plugin configure effortless@effortless`, set **Jev API base URL** to a System One provider's base URL, for example `https://openrouter.ai/api`. A trailing `/v1` is also accepted. Set **Jev API key** to that provider's key and leave **Judge** on `auto` or `jev`. The Judge card's **Test** button checks the connection. Jev still makes the effort decision, with Haiku as the fallback.
+
 ## Keys and trust
 
 - The default judge needs **no key**: Haiku runs on your own Claude login.
 - A key is only needed to add Jev. Enter it with `/plugin configure`, never on the command line, so it stays out of your shell history: Claude Code then keeps it in its secure storage. A key pasted in the setup guide or the Judge card is saved in plain text to `~/.config/jev/.env` instead, so prefer `/plugin configure` on a shared machine.
-- A key is sent only to TypeSafe, and to nothing else. Use a key with a spending limit if your provider offers one.
+- A custom base URL sends the key from `/plugin configure` and the judge's prompt and recent context to the selected provider. Use a trusted HTTPS endpoint or a local HTTP endpoint. The environment and key file are used for the default TypeSafe setup.
 - Like any Claude Code plugin, this mod runs code on your machine. Its code is in [`hooks/`](hooks/): read it before you install if you do not know the author. The programs it starts are `claude` itself (to update or uninstall the mod when you press those buttons), `git` (to see if a new version is out) and, on Update, a plain file copy of the new version into the folder your open chat runs from.
 
 ## What it saves, measured
